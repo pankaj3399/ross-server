@@ -231,7 +231,7 @@ temp/
 # Build outputs
 build/
 dist/
-lib/
+
 
 # Test coverage
 coverage/
