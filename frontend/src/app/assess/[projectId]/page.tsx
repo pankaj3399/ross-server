@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { apiService, Domain } from "@/lib/api";
+import { apiService, Domain } from "../../../lib/api";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {

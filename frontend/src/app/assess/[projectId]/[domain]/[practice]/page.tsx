@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { apiService } from "@/lib/api";
+import { useAuth } from "../../../../../contexts/AuthContext";
+import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, CheckCircle, Clock, Target } from "lucide-react";
 
