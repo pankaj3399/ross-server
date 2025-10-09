@@ -29,21 +29,38 @@ app.use("/admin", adminRouter);
 app.use("/aima", aimaRouter);
 app.use("/answers", answersRouter);
 
-// Initialize database and start server
-const startServer = async () => {
+// Initialize database
+const initialize = async () => {
   try {
     await initializeDatabase();
     await seedAIMAData();
-
-    app.listen(PORT, () => {
-      // eslint-disable-next-line no-console
-      console.log(`🚀 Backend listening on http://localhost:${PORT}`);
-      console.log(`📊 Database connected and initialized`);
-    });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
   }
 };
 
-startServer();
+// If running as a standalone server, start listening. In serverless, export app.
+if (process.env.VERCEL || process.env.SERVERLESS) {
+  // For serverless platforms, export the app without starting a listener
+  // The platform will handle the request lifecycle
+  initialize().catch((err) => {
+    console.error("Initialization failed:", err);
+  });
+} else {
+  // Local/standalone run
+  initialize()
+    .then(() => {
+      app.listen(PORT, () => {
+        // eslint-disable-next-line no-console
+        console.log(`🚀 Backend listening on http://localhost:${PORT}`);
+        console.log(`📊 Database connected and initialized`);
+      });
+    })
+    .catch((err) => {
+      console.error("Initialization failed:", err);
+      process.exit(1);
+    });
+}
+
+export default app;
