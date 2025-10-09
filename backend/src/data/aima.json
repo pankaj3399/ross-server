@@ -1,0 +1,39 @@
+{
+  "domains": {
+    "governance": {
+      "title": "Governance",
+      "practices": {
+        "strategy_and_metrics": {
+          "title": "Strategy & Metrics",
+          "description": "Align AI initiatives with business strategy and measure effectiveness.",
+          "levels": {
+            "1": {
+              "A": [
+                "Is there an initial AI strategy documented, even informally?"
+              ],
+              "B": [
+                "Are there any metrics informally tracked related to AI initiatives?"
+              ]
+            },
+            "2": {
+              "A": [
+                "Has the AI strategy been formally defined and communicated to stakeholders?"
+              ],
+              "B": [
+                "Are defined metrics regularly reviewed and communicated within the organization?"
+              ]
+            },
+            "3": {
+              "A": [
+                "Is the AI strategy integrated into the organization's broader business strategy and iteratively refined?"
+              ],
+              "B": [
+                "Are metrics systematically analyzed to drive improvements and decision-making processes?"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
