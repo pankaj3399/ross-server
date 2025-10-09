@@ -2,17 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import pool from "../config/database";
 
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    subscription_status: string;
-  };
+declare module "express-serve-static-core" {
+  interface Request {
+    user?: {
+      id: string;
+      email: string;
+      role: string;
+      subscription_status: string;
+      stripe_customer_id?: string | null;
+    };
+  }
 }
 
 export const authenticateToken = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
@@ -28,7 +31,7 @@ export const authenticateToken = async (
 
     // Get user from database
     const result = await pool.query(
-      "SELECT id, email, role, subscription_status FROM users WHERE id = $1",
+      "SELECT id, email, role, subscription_status, stripe_customer_id FROM users WHERE id = $1",
       [decoded.userId],
     );
 
@@ -44,7 +47,7 @@ export const authenticateToken = async (
 };
 
 export const requireRole = (roles: string[]) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -58,7 +61,7 @@ export const requireRole = (roles: string[]) => {
 };
 
 export const requirePremium = (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
