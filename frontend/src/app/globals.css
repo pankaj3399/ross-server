@@ -26,22 +26,46 @@
   --ring: 263 70% 50%;
 }
 
+.light {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 263 70% 50%;
+}
+
 * {
   border-color: hsl(var(--border));
 }
 
 body {
-  @apply bg-gradient-to-br from-slate-950 via-purple-950 to-violet-950 text-white min-h-screen;
+  @apply bg-white dark:bg-gradient-to-br dark:from-slate-950 dark:via-purple-950 dark:to-violet-950 text-gray-900 dark:text-white min-h-screen;
   font-family: 'Inter', sans-serif;
   background-attachment: fixed;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .glass-effect {
-  @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  @apply bg-white/80 dark:bg-white/5 backdrop-blur-xl border border-gray-200/50 dark:border-white/10;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .gradient-text {
-  @apply bg-gradient-to-r from-purple-400 via-violet-400 to-blue-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-purple-600 via-violet-600 to-blue-600 dark:from-purple-400 dark:via-violet-400 dark:to-blue-400 bg-clip-text text-transparent;
 }
 
 .gradient-border {
@@ -78,5 +102,19 @@ body {
 @keyframes pulse-glow {
   from { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
   to { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
+}
+
+/* Light mode specific styles */
+.light .glass-effect {
+  @apply bg-white/90 shadow-lg;
+}
+
+.light .gradient-border {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.05));
+}
+
+/* Smooth transitions for theme switching */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 

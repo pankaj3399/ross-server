@@ -24,47 +24,57 @@ export const seedAIMAData = async () => {
 
     // Only insert domains and practices if they don't exist
     if (domainCount === 0) {
+      console.log("No existing AIMA data found, seeding database...");
+
       // Insert all AIMA domains
       const domains = [
         {
-          id: "governance",
-          title: "Governance",
-          description: "AI governance and organizational oversight",
+          id: "responsible_ai_principles",
+          title: "Responsible AI Principles",
+          description:
+            "Establish ethical foundations and responsible practices for AI systems.",
         },
         {
-          id: "responsible_ai",
-          title: "Responsible AI",
-          description: "Ethical AI development and deployment",
+          id: "governance",
+          title: "Governance",
+          description:
+            "Establish governance structures and policies for AI initiatives.",
         },
         {
           id: "data_management",
           title: "Data Management",
-          description: "Data governance and quality for AI systems",
+          description:
+            "Manage data quality, governance, and training data for AI systems.",
         },
         {
           id: "privacy",
           title: "Privacy",
-          description: "Privacy protection in AI systems",
+          description:
+            "Protect privacy and ensure compliance with privacy regulations.",
         },
         {
           id: "design",
           title: "Design",
-          description: "Secure AI system design principles",
+          description:
+            "Design secure and robust AI systems from the ground up.",
         },
         {
           id: "implementation",
           title: "Implementation",
-          description: "Secure AI system implementation",
+          description:
+            "Implement AI systems securely and manage the development process.",
         },
         {
           id: "verification",
           title: "Verification",
-          description: "AI system testing and validation",
+          description:
+            "Verify AI systems through comprehensive testing and assessment.",
         },
         {
           id: "operations",
           title: "Operations",
-          description: "AI system operations and monitoring",
+          description:
+            "Operate AI systems securely and manage incidents effectively.",
         },
       ];
 
@@ -82,7 +92,7 @@ export const seedAIMAData = async () => {
       const practices = [
         // Governance
         {
-          id: "strategy_and_metrics",
+          id: "strategy_metrics",
           domain_id: "governance",
           title: "Strategy & Metrics",
           description:
@@ -103,36 +113,35 @@ export const seedAIMAData = async () => {
             "Promote education and awareness about responsible AI practices.",
         },
 
-        // Responsible AI
+        // Responsible AI Principles
         {
-          id: "ethical_impact",
-          domain_id: "responsible_ai",
+          id: "ethical_societal_impact",
+          domain_id: "responsible_ai_principles",
           title: "Ethical & Societal Impact",
           description:
-            "Assessing the ethical implications and societal impact of AI systems.",
+            "Assess and manage the ethical and societal impacts of AI systems.",
         },
         {
-          id: "transparency",
-          domain_id: "responsible_ai",
+          id: "transparency_explainability",
+          domain_id: "responsible_ai_principles",
           title: "Transparency & Explainability",
           description:
-            "Ensuring AI systems are transparent and their decisions can be explained.",
+            "Ensure AI systems are transparent and their decisions can be explained.",
         },
         {
           id: "fairness_bias",
-          domain_id: "responsible_ai",
+          domain_id: "responsible_ai_principles",
           title: "Fairness & Bias",
           description:
-            "Identifying and mitigating bias to ensure fair outcomes.",
+            "Identify and mitigate bias in AI systems to ensure fairness.",
         },
 
         // Data Management
         {
-          id: "quality_integrity",
+          id: "data_quality_integrity",
           domain_id: "data_management",
           title: "Data Quality & Integrity",
-          description:
-            "Ensuring data used for training and operating AI is accurate, complete, and reliable.",
+          description: "Ensure high-quality and reliable data for AI systems.",
         },
         {
           id: "data_governance_accountability",
@@ -150,18 +159,18 @@ export const seedAIMAData = async () => {
 
         // Privacy
         {
-          id: "minimization_limitation",
+          id: "data_minimization_purpose_limitation",
           domain_id: "privacy",
           title: "Data Minimization & Purpose Limitation",
           description:
-            "Minimizing data collection and limiting its use to specified purposes.",
+            "Minimize data collection and limit data usage to specific purposes.",
         },
         {
-          id: "privacy_by_design",
+          id: "privacy_by_design_default",
           domain_id: "privacy",
           title: "Privacy by Design & Default",
           description:
-            "Integrating privacy principles into the design of AI systems from the outset.",
+            "Integrate privacy considerations into AI system design and default settings.",
         },
         {
           id: "user_control_transparency",
@@ -221,10 +230,11 @@ export const seedAIMAData = async () => {
           description: "Rigorously testing the security of AI systems.",
         },
         {
-          id: "requirement_testing",
+          id: "requirement_based_testing",
           domain_id: "verification",
           title: "Requirement-based Testing",
-          description: "Testing AI systems against specified requirements.",
+          description:
+            "Test AI systems against defined requirements and specifications.",
         },
         {
           id: "architecture_assessment",
@@ -279,42 +289,42 @@ export const seedAIMAData = async () => {
     const allQuestions = [
       // Strategy & Metrics
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there an initial AI strategy documented, even informally?",
       },
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are there any metrics informally tracked related to AI initiatives?",
       },
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "2",
         stream: "A",
         index: 0,
         text: "Has the AI strategy been formally defined and communicated to stakeholders?",
       },
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are defined metrics regularly reviewed and communicated within the organization?",
       },
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "3",
         stream: "A",
         index: 0,
         text: "Is the AI strategy integrated into the organization's broader business strategy and iteratively refined?",
       },
       {
-        practice_id: "strategy_and_metrics",
+        practice_id: "strategy_metrics",
         level: "3",
         stream: "B",
         index: 0,
@@ -411,42 +421,42 @@ export const seedAIMAData = async () => {
 
       // Ethical Impact
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there informal awareness of the potential ethical and societal impacts of AI systems?",
       },
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are ethical considerations occasionally discussed in an informal manner?",
       },
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "2",
         stream: "A",
         index: 0,
         text: "Have formal processes been established to assess AI's ethical and societal impacts?",
       },
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "2",
         stream: "B",
         index: 0,
         text: "Is there an established framework guiding ethical decision-making for AI systems?",
       },
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "3",
         stream: "A",
         index: 0,
         text: "Are impact assessments systematically integrated into all AI projects, continuously reviewed, and updated?",
       },
       {
-        practice_id: "ethical_impact",
+        practice_id: "ethical_societal_impact",
         level: "3",
         stream: "B",
         index: 0,
@@ -455,42 +465,42 @@ export const seedAIMAData = async () => {
 
       // Transparency
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "1",
         stream: "A",
         index: 0,
         text: "Are there informal efforts to explain AI outputs or decisions when requested?",
       },
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "1",
         stream: "B",
         index: 0,
         text: "Is communication about AI systems' workings sporadic or reactive?",
       },
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "2",
         stream: "A",
         index: 0,
         text: "Are formal explainability mechanisms in place for critical AI models or systems?",
       },
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are transparency and explanations regularly documented and shared internally?",
       },
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "3",
         stream: "A",
         index: 0,
         text: "Are advanced, comprehensive explainability techniques consistently applied across all AI systems?",
       },
       {
-        practice_id: "transparency",
+        practice_id: "transparency_explainability",
         level: "3",
         stream: "B",
         index: 0,
@@ -543,42 +553,42 @@ export const seedAIMAData = async () => {
 
       // Data Management Questions
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there informal awareness of data quality issues in AI systems?",
       },
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are data quality checks performed sporadically or reactively?",
       },
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "2",
         stream: "A",
         index: 0,
         text: "Are formal data quality standards established and documented?",
       },
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are data quality checks systematically implemented across AI projects?",
       },
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "3",
         stream: "A",
         index: 0,
         text: "Is data quality management fully integrated into organizational processes with continuous monitoring?",
       },
       {
-        practice_id: "quality_integrity",
+        practice_id: "data_quality_integrity",
         level: "3",
         stream: "B",
         index: 0,
@@ -976,42 +986,42 @@ export const seedAIMAData = async () => {
       },
 
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there informal awareness of requirement testing needs for AI systems?",
       },
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are requirement tests performed sporadically or reactively?",
       },
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "2",
         stream: "A",
         index: 0,
         text: "Are formal requirement testing processes established and documented?",
       },
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are requirement testing practices systematically implemented across AI projects?",
       },
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "3",
         stream: "A",
         index: 0,
         text: "Is requirement testing fully integrated into AI development with continuous monitoring and automation?",
       },
       {
-        practice_id: "requirement_testing",
+        practice_id: "requirement_based_testing",
         level: "3",
         stream: "B",
         index: 0,
@@ -1193,42 +1203,42 @@ export const seedAIMAData = async () => {
 
       // Privacy Questions
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there informal awareness of data minimization principles for AI systems?",
       },
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are data minimization practices implemented informally or reactively?",
       },
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "2",
         stream: "A",
         index: 0,
         text: "Are formal data minimization processes established and documented?",
       },
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are data minimization practices systematically implemented across AI projects?",
       },
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "3",
         stream: "A",
         index: 0,
         text: "Is data minimization fully integrated into AI development with continuous monitoring and automation?",
       },
       {
-        practice_id: "minimization_limitation",
+        practice_id: "data_minimization_purpose_limitation",
         level: "3",
         stream: "B",
         index: 0,
@@ -1236,42 +1246,42 @@ export const seedAIMAData = async () => {
       },
 
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "1",
         stream: "A",
         index: 0,
         text: "Is there informal awareness of privacy by design principles for AI systems?",
       },
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "1",
         stream: "B",
         index: 0,
         text: "Are privacy by design practices implemented informally or reactively?",
       },
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "2",
         stream: "A",
         index: 0,
         text: "Are formal privacy by design processes established and documented?",
       },
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "2",
         stream: "B",
         index: 0,
         text: "Are privacy by design practices systematically implemented across AI projects?",
       },
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "3",
         stream: "A",
         index: 0,
         text: "Is privacy by design fully integrated into AI development with continuous monitoring and automation?",
       },
       {
-        practice_id: "privacy_by_design",
+        practice_id: "privacy_by_design_default",
         level: "3",
         stream: "B",
         index: 0,

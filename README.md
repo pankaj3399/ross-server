@@ -1,4 +1,4 @@
-# MaturAIze - AI Maturity Assessment Platform
+# MATUR.ai - AI Maturity Assessment Platform
 
 A comprehensive SaaS platform for conducting AI maturity assessments using the OWASP AIMA (AI Maturity Assessment) framework. Built with Next.js, Node.js, PostgreSQL, and Stripe integration.
 
@@ -256,4 +256,4 @@ For support, email support@ross-ai.com or create an issue in the repository.
 
 ---
 
-**Ross AI** - Empowering organizations to assess and improve their AI maturity with the OWASP AIMA framework.
+**MATUR.ai** - Empowering organizations to assess and improve their AI maturity with the OWASP AIMA framework.

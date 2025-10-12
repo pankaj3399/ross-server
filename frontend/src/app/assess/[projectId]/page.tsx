@@ -1,169 +1,569 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { apiService, Domain } from "../../../lib/api";
-import Link from "next/link";
+import { useTheme } from "../../../contexts/ThemeContext";
+import {
+  apiService,
+  Domain as ApiDomain,
+  Practice as ApiPractice,
+} from "../../../lib/api";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
-  ArrowRight,
+  Save,
   CheckCircle,
   Clock,
   Target,
+  Brain,
+  ArrowRight,
+  ArrowLeft as ArrowLeftIcon,
 } from "lucide-react";
+import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigation";
+import { SecureTextarea } from "../../../components/SecureTextarea";
+import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
+import { sanitizeNoteInput } from "../../../lib/sanitize";
 
-export default function AssessmentPage({
-  params,
-}: {
-  params: { projectId: string };
-}) {
-  const { isAuthenticated } = useAuth();
+interface Question {
+  level: string;
+  stream: string;
+  question: string;
+}
+
+interface PracticeWithLevels extends ApiPractice {
+  levels: {
+    [level: string]: {
+      [stream: string]: string[];
+    };
+  };
+}
+
+interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
+  practices: { [key: string]: PracticeWithLevels };
+}
+
+interface AssessmentData {
+  [domainId: string]: {
+    [practiceId: string]: {
+      [questionId: string]: number;
+    };
+  };
+}
+
+export default function AssessmentPage() {
+  const params = useParams();
   const router = useRouter();
-  const [domains, setDomains] = useState<Domain[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
+  const { theme } = useTheme();
+  const projectId = params.projectId as string;
 
+  const [domains, setDomains] = useState<DomainWithLevels[]>([]);
+  const [currentDomainId, setCurrentDomainId] = useState<string>("");
+  const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [practice, setPractice] = useState<PracticeWithLevels | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
+
+  // Load domains and initial data
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
-    loadDomains();
-  }, [isAuthenticated, router]);
 
-  const loadDomains = async () => {
+    const fetchData = async () => {
+      try {
+        // Fetch domains
+        const domainsData = await apiService.getDomains();
+
+        // Transform API data to match our interface
+        const transformedDomains = await Promise.all(
+          domainsData.domains.map(async (domain) => {
+            const domainDetails = await apiService.getDomain(domain.id);
+
+            // Transform practices to include levels structure
+            const practicesWithLevels: { [key: string]: PracticeWithLevels } =
+              {};
+            for (const [practiceId, practice] of Object.entries(
+              domainDetails.practices,
+            )) {
+              try {
+                const practiceQuestions = await apiService.getPracticeQuestions(
+                  domain.id,
+                  practiceId,
+                );
+                practicesWithLevels[practiceId] = {
+                  ...practice,
+                  levels: practiceQuestions.levels,
+                };
+              } catch (error) {
+                console.error(`Failed to load practice ${practiceId}:`, error);
+                practicesWithLevels[practiceId] = {
+                  ...practice,
+                  levels: {},
+                };
+              }
+            }
+
+            return {
+              id: domain.id,
+              title: domain.title,
+              description: domain.description,
+              practices: practicesWithLevels,
+            };
+          }),
+        );
+
+        setDomains(transformedDomains);
+
+        // Set initial domain and practice
+        if (transformedDomains.length > 0) {
+          const firstDomain = transformedDomains[0];
+          const firstPracticeId = Object.keys(firstDomain.practices)[0];
+          setCurrentDomainId(firstDomain.id);
+          setCurrentPracticeId(firstPracticeId);
+        }
+
+        // Load existing answers
+        const answersData = await apiService.getAnswers(projectId);
+        const answersMap: Record<string, number> = {};
+        const assessmentData: AssessmentData = {};
+
+        answersData.forEach((answer: any) => {
+          const key = `${answer.domain_id}:${answer.practice_id}:${answer.level}:${answer.stream}:${answer.question_index}`;
+          answersMap[key] = answer.value;
+
+          // Also populate the structured format for navigation
+          if (!assessmentData[answer.domain_id]) {
+            assessmentData[answer.domain_id] = {};
+          }
+          if (!assessmentData[answer.domain_id][answer.practice_id]) {
+            assessmentData[answer.domain_id][answer.practice_id] = {};
+          }
+          assessmentData[answer.domain_id][answer.practice_id][key] =
+            answer.value;
+        });
+
+        setAnswers(answersMap);
+
+        // Load existing notes
+        try {
+          const notesData = await apiService.getQuestionNotes(projectId);
+          const notesMap: Record<string, string> = {};
+          notesData.forEach((note: any) => {
+            const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
+            notesMap[key] = note.note;
+          });
+          setNotes(notesMap);
+        } catch (error) {
+          console.error("Failed to load notes:", error);
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [projectId, isAuthenticated, router]);
+
+  // Load practice questions when domain/practice changes
+  useEffect(() => {
+    if (!currentDomainId || !currentPracticeId) return;
+
+    const fetchPractice = async () => {
+      try {
+        const data = await apiService.getPracticeQuestions(
+          currentDomainId,
+          currentPracticeId,
+        );
+        setPractice({
+          title: data.title,
+          description: data.description,
+          levels: data.levels,
+        });
+
+        // Flatten questions from levels
+        const questionsList: Question[] = [];
+        Object.entries(data.levels).forEach(([level, streams]) => {
+          Object.entries(streams as Record<string, string[]>).forEach(
+            ([stream, questions]) => {
+              questions.forEach((question, index) => {
+                questionsList.push({
+                  level,
+                  stream,
+                  question,
+                });
+              });
+            },
+          );
+        });
+
+        setQuestions(questionsList);
+        setCurrentQuestionIndex(0);
+      } catch (error) {
+        console.error("Failed to fetch practice:", error);
+      }
+    };
+
+    fetchPractice();
+  }, [currentDomainId, currentPracticeId]);
+
+  // Use assessment navigation hook
+  const {
+    progressData,
+    navigateToDomain,
+    navigateToPractice,
+    getNextQuestion,
+    getPreviousQuestion,
+    getFirstUnansweredQuestion,
+  } = useAssessmentNavigation({
+    domains: domains as any, // Temporary type assertion
+    assessmentData: answers as any, // Temporary type assertion
+    currentDomainId,
+    currentPracticeId,
+    currentQuestionIndex,
+  });
+
+  const handleAnswerChange = async (questionIndex: number, value: number) => {
+    const question = questions[questionIndex];
+    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+
+    // Save to backend
+    setSaving(true);
     try {
-      const response = await apiService.getDomains();
-      setDomains(response.domains);
+      await apiService.saveAnswers(projectId, [
+        {
+          domainId: currentDomainId,
+          practiceId: currentPracticeId,
+          level: question.level,
+          stream: question.stream,
+          questionIndex,
+          value,
+        },
+      ]);
     } catch (error) {
-      console.error("Failed to load domains:", error);
+      console.error("Failed to save answer:", error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (!isAuthenticated) {
-    return <div>Loading...</div>;
-  }
+  const handleNoteChange = (questionIndex: number, note: string) => {
+    const question = questions[questionIndex];
+    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+
+    setNotes((prev) => ({ ...prev, [key]: note }));
+  };
+
+  const handleNoteSave = async (questionIndex: number) => {
+    const question = questions[questionIndex];
+    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+    const note = notes[key] || "";
+
+    if (!note.trim()) return;
+
+    setSavingNote(true);
+    try {
+      // Sanitize the note before saving
+      const sanitizedNote = sanitizeNoteInput(note);
+
+      await apiService.saveQuestionNote(projectId, {
+        domainId: currentDomainId,
+        practiceId: currentPracticeId,
+        level: question.level,
+        stream: question.stream,
+        questionIndex,
+        note: sanitizedNote,
+      });
+    } catch (error) {
+      console.error("Failed to save note:", error);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleDomainClick = (domainId: string) => {
+    setCurrentDomainId(domainId);
+    const domain = domains.find((d) => d.id === domainId);
+    if (domain) {
+      const firstPracticeId = Object.keys(domain.practices)[0];
+      setCurrentPracticeId(firstPracticeId);
+    }
+    navigateToDomain(domainId);
+  };
+
+  const handlePracticeClick = (domainId: string, practiceId: string) => {
+    setCurrentDomainId(domainId);
+    setCurrentPracticeId(practiceId);
+    setCurrentQuestionIndex(0);
+    navigateToPractice(domainId, practiceId);
+  };
+
+  const handleNextQuestion = () => {
+    const next = getNextQuestion();
+    if (next) {
+      setCurrentDomainId(next.domainId);
+      setCurrentPracticeId(next.practiceId);
+      setCurrentQuestionIndex(next.questionIndex);
+    }
+  };
+
+  const handlePreviousQuestion = () => {
+    const prev = getPreviousQuestion();
+    if (prev) {
+      setCurrentDomainId(prev.domainId);
+      setCurrentPracticeId(prev.practiceId);
+      setCurrentQuestionIndex(prev.questionIndex);
+    }
+  };
+
+  const handleContinueAssessment = () => {
+    const firstUnanswered = getFirstUnansweredQuestion();
+    if (firstUnanswered) {
+      setCurrentDomainId(firstUnanswered.domainId);
+      setCurrentPracticeId(firstUnanswered.practiceId);
+      setCurrentQuestionIndex(firstUnanswered.questionIndex);
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-300">Loading assessment domains...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            Loading assessment...
+          </p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="mb-8"
-        >
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2 text-purple-400 hover:text-purple-300 mb-6 inline-block transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-4xl font-bold mb-2">
-            <span className="gradient-text">AI Maturity Assessment</span>
+  if (!practice || questions.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Assessment Overview
           </h1>
-          <p className="text-gray-300 text-lg">
-            Select a domain to begin your assessment
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Ready to measure your AI maturity? Let's get started.
           </p>
-        </motion.div>
+          <button
+            onClick={handleContinueAssessment}
+            className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
+          >
+            Start Assessment
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {domains.map((domain, index) => (
-            <motion.div
-              key={domain.id}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: index * 0.1 }}
-              className="glass-effect rounded-2xl p-6 cursor-pointer hover:bg-white/10 transition-all duration-300 group"
-              onClick={() => setSelectedDomain(domain.id)}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-gradient-to-r from-purple-600 to-violet-600 rounded-lg">
-                  <Target className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors">
-                  {domain.title}
-                </h3>
+  const currentQuestion = questions[currentQuestionIndex];
+  const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${currentQuestionIndex}`;
+  const currentAnswer = answers[questionKey] || 0;
+  const currentNote = notes[questionKey] || "";
+
+  const totalQuestions = questions.length;
+  const answeredQuestions = Object.keys(answers).filter((key) =>
+    key.startsWith(`${currentDomainId}:${currentPracticeId}:`),
+  ).length;
+  const progress = (answeredQuestions / totalQuestions) * 100;
+
+  return (
+    <div className="min-h-screen flex">
+      {/* Tree Navigation Sidebar */}
+      <AssessmentTreeNavigation
+        domains={progressData}
+        currentDomainId={currentDomainId}
+        currentPracticeId={currentPracticeId}
+        onDomainClick={handleDomainClick}
+        onPracticeClick={handlePracticeClick}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.back()}
+                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {practice.title}
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {currentDomainId} • {currentPracticeId}
+                </p>
               </div>
-              <p className="text-gray-300 text-sm mb-4 leading-relaxed">
-                {domain.description}
-              </p>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">
-                  {domain.practices.length} practices
-                </span>
-                <div className="flex items-center text-purple-400 text-sm">
-                  <ArrowRight className="w-4 h-4 mr-1" />
-                  Start Assessment
-                </div>
+            </div>
+            {saving && (
+              <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                <Save className="w-4 h-4 animate-spin" />
+                Saving...
               </div>
-            </motion.div>
-          ))}
+            )}
+          </div>
         </div>
 
-        {selectedDomain && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="mt-8"
-          >
-            <h2 className="text-2xl font-semibold mb-6 text-white">
-              Practices in {domains.find((d) => d.id === selectedDomain)?.title}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {domains
-                .find((d) => d.id === selectedDomain)
-                ?.practices.map((practiceId, index) => (
-                  <motion.div
-                    key={practiceId}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                  >
-                    <Link
-                      href={`/assess/${params.projectId}/${selectedDomain}/${practiceId}`}
-                      className="glass-effect rounded-xl p-6 block hover:bg-white/10 transition-all duration-300 group"
-                    >
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-gradient-to-r from-purple-600 to-violet-600 rounded-lg">
-                          <CheckCircle className="w-5 h-5 text-white" />
-                        </div>
-                        <h3 className="text-lg font-medium text-white group-hover:text-purple-300 transition-colors">
-                          {practiceId
-                            .replace(/_/g, " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </h3>
-                      </div>
-                      <p className="text-gray-300 text-sm mb-3">
-                        Click to start assessment for this practice
-                      </p>
-                      <div className="flex items-center text-purple-400 text-sm">
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        Begin Assessment
-                      </div>
-                    </Link>
-                  </motion.div>
-                ))}
+        {/* Question Content */}
+        <div className="flex-1 p-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Progress Bar */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Question {currentQuestionIndex + 1} of {totalQuestions}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {Math.round(progress)}% Complete
+                </span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
-          </motion.div>
-        )}
+
+            {/* Question Card */}
+            <motion.div
+              key={currentQuestionIndex}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
+            >
+              <div className="mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600 to-violet-600 text-white">
+                    Level {currentQuestion.level}
+                  </span>
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    Stream {currentQuestion.stream}
+                  </span>
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
+                  {currentQuestion.question}
+                </h2>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  {
+                    value: 0,
+                    label: "No",
+                    description: "Not implemented or not applicable",
+                  },
+                  {
+                    value: 0.5,
+                    label: "Partially",
+                    description: "Partially implemented or in progress",
+                  },
+                  {
+                    value: 1,
+                    label: "Yes",
+                    description: "Fully implemented and operational",
+                  },
+                ].map((option) => (
+                  <label
+                    key={option.value}
+                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                      currentAnswer === option.value
+                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
+                        : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="answer"
+                      value={option.value}
+                      checked={currentAnswer === option.value}
+                      onChange={() =>
+                        handleAnswerChange(currentQuestionIndex, option.value)
+                      }
+                      className="mt-1 w-4 h-4 text-purple-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-purple-500 focus:ring-2"
+                    />
+                    <div className="ml-3 flex-1">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {option.label}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {option.description}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* Notes Section */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Your Notes
+                </h3>
+                <SecureTextarea
+                  value={currentNote}
+                  onChange={(note) =>
+                    handleNoteChange(currentQuestionIndex, note)
+                  }
+                  onSave={() => handleNoteSave(currentQuestionIndex)}
+                  placeholder="Add your notes, reminders, or thoughts about this question..."
+                  maxLength={5000}
+                  className="w-full"
+                />
+              </div>
+            </motion.div>
+
+            {/* Navigation Buttons */}
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handlePreviousQuestion}
+                disabled={currentQuestionIndex === 0}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                <ArrowLeftIcon className="w-4 h-4" />
+                Previous
+              </button>
+
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={handleContinueAssessment}
+                  className="px-6 py-3 rounded-xl font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-200"
+                >
+                  Jump to Next Unanswered
+                </button>
+
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={currentQuestionIndex === totalQuestions - 1}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

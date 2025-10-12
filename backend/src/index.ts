@@ -7,6 +7,7 @@ import authRouter from "./routes/auth";
 import projectsRouter from "./routes/projects";
 import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
+import notesRouter from "./routes/notes";
 import { initializeDatabase, seedAIMAData } from "./utils/database";
 
 dotenv.config();
@@ -18,7 +19,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "ross-ai-backend" });
+  res.json({ ok: true, service: "matur-ai-backend" });
 });
 
 // Routes
@@ -28,6 +29,7 @@ app.use("/subscriptions", subscriptionsRouter);
 app.use("/admin", adminRouter);
 app.use("/aima", aimaRouter);
 app.use("/answers", answersRouter);
+app.use("/notes", notesRouter);
 
 // Initialize database
 const initialize = async () => {

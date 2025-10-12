@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { motion } from "framer-motion";
 import {
   Brain,
@@ -14,9 +15,11 @@ import {
   Sparkles,
   CheckCircle,
 } from "lucide-react";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
+  const { theme } = useTheme();
 
   const features = [
     {
@@ -70,9 +73,16 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
+      {/* Header with Theme Switcher */}
+      <header className="absolute top-0 left-0 right-0 z-50 p-4">
+        <div className="max-w-7xl mx-auto flex justify-end">
+          <ThemeSwitcher />
+        </div>
+      </header>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 px-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-violet-900/20 to-blue-900/20"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-violet-50/50 to-blue-50/50 dark:from-purple-900/20 dark:via-violet-900/20 dark:to-blue-900/20"></div>
         <div className="relative max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -81,12 +91,12 @@ export default function Home() {
             className="mb-8"
           >
             <h1 className="text-6xl md:text-7xl font-bold mb-6">
-              <span className="gradient-text">MaturAIze</span>
+              <span className="gradient-text">MATUR.ai</span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+            <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
               Assess your AI maturity using the OWASP AIMA framework
             </p>
-            <p className="text-lg text-gray-400 mb-12 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-12 max-w-2xl mx-auto">
               Comprehensive evaluation across 8 critical domains to ensure your
               AI systems are secure, ethical, and mature
             </p>
@@ -99,7 +109,7 @@ export default function Home() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="space-y-6"
             >
-              <p className="text-xl text-gray-300 mb-8">
+              <p className="text-xl text-gray-700 dark:text-gray-300 mb-8">
                 Welcome back, {user?.name}!
               </p>
               <Link
@@ -142,9 +152,9 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              <span className="gradient-text">Why Choose MaturAIze?</span>
+              <span className="gradient-text">Why Choose MATUR.ai?</span>
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
               Comprehensive AI maturity assessment platform built on industry
               standards
             </p>
@@ -157,7 +167,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="glass-effect rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 group"
+                className="glass-effect rounded-2xl p-8 hover:bg-gray-50/50 dark:hover:bg-white/10 transition-all duration-300 group"
               >
                 <div className="flex items-center gap-4 mb-4">
                   <div className="p-3 bg-gradient-to-r from-purple-600 to-violet-600 rounded-xl">
@@ -167,7 +177,7 @@ export default function Home() {
                     {feature.title}
                   </h3>
                 </div>
-                <p className="text-gray-300 leading-relaxed">
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                   {feature.description}
                 </p>
               </motion.div>
@@ -188,7 +198,7 @@ export default function Home() {
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
               <span className="gradient-text">8 Critical AI Domains</span>
             </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            <p className="text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
               Comprehensive coverage of AI maturity across all essential areas
             </p>
           </motion.div>
@@ -200,12 +210,12 @@ export default function Home() {
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
-                className="glass-effect rounded-xl p-6 text-center hover:bg-white/10 transition-all duration-300 group"
+                className="glass-effect rounded-xl p-6 text-center hover:bg-gray-50/50 dark:hover:bg-white/10 transition-all duration-300 group"
               >
                 <div className="flex items-center justify-center mb-3">
                   <CheckCircle className="w-6 h-6 text-green-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white group-hover:text-purple-300 transition-colors">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">
                   {domain}
                 </h3>
               </motion.div>
@@ -231,7 +241,7 @@ export default function Home() {
                 Ready to Assess Your AI Maturity?
               </span>
             </h2>
-            <p className="text-xl text-gray-300 mb-8">
+            <p className="text-xl text-gray-700 dark:text-gray-300 mb-8">
               Join organizations worldwide in building more secure, ethical, and
               mature AI systems
             </p>

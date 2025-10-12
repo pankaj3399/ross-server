@@ -1,13 +1,15 @@
-{
-  "domains": {
+import pool from "../config/database";
+
+const aimaData = {
+  domains: {
     "responsible_ai_principles": {
-      "title": "Responsible AI Principles",
-      "description": "Establish ethical foundations and responsible practices for AI systems.",
-      "practices": {
+      title: "Responsible AI Principles",
+      description: "Establish ethical foundations and responsible practices for AI systems.",
+      practices: {
         "ethical_societal_impact": {
-          "title": "Ethical & Societal Impact",
-          "description": "Assess and manage the ethical and societal impacts of AI systems.",
-          "levels": {
+          title: "Ethical & Societal Impact",
+          description: "Assess and manage the ethical and societal impacts of AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Is there informal awareness of the potential ethical and societal impacts of AI systems?"
@@ -35,9 +37,9 @@
           }
         },
         "transparency_explainability": {
-          "title": "Transparency & Explainability",
-          "description": "Ensure AI systems are transparent and their decisions can be explained.",
-          "levels": {
+          title: "Transparency & Explainability",
+          description: "Ensure AI systems are transparent and their decisions can be explained.",
+          levels: {
             "1": {
               "A": [
                 "Are there informal efforts to explain AI outputs or decisions when requested?"
@@ -65,9 +67,9 @@
           }
         },
         "fairness_bias": {
-          "title": "Fairness & Bias",
-          "description": "Identify and mitigate bias in AI systems to ensure fairness.",
-          "levels": {
+          title: "Fairness & Bias",
+          description: "Identify and mitigate bias in AI systems to ensure fairness.",
+          levels: {
             "1": {
               "A": [
                 "Is there initial awareness and informal identification of potential biases in AI systems?"
@@ -97,13 +99,13 @@
       }
     },
     "governance": {
-      "title": "Governance",
-      "description": "Establish governance structures and policies for AI initiatives.",
-      "practices": {
+      title: "Governance",
+      description: "Establish governance structures and policies for AI initiatives.",
+      practices: {
         "strategy_metrics": {
-          "title": "Strategy & Metrics",
-          "description": "Align AI initiatives with business strategy and measure effectiveness.",
-          "levels": {
+          title: "Strategy & Metrics",
+          description: "Align AI initiatives with business strategy and measure effectiveness.",
+          levels: {
             "1": {
               "A": [
                 "Is there an initial AI strategy documented, even informally?"
@@ -131,9 +133,9 @@
           }
         },
         "policy_compliance": {
-          "title": "Policy & Compliance",
-          "description": "Develop and enforce AI policies and ensure regulatory compliance.",
-          "levels": {
+          title: "Policy & Compliance",
+          description: "Develop and enforce AI policies and ensure regulatory compliance.",
+          levels: {
             "1": {
               "A": [
                 "Is there an awareness or initial informal policy for AI usage within the organization?"
@@ -161,9 +163,9 @@
           }
         },
         "education_awareness": {
-          "title": "Education & Awareness",
-          "description": "Build AI security awareness and provide training across the organization.",
-          "levels": {
+          title: "Education & Awareness",
+          description: "Build AI security awareness and provide training across the organization.",
+          levels: {
             "1": {
               "A": [
                 "Is there initial informal training or general awareness about AI security risks within the organization?"
@@ -193,13 +195,13 @@
       }
     },
     "data_management": {
-      "title": "Data Management",
-      "description": "Manage data quality, governance, and training data for AI systems.",
-      "practices": {
+      title: "Data Management",
+      description: "Manage data quality, governance, and training data for AI systems.",
+      practices: {
         "data_quality_integrity": {
-          "title": "Data Quality & Integrity",
-          "description": "Ensure high-quality and reliable data for AI systems.",
-          "levels": {
+          title: "Data Quality & Integrity",
+          description: "Ensure high-quality and reliable data for AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are there informal or ad hoc processes to ensure basic data quality?"
@@ -227,9 +229,9 @@
           }
         },
         "data_governance_accountability": {
-          "title": "Data Governance & Accountability",
-          "description": "Establish data governance frameworks and accountability measures.",
-          "levels": {
+          title: "Data Governance & Accountability",
+          description: "Establish data governance frameworks and accountability measures.",
+          levels: {
             "1": {
               "A": [
                 "Is there initial awareness or informal processes in place for data governance?"
@@ -257,9 +259,9 @@
           }
         },
         "data_training": {
-          "title": "Data Training",
-          "description": "Manage training data collection, preparation, and compliance.",
-          "levels": {
+          title: "Data Training",
+          description: "Manage training data collection, preparation, and compliance.",
+          levels: {
             "1": {
               "A": [
                 "Is training data gathered informally, with minimal consistency or curation standards?"
@@ -289,13 +291,13 @@
       }
     },
     "privacy": {
-      "title": "Privacy",
-      "description": "Protect privacy and ensure compliance with privacy regulations.",
-      "practices": {
+      title: "Privacy",
+      description: "Protect privacy and ensure compliance with privacy regulations.",
+      practices: {
         "data_minimization_purpose_limitation": {
-          "title": "Data Minimization & Purpose Limitation",
-          "description": "Minimize data collection and limit data usage to specific purposes.",
-          "levels": {
+          title: "Data Minimization & Purpose Limitation",
+          description: "Minimize data collection and limit data usage to specific purposes.",
+          levels: {
             "1": {
               "A": [
                 "Is there basic awareness and informal processes around data minimization?"
@@ -323,9 +325,9 @@
           }
         },
         "privacy_by_design_default": {
-          "title": "Privacy by Design & Default",
-          "description": "Integrate privacy considerations into AI system design and default settings.",
-          "levels": {
+          title: "Privacy by Design & Default",
+          description: "Integrate privacy considerations into AI system design and default settings.",
+          levels: {
             "1": {
               "A": [
                 "Is there initial awareness or informal consideration of privacy aspects during AI design?"
@@ -353,9 +355,9 @@
           }
         },
         "user_control_transparency": {
-          "title": "User Control & Transparency",
-          "description": "Provide users with control over their data and transparent information about AI usage.",
-          "levels": {
+          title: "User Control & Transparency",
+          description: "Provide users with control over their data and transparent information about AI usage.",
+          levels: {
             "1": {
               "A": [
                 "Is there basic, informal communication to users regarding data use and AI operations?"
@@ -385,13 +387,13 @@
       }
     },
     "design": {
-      "title": "Design",
-      "description": "Design secure and robust AI systems from the ground up.",
-      "practices": {
+      title: "Design",
+      description: "Design secure and robust AI systems from the ground up.",
+      practices: {
         "threat_assessment": {
-          "title": "Threat Assessment",
-          "description": "Identify and assess threats specific to AI systems.",
-          "levels": {
+          title: "Threat Assessment",
+          description: "Identify and assess threats specific to AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Is there basic awareness or informal identification of threats specific to AI systems?"
@@ -419,9 +421,9 @@
           }
         },
         "security_architecture": {
-          "title": "Security Architecture",
-          "description": "Design secure architectural foundations for AI systems.",
-          "levels": {
+          title: "Security Architecture",
+          description: "Design secure architectural foundations for AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Is initial security awareness or informal consideration present in AI deployment?"
@@ -449,9 +451,9 @@
           }
         },
         "security_requirements": {
-          "title": "Security Requirements",
-          "description": "Define and validate security requirements for AI systems.",
-          "levels": {
+          title: "Security Requirements",
+          description: "Define and validate security requirements for AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are security requirements informally identified or sporadically documented?"
@@ -481,13 +483,13 @@
       }
     },
     "implementation": {
-      "title": "Implementation",
-      "description": "Implement AI systems securely and manage the development process.",
-      "practices": {
+      title: "Implementation",
+      description: "Implement AI systems securely and manage the development process.",
+      practices: {
         "secure_build": {
-          "title": "Secure Build",
-          "description": "Build AI systems with security integrated into the development process.",
-          "levels": {
+          title: "Secure Build",
+          description: "Build AI systems with security integrated into the development process.",
+          levels: {
             "1": {
               "A": [
                 "Are there basic informal practices for secure building of AI systems?"
@@ -515,9 +517,9 @@
           }
         },
         "secure_deployment": {
-          "title": "Secure Deployment",
-          "description": "Deploy AI systems securely with proper controls and monitoring.",
-          "levels": {
+          title: "Secure Deployment",
+          description: "Deploy AI systems securely with proper controls and monitoring.",
+          levels: {
             "1": {
               "A": [
                 "Are there informal or ad hoc processes for securely deploying AI systems?"
@@ -545,9 +547,9 @@
           }
         },
         "defect_management": {
-          "title": "Defect Management",
-          "description": "Identify, track, and resolve defects in AI systems.",
-          "levels": {
+          title: "Defect Management",
+          description: "Identify, track, and resolve defects in AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are defect tracking processes informally applied or inconsistently documented?"
@@ -577,13 +579,13 @@
       }
     },
     "verification": {
-      "title": "Verification",
-      "description": "Verify AI systems through comprehensive testing and assessment.",
-      "practices": {
+      title: "Verification",
+      description: "Verify AI systems through comprehensive testing and assessment.",
+      practices: {
         "security_testing": {
-          "title": "Security Testing",
-          "description": "Conduct security assessments and testing of AI systems.",
-          "levels": {
+          title: "Security Testing",
+          description: "Conduct security assessments and testing of AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are basic security assessments occasionally conducted informally on AI systems?"
@@ -611,9 +613,9 @@
           }
         },
         "requirement_based_testing": {
-          "title": "Requirement-based Testing",
-          "description": "Test AI systems against defined requirements and specifications.",
-          "levels": {
+          title: "Requirement-based Testing",
+          description: "Test AI systems against defined requirements and specifications.",
+          levels: {
             "1": {
               "A": [
                 "Are basic requirement-based tests occasionally conducted informally?"
@@ -641,9 +643,9 @@
           }
         },
         "architecture_assessment": {
-          "title": "Architecture Assessment",
-          "description": "Assess and validate the security architecture of AI systems.",
-          "levels": {
+          title: "Architecture Assessment",
+          description: "Assess and validate the security architecture of AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are basic architecture reviews occasionally conducted informally on AI systems?"
@@ -673,13 +675,13 @@
       }
     },
     "operations": {
-      "title": "Operations",
-      "description": "Operate AI systems securely and manage incidents effectively.",
-      "practices": {
+      title: "Operations",
+      description: "Operate AI systems securely and manage incidents effectively.",
+      practices: {
         "incident_management": {
-          "title": "Incident Management",
-          "description": "Manage security incidents and respond to AI system issues.",
-          "levels": {
+          title: "Incident Management",
+          description: "Manage security incidents and respond to AI system issues.",
+          levels: {
             "1": {
               "A": [
                 "Are there basic informal procedures or ad hoc responses for managing AI incidents?"
@@ -707,9 +709,9 @@
           }
         },
         "event_management": {
-          "title": "Event Management",
-          "description": "Monitor and manage events in AI systems.",
-          "levels": {
+          title: "Event Management",
+          description: "Monitor and manage events in AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Is there informal or occasional monitoring and detection of events in AI systems?"
@@ -737,9 +739,9 @@
           }
         },
         "operational_management": {
-          "title": "Operational Management",
-          "description": "Manage the day-to-day operations of AI systems.",
-          "levels": {
+          title: "Operational Management",
+          description: "Manage the day-to-day operations of AI systems.",
+          levels: {
             "1": {
               "A": [
                 "Are operational management procedures occasionally applied informally to AI systems?"
@@ -769,4 +771,66 @@
       }
     }
   }
+};
+
+async function seedAIMAData() {
+  try {
+    console.log("Starting AIMA data seeding...");
+
+    // Clear existing data
+    await pool.query("DELETE FROM aima_questions");
+    await pool.query("DELETE FROM aima_practices");
+    await pool.query("DELETE FROM aima_domains");
+
+    // Insert domains
+    for (const [domainId, domain] of Object.entries(aimaData.domains)) {
+      await pool.query(
+        "INSERT INTO aima_domains (id, title, description) VALUES ($1, $2, $3)",
+        [domainId, domain.title, domain.description]
+      );
+      console.log(`Inserted domain: ${domain.title}`);
+
+      // Insert practices
+      for (const [practiceId, practice] of Object.entries(domain.practices)) {
+        await pool.query(
+          "INSERT INTO aima_practices (id, domain_id, title, description) VALUES ($1, $2, $3, $4)",
+          [practiceId, domainId, practice.title, practice.description]
+        );
+        console.log(`  Inserted practice: ${practice.title}`);
+
+        // Insert questions
+        for (const [level, streams] of Object.entries(practice.levels)) {
+          for (const [stream, questions] of Object.entries(streams)) {
+            for (let questionIndex = 0; questionIndex < questions.length; questionIndex++) {
+              await pool.query(
+                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text) VALUES ($1, $2, $3, $4, $5)",
+                [practiceId, level, stream, questionIndex, questions[questionIndex]]
+              );
+            }
+          }
+        }
+        console.log(`    Inserted questions for ${practice.title}`);
+      }
+    }
+
+    console.log("AIMA data seeding completed successfully!");
+  } catch (error) {
+    console.error("Error seeding AIMA data:", error);
+    throw error;
+  }
 }
+
+// Run the seeding if this file is executed directly
+if (require.main === module) {
+  seedAIMAData()
+    .then(() => {
+      console.log("Seeding completed");
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("Seeding failed:", error);
+      process.exit(1);
+    });
+}
+
+export { seedAIMAData };

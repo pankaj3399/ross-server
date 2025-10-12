@@ -1,8 +1,8 @@
-# MaturAIze API Documentation
+# MATUR.ai API Documentation
 
 ## Overview
 
-The MaturAIze API provides endpoints for AI maturity assessment using the OWASP AIMA framework. All endpoints are RESTful and return JSON responses.
+The MATUR.ai API provides endpoints for AI maturity assessment using the OWASP AIMA framework. All endpoints are RESTful and return JSON responses.
 
 **Base URL**: `http://localhost:4000` (development)
 
@@ -540,4 +540,4 @@ Use the provided Postman collection to test all endpoints:
 
 ## Support
 
-For API support, contact: support@ross-ai.com
+For API support, contact: support@matur.ai

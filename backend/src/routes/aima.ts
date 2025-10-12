@@ -12,6 +12,7 @@ router.get("/domains", async (_req, res) => {
       FROM aima_domains d
       LEFT JOIN aima_practices p ON d.id = p.domain_id
       GROUP BY d.id, d.title, d.description
+      ORDER BY d.id
     `);
 
     const domains = result.rows.map((row) => ({
@@ -41,7 +42,7 @@ router.get("/domains/:domainId", async (req, res) => {
     }
 
     const practicesResult = await pool.query(
-      "SELECT id, title, description FROM aima_practices WHERE domain_id = $1",
+      "SELECT id, title, description FROM aima_practices WHERE domain_id = $1 ORDER BY id",
       [req.params.domainId],
     );
 

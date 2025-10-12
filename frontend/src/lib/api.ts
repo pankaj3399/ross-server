@@ -7,6 +7,8 @@ export interface User {
   role: string;
   subscription_status: string;
   organization?: string;
+  email_verified?: boolean;
+  mfa_enabled?: boolean;
 }
 
 export interface AuthResponse {
@@ -50,6 +52,17 @@ export interface AssessmentAnswer {
   stream: string;
   questionIndex: number;
   value: number;
+}
+
+export interface QuestionNote {
+  domainId: string;
+  practiceId: string;
+  level: string;
+  stream: string;
+  questionIndex: number;
+  note: string;
+  created_at: string;
+  updated_at: string;
 }
 
 class ApiService {
@@ -276,6 +289,150 @@ class ApiService {
         method: "POST",
       },
     );
+  }
+
+  // Email Verification
+  async verifyEmail(token: string): Promise<AuthResponse> {
+    return this.request<AuthResponse>("/auth/verify-email", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async resendVerification(): Promise<{ message: string; emailSent: boolean }> {
+    return this.request<{ message: string; emailSent: boolean }>(
+      "/auth/resend-verification",
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  // Password Reset
+  async forgotPassword(
+    email: string,
+  ): Promise<{ message: string; emailSent: boolean }> {
+    return this.request<{ message: string; emailSent: boolean }>(
+      "/auth/forgot-password",
+      {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      },
+    );
+  }
+
+  async resetPassword(
+    token: string,
+    password: string,
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  }
+
+  // MFA
+  async setupMFA(): Promise<{
+    secret: string;
+    qrCodeUrl: string;
+    backupCodes: string[];
+    message: string;
+  }> {
+    return this.request<{
+      secret: string;
+      qrCodeUrl: string;
+      backupCodes: string[];
+      message: string;
+    }>("/auth/setup-mfa", {
+      method: "POST",
+    });
+  }
+
+  async verifyMFASetup(mfaCode: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/auth/verify-mfa-setup", {
+      method: "POST",
+      body: JSON.stringify({ mfaCode }),
+    });
+  }
+
+  async disableMFA(mfaCode: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/auth/disable-mfa", {
+      method: "POST",
+      body: JSON.stringify({ mfaCode }),
+    });
+  }
+
+  async getBackupCodes(): Promise<{ backupCodes: string[] }> {
+    return this.request<{ backupCodes: string[] }>("/auth/backup-codes");
+  }
+
+  async regenerateBackupCodes(): Promise<{
+    backupCodes: string[];
+    message: string;
+  }> {
+    return this.request<{ backupCodes: string[]; message: string }>(
+      "/auth/regenerate-backup-codes",
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  // Enhanced Login with MFA
+  async loginWithMFA(
+    email: string,
+    password: string,
+    mfaCode?: string,
+    backupCode?: string,
+  ): Promise<AuthResponse | { requiresMFA: boolean; message: string }> {
+    return this.request<
+      AuthResponse | { requiresMFA: boolean; message: string }
+    >("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password, mfaCode, backupCode }),
+    });
+  }
+
+  // Question Notes
+  async saveQuestionNote(
+    projectId: string,
+    note: {
+      domainId: string;
+      practiceId: string;
+      level: string;
+      stream: string;
+      questionIndex: number;
+      note: string;
+    },
+  ): Promise<{ message: string; note: QuestionNote }> {
+    return this.request<{ message: string; note: QuestionNote }>("/notes", {
+      method: "POST",
+      body: JSON.stringify({ projectId, ...note }),
+    });
+  }
+
+  async getQuestionNotes(projectId: string): Promise<QuestionNote[]> {
+    return this.request<QuestionNote[]>(`/notes/${projectId}`);
+  }
+
+  async deleteQuestionNote(
+    projectId: string,
+    domainId: string,
+    practiceId: string,
+    level: string,
+    stream: string,
+    questionIndex: number,
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/notes/${projectId}`, {
+      method: "DELETE",
+      body: JSON.stringify({
+        domainId,
+        practiceId,
+        level,
+        stream,
+        questionIndex,
+      }),
+    });
   }
 }
 

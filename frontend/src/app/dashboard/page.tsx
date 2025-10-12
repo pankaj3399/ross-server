@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
 import Link from "next/link";
@@ -15,9 +16,11 @@ import {
   Crown,
   LogOut,
 } from "lucide-react";
+import { ThemeSwitcher } from "../../components/ThemeSwitcher";
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { theme } = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,11 +91,12 @@ export default function DashboardPage() {
           >
             <div>
               <h1 className="text-4xl font-bold mb-2">
-                <span className="gradient-text">MaturAIze Dashboard</span>
+                <span className="gradient-text">MATUR.ai Dashboard</span>
               </h1>
               <p className="text-gray-300">Welcome back, {user?.name}!</p>
             </div>
             <div className="flex space-x-4">
+              <ThemeSwitcher />
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -106,7 +110,7 @@ export default function DashboardPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={logout}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 border border-white/20"
+                className="flex items-center gap-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-900 dark:text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 border border-gray-200 dark:border-white/20"
               >
                 <LogOut className="w-5 h-5" />
                 Logout
@@ -121,7 +125,7 @@ export default function DashboardPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="glass-effect rounded-2xl p-6 mb-8"
           >
-            <h2 className="text-xl font-semibold mb-6 text-white">
+            <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">
               Account Information
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -131,7 +135,7 @@ export default function DashboardPage() {
                   <label className="text-sm font-medium text-gray-400">
                     Name
                   </label>
-                  <p className="text-white">{user?.name}</p>
+                  <p className="text-gray-900 dark:text-white">{user?.name}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -140,7 +144,7 @@ export default function DashboardPage() {
                   <label className="text-sm font-medium text-gray-400">
                     Email
                   </label>
-                  <p className="text-white">{user?.email}</p>
+                  <p className="text-gray-900 dark:text-white">{user?.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -149,7 +153,7 @@ export default function DashboardPage() {
                   <label className="text-sm font-medium text-gray-400">
                     Organization
                   </label>
-                  <p className="text-white">
+                  <p className="text-gray-900 dark:text-white">
                     {user?.organization || "Not specified"}
                   </p>
                 </div>
@@ -160,7 +164,7 @@ export default function DashboardPage() {
                   <label className="text-sm font-medium text-gray-400">
                     Subscription
                   </label>
-                  <p className="text-white capitalize">
+                  <p className="text-gray-900 dark:text-white capitalize">
                     {user?.subscription_status}
                   </p>
                 </div>
@@ -176,13 +180,13 @@ export default function DashboardPage() {
             className="glass-effect rounded-2xl"
           >
             <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="text-xl font-semibold text-white">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Your Projects
               </h2>
             </div>
 
             {loading ? (
-              <div className="p-6 text-center text-gray-300">
+              <div className="p-6 text-center text-gray-600 dark:text-gray-300">
                 Loading projects...
               </div>
             ) : !Array.isArray(projects) || projects.length === 0 ? (
@@ -200,7 +204,7 @@ export default function DashboardPage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5, delay: index * 0.1 }}
-                      className="p-6 hover:bg-white/5 transition-all duration-300"
+                      className="p-6 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all duration-300"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -260,7 +264,7 @@ export default function DashboardPage() {
             className="glass-effect rounded-2xl shadow-xl max-w-md w-full"
           >
             <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-xl font-semibold text-white">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Create New Project
               </h3>
             </div>
@@ -308,7 +312,7 @@ export default function DashboardPage() {
                         aiSystemType: e.target.value,
                       })
                     }
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                   >
                     <option value="">Select AI System Type</option>
                     <option value="Machine Learning">Machine Learning</option>
@@ -326,7 +330,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}
-                  className="px-6 py-3 text-gray-300 bg-white/10 hover:bg-white/20 rounded-xl transition-all duration-300"
+                  className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-xl transition-all duration-300"
                 >
                   Cancel
                 </button>
