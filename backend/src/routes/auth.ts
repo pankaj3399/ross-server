@@ -200,11 +200,9 @@ router.post("/resend-verification", authenticateToken, async (req, res) => {
     // Check if there's already a valid token
     const hasValidToken = await tokenService.hasValidEmailToken(userId);
     if (hasValidToken) {
-      return res
-        .status(400)
-        .json({
-          error: "Verification email already sent. Please check your email.",
-        });
+      return res.status(400).json({
+        error: "Verification email already sent. Please check your email.",
+      });
     }
 
     // Create new verification token
@@ -518,6 +516,26 @@ router.post("/regenerate-backup-codes", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Regenerate backup codes error:", error);
     res.status(400).json({ error: "Failed to regenerate backup codes" });
+  }
+});
+
+// Disable MFA
+router.post("/disable-mfa", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+
+    // Disable MFA in user record
+    await pool.query("UPDATE users SET mfa_enabled = FALSE WHERE id = $1", [
+      userId,
+    ]);
+
+    // Remove MFA data
+    await pool.query("DELETE FROM user_mfa WHERE user_id = $1", [userId]);
+
+    res.json({ message: "MFA disabled successfully" });
+  } catch (error) {
+    console.error("Disable MFA error:", error);
+    res.status(400).json({ error: "Failed to disable MFA" });
   }
 });
 

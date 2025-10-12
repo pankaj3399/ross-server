@@ -14,9 +14,10 @@ import {
   User,
   Building,
   Crown,
-  LogOut,
+  Shield,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
-import { ThemeSwitcher } from "../../components/ThemeSwitcher";
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -79,43 +80,40 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-8">
-          {/* Header */}
+          {/* Page Header */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="flex justify-between items-center mb-8"
+            className="mb-8"
           >
-            <div>
-              <h1 className="text-4xl font-bold mb-2">
-                <span className="gradient-text">MATUR.ai Dashboard</span>
-              </h1>
-              <p className="text-gray-300">Welcome back, {user?.name}!</p>
-            </div>
-            <div className="flex space-x-4">
-              <ThemeSwitcher />
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowCreateForm(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 pulse-glow"
-              >
-                <Plus className="w-5 h-5" />
-                New Project
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={logout}
-                className="flex items-center gap-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-900 dark:text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 border border-gray-200 dark:border-white/20"
-              >
-                <LogOut className="w-5 h-5" />
-                Logout
-              </motion.button>
-            </div>
+            <h1 className="text-4xl font-bold mb-2">
+              <span className="gradient-text">Dashboard</span>
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Welcome back, {user?.name}! Manage your AI maturity assessments.
+            </p>
+          </motion.div>
+
+          {/* Action Buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex justify-end mb-8"
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 pulse-glow"
+            >
+              <Plus className="w-5 h-5" />
+              New Project
+            </motion.button>
           </motion.div>
 
           {/* User Info */}
@@ -169,6 +167,27 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-purple-400" />
+                <div>
+                  <label className="text-sm font-medium text-gray-400">
+                    Two-Factor Authentication
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {user?.mfa_enabled ? (
+                      <div className="flex items-center gap-1 text-green-600">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">Enabled</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="text-sm font-medium">Disabled</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
 
@@ -177,77 +196,76 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="glass-effect rounded-2xl"
           >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Your Projects
-              </h2>
-            </div>
-
+            <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+              Your Projects
+            </h2>
             {loading ? (
-              <div className="p-6 text-center text-gray-600 dark:text-gray-300">
-                Loading projects...
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
               </div>
-            ) : !Array.isArray(projects) || projects.length === 0 ? (
-              <div className="p-6 text-center text-gray-400">
-                <p>
-                  No projects yet. Create your first project to get started!
+            ) : projects.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Plus className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  No projects yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  Create your first AI maturity assessment project to get
+                  started.
                 </p>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowCreateForm(true)}
+                  className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105"
+                >
+                  Create Your First Project
+                </motion.button>
               </div>
             ) : (
-              <div className="divide-y divide-white/10">
-                {Array.isArray(projects) &&
-                  projects.map((project, index) => (
-                    <motion.div
-                      key={project.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: index * 0.1 }}
-                      className="p-6 hover:bg-gray-50/50 dark:hover:bg-white/5 transition-all duration-300"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-medium text-white mb-2">
-                            {project.name}
-                          </h3>
-                          {project.description && (
-                            <p className="text-gray-300 mb-3">
-                              {project.description}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-                            <span>
-                              Type: {project.ai_system_type || "Not specified"}
-                            </span>
-                            <span>Status: {project.status}</span>
-                            <span>
-                              Created:{" "}
-                              {new Date(
-                                project.created_at,
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex space-x-3">
-                          <Link
-                            href={`/assess/${project.id}`}
-                            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 transform hover:scale-105"
-                          >
-                            Continue Assessment
-                            <ArrowRight className="w-4 h-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleDeleteProject(project.id)}
-                            className="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
-                          </button>
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {projects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -5 }}
+                    className="glass-effect rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {project.name}
+                      </h3>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleDeleteProject(project.id)}
+                          className="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete
+                        </button>
                       </div>
-                    </motion.div>
-                  ))}
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
+                      {project.description || "No description provided"}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                        {project.ai_system_type || "General AI System"}
+                      </span>
+                      <Link
+                        href={`/assess/${project.id}`}
+                        className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors text-sm font-medium"
+                      >
+                        Start Assessment
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             )}
           </motion.div>
@@ -260,73 +278,76 @@ export default function DashboardPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="glass-effect rounded-2xl shadow-xl max-w-md w-full"
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
           >
-            <div className="px-6 py-4 border-b border-white/10">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Create New Project
-              </h3>
-            </div>
-            <form onSubmit={handleCreateProject} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Project Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newProject.name}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, name: e.target.value })
-                    }
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={newProject.description}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        description: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    AI System Type
-                  </label>
-                  <select
-                    value={newProject.aiSystemType}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        aiSystemType: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-white/10 border border-gray-200 dark:border-white/20 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                  >
-                    <option value="">Select AI System Type</option>
-                    <option value="Machine Learning">Machine Learning</option>
-                    <option value="Deep Learning">Deep Learning</option>
-                    <option value="Natural Language Processing">
-                      Natural Language Processing
-                    </option>
-                    <option value="Computer Vision">Computer Vision</option>
-                    <option value="Robotics">Robotics</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
+            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+              Create New Project
+            </h3>
+            <form onSubmit={handleCreateProject} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  value={newProject.name}
+                  onChange={(e) =>
+                    setNewProject({ ...newProject, name: e.target.value })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter project name"
+                  required
+                />
               </div>
-              <div className="flex justify-end space-x-3 mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={newProject.description}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Describe your AI system"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  AI System Type
+                </label>
+                <select
+                  value={newProject.aiSystemType}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      aiSystemType: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select AI System Type</option>
+                  <option value="Machine Learning Model">
+                    Machine Learning Model
+                  </option>
+                  <option value="Deep Learning System">
+                    Deep Learning System
+                  </option>
+                  <option value="NLP System">NLP System</option>
+                  <option value="Computer Vision">Computer Vision</option>
+                  <option value="Recommendation System">
+                    Recommendation System
+                  </option>
+                  <option value="Autonomous System">Autonomous System</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateForm(false)}

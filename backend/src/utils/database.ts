@@ -10,6 +10,10 @@ export const initializeDatabase = async () => {
 
     await pool.query(schema);
     console.log("✅ Database schema initialized successfully");
+
+    // Run migration to add missing columns
+    const { migrateDatabase } = await import("../scripts/migrateDatabase");
+    await migrateDatabase();
   } catch (error) {
     console.error("❌ Error initializing database:", error);
     throw error;

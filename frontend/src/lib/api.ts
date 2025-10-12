@@ -118,13 +118,20 @@ class ApiService {
     return response;
   }
 
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await this.request<AuthResponse>("/auth/login", {
+  async login(
+    email: string,
+    password: string,
+    mfaCode?: string,
+    backupCode?: string,
+  ): Promise<AuthResponse | { requiresMFA: boolean; message: string }> {
+    const response = await this.request<
+      AuthResponse | { requiresMFA: boolean; message: string }
+    >("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, mfaCode, backupCode }),
     });
 
-    if (response.token) {
+    if ("token" in response && response.token) {
       localStorage.setItem("auth_token", response.token);
     }
 
@@ -355,10 +362,9 @@ class ApiService {
     });
   }
 
-  async disableMFA(mfaCode: string): Promise<{ message: string }> {
+  async disableMFA(): Promise<{ message: string }> {
     return this.request<{ message: string }>("/auth/disable-mfa", {
       method: "POST",
-      body: JSON.stringify({ mfaCode }),
     });
   }
 

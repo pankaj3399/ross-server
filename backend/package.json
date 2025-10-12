@@ -6,7 +6,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "seed": "ts-node src/scripts/seedAIMA.ts"
+    "seed": "ts-node src/scripts/seedAIMA.ts",
+    "migrate": "ts-node src/scripts/migrateDatabase.ts"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.2",
