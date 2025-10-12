@@ -29,7 +29,9 @@ export default function RootLayout({
             <div className="min-h-screen flex flex-col">
               <Header />
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                <Breadcrumb />
+                <div className="px-4 sm:px-0">
+                  <Breadcrumb />
+                </div>
               </div>
               <main className="flex-1">{children}</main>
               <Footer />

@@ -19,6 +19,7 @@ interface AuthContextType {
     organization?: string;
   }) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   mfaRequired: boolean;
   setMfaRequired: (required: boolean) => void;
@@ -31,17 +32,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [mfaRequired, setMfaRequired] = useState(false);
 
+  // Initialize auth on mount
   useEffect(() => {
     const initAuth = async () => {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const token = localStorage.getItem("auth_token");
-        if (token) {
-          const userData = await apiService.getCurrentUser();
-          setUser(userData);
-        }
+        const userData = await apiService.getCurrentUser();
+        setUser(userData);
       } catch (error) {
         console.error("Auth initialization failed:", error);
-        localStorage.removeItem("auth_token");
+        // Only remove token if it's an authentication error
+        if (error instanceof Error && error.message.includes("401")) {
+          localStorage.removeItem("auth_token");
+        }
       } finally {
         setLoading(false);
       }
@@ -56,27 +64,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     mfaCode?: string,
     backupCode?: string,
   ) => {
-    try {
-      const response = await apiService.login(
-        email,
-        password,
-        mfaCode,
-        backupCode,
-      );
+    const response = await apiService.login(
+      email,
+      password,
+      mfaCode,
+      backupCode,
+    );
 
-      // Check if MFA is required
-      if ("requiresMFA" in response && response.requiresMFA) {
-        setMfaRequired(true);
-        throw new Error("MFA_REQUIRED");
-      }
+    // Check if MFA is required
+    if ("requiresMFA" in response && response.requiresMFA) {
+      setMfaRequired(true);
+      throw new Error("MFA_REQUIRED");
+    }
 
-      // If we get here, it's a successful login
-      if ("user" in response) {
-        setUser(response.user);
-        setMfaRequired(false);
-      }
-    } catch (error) {
-      throw error;
+    // If we get here, it's a successful login
+    if ("user" in response) {
+      setUser(response.user);
+      setMfaRequired(false);
     }
   };
 
@@ -86,17 +90,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string;
     organization?: string;
   }) => {
-    try {
-      const response = await apiService.register(data);
-      setUser(response.user);
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiService.register(data);
+    setUser(response.user);
   };
 
   const logout = () => {
     apiService.logout();
     setUser(null);
+    setMfaRequired(false);
+  };
+
+  const refreshUser = async () => {
+    try {
+      const userData = await apiService.getCurrentUser();
+      setUser(userData);
+    } catch (error) {
+      console.error("Failed to refresh user data:", error);
+      // Don't logout on refresh failure, just log the error
+    }
   };
 
   const value = {
@@ -105,6 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
     mfaRequired,
     setMfaRequired,

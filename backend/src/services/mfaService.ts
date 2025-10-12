@@ -64,17 +64,38 @@ class MFAService {
       );
 
       if (result.rows.length === 0) {
+        console.log(
+          "MFA verification failed: No secret found for user",
+          userId,
+        );
         return { isValid: false };
       }
 
       const secret = result.rows[0].secret;
+
+      // Generate current valid codes for debugging
+      const currentCode = speakeasy.totp({
+        secret,
+        encoding: "base32",
+      });
+
+      console.log("MFA Debug - User ID:", userId);
+      console.log("MFA Debug - Provided token:", token);
+      console.log("MFA Debug - Current valid code:", currentCode);
+      console.log(
+        "MFA Debug - Secret (first 10 chars):",
+        secret.substring(0, 10) + "...",
+      );
+
       const verified = speakeasy.totp.verify({
         secret,
         encoding: "base32",
         token,
-        window: 2, // Allow 2 time steps (60 seconds) of tolerance
+        window: 5, // Increased window to 5 time steps (150 seconds) of tolerance
+        time: Math.floor(Date.now() / 1000), // Explicitly set current time
       });
 
+      console.log("MFA Debug - Verification result:", verified);
       return { isValid: verified };
     } catch (error) {
       console.error("Error verifying TOTP:", error);

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useTheme } from "../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -15,23 +14,14 @@ import {
   Key,
   Bell,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
 import { apiService } from "../../lib/api";
 
-interface UserSettings {
-  mfa_enabled: boolean;
-  email_verified: boolean;
-}
-
 export default function SettingsPage() {
-  const { user, isAuthenticated } = useAuth();
-  const { theme } = useTheme();
+  const { user, isAuthenticated, refreshUser } = useAuth();
   const router = useRouter();
-  const [settings, setSettings] = useState<UserSettings>({
-    mfa_enabled: false,
-    email_verified: false,
-  });
   const [loading, setLoading] = useState(true);
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(false);
@@ -41,30 +31,16 @@ export default function SettingsPage() {
       router.push("/auth");
       return;
     }
-    loadSettings();
+    setLoading(false);
   }, [isAuthenticated, router]);
 
-  const loadSettings = async () => {
-    try {
-      const userData = await apiService.getCurrentUser();
-      setSettings({
-        mfa_enabled: userData.mfa_enabled || false,
-        email_verified: userData.email_verified || false,
-      });
-    } catch (error) {
-      console.error("Failed to load settings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleMFAToggle = async () => {
-    if (settings.mfa_enabled) {
+    if (user?.mfa_enabled) {
       // Disable MFA
       try {
         setMfaLoading(true);
         await apiService.disableMFA();
-        setSettings((prev) => ({ ...prev, mfa_enabled: false }));
+        await refreshUser();
       } catch (error) {
         console.error("Failed to disable MFA:", error);
       } finally {
@@ -76,8 +52,8 @@ export default function SettingsPage() {
     }
   };
 
-  const handleMFASetupComplete = () => {
-    setSettings((prev) => ({ ...prev, mfa_enabled: true }));
+  const handleMFASetupComplete = async () => {
+    await refreshUser();
     setShowMFASetup(false);
   };
 
@@ -106,7 +82,6 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
-      {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <motion.div
@@ -124,6 +99,7 @@ export default function SettingsPage() {
             Manage your account settings and security preferences.
           </p>
         </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -157,6 +133,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </div>
+
               <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -166,8 +143,8 @@ export default function SettingsPage() {
                     {user?.email}
                   </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  {settings.email_verified ? (
+                <div className="flex items-center space-x-3">
+                  {user?.email_verified ? (
                     <div className="flex items-center space-x-1 text-green-600">
                       <CheckCircle className="w-4 h-4" />
                       <span className="text-sm font-medium">Verified</span>
@@ -178,6 +155,15 @@ export default function SettingsPage() {
                       <span className="text-sm font-medium">Unverified</span>
                     </div>
                   )}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={refreshUser}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    title="Refresh verification status"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </motion.button>
                 </div>
               </div>
             </div>
@@ -211,7 +197,7 @@ export default function SettingsPage() {
                       Two-Factor Authentication
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {settings.mfa_enabled
+                      {user?.mfa_enabled
                         ? "Add an extra layer of security to your account"
                         : "Protect your account with a second verification step"}
                     </p>
@@ -219,7 +205,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="flex items-center space-x-2">
-                    {settings.mfa_enabled ? (
+                    {user?.mfa_enabled ? (
                       <div className="flex items-center space-x-1 text-green-600">
                         <CheckCircle className="w-4 h-4" />
                         <span className="text-sm font-medium">Enabled</span>
@@ -237,14 +223,14 @@ export default function SettingsPage() {
                     onClick={handleMFAToggle}
                     disabled={mfaLoading}
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                      settings.mfa_enabled
+                      user?.mfa_enabled
                         ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
                         : "bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {mfaLoading
                       ? "Loading..."
-                      : settings.mfa_enabled
+                      : user?.mfa_enabled
                       ? "Disable"
                       : "Enable"}
                   </motion.button>

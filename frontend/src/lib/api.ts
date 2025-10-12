@@ -93,7 +93,9 @@ class ApiService {
       const error = await response
         .json()
         .catch(() => ({ error: "Network error" }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      const errorMessage = error.error || `HTTP ${response.status}`;
+      console.log(`API Error: ${response.status} - ${errorMessage}`);
+      throw new Error(errorMessage);
     }
 
     return response.json();
@@ -139,7 +141,8 @@ class ApiService {
   }
 
   async getCurrentUser(): Promise<User> {
-    return this.request<User>("/auth/me");
+    const response = await this.request<{ user: User }>("/auth/me");
+    return response.user;
   }
 
   logout(): void {

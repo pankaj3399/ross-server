@@ -15,7 +15,6 @@ import {
   Sparkles,
   CheckCircle,
 } from "lucide-react";
-import { ThemeSwitcher } from "../components/ThemeSwitcher";
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -73,13 +72,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* Header with Theme Switcher */}
-      <header className="absolute top-0 left-0 right-0 z-50 p-4">
-        <div className="max-w-7xl mx-auto flex justify-end">
-          <ThemeSwitcher />
-        </div>
-      </header>
-
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 px-4">
         <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-violet-50/50 to-blue-50/50 dark:from-purple-900/20 dark:via-violet-900/20 dark:to-blue-900/20"></div>

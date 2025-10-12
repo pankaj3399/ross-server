@@ -11,7 +11,6 @@ interface Question {
 interface Practice {
   title: string;
   description: string;
-  questions: Question[];
   levels: {
     [level: string]: {
       [stream: string]: string[];
@@ -29,6 +28,29 @@ interface Domain {
 interface AssessmentData {
   [key: string]: number;
 }
+
+// Helper function to get all questions from levels structure
+const getAllQuestions = (practice: any): Question[] => {
+  const questions: Question[] = [];
+  if (!practice?.levels) return questions;
+
+  Object.entries(practice.levels).forEach(([level, streams]: [string, any]) => {
+    Object.entries(streams).forEach(
+      ([stream, questionTexts]: [string, any]) => {
+        if (Array.isArray(questionTexts)) {
+          questionTexts.forEach((questionText: string, index: number) => {
+            questions.push({
+              level,
+              stream,
+              question: questionText,
+            });
+          });
+        }
+      },
+    );
+  });
+  return questions;
+};
 
 interface UseAssessmentNavigationProps {
   domains: any[]; // Use any for now to avoid type conflicts
@@ -144,8 +166,10 @@ export const useAssessmentNavigation = ({
     const practice = domain.practices[currentPracticeId];
     if (!practice) return null;
 
+    const allQuestions = getAllQuestions(practice);
     const nextQuestionIndex = currentQuestionIndex + 1;
-    if (nextQuestionIndex < practice.questions.length) {
+
+    if (nextQuestionIndex < allQuestions.length) {
       return {
         domainId: currentDomainId,
         practiceId: currentPracticeId,
@@ -206,10 +230,11 @@ export const useAssessmentNavigation = ({
     if (currentPracticeIndex > 0) {
       const prevPracticeId = practiceIds[currentPracticeIndex - 1];
       const prevPractice = domain.practices[prevPracticeId];
+      const prevQuestions = getAllQuestions(prevPractice);
       return {
         domainId: currentDomainId,
         practiceId: prevPracticeId,
-        questionIndex: prevPractice.questions.length - 1,
+        questionIndex: prevQuestions.length - 1,
       };
     }
 
@@ -222,10 +247,11 @@ export const useAssessmentNavigation = ({
       const prevPracticeIds = Object.keys(prevDomain.practices);
       const lastPracticeId = prevPracticeIds[prevPracticeIds.length - 1];
       const lastPractice = prevDomain.practices[lastPracticeId];
+      const lastQuestions = getAllQuestions(lastPractice);
       return {
         domainId: prevDomain.id,
         practiceId: lastPracticeId,
-        questionIndex: lastPractice.questions.length - 1,
+        questionIndex: lastQuestions.length - 1,
       };
     }
 

@@ -270,13 +270,22 @@ router.post("/login", async (req, res) => {
 
       let mfaValid = false;
       if (mfaCode) {
+        console.log("Login MFA Verification - User ID:", user.id);
+        console.log("Login MFA Verification - Code provided:", mfaCode);
         const mfaResult = await mfaService.verifyTOTP(user.id, mfaCode);
+        console.log("Login MFA Verification - Result:", mfaResult);
         mfaValid = mfaResult.isValid;
       } else if (backupCode) {
+        console.log("Login Backup Code Verification - User ID:", user.id);
+        console.log(
+          "Login Backup Code Verification - Code provided:",
+          backupCode,
+        );
         const backupResult = await mfaService.verifyBackupCode(
           user.id,
           backupCode,
         );
+        console.log("Login Backup Code Verification - Result:", backupResult);
         mfaValid = backupResult.isValid;
       }
 
@@ -436,8 +445,13 @@ router.post("/verify-mfa-setup", authenticateToken, async (req, res) => {
     const { mfaCode } = mfaSetupSchema.parse(req.body);
     const userId = req.user!.id;
 
+    console.log("MFA Setup Verification - User ID:", userId);
+    console.log("MFA Setup Verification - Code provided:", mfaCode);
+
     // Verify MFA code
     const mfaResult = await mfaService.verifyTOTP(userId, mfaCode);
+    console.log("MFA Setup Verification - Result:", mfaResult);
+
     if (!mfaResult.isValid) {
       return res.status(400).json({ error: "Invalid MFA code" });
     }

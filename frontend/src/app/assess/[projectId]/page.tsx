@@ -327,12 +327,14 @@ export default function AssessmentPage() {
     }
   };
 
-  const handleContinueAssessment = () => {
-    const firstUnanswered = getFirstUnansweredQuestion();
-    if (firstUnanswered) {
-      setCurrentDomainId(firstUnanswered.domainId);
-      setCurrentPracticeId(firstUnanswered.practiceId);
-      setCurrentQuestionIndex(firstUnanswered.questionIndex);
+  const handleStartAssessment = () => {
+    // Start with the first domain and first practice
+    const firstDomain = domains[0];
+    if (firstDomain) {
+      const firstPracticeId = Object.keys(firstDomain.practices)[0];
+      setCurrentDomainId(firstDomain.id);
+      setCurrentPracticeId(firstPracticeId);
+      setCurrentQuestionIndex(0);
     }
   };
 
@@ -360,7 +362,7 @@ export default function AssessmentPage() {
             Ready to measure your AI maturity? Let's get started.
           </p>
           <button
-            onClick={handleContinueAssessment}
+            onClick={handleStartAssessment}
             className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
           >
             Start Assessment
@@ -544,23 +546,14 @@ export default function AssessmentPage() {
                 Previous
               </button>
 
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={handleContinueAssessment}
-                  className="px-6 py-3 rounded-xl font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-200"
-                >
-                  Jump to Next Unanswered
-                </button>
-
-                <button
-                  onClick={handleNextQuestion}
-                  disabled={currentQuestionIndex === totalQuestions - 1}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
-                >
-                  Next
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                onClick={handleNextQuestion}
+                disabled={currentQuestionIndex === totalQuestions - 1}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+              >
+                Next
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
