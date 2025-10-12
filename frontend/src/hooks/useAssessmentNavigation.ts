@@ -72,11 +72,15 @@ export const useAssessmentNavigation = ({
 
         // Calculate total questions from levels structure
         let totalQuestions = 0;
-        Object.entries(practice.levels).forEach(([level, streams]) => {
-          Object.entries(streams).forEach(([stream, questions]) => {
-            totalQuestions += questions.length;
-          });
-        });
+        Object.entries((practice as Practice).levels).forEach(
+          ([level, streams]) => {
+            Object.entries(streams as Record<string, string[]>).forEach(
+              ([stream, questions]) => {
+                totalQuestions += questions.length;
+              },
+            );
+          },
+        );
 
         const questionsAnswered = practiceAnswers.length;
         const isCompleted = questionsAnswered === totalQuestions;
@@ -84,8 +88,8 @@ export const useAssessmentNavigation = ({
 
         practiceProgress.push({
           id: practiceId,
-          title: practice.title,
-          description: practice.description,
+          title: (practice as Practice).title,
+          description: (practice as Practice).description,
           questionsAnswered,
           totalQuestions,
           isCompleted,
@@ -114,19 +118,19 @@ export const useAssessmentNavigation = ({
 
   // Navigation functions
   const navigateToDomain = useCallback((domainId: string) => {
-    setExpandedDomains((prev) => new Set([...prev, domainId]));
+    setExpandedDomains((prev) => new Set([...Array.from(prev), domainId]));
   }, []);
 
   const navigateToPractice = useCallback(
     (domainId: string, practiceId: string) => {
-      setExpandedDomains((prev) => new Set([...prev, domainId]));
+      setExpandedDomains((prev) => new Set([...Array.from(prev), domainId]));
     },
     [],
   );
 
   const navigateToQuestion = useCallback(
     (domainId: string, practiceId: string, questionIndex: number) => {
-      setExpandedDomains((prev) => new Set([...prev, domainId]));
+      setExpandedDomains((prev) => new Set([...Array.from(prev), domainId]));
     },
     [],
   );
@@ -232,8 +236,12 @@ export const useAssessmentNavigation = ({
     for (const domain of domains) {
       for (const [practiceId, practice] of Object.entries(domain.practices)) {
         let questionIndex = 0;
-        for (const [level, streams] of Object.entries(practice.levels)) {
-          for (const [stream, questions] of Object.entries(streams)) {
+        for (const [level, streams] of Object.entries(
+          (practice as Practice).levels,
+        )) {
+          for (const [stream, questions] of Object.entries(
+            streams as Record<string, string[]>,
+          )) {
             for (let i = 0; i < questions.length; i++) {
               const key = `${domain.id}:${practiceId}:${level}:${stream}:${i}`;
               if (!(key in assessmentData)) {
