@@ -374,7 +374,7 @@ export default function AssessmentPage() {
 
   const currentQuestion = questions[currentQuestionIndex];
   const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${currentQuestionIndex}`;
-  const currentAnswer = answers[questionKey] || 0;
+  const currentAnswer = answers[questionKey];
   const currentNote = notes[questionKey] || "";
 
   const totalQuestions = questions.length;

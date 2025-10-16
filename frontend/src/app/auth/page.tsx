@@ -6,10 +6,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PasswordStrengthIndicator } from "../../components/PasswordStrengthIndicator";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const { login, register, mfaRequired, setMfaRequired } = useAuth();
   const router = useRouter();
@@ -17,6 +20,7 @@ export default function AuthPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
+    confirmPassword: "",
     name: "",
     organization: "",
     mfaCode: "",
@@ -37,6 +41,12 @@ export default function AuthPage() {
           formData.backupCode || undefined,
         );
       } else {
+        if (formData.password !== formData.confirmPassword) {
+          setError("Passwords do not match");
+          setLoading(false);
+          return;
+        }
+
         await register({
           email: formData.email,
           password: formData.password,
@@ -186,19 +196,53 @@ export default function AuthPage() {
               >
                 Password
               </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                />
+              <div className="relative">
+                <div className="mt-1 flex gap-2 justify-center items-center">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  />
+                  <button className="absolute right-4" onClick={(e) => {
+                    e.preventDefault()
+                    setShowPassword(prev => !prev)
+                  }
+                  }>{showPassword ? <EyeOff className="text-neutral-300" /> : <Eye className="text-neutral-300" />}</button>
+                </div>
               </div>
             </div>
+
+            {!isLogin && <div>
+              <label
+                htmlFor="Confirm Password"
+                className="block text-sm font-medium text-gray-300"
+              >
+                Confirm Password
+              </label>
+              <div className="relative">
+                <div className="mt-1 flex gap-2 justify-center items-center">
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  />
+                  <button className="absolute right-4" onClick={(e) => {
+                    e.preventDefault()
+                    setShowConfirmPassword(prev => !prev)
+                  }}>{showConfirmPassword ? <EyeOff className="text-neutral-300" /> : <Eye className="text-neutral-300" />}</button>
+                </div>
+              </div>
+            </div>}
 
             {/* Password Requirements - Only show during registration */}
             {!isLogin && (
@@ -303,8 +347,8 @@ export default function AuthPage() {
                 {loading
                   ? "Please wait..."
                   : isLogin
-                  ? "Sign in"
-                  : "Create account"}
+                    ? "Sign in"
+                    : "Create account"}
               </button>
             </div>
           </form>
