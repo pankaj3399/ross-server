@@ -282,70 +282,6 @@ export default function DashboardPage() {
                         </button>
                       </div>
 
-                      {/* {editingProject && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center">
-                          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md z-10"
-                          >
-                            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-                              Edit Project
-                            </h3>
-                            <form onSubmit={handleEditSubmit} className="space-y-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                  Project Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editProjectData.name}
-                                  onChange={(e) =>
-                                    setEditProjectData({ ...editProjectData, name: e.target.value })
-                                  }
-                                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Enter project name"
-                                  required
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                  Description
-                                </label>
-                                <textarea
-                                  value={editProjectData.description}
-                                  onChange={(e) =>
-                                    setEditProjectData({ ...editProjectData, description: e.target.value })
-                                  }
-                                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                  placeholder="Describe your AI system"
-                                  rows={3}
-                                />
-                              </div>
-                              <div className="flex space-x-3 pt-4">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingProject(null)}
-                                  className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-xl transition-all duration-300"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  className={`px-6 py-3 ${isLoading ? "opacity-70" : ""} bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105`}
-                                >
-                                  {isLoading ? "Loading..." : "Save Changes"}
-                                </button>
-                              </div>
-                            </form>
-                          </motion.div>
-                        </div>
-                      )} */}
-
-
                     </div>
                     <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
                       {project.description || "No description provided"}
@@ -358,7 +294,7 @@ export default function DashboardPage() {
                         href={`/assess/${project.id}`}
                         className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors text-sm font-medium"
                       >
-                        Start Assessment
+                        {project.status === 'in_progress' ? 'Continue Assessment': project.status === 'completed' ? 'Completed' : 'Start Assessment'}
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>

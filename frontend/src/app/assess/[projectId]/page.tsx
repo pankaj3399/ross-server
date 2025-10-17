@@ -13,12 +13,9 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Save,
-  CheckCircle,
-  Clock,
-  Target,
-  Brain,
   ArrowRight,
   ArrowLeft as ArrowLeftIcon,
+  Info,
 } from "lucide-react";
 import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigation";
 import { SecureTextarea } from "../../../components/SecureTextarea";
@@ -132,29 +129,23 @@ export default function AssessmentPage() {
 
         // Load existing answers
         const answersData = await apiService.getAnswers(projectId);
+        console.log("answersData", answersData);
+
+        // Make a map from the answers object
         const answersMap: Record<string, number> = {};
-        const assessmentData: AssessmentData = {};
 
-        answersData.forEach((answer: any) => {
-          const key = `${answer.domain_id}:${answer.practice_id}:${answer.level}:${answer.stream}:${answer.question_index}`;
-          answersMap[key] = answer.value;
-
-          // Also populate the structured format for navigation
-          if (!assessmentData[answer.domain_id]) {
-            assessmentData[answer.domain_id] = {};
-          }
-          if (!assessmentData[answer.domain_id][answer.practice_id]) {
-            assessmentData[answer.domain_id][answer.practice_id] = {};
-          }
-          assessmentData[answer.domain_id][answer.practice_id][key] =
-            answer.value;
-        });
+        if (answersData && answersData.answers) {
+          Object.entries(answersData.answers).forEach(([key, value]) => {
+            answersMap[key] = value as number;
+          });
+        }
 
         setAnswers(answersMap);
 
         // Load existing notes
         try {
           const notesData = await apiService.getQuestionNotes(projectId);
+          console.log('notesData', notesData);
           const notesMap: Record<string, string> = {};
           notesData.forEach((note: any) => {
             const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
@@ -251,8 +242,10 @@ export default function AssessmentPage() {
           value,
         },
       ]);
+
+      await apiService.updateProject(projectId, { status: "in_progress" });
     } catch (error) {
-      console.error("Failed to save answer:", error);
+      console.error("Failed to save answer:", JSON.stringify(error));
     } finally {
       setSaving(false);
     }
@@ -412,9 +405,6 @@ export default function AssessmentPage() {
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {practice.title}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {currentDomainId} • {currentPracticeId}
-                </p>
               </div>
             </div>
             {saving && (
@@ -456,14 +446,32 @@ export default function AssessmentPage() {
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
             >
               <div className="mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600 to-violet-600 text-white">
-                    Level {currentQuestion.level}
-                  </span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                    Stream {currentQuestion.stream}
-                  </span>
+                <div className="flex items-center gap-5 mb-4">
+                  <div className="flex items-center gap-1">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      Level {currentQuestion.level}
+                    </span>
+                    <div className="relative group">
+                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                        Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      Stream {currentQuestion.stream}
+                    </span>
+                    <div className="relative group">
+                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                        Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
                   {currentQuestion.question}
                 </h2>
@@ -489,11 +497,10 @@ export default function AssessmentPage() {
                 ].map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                      currentAnswer === option.value
-                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                        : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
+                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
+                      : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
                   >
                     <input
                       type="radio"

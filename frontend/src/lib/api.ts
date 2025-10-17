@@ -176,6 +176,7 @@ class ApiService {
       name?: string;
       description?: string;
       aiSystemType?: string;
+      status?: string;
     },
   ): Promise<{ project: Project }> {
     return this.request<{ project: Project }>(`/projects/${id}`, {
@@ -242,30 +243,13 @@ class ApiService {
     });
   }
 
-  async getAnswers(projectId: string): Promise<
-    Array<{
-      domain_id: string;
-      practice_id: string;
-      level: string;
-      stream: string;
-      question_index: number;
-      value: number;
-      created_at: string;
-      updated_at: string;
-    }>
-  > {
-    return this.request<
-      Array<{
-        domain_id: string;
-        practice_id: string;
-        level: string;
-        stream: string;
-        question_index: number;
-        value: number;
-        created_at: string;
-        updated_at: string;
-      }>
-    >(`/answers/${projectId}`);
+  async getAnswers(projectId: string): Promise<{
+    projectId: string;
+    answers: Record<string, number>;
+  }> {
+    return this.request<{ projectId: string; answers: Record<string, number> }>(
+      `/answers/${projectId}`
+    );
   }
 
   // Subscriptions

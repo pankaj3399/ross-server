@@ -84,7 +84,6 @@ router.put("/:projectId", authenticateToken, async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
-
     res.json({ project: result.rows[0] });
   } catch (error) {
     console.error("Error updating project:", error);
