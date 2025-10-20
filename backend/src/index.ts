@@ -9,6 +9,7 @@ import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
 import { initializeDatabase, seedAIMAData } from "./utils/database";
+import { seedAdmin } from "./scripts/seedAdmin";
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ const initialize = async () => {
   try {
     await initializeDatabase();
     await seedAIMAData();
+    await seedAdmin();
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);

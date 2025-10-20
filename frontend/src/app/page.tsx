@@ -120,7 +120,7 @@ export default function Home() {
               className="space-y-6"
             >
               <Link
-                href="/auth"
+                href="/auth?isLogin=false"
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 pulse-glow"
               >
                 Get Started

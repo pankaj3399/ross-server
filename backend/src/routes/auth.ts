@@ -84,14 +84,14 @@ router.post("/register", async (req, res) => {
       user.id,
     );
 
-    // Send verification email
-    const emailSent = await emailService.sendEmailVerification(
-      email,
-      verificationToken,
-    );
-    if (!emailSent) {
-      console.error("Failed to send verification email for user:", user.id);
-    }
+    // // Send verification email
+    // const emailSent = await emailService.sendEmailVerification(
+    //   email,
+    //   verificationToken,
+    // );
+    // if (!emailSent) {
+    //   console.error("Failed to send verification email for user:", user.id);
+    // }
 
     // Generate JWT token (but user needs to verify email)
     const token = jwt.sign(
@@ -110,9 +110,10 @@ router.post("/register", async (req, res) => {
         email_verified: user.email_verified,
       },
       token,
+      verificationToken,
       message:
         "Registration successful. Please check your email to verify your account.",
-      emailSent,
+      // emailSent,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -121,7 +122,7 @@ router.post("/register", async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "Registration failed" });
+    res.status(400).json({ error: "Registration failed", err: error });
   }
 });
 
@@ -129,6 +130,7 @@ router.post("/register", async (req, res) => {
 router.post("/verify-email", async (req, res) => {
   try {
     const { token } = req.body;
+    console.log("Backend - token received:", token);
     if (!token) {
       return res.status(400).json({ error: "Verification token is required" });
     }

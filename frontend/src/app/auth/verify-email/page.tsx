@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { API_BASE_URL } from "@/lib/api";
+
 
 export default function VerifyEmailPage() {
   const router = useRouter();
@@ -15,51 +17,31 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const verifyEmail = async () => {
-      const token = searchParams.get("token");
-
-      if (!token) {
-        setStatus("error");
-        setMessage(
-          "Invalid verification link. Please check your email and try again.",
-        );
-        return;
-      }
-
+    const verifyEmail = async (token: string) => {
       try {
-        const response = await fetch("/api/auth/verify-email", {
+        const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
         });
-
         const data = await response.json();
 
         if (response.ok) {
           setStatus("success");
-          setMessage(
-            "Your email has been successfully verified! You can now sign in to your account.",
-          );
+          setMessage("Your email has been successfully verified!");
         } else {
           setStatus("error");
-          setMessage(
-            data.error ||
-              "Email verification failed. The link may be expired or invalid.",
-          );
+          setMessage(data.error || "Invalid or expired verification token.");
         }
       } catch (error) {
-        console.error("Verification error:", error);
         setStatus("error");
-        setMessage(
-          "An error occurred during verification. Please try again later.",
-        );
+        setMessage("An error occurred during verification.");
       }
     };
 
-    verifyEmail();
-  }, [searchParams]);
+    const token = searchParams.get("token");
+    if (token) verifyEmail(token);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
@@ -130,7 +112,7 @@ export default function VerifyEmailPage() {
             <div className="mt-8 space-y-4">
               {status === "success" && (
                 <Link
-                  href="/auth"
+                  href="/auth?isLogin=true"
                   className="w-full flex justify-center py-3 px-4 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 pulse-glow"
                 >
                   Sign In to Your Account

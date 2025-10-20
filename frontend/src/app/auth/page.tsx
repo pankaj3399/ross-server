@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PasswordStrengthIndicator } from "../../components/PasswordStrengthIndicator";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(false);
+  const isLogin = useSearchParams().get("isLogin") === "true";
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,6 +40,7 @@ export default function AuthPage() {
           formData.mfaCode || undefined,
           formData.backupCode || undefined,
         );
+        router.push("/dashboard")
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError("Passwords do not match");
@@ -47,20 +48,29 @@ export default function AuthPage() {
           return;
         }
 
-        await register({
+        const data = await register({
           email: formData.email,
           password: formData.password,
           name: formData.name,
           organization: formData.organization,
         });
+
+        console.log("Frontend - register response:", data);
+
+        const verificationToken = data?.verificationToken;
+
+        if (verificationToken) {
+          router.push(`/auth/verify-email?token=${verificationToken}`);
+        } else {
+          console.warn("No verification token found in response.");
+        }
       }
-      router.push("/dashboard");
     } catch (err: any) {
       if (err.message === "MFA_REQUIRED") {
         setMfaRequired(true);
         setError("");
       } else {
-        setError(err.message || "An error occurred");
+        setError(`error: ${err.message}` || "An error occurred");
       }
     } finally {
       setLoading(false);
@@ -97,7 +107,7 @@ export default function AuthPage() {
             <>
               Or{" "}
               <button
-                onClick={() => setIsLogin(false)}
+                onClick={() => router.push("/auth?isLogin=false")}
                 className="font-medium text-indigo-600 hover:text-indigo-500"
               >
                 create a new account
@@ -107,7 +117,7 @@ export default function AuthPage() {
             <>
               Or{" "}
               <button
-                onClick={() => setIsLogin(true)}
+                onClick={() => router.push("/auth?isLogin=true")}
                 className="font-medium text-indigo-600 hover:text-indigo-500"
               >
                 sign in to existing account

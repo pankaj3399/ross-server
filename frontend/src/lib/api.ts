@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export interface User {
   id: string;
@@ -14,6 +14,7 @@ export interface User {
 export interface AuthResponse {
   user: User;
   token: string;
+  verificationToken: string;
 }
 
 export interface Project {
@@ -117,6 +118,7 @@ class ApiService {
       localStorage.setItem("auth_token", response.token);
     }
 
+    console.log("API Service - register response:", response);
     return response;
   }
 
@@ -285,13 +287,13 @@ class ApiService {
     );
   }
 
-  // Email Verification
-  async verifyEmail(token: string): Promise<AuthResponse> {
-    return this.request<AuthResponse>("/auth/verify-email", {
-      method: "POST",
-      body: JSON.stringify({ token }),
-    });
-  }
+  // // Email Verification
+  // async verifyEmail(token: string): Promise<AuthResponse> {
+  //   return this.request<AuthResponse>("/auth/verify-email", {
+  //     method: "POST",
+  //     body: JSON.stringify({ token }),
+  //   });
+  // }
 
   async resendVerification(): Promise<{ message: string; emailSent: boolean }> {
     return this.request<{ message: string; emailSent: boolean }>(

@@ -125,6 +125,23 @@ CREATE TABLE IF NOT EXISTS temp_mfa_codes (
   UNIQUE(user_id)
 );
 
+-- Versions table
+CREATE TABLE IF NOT EXISTS versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  version_number VARCHAR(10) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add version_id column to AIMA tables
+ALTER TABLE aima_domains
+ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
+
+ALTER TABLE aima_practices
+ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
+
+ALTER TABLE aima_questions
+ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_assessment_answers_project_id ON assessment_answers(project_id);
 CREATE INDEX IF NOT EXISTS idx_assessment_answers_domain_practice ON assessment_answers(domain_id, practice_id);
