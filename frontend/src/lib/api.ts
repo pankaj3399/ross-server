@@ -194,27 +194,32 @@ class ApiService {
   }
 
   // AIMA Framework
-  async getDomains(): Promise<{ domains: Domain[] }> {
-    return this.request<{ domains: Domain[] }>("/aima/domains");
+  async getDomains(projectId?: string): Promise<{ domains: Domain[] }> {
+    const url = projectId ? `/aima/domains?project_id=${projectId}` : "/aima/domains";
+    return this.request<{ domains: Domain[] }>(url);
   }
 
-  async getDomain(domainId: string): Promise<{
+  async getDomain(domainId: string, projectId?: string): Promise<{
     id: string;
     title: string;
     description: string;
     practices: Record<string, Practice>;
   }> {
+    const url = projectId 
+      ? `/aima/domains/${domainId}?project_id=${projectId}` 
+      : `/aima/domains/${domainId}`;
     return this.request<{
       id: string;
       title: string;
       description: string;
       practices: Record<string, Practice>;
-    }>(`/aima/domains/${domainId}`);
+    }>(url);
   }
 
   async getPracticeQuestions(
     domainId: string,
     practiceId: string,
+    projectId?: string,
   ): Promise<{
     domainId: string;
     practiceId: string;
@@ -222,13 +227,16 @@ class ApiService {
     description: string;
     levels: Record<string, Record<string, string[]>>;
   }> {
+    const url = projectId 
+      ? `/aima/domains/${domainId}/practices/${practiceId}?project_id=${projectId}` 
+      : `/aima/domains/${domainId}/practices/${practiceId}`;
     return this.request<{
       domainId: string;
       practiceId: string;
       title: string;
       description: string;
       levels: Record<string, Record<string, string[]>>;
-    }>(`/aima/domains/${domainId}/practices/${practiceId}`);
+    }>(url);
   }
 
   // Assessment Answers
