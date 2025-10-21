@@ -25,7 +25,14 @@ async function getNextVersion() {
       }
     }
 
-    return nextVersion;
+    // Create new version
+    const versionResult = await pool.query(
+      "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
+      [nextVersion]
+    );
+    const versionId = versionResult.rows[0].id;
+
+    return { nextVersion, versionId };
   } catch (error) {
     console.error("Error fetching next version:", error);
     throw error;

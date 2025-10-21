@@ -784,6 +784,7 @@ async function seedAIMAData() {
       [versionNumber]
     );
     const versionId = versionResult.rows[0].id;
+    console.log(`Inserted version: ${versionResult.rows}`);
 
     // Clear existing data
     await pool.query("DELETE FROM aima_questions");

@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS versions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add version_id column to AIMA tables
+-- Add version_id column to AIMA tables and projects table
 ALTER TABLE aima_domains
 ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
 
@@ -140,6 +140,9 @@ ALTER TABLE aima_practices
 ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
 
 ALTER TABLE aima_questions
+ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
+
+ALTER TABLE projects
 ADD COLUMN IF NOT EXISTS version_id UUID REFERENCES versions(id);
 
 -- Indexes for performance
