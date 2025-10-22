@@ -36,8 +36,6 @@ app.use("/notes", notesRouter);
 const initialize = async () => {
   try {
     await initializeDatabase();
-    await seedAIMAData();
-    await seedAdmin();
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
