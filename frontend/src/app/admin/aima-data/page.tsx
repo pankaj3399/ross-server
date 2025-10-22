@@ -2,6 +2,9 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { useEffect, useState } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useTheme } from "../../../contexts/ThemeContext";
+import { useRouter } from "next/navigation";
 
 interface Question {
   id: string;
@@ -42,11 +45,30 @@ interface AIMAResponse {
 }
 
 export default function AdminQuestions() {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { theme } = useTheme();
+  const router = useRouter();
+  
   const [aimaData, setAimaData] = useState<AIMAResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDomains, setExpandedDomains] = useState<Set<string>>(new Set());
   const [expandedPractices, setExpandedPractices] = useState<Set<string>>(new Set());
+  
+  // Check authentication and admin role
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!isAuthenticated) {
+      router.push("/auth");
+      return;
+    }
+    
+    if (user?.role !== "ADMIN") {
+      router.push("/dashboard");
+      return;
+    }
+  }, [isAuthenticated, user, authLoading, router]);
   
   // Modal states
   const [showDomainModal, setShowDomainModal] = useState(false);
@@ -112,9 +134,13 @@ export default function AdminQuestions() {
 
   const submitDomain = async () => {
     try {
+      const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-domain`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify(domainForm),
       });
       
@@ -132,9 +158,13 @@ export default function AdminQuestions() {
 
   const submitPractice = async () => {
     try {
+      const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-practice`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify({ ...practiceForm, domain_id: selectedDomainId }),
       });
       
@@ -152,9 +182,13 @@ export default function AdminQuestions() {
 
   const submitQuestion = async () => {
     try {
+      const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-question`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json" 
+        },
         body: JSON.stringify({ ...questionForm, practice_id: selectedPracticeId }),
       });
       
@@ -170,10 +204,21 @@ export default function AdminQuestions() {
     }
   };
 
+  // Fetch AIMA data only if user is authenticated and is admin
   useEffect(() => {
+    // Don't fetch if still loading auth or not authenticated or not admin
+    if (authLoading || !isAuthenticated || user?.role !== "ADMIN") {
+      return;
+    }
     async function fetchAIMAData() {
       try {
-        const response = await fetch(`${API_BASE_URL}/admin/aima-data`);
+        const token = localStorage.getItem("auth_token");
+        const response = await fetch(`${API_BASE_URL}/admin/aima-data`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -195,14 +240,48 @@ export default function AdminQuestions() {
     }
     
     fetchAIMAData();
-  }, []);
+  }, [authLoading, isAuthenticated, user?.role]);
+
+  // Handle redirects
+  useEffect(() => {
+    if (authLoading) return; // Still loading auth state
+    
+    if (!isAuthenticated) {
+      router.push("/auth");
+      return;
+    }
+    
+    if (user?.role !== "ADMIN") {
+      router.push("/dashboard");
+      return;
+    }
+  }, [isAuthenticated, user, authLoading, router]);
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            Loading...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated or not admin (redirects will handle this)
+  if (!isAuthenticated || user?.role !== "ADMIN") {
+    return null;
+  }
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2">Loading AIMA data...</span>
+          <span className="ml-2 text-gray-700 dark:text-gray-300">Loading AIMA data...</span>
         </div>
       </div>
     );
@@ -210,8 +289,8 @@ export default function AdminQuestions() {
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
           <strong>Error:</strong> {error}
         </div>
       </div>
@@ -220,8 +299,8 @@ export default function AdminQuestions() {
 
   if (!aimaData) {
     return (
-      <div className="p-6">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded">
           No data available
         </div>
       </div>
@@ -229,10 +308,10 @@ export default function AdminQuestions() {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-gray-900">AIMA Question Hierarchy</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">AIMA Question Hierarchy</h1>
           <button
             onClick={handleAddDomain}
             className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -264,10 +343,10 @@ export default function AdminQuestions() {
 
       <div className="space-y-4">
         {aimaData.data.domains.map((domain) => (
-          <div key={domain.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div key={domain.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm dark:shadow-gray-900/20">
             {/* Domain Header - Always Visible */}
             <div 
-              className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+              className="p-6 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               onClick={() => toggleDomain(domain.id)}
             >
               <div className="flex items-center justify-between">
@@ -275,22 +354,22 @@ export default function AdminQuestions() {
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
                       {expandedDomains.has(domain.id) ? (
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       )}
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-900">{domain.title}</h2>
-                      <p className="text-gray-600 text-sm mt-1">{domain.description}</p>
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{domain.title}</h2>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{domain.description}</p>
                     </div>
                   </div>
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {domain.practices.length} practices
                 </div>
               </div>
@@ -298,10 +377,10 @@ export default function AdminQuestions() {
 
             {/* Practices - Collapsible */}
             {expandedDomains.has(domain.id) && (
-              <div className="border-t border-gray-200">
+              <div className="border-t border-gray-200 dark:border-gray-700">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-800">Practices</h3>
+                    <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">Practices</h3>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -317,31 +396,31 @@ export default function AdminQuestions() {
                   </div>
                   <div className="space-y-4">
                     {domain.practices.map((practice) => (
-                      <div key={practice.id} className="border border-gray-200 rounded-lg">
+                      <div key={practice.id} className="border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
                       {/* Practice Header */}
                       <div 
-                        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        className="p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                         onClick={() => togglePractice(practice.id)}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className="flex-shrink-0">
                               {expandedPractices.has(practice.id) ? (
-                                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
                               ) : (
-                                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                               )}
                             </div>
                             <div>
-                              <h3 className="text-lg font-medium text-gray-800">{practice.title}</h3>
-                              <p className="text-gray-600 text-sm mt-1">{practice.description}</p>
+                              <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">{practice.title}</h3>
+                              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{practice.description}</p>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
                             {practice.questions.length} questions
                           </div>
                         </div>
@@ -349,9 +428,9 @@ export default function AdminQuestions() {
 
                       {/* Questions - Collapsible */}
                       {expandedPractices.has(practice.id) && (
-                        <div className="border-t border-gray-200 p-4 bg-gray-50">
+                        <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-600">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-medium text-gray-700">Questions</h4>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Questions</h4>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -367,21 +446,21 @@ export default function AdminQuestions() {
                           </div>
                           <div className="space-y-3">
                             {practice.questions.map((question) => (
-                              <div key={question.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                              <div key={question.id} className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
                                 <div className="flex items-start justify-between mb-2">
                                   <div className="flex items-center space-x-2">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
                                       Level {question.level}
                                     </span>
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
                                       Stream {question.stream}
                                     </span>
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
                                       Q{question.question_index + 1}
                                     </span>
                                   </div>
                                 </div>
-                                <p className="text-gray-800 leading-relaxed">{question.question_text}</p>
+                                <p className="text-gray-800 dark:text-gray-300 leading-relaxed">{question.question_text}</p>
                               </div>
                             ))}
                           </div>
@@ -400,14 +479,14 @@ export default function AdminQuestions() {
           {/* Domain/Practice Modal */}
           {(showDomainModal || showPracticeModal) && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-              <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                     {showDomainModal ? "Add New Domain" : "Add New Practice"}
                   </h2>
                   <button
                     onClick={closeModals}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -417,7 +496,7 @@ export default function AdminQuestions() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
                     <input
                       type="text"
                       value={showDomainModal ? domainForm.title : practiceForm.title}
@@ -428,7 +507,7 @@ export default function AdminQuestions() {
                           setPracticeForm({ ...practiceForm, title: e.target.value });
                         }
                       }}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                         showDomainModal ? "focus:ring-blue-500" : "focus:ring-green-500"
                       }`}
                       placeholder={showDomainModal ? "Domain title" : "Practice title"}
@@ -436,7 +515,7 @@ export default function AdminQuestions() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                     <textarea
                       value={showDomainModal ? domainForm.description : practiceForm.description}
                       onChange={(e) => {
@@ -446,7 +525,7 @@ export default function AdminQuestions() {
                           setPracticeForm({ ...practiceForm, description: e.target.value });
                         }
                       }}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 ${
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                         showDomainModal ? "focus:ring-blue-500" : "focus:ring-green-500"
                       }`}
                       rows={3}

@@ -2,6 +2,7 @@ import { Router } from "express";
 import pool from "../config/database";
 import { getNextVersion } from "../services/getNextVersion";
 import { z } from "zod";
+import { authenticateToken, requireRole } from "../middleware/auth";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ const addQuestionSchema = z.object({
 });
 
 // Get all AIMA data (domains, practices, questions) in hierarchical structure
-router.get("/aima-data", async (req, res) => {
+router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
     // Get all domains
     const domainsResult = await pool.query(`
@@ -131,7 +132,7 @@ router.post("/reset-aima-data", async (req, res) => {
 });
 
 // Add new domain
-router.post("/add-domain", async (req, res) => {
+router.post("/add-domain", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
     const { title, description } = addDomainSchema.parse(req.body);
 
@@ -175,7 +176,7 @@ router.post("/add-domain", async (req, res) => {
 });
 
 // Add new practice
-router.post("/add-practice", async (req, res) => {
+router.post("/add-practice", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
     const { domain_id, title, description } = addPracticeSchema.parse(req.body);
 
@@ -232,7 +233,7 @@ router.post("/add-practice", async (req, res) => {
 });
 
 // Add new question
-router.post("/add-question", async (req, res) => {
+router.post("/add-question", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
     const { practice_id, level, stream, question_text } = addQuestionSchema.parse(req.body);
 
