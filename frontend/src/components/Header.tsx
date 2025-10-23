@@ -186,13 +186,13 @@ export function Header() {
             ) : (
               <div className="flex items-center space-x-3">
                 <Link
-                  href="/auth"
+                  href="/auth?isLogin=true"
                   className="text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 >
                   Sign in
                 </Link>
                 <Link
-                  href="/auth"
+                  href="/auth?isLogin=false"
                   className="group relative bg-gradient-to-r from-purple-600 via-purple-700 to-violet-600 hover:from-purple-700 hover:via-purple-800 hover:to-violet-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25 overflow-hidden"
                 >
                   <span className="relative z-10">Get Started</span>

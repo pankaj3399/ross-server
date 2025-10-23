@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { apiService, User } from "../lib/api";
+import { apiService, AuthResponse, User } from "../lib/api";
 
 interface AuthContextType {
   user: User | null;
@@ -17,7 +17,7 @@ interface AuthContextType {
     password: string;
     name: string;
     organization?: string;
-  }) => Promise<void>;
+  }) => Promise<AuthResponse>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -92,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const response = await apiService.register(data);
     setUser(response.user);
+    return response
   };
 
   const logout = () => {

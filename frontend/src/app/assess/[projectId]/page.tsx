@@ -77,12 +77,12 @@ export default function AssessmentPage() {
     const fetchData = async () => {
       try {
         // Fetch domains
-        const domainsData = await apiService.getDomains();
+        const domainsData = await apiService.getDomains(projectId);
 
         // Transform API data to match our interface
         const transformedDomains = await Promise.all(
           domainsData.domains.map(async (domain) => {
-            const domainDetails = await apiService.getDomain(domain.id);
+            const domainDetails = await apiService.getDomain(domain.id, projectId);
 
             // Transform practices to include levels structure
             const practicesWithLevels: { [key: string]: PracticeWithLevels } =
@@ -94,6 +94,7 @@ export default function AssessmentPage() {
                 const practiceQuestions = await apiService.getPracticeQuestions(
                   domain.id,
                   practiceId,
+                  projectId,
                 );
                 practicesWithLevels[practiceId] = {
                   ...practice,
@@ -118,13 +119,17 @@ export default function AssessmentPage() {
         );
 
         setDomains(transformedDomains);
+        console.log("Loaded domains:", transformedDomains.length);
 
         // Set initial domain and practice
         if (transformedDomains.length > 0) {
           const firstDomain = transformedDomains[0];
           const firstPracticeId = Object.keys(firstDomain.practices)[0];
+          console.log("Setting initial domain:", firstDomain.id, "practice:", firstPracticeId);
           setCurrentDomainId(firstDomain.id);
           setCurrentPracticeId(firstPracticeId);
+        } else {
+          console.log("No domains found for project:", projectId);
         }
 
         // Load existing answers
@@ -171,10 +176,14 @@ export default function AssessmentPage() {
 
     const fetchPractice = async () => {
       try {
+        console.log("Fetching practice for domain:", currentDomainId, "practice:", currentPracticeId);
         const data = await apiService.getPracticeQuestions(
           currentDomainId,
           currentPracticeId,
+          projectId,
         );
+        console.log("Practice data received:", data);
+        
         setPractice({
           title: data.title,
           description: data.description,
@@ -197,6 +206,7 @@ export default function AssessmentPage() {
           );
         });
 
+        console.log("Flattened questions:", questionsList.length);
         setQuestions(questionsList);
         setCurrentQuestionIndex(0);
       } catch (error) {
@@ -205,7 +215,7 @@ export default function AssessmentPage() {
     };
 
     fetchPractice();
-  }, [currentDomainId, currentPracticeId]);
+  }, [currentDomainId, currentPracticeId, projectId]);
 
   // Use assessment navigation hook
   const {
@@ -345,6 +355,7 @@ export default function AssessmentPage() {
   }
 
   if (!practice || questions.length === 0) {
+    console.log("Showing assessment overview - practice:", !!practice, "questions:", questions.length, "domains:", domains.length);
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

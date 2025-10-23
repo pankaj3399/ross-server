@@ -40,8 +40,8 @@ class TokenService {
   ): Promise<{ userId: string; valid: boolean }> {
     try {
       const result = await pool.query(
-        `SELECT user_id FROM email_verification_tokens 
-         WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP AND used = FALSE`,
+        `SELECT user_id, used FROM email_verification_tokens
+         WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP`,
         [token],
       );
 
@@ -49,18 +49,24 @@ class TokenService {
         return { userId: "", valid: false };
       }
 
-      const userId = result.rows[0].user_id;
+      const { user_id: userId, used } = result.rows[0];
 
-      // Mark token as used
-      await pool.query(
-        "UPDATE email_verification_tokens SET used = TRUE WHERE token = $1",
-        [token],
-      );
+      if (!used) {
+        await pool.query(
+          "UPDATE email_verification_tokens SET used = TRUE WHERE token = $1",
+          [token],
+        );
 
-      // Mark user email as verified
-      await pool.query("UPDATE users SET email_verified = TRUE WHERE id = $1", [
-        userId,
-      ]);
+        await pool.query(
+          "UPDATE users SET email_verified = TRUE WHERE id = $1",
+          [userId],
+        );
+      } else {
+        await pool.query(
+          "UPDATE users SET email_verified = TRUE WHERE id = $1",
+          [userId],
+        );
+      }
 
       return { userId, valid: true };
     } catch (error) {
@@ -68,6 +74,7 @@ class TokenService {
       return { userId: "", valid: false };
     }
   }
+
 
   /**
    * Create password reset token

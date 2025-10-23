@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
+import { getCurrentVersion } from "../services/getCurrentVersion";
 
 const router = Router();
 
@@ -33,12 +34,21 @@ router.post("/", authenticateToken, async (req, res) => {
       req.body,
     );
 
+    // Get current AIMA version
+    const currentVersion = await getCurrentVersion();
+
     const result = await pool.query(
-      "INSERT INTO projects (user_id, name, description, ai_system_type) VALUES ($1, $2, $3, $4) RETURNING *",
-      [req.user!.id, name, description || null, aiSystemType || null],
+      "INSERT INTO projects (user_id, name, description, ai_system_type, version_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [req.user!.id, name, description || null, aiSystemType || null, currentVersion.id],
     );
 
-    res.status(201).json({ project: result.rows[0] });
+    res.status(201).json({ 
+      project: result.rows[0],
+      version: {
+        id: currentVersion.id,
+        version_number: currentVersion.version_number
+      }
+    });
   } catch (error) {
     console.error("Error creating project:", error);
     res.status(500).json({ error: "Failed to create project" });

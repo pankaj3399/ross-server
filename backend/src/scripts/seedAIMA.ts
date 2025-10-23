@@ -777,6 +777,15 @@ async function seedAIMAData() {
   try {
     console.log("Starting AIMA data seeding...");
 
+    // STEP 1️⃣: Create a new version
+    const versionNumber = "1.0"; // or generate dynamically (e.g. from args/env)
+    const versionResult = await pool.query(
+      "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
+      [versionNumber]
+    );
+    const versionId = versionResult.rows[0].id;
+    console.log(`Inserted version: ${versionResult.rows}`);
+
     // Clear existing data
     await pool.query("DELETE FROM aima_questions");
     await pool.query("DELETE FROM aima_practices");
@@ -785,16 +794,16 @@ async function seedAIMAData() {
     // Insert domains
     for (const [domainId, domain] of Object.entries(aimaData.domains)) {
       await pool.query(
-        "INSERT INTO aima_domains (id, title, description) VALUES ($1, $2, $3)",
-        [domainId, domain.title, domain.description]
+        "INSERT INTO aima_domains (id, title, description, version_id) VALUES ($1, $2, $3, $4)",
+        [domainId, domain.title, domain.description, versionId]
       );
       console.log(`Inserted domain: ${domain.title}`);
 
       // Insert practices
       for (const [practiceId, practice] of Object.entries(domain.practices)) {
         await pool.query(
-          "INSERT INTO aima_practices (id, domain_id, title, description) VALUES ($1, $2, $3, $4)",
-          [practiceId, domainId, practice.title, practice.description]
+          "INSERT INTO aima_practices (id, domain_id, title, description, version_id) VALUES ($1, $2, $3, $4, $5)",
+          [practiceId, domainId, practice.title, practice.description, versionId]
         );
         console.log(`  Inserted practice: ${practice.title}`);
 
@@ -803,13 +812,13 @@ async function seedAIMAData() {
           for (const [stream, questions] of Object.entries(streams)) {
             for (let questionIndex = 0; questionIndex < questions.length; questionIndex++) {
               await pool.query(
-                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text) VALUES ($1, $2, $3, $4, $5)",
-                [practiceId, level, stream, questionIndex, questions[questionIndex]]
+                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, version_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                [practiceId, level, stream, questionIndex, questions[questionIndex], versionId]
               );
             }
           }
         }
-        console.log(`    Inserted questions for ${practice.title}`);
+        console.log(`Inserted questions for ${practice.title}`);
       }
     }
 
