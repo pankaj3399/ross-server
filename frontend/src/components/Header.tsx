@@ -17,6 +17,7 @@ import {
   Shield,
   Bell,
   ChevronDown,
+  Database,
 } from "lucide-react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 
@@ -31,6 +32,17 @@ export function Header() {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: BarChart3, auth: true },
     { name: "Settings", href: "/settings", icon: Settings, auth: true },
+  ];
+
+  // Admin navigation - only show for admin users
+  const adminNavigation = [
+    {
+      name: "Manage AIMA Data",
+      href: "/admin/aima-data",
+      icon: Database,
+      auth: true,
+      adminOnly: true,
+    },
   ];
 
   const handleLogout = () => {
@@ -107,6 +119,44 @@ export function Header() {
                   </Link>
                 );
               })}
+
+              {/* Admin Navigation - only show for admin users */}
+              {user?.role === "ADMIN" &&
+                adminNavigation.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`group flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden ${
+                        isActive(item.href)
+                          ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      }`}
+                    >
+                      <Icon
+                        className={`w-4 h-4 transition-transform duration-300 ${
+                          isActive(item.href)
+                            ? "scale-110"
+                            : "group-hover:scale-110"
+                        }`}
+                      />
+                      <span className="relative z-10">{item.name}</span>
+                      {isActive(item.href) && (
+                        <motion.div
+                          layoutId="adminTab"
+                          className="absolute inset-0 bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 rounded-xl"
+                          initial={false}
+                          transition={{
+                            type: "spring",
+                            bounce: 0.2,
+                            duration: 0.6,
+                          }}
+                        />
+                      )}
+                    </Link>
+                  );
+                })}
             </nav>
           )}
 
@@ -246,6 +296,34 @@ export function Header() {
                         className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${
                           isActive(item.href)
                             ? "bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 text-purple-700 dark:text-purple-300 shadow-sm"
+                            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                        }`}
+                      >
+                        <Icon
+                          className={`w-5 h-5 transition-transform duration-300 ${
+                            isActive(item.href)
+                              ? "scale-110"
+                              : "group-hover:scale-110"
+                          }`}
+                        />
+                        <span>{item.name}</span>
+                      </Link>
+                    );
+                  })}
+
+                {/* Admin Navigation - only show for admin users */}
+                {isAuthenticated &&
+                  user?.role === "ADMIN" &&
+                  adminNavigation.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${
+                          isActive(item.href)
+                            ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
                             : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
                         }`}
                       >

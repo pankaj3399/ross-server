@@ -38,12 +38,14 @@ You can deploy the Node/Express backend on Vercel using the Node.js runtime.
    - Install Command: `npm install`
    - Development Command: `npm run dev` (local only)
 5. Set Environment Variables:
+
    - `DATABASE_URL`: Your Neon PostgreSQL connection string
    - `JWT_SECRET`: A secure random string
    - `STRIPE_SECRET_KEY`: Your Stripe secret key
    - `STRIPE_WEBHOOK_SECRET`: Your Stripe webhook secret
    - `FRONTEND_URL`: Your Vercel frontend URL
    - `PORT`: `4000` (Vercel provides `PORT`; ensure the app reads from `process.env.PORT`)
+
 6. Ensure your `backend/src/index.ts` listens on `process.env.PORT || 4000`
 7. Redeploy
 

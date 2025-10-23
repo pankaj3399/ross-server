@@ -1,22 +1,40 @@
 import pool from "../config/database";
 
 export async function seedAdmin() {
-  const adminEmail = "admin@yourapp.com";
+  const adminEmail = "admin@maturai.com";
   const passwordHash =
-    "$2b$10$7ZtVjRL6UpPCpN6NYXY8Ae8Fy1MbT1sO3YJ4aO1J/N7kFhghg7fhu"; 
+    "$2a$10$Z2REmdbEkMmafFy2KRTNl.Sf6m2FzWGcFnZXn8Unz6vp4dYfq8lXW";
 
   try {
+    // First, delete any existing admin user
+    await pool.query("DELETE FROM users WHERE email = $1", [adminEmail]);
+
+    // Then insert the new admin user
     await pool.query(
       `
       INSERT INTO users (email, password_hash, name, organization, role, email_verified)
       VALUES ($1, $2, 'Super Admin', 'System', 'ADMIN', true)
-      ON CONFLICT (email) DO NOTHING;
     `,
-      [adminEmail, passwordHash]
+      [adminEmail, passwordHash],
     );
 
     console.log("✅ Admin user seeded successfully!");
+    console.log("📧 Email: admin@maturai.com");
+    console.log("🔑 Password: Admin123!");
   } catch (err) {
     console.error("Error seeding admin:", err);
   }
+}
+
+// Execute the function when this script is run directly
+if (require.main === module) {
+  seedAdmin()
+    .then(() => {
+      console.log("Script completed successfully");
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("Script failed:", err);
+      process.exit(1);
+    });
 }
