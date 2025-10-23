@@ -313,7 +313,7 @@ export default function DashboardPage() {
                         </span>
                       )}
                     </div>
-                    {user?.subscription_status === 'free' ? (
+                    {user?.subscription_status === 'free' && (
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -322,16 +322,6 @@ export default function DashboardPage() {
                       >
                         <Star className="w-4 h-4" />
                         Upgrade to Premium
-                      </motion.button>
-                    ) : (
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={handleManageBilling}
-                        className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300"
-                      >
-                        <Crown className="w-4 h-4" />
-                        Manage Billing
                       </motion.button>
                     )}
                   </div>

@@ -63,27 +63,10 @@ DATABASE_URL=postgresql://username:password@hostname:port/database
 JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
 
 # Stripe Configuration
-
-### Backend 
-
-# Stripe Secret Key
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
-
-# Stripe Webhook Secret
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
-
-# Price IDs for server-side operations
 PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
 PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
-
-### Frontend
-
-# Stripe Publishable Key
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-# Price IDs (safe to expose)
-NEXT_PUBLIC_PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
-NEXT_PUBLIC_PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
 
 # Frontend URL (for Stripe redirects)
 FRONTEND_URL=http://localhost:3000
@@ -93,14 +76,55 @@ PORT=4000
 NODE_ENV=development
 ```
 
-### 4. Frontend Setup
+### 4.  Stripe Configuration
+
+#### 1️⃣ Backend 
+
+```
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
+PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
+FRONTEND_URL=http://localhost:3000
+```
+
+#### 2️⃣ Frontend 
+
+```
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+NEXT_PUBLIC_PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
+NEXT_PUBLIC_PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+#### 3️⃣ Steps
+
+1. **Create Products** in Stripe for Basic & Pro subscriptions.
+2. **Copy Price IDs** into backend and frontend .env.
+3. **Set up a webhook** in Stripe at:
+    ```
+    https://your-domain.com/subscriptions/webhook
+    ```
+   - Listen to:   
+   `checkout.session.completed`, `customer.subscription.deleted`,    `invoice.payment_failed`.
+
+   - Copy webhook secret to backend .env.
+
+4. **Use Price IDs:**
+
+    - Backend: create checkout sessions securely with secret key.
+
+    - Frontend: initiate checkout using publishable key and Price IDs.
+
+5. **Redirects**: use `FRONTEND_URL` for success/cancel URLs in checkout.
+
+### 5. Frontend Setup
 
 ```bash
 cd frontend
 npm install
 ```
 
-### 5. Start Development Servers
+### 6. Start Development Servers
 
 ```bash
 # Terminal 1 - Backend
