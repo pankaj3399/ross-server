@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(255) NOT NULL,
   organization VARCHAR(255),
   role VARCHAR(50) DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN', 'PREMIUM_USER')),
-  subscription_status VARCHAR(50) DEFAULT 'free' CHECK (subscription_status IN ('free', 'premium', 'trial')),
+  subscription_status VARCHAR(50) DEFAULT 'free' CHECK (subscription_status IN ('free', 'basic_premium', 'pro_premium', 'trial')),
   stripe_customer_id VARCHAR(255),
   email_verified BOOLEAN DEFAULT FALSE,
   mfa_enabled BOOLEAN DEFAULT FALSE,

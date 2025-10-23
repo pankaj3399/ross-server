@@ -63,8 +63,27 @@ DATABASE_URL=postgresql://username:password@hostname:port/database
 JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
 
 # Stripe Configuration
+
+### Backend 
+
+# Stripe Secret Key
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+
+# Stripe Webhook Secret
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+
+# Price IDs for server-side operations
+PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
+PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
+
+### Frontend
+
+# Stripe Publishable Key
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# Price IDs (safe to expose)
+NEXT_PUBLIC_PRICE_ID_BASIC=price_XXXXXXXXXXXXXXXXXXXXXX
+NEXT_PUBLIC_PRICE_ID_PRO=price_XXXXXXXXXXXXXXXXXXXXXXXX
 
 # Frontend URL (for Stripe redirects)
 FRONTEND_URL=http://localhost:3000

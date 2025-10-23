@@ -8,8 +8,8 @@ import projectsRouter from "./routes/projects";
 import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
-import { initializeDatabase, seedAIMAData } from "./utils/database";
-import { seedAdmin } from "./scripts/seedAdmin";
+import { initializeDatabase } from "./utils/database";
+import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
 
 dotenv.config();
 
@@ -17,6 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
+
+app.use("/subscriptions", subscriptionsWebhookRouter);
+
 app.use(express.json());
 
 app.get("/health", (_req, res) => {
