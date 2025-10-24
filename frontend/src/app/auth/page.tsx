@@ -56,14 +56,7 @@ export default function AuthPage() {
         });
 
         console.log("Frontend - register response:", data);
-
-        const verificationToken = data?.verificationToken;
-
-        if (verificationToken) {
-          router.push(`/auth/verify-email?token=${verificationToken}`);
-        } else {
-          console.warn("No verification token found in response.");
-        }
+        router.push(`/auth/verify-otp?email=${formData.email}`);
       }
     } catch (err: any) {
       if (err.message === "MFA_REQUIRED") {

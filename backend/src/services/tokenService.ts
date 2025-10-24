@@ -10,11 +10,19 @@ class TokenService {
   }
 
   /**
-   * Create email verification token
+   * Generate a 6-digit OTP
    */
-  async createEmailVerificationToken(userId: string): Promise<string> {
-    const token = this.generateToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  private generateOTP(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+
+  /**
+   * Create email verification OTP
+   */
+  async createEmailVerificationOTP(userId: string): Promise<string> {
+    const otp = this.generateOTP();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
     // Delete any existing tokens for this user
     await pool.query(
@@ -22,27 +30,30 @@ class TokenService {
       [userId],
     );
 
-    // Insert new token
+    // Insert new OTP
     await pool.query(
-      `INSERT INTO email_verification_tokens (user_id, token, expires_at) 
+      `INSERT INTO email_verification_tokens (user_id, otp, expires_at) 
        VALUES ($1, $2, $3)`,
-      [userId, token, expiresAt],
+      [userId, otp, expiresAt],
     );
 
-    return token;
+    return otp;
   }
 
   /**
-   * Verify email verification token
+   * Verify email verification OTP
    */
-  async verifyEmailToken(
-    token: string,
+  async verifyEmailOTP(
+    email: string,
+    otp: string,
   ): Promise<{ userId: string; valid: boolean }> {
     try {
       const result = await pool.query(
-        `SELECT user_id, used FROM email_verification_tokens
-         WHERE token = $1 AND expires_at > CURRENT_TIMESTAMP`,
-        [token],
+        `SELECT evt.user_id, evt.used 
+         FROM email_verification_tokens evt
+         JOIN users u ON u.id = evt.user_id
+         WHERE u.email = $1 AND evt.otp = $2 AND evt.expires_at > CURRENT_TIMESTAMP`,
+        [email, otp],
       );
 
       if (result.rows.length === 0) {
@@ -53,8 +64,8 @@ class TokenService {
 
       if (!used) {
         await pool.query(
-          "UPDATE email_verification_tokens SET used = TRUE WHERE token = $1",
-          [token],
+          "UPDATE email_verification_tokens SET used = TRUE WHERE user_id = $1 AND otp = $2",
+          [userId, otp],
         );
 
         await pool.query(
@@ -70,7 +81,7 @@ class TokenService {
 
       return { userId, valid: true };
     } catch (error) {
-      console.error("Error verifying email token:", error);
+      console.error("Error verifying email OTP:", error);
       return { userId: "", valid: false };
     }
   }
@@ -150,9 +161,9 @@ class TokenService {
   }
 
   /**
-   * Check if user has valid email verification token
+   * Check if user has valid email verification OTP
    */
-  async hasValidEmailToken(userId: string): Promise<boolean> {
+  async hasValidEmailOTP(userId: string): Promise<boolean> {
     try {
       const result = await pool.query(
         `SELECT id FROM email_verification_tokens 
@@ -161,7 +172,7 @@ class TokenService {
       );
       return result.rows.length > 0;
     } catch (error) {
-      console.error("Error checking email token:", error);
+      console.error("Error checking email OTP:", error);
       return false;
     }
   }

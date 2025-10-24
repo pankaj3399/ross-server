@@ -44,13 +44,13 @@ class EmailService {
   }
 
   /**
-   * Send email verification
+   * Send email verification with OTP
    */
   async sendEmailVerification(
     email: string,
-    verificationToken: string,
+    otp: string,
   ): Promise<boolean> {
-    const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${verificationToken}`;
+    const otpVerificationUrl = `${process.env.FRONTEND_URL}/auth/verify-otp?email=${encodeURIComponent(email)}`;
 
     const html = `
       <!DOCTYPE html>
@@ -70,8 +70,18 @@ class EmailService {
             <h2 style="color: #333; margin-top: 0;">Verify Your Email Address</h2>
             <p>Thank you for signing up for MATUR.ai! To complete your registration and start assessing your AI maturity, please verify your email address.</p>
             
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border: 2px solid #667eea;">
+              <h3 style="color: #333; margin-top: 0;">Your Verification Code</h3>
+              <div style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; font-family: monospace; margin: 15px 0;">
+                ${otp}
+              </div>
+              <p style="font-size: 14px; color: #666; margin: 10px 0 0 0;">
+                Enter this code on the verification page or click the button below
+              </p>
+            </div>
+            
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${verificationUrl}" 
+              <a href="${otpVerificationUrl}" 
                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                         color: white; 
                         padding: 15px 30px; 
@@ -79,17 +89,17 @@ class EmailService {
                         border-radius: 5px; 
                         font-weight: bold; 
                         display: inline-block;">
-                Verify Email Address
+                Verify with OTP
               </a>
             </div>
             
             <p style="font-size: 14px; color: #666;">
               If the button doesn't work, you can copy and paste this link into your browser:<br>
-              <a href="${verificationUrl}" style="color: #667eea; word-break: break-all;">${verificationUrl}</a>
+              <a href="${otpVerificationUrl}" style="color: #667eea; word-break: break-all;">${otpVerificationUrl}</a>
             </p>
             
             <p style="font-size: 14px; color: #666;">
-              This verification link will expire in 24 hours. If you didn't create an account with MATUR.ai, you can safely ignore this email.
+              This verification code will expire in 15 minutes. If you didn't create an account with MATUR.ai, you can safely ignore this email.
             </p>
           </div>
           
@@ -103,11 +113,13 @@ class EmailService {
     const text = `
       Verify Your Email Address - MATUR.ai
       
-      Thank you for signing up for MATUR.ai! To complete your registration, please verify your email address by clicking the link below:
+      Thank you for signing up for MATUR.ai! To complete your registration, please verify your email address.
       
-      ${verificationUrl}
+      Your verification code is: ${otp}
       
-      This verification link will expire in 24 hours.
+      Or visit: ${otpVerificationUrl}
+      
+      This verification code will expire in 15 minutes.
       
       If you didn't create an account with MATUR.ai, you can safely ignore this email.
       
