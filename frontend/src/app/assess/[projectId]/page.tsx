@@ -21,6 +21,7 @@ import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigati
 import { SecureTextarea } from "../../../components/SecureTextarea";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
 import { sanitizeNoteInput } from "../../../lib/sanitize";
+import { usePracticeStore } from "../../../store/store";
 
 interface Question {
   level: string;
@@ -40,26 +41,13 @@ interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
   practices: { [key: string]: PracticeWithLevels };
 }
 
-interface AssessmentData {
-  [domainId: string]: {
-    [practiceId: string]: {
-      [questionId: string]: number;
-    };
-  };
-}
-
 export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { theme } = useTheme();
   const projectId = params.projectId as string;
 
   const [domains, setDomains] = useState<DomainWithLevels[]>([]);
-  const [currentDomainId, setCurrentDomainId] = useState<string>("");
-  const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  const [practice, setPractice] = useState<PracticeWithLevels | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -67,12 +55,28 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
 
+  // Use Zustand store for project-specific state
+  const { 
+    getProjectState,
+    setProjectState,
+    clearProjectState,
+  } = usePracticeStore();
+
+  // Get current project state
+  const projectState = getProjectState(projectId);
+  const practice = projectState?.practice || null;
+  const currentDomainId = projectState?.currentDomainId || '';
+  const currentPracticeId = projectState?.currentPracticeId || '';
+  const currentQuestionIndex = projectState?.currentQuestionIndex || 0;
+
   // Load domains and initial data
   useEffect(() => {
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
+
+    // No need to clear store - each project has its own state
 
     const fetchData = async () => {
       try {
@@ -121,13 +125,17 @@ export default function AssessmentPage() {
         setDomains(transformedDomains);
         console.log("Loaded domains:", transformedDomains.length);
 
-        // Set initial domain and practice
-        if (transformedDomains.length > 0) {
+        // Only set initial domain and practice if we don't have existing state for this project
+        if (transformedDomains.length > 0 && !projectState) {
           const firstDomain = transformedDomains[0];
           const firstPracticeId = Object.keys(firstDomain.practices)[0];
-          console.log("Setting initial domain:", firstDomain.id, "practice:", firstPracticeId);
-          setCurrentDomainId(firstDomain.id);
-          setCurrentPracticeId(firstPracticeId);
+          console.log("Setting initial domain for new project:", firstDomain.id, "practice:", firstPracticeId);
+          setProjectState(projectId, {
+            currentDomainId: firstDomain.id,
+            currentPracticeId: firstPracticeId,
+            currentQuestionIndex: 0,
+            practice: null,
+          });
         } else {
           console.log("No domains found for project:", projectId);
         }
@@ -156,19 +164,48 @@ export default function AssessmentPage() {
             const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
             notesMap[key] = note.note;
           });
-          setNotes(notesMap);
-        } catch (error) {
-          console.error("Failed to load notes:", error);
-        }
+        setNotes(notesMap);
       } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
+        console.error("Failed to load notes:", error);
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, [projectId, isAuthenticated, router]);
+  fetchData();
+}, [projectId, isAuthenticated, router]);
+
+// Resume from Zustand store after data is loaded
+useEffect(() => {
+  if (!loading && domains.length > 0 && projectState) {
+    console.log("Checking project state for resume - practice:", !!practice, "domain:", currentDomainId, "practice:", currentPracticeId, "question:", currentQuestionIndex);
+    
+    // Check if we have navigation state for this project
+    if (currentDomainId && currentPracticeId) {
+      // Check if the current practice is still valid (domain and practice exist)
+      const domain = domains.find(d => d.id === currentDomainId);
+      if (domain && domain.practices[currentPracticeId]) {
+        console.log("Resuming from project state - domain:", currentDomainId, "practice:", currentPracticeId, "question:", currentQuestionIndex);
+        // The navigation state is already set, we just need to trigger the practice loading
+        // The practice loading effect will handle fetching the practice data
+      } else {
+        console.log("Project state is invalid, starting from beginning");
+        // Clear invalid state for this project
+        setProjectState(projectId, {
+          currentDomainId: '',
+          currentPracticeId: '',
+          currentQuestionIndex: 0,
+          practice: null,
+        });
+      }
+    } else {
+      console.log("No navigation state for this project, starting from beginning");
+    }
+  }
+}, [loading, domains, projectState, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState]);
 
   // Load practice questions when domain/practice changes
   useEffect(() => {
@@ -184,10 +221,12 @@ export default function AssessmentPage() {
         );
         console.log("Practice data received:", data);
         
-        setPractice({
-          title: data.title,
-          description: data.description,
-          levels: data.levels,
+        setProjectState(projectId, {
+          practice: {
+            title: data.title,
+            description: data.description,
+            levels: data.levels,
+          },
         });
 
         // Flatten questions from levels
@@ -208,7 +247,8 @@ export default function AssessmentPage() {
 
         console.log("Flattened questions:", questionsList.length);
         setQuestions(questionsList);
-        setCurrentQuestionIndex(0);
+        
+        // Position is managed by Zustand store
       } catch (error) {
         console.error("Failed to fetch practice:", error);
       }
@@ -254,6 +294,8 @@ export default function AssessmentPage() {
       ]);
 
       await apiService.updateProject(projectId, { status: "in_progress" });
+      
+      // Position is managed by Zustand store
     } catch (error) {
       console.error("Failed to save answer:", JSON.stringify(error));
     } finally {
@@ -296,48 +338,117 @@ export default function AssessmentPage() {
   };
 
   const handleDomainClick = (domainId: string) => {
-    setCurrentDomainId(domainId);
     const domain = domains.find((d) => d.id === domainId);
     if (domain) {
       const firstPracticeId = Object.keys(domain.practices)[0];
-      setCurrentPracticeId(firstPracticeId);
+      setProjectState(projectId, {
+        currentDomainId: domainId,
+        currentPracticeId: firstPracticeId,
+        currentQuestionIndex: 0,
+      });
+      
+      // Navigate to domain
     }
     navigateToDomain(domainId);
   };
 
   const handlePracticeClick = (domainId: string, practiceId: string) => {
-    setCurrentDomainId(domainId);
-    setCurrentPracticeId(practiceId);
-    setCurrentQuestionIndex(0);
+    setProjectState(projectId, {
+      currentDomainId: domainId,
+      currentPracticeId: practiceId,
+      currentQuestionIndex: 0,
+    });
+    
+    // Navigate to practice
     navigateToPractice(domainId, practiceId);
+  };
+
+  const handleQuestionClick = (domainId: string, practiceId: string, questionIndex: number) => {
+    setProjectState(projectId, {
+      currentDomainId: domainId,
+      currentPracticeId: practiceId,
+      currentQuestionIndex: questionIndex,
+    });
+    
+    // Navigate to question
   };
 
   const handleNextQuestion = () => {
     const next = getNextQuestion();
     if (next) {
-      setCurrentDomainId(next.domainId);
-      setCurrentPracticeId(next.practiceId);
-      setCurrentQuestionIndex(next.questionIndex);
+      // Check if we're moving to a different domain or practice
+      const isMovingToDifferentDomain = next.domainId !== currentDomainId;
+      const isMovingToDifferentPractice = next.practiceId !== currentPracticeId;
+      
+      if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
+        // Add a small delay for smooth transition
+        setTimeout(() => {
+          setProjectState(projectId, {
+            currentDomainId: next.domainId,
+            currentPracticeId: next.practiceId,
+            currentQuestionIndex: next.questionIndex,
+          });
+          
+          // Position updated in Zustand
+        }, 100);
+      } else {
+        setProjectState(projectId, {
+          currentDomainId: next.domainId,
+          currentPracticeId: next.practiceId,
+          currentQuestionIndex: next.questionIndex,
+        });
+        
+        // Position updated in Zustand
+      }
     }
   };
 
   const handlePreviousQuestion = () => {
     const prev = getPreviousQuestion();
     if (prev) {
-      setCurrentDomainId(prev.domainId);
-      setCurrentPracticeId(prev.practiceId);
-      setCurrentQuestionIndex(prev.questionIndex);
+      // Check if we're moving to a different domain or practice
+      const isMovingToDifferentDomain = prev.domainId !== currentDomainId;
+      const isMovingToDifferentPractice = prev.practiceId !== currentPracticeId;
+      
+      if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
+        setTimeout(() => {
+          setProjectState(projectId, {
+            currentDomainId: prev.domainId,
+            currentPracticeId: prev.practiceId,
+            currentQuestionIndex: prev.questionIndex,
+          });
+          
+          // Position updated in Zustand
+        }, 100);
+      } else {
+        setProjectState(projectId, {
+          currentDomainId: prev.domainId,
+          currentPracticeId: prev.practiceId,
+          currentQuestionIndex: prev.questionIndex,
+        });
+        
+        // Position updated in Zustand
+      }
     }
   };
+
+  // Check if there's a next/previous question available globally
+  const hasNextQuestion = getNextQuestion() !== null;
+  const hasPreviousQuestion = getPreviousQuestion() !== null;
 
   const handleStartAssessment = () => {
     // Start with the first domain and first practice
     const firstDomain = domains[0];
     if (firstDomain) {
       const firstPracticeId = Object.keys(firstDomain.practices)[0];
-      setCurrentDomainId(firstDomain.id);
-      setCurrentPracticeId(firstPracticeId);
-      setCurrentQuestionIndex(0);
+      setProjectState(projectId, {
+        currentDomainId: firstDomain.id,
+        currentPracticeId: firstPracticeId,
+        currentQuestionIndex: 0,
+        practice: null,
+      });
+      
+      // Starting assessment
     }
   };
 
@@ -354,8 +465,27 @@ export default function AssessmentPage() {
     );
   }
 
-  if (!practice || questions.length === 0) {
+  // Check if there's navigation state for the current project
+  const hasNavigationState = currentDomainId && currentPracticeId;
+  
+  // If we have navigation state but no practice loaded yet, show loading
+  if (hasNavigationState && (!practice || questions.length === 0)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            Resuming your assessment...
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  // If no navigation state and no practice, show overview
+  if (!hasNavigationState && (!practice || questions.length === 0)) {
     console.log("Showing assessment overview - practice:", !!practice, "questions:", questions.length, "domains:", domains.length);
+    
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -365,6 +495,7 @@ export default function AssessmentPage() {
           <p className="text-gray-600 dark:text-gray-300 mb-6">
             Ready to measure your AI maturity? Let's get started.
           </p>
+          
           <button
             onClick={handleStartAssessment}
             className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
@@ -394,8 +525,10 @@ export default function AssessmentPage() {
         domains={progressData}
         currentDomainId={currentDomainId}
         currentPracticeId={currentPracticeId}
+        currentQuestionIndex={currentQuestionIndex}
         onDomainClick={handleDomainClick}
         onPracticeClick={handlePracticeClick}
+        onQuestionClick={handleQuestionClick}
       />
 
       {/* Main Content */}
@@ -414,8 +547,11 @@ export default function AssessmentPage() {
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {practice.title}
+                  {practice?.title || 'Loading...'}
                 </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {domains.find(d => d.id === currentDomainId)?.title} • Question {currentQuestionIndex + 1} of {totalQuestions}
+                </p>
               </div>
             </div>
             {saving && (
@@ -557,7 +693,7 @@ export default function AssessmentPage() {
             <div className="flex items-center justify-between">
               <button
                 onClick={handlePreviousQuestion}
-                disabled={currentQuestionIndex === 0}
+                disabled={!hasPreviousQuestion}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 <ArrowLeftIcon className="w-4 h-4" />
@@ -566,7 +702,7 @@ export default function AssessmentPage() {
 
               <button
                 onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === totalQuestions - 1}
+                disabled={!hasNextQuestion}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
               >
                 Next
