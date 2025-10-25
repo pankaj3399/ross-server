@@ -7,7 +7,10 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seedAIMA.ts && ts-node src/scripts/seedAdmin.ts",
-    "migrate": "ts-node src/scripts/migrateDatabase.ts"
+    "migrate": "ts-node src/scripts/migrateDatabase.ts",
+    "migration:create": "node-pg-migrate create",
+    "migration:up": "node-pg-migrate up",
+    "migration:down": "node-pg-migrate down"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.2",
@@ -18,6 +21,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "node-pg-migrate": "^8.0.3",
     "nodemailer": "^7.0.9",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",

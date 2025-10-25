@@ -36,8 +36,6 @@ app.use("/notes", notesRouter);
 const initialize = async () => {
   try {
     // Skip database initialization since migration was already run
-    console.log("✅ Skipping database initialization - migration already applied");
-    // await initializeDatabase();
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
