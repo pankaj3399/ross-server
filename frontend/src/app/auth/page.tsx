@@ -56,14 +56,7 @@ export default function AuthPage() {
         });
 
         console.log("Frontend - register response:", data);
-
-        const verificationToken = data?.verificationToken;
-
-        if (verificationToken) {
-          router.push(`/auth/verify-email?token=${verificationToken}`);
-        } else {
-          console.warn("No verification token found in response.");
-        }
+        router.push(`/auth/verify-otp?email=${formData.email}`);
       }
     } catch (err: any) {
       if (err.message === "MFA_REQUIRED") {
@@ -98,17 +91,17 @@ export default function AuthPage() {
               {isLogin ? "Welcome Back" : "Get Started"}
             </span>
           </h2>
-          <p className="text-gray-300">
+          <p className="text-gray-600 dark:text-gray-300">
             {isLogin ? "Sign in to your account" : "Create your account"}
           </p>
         </motion.div>
-        <p className="mt-2 text-center text-sm text-gray-600">
+        <p className="mt-2 text-center text-sm text-gray-700 dark:text-gray-400">
           {isLogin ? (
             <>
               Or{" "}
               <button
                 onClick={() => router.push("/auth?isLogin=false")}
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
               >
                 create a new account
               </button>
@@ -118,7 +111,7 @@ export default function AuthPage() {
               Or{" "}
               <button
                 onClick={() => router.push("/auth?isLogin=true")}
-                className="font-medium text-indigo-600 hover:text-indigo-500"
+                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
               >
                 sign in to existing account
               </button>
@@ -140,7 +133,7 @@ export default function AuthPage() {
                 <div>
                   <label
                     htmlFor="name"
-                    className="block text-sm font-medium text-gray-300"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Full Name
                   </label>
@@ -152,7 +145,7 @@ export default function AuthPage() {
                       required={!isLogin}
                       value={formData.name}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -160,7 +153,7 @@ export default function AuthPage() {
                 <div>
                   <label
                     htmlFor="organization"
-                    className="block text-sm font-medium text-gray-300"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Organization (Optional)
                   </label>
@@ -171,7 +164,7 @@ export default function AuthPage() {
                       type="text"
                       value={formData.organization}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
                 </div>
@@ -181,28 +174,28 @@ export default function AuthPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Email address
               </label>
               <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                />
+                                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                  />
               </div>
             </div>
 
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Password
               </label>
@@ -216,13 +209,13 @@ export default function AuthPage() {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                   />
                   <button className="absolute right-4" onClick={(e) => {
                     e.preventDefault()
                     setShowPassword(prev => !prev)
                   }
-                  }>{showPassword ? <EyeOff className="text-neutral-300" /> : <Eye className="text-neutral-300" />}</button>
+                  }>{showPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}</button>
                 </div>
               </div>
             </div>
@@ -230,7 +223,7 @@ export default function AuthPage() {
             {!isLogin && <div>
               <label
                 htmlFor="Confirm Password"
-                className="block text-sm font-medium text-gray-300"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Confirm Password
               </label>
@@ -244,12 +237,12 @@ export default function AuthPage() {
                     required
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                   />
                   <button className="absolute right-4" onClick={(e) => {
                     e.preventDefault()
                     setShowConfirmPassword(prev => !prev)
-                  }}>{showConfirmPassword ? <EyeOff className="text-neutral-300" /> : <Eye className="text-neutral-300" />}</button>
+                  }}>{showConfirmPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}</button>
                 </div>
               </div>
             </div>}
@@ -284,7 +277,7 @@ export default function AuthPage() {
                 <div>
                   <label
                     htmlFor="mfaCode"
-                    className="block text-sm font-medium text-gray-300"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Authentication Code
                   </label>
@@ -297,20 +290,20 @@ export default function AuthPage() {
                       maxLength={6}
                       value={formData.mfaCode}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-center text-2xl tracking-widest"
+                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-center text-2xl tracking-widest"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
                     Enter the 6-digit code from your authenticator app
                   </p>
                 </div>
 
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-white/20" />
+                    <div className="w-full border-t border-gray-300 dark:border-white/20" />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-transparent text-gray-400">
+                    <span className="px-2 bg-transparent text-gray-600 dark:text-gray-400">
                       Or
                     </span>
                   </div>
@@ -319,7 +312,7 @@ export default function AuthPage() {
                 <div>
                   <label
                     htmlFor="backupCode"
-                    className="block text-sm font-medium text-gray-300"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     Backup Code
                   </label>
@@ -331,10 +324,10 @@ export default function AuthPage() {
                       placeholder="Enter backup code"
                       value={formData.backupCode}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
                     Use a backup code if you don't have access to your
                     authenticator app
                   </p>
@@ -366,17 +359,17 @@ export default function AuthPage() {
           <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/20" />
+                <div className="w-full border-t border-gray-300 dark:border-white/20" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-transparent text-gray-400">Or</span>
+                <span className="px-2 bg-transparent text-gray-600 dark:text-gray-400">Or</span>
               </div>
             </div>
 
             <div className="mt-6 text-center">
               <Link
                 href="/"
-                className="font-medium text-purple-400 hover:text-purple-300 transition-colors"
+                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
               >
                 Back to home
               </Link>

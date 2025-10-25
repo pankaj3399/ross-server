@@ -79,19 +79,17 @@ router.post("/register", async (req, res) => {
 
     const user = result.rows[0];
 
-    // Create email verification token
-    const verificationToken = await tokenService.createEmailVerificationToken(
-      user.id,
-    );
+    // Create email verification OTP
+    const otp = await tokenService.createEmailVerificationOTP(user.id);
 
-    // // Send verification email
-    // const emailSent = await emailService.sendEmailVerification(
-    //   email,
-    //   verificationToken,
-    // );
-    // if (!emailSent) {
-    //   console.error("Failed to send verification email for user:", user.id);
-    // }
+    // Send verification email with OTP
+    const emailSent = await emailService.sendEmailVerification(
+      email,
+      otp,
+    );
+    if (!emailSent) {
+      console.error("Failed to send verification email for user:", user.id);
+    }
 
     // Generate JWT token (but user needs to verify email)
     const token = jwt.sign(
@@ -110,9 +108,8 @@ router.post("/register", async (req, res) => {
         email_verified: user.email_verified,
       },
       token,
-      verificationToken,
       message:
-        "Registration successful. Please check your email to verify your account.",
+        "Registration successful. Please check your email for the verification code.",
       // emailSent,
     });
   } catch (error) {
@@ -126,36 +123,35 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// Verify email
+// Verify email with OTP
 router.post("/verify-email", async (req, res) => {
   try {
-    const { token } = req.body;
-    console.log("Backend - token received:", token);
-    if (!token) {
-      return res.status(400).json({ error: "Verification token is required" });
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: "Email and OTP are required" });
     }
 
-    const { userId, valid } = await tokenService.verifyEmailToken(token);
-    if (!valid) {
-      return res
-        .status(400)
-        .json({ error: "Invalid or expired verification token" });
+    const result = await tokenService.verifyEmailOTP(email, otp);
+
+    if (!result.valid) {
+      return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
     // Get updated user info
-    const result = await pool.query(
+    const userResult = await pool.query(
       "SELECT id, email, name, role, subscription_status, email_verified FROM users WHERE id = $1",
-      [userId],
+      [result.userId],
     );
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
+    const user = userResult.rows[0];
 
-    // Generate new JWT with verified status
-    const newToken = jwt.sign(
+    // Generate new JWT token with verified email
+    const token = jwt.sign(
       { userId: user.id, email: user.email, emailVerified: true },
       process.env.JWT_SECRET!,
       { expiresIn: "7d" },
@@ -170,61 +166,98 @@ router.post("/verify-email", async (req, res) => {
         subscription_status: user.subscription_status,
         email_verified: user.email_verified,
       },
-      token: newToken,
+      token,
       message: "Email verified successfully",
     });
   } catch (error) {
     console.error("Email verification error:", error);
-    res.status(400).json({ error: "Email verification failed" });
+    res.status(500).json({ error: "Email verification failed" });
   }
 });
 
-// Resend verification email
-router.post("/resend-verification", authenticateToken, async (req, res) => {
+// Resend verification email/OTP
+router.post("/resend-verification", async (req, res) => {
   try {
-    const userId = req.user!.id;
-    const email = req.user!.email;
+    let userId: string;
+    let email: string;
 
-    // Check if already verified
-    const userResult = await pool.query(
-      "SELECT email_verified FROM users WHERE id = $1",
-      [userId],
-    );
+    // Check if user is authenticated (from token) or not (from body)
+    if (req.user) {
+      // Authenticated user
+      userId = req.user.id;
+      email = req.user.email;
+    } else {
+      // Unauthenticated user (from OTP page)
+      const { email: requestEmail } = req.body;
+      
+      if (!requestEmail) {
+        return res.status(400).json({ error: "Email is required" });
+      }
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      // Check if user exists
+      const userResult = await pool.query(
+        "SELECT id, email_verified FROM users WHERE email = $1",
+        [requestEmail],
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = userResult.rows[0];
+      
+      if (user.email_verified) {
+        return res.status(400).json({ error: "Email already verified" });
+      }
+
+      userId = user.id;
+      email = requestEmail;
     }
 
-    if (userResult.rows[0].email_verified) {
-      return res.status(400).json({ error: "Email already verified" });
+    // Check if already verified (for authenticated users)
+    if (req.user) {
+      const userResult = await pool.query(
+        "SELECT email_verified FROM users WHERE id = $1",
+        [userId],
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (userResult.rows[0].email_verified) {
+        return res.status(400).json({ error: "Email already verified" });
+      }
+
+      // Check if there's already a valid OTP
+      const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
+      if (hasValidOTP) {
+        return res.status(400).json({
+          error: "Verification email already sent. Please check your email.",
+        });
+      }
     }
 
-    // Check if there's already a valid token
-    const hasValidToken = await tokenService.hasValidEmailToken(userId);
-    if (hasValidToken) {
-      return res.status(400).json({
-        error: "Verification email already sent. Please check your email.",
-      });
-    }
-
-    // Create new verification token
-    const verificationToken = await tokenService.createEmailVerificationToken(
-      userId,
-    );
+    // Create new OTP
+    const otp = await tokenService.createEmailVerificationOTP(userId);
 
     // Send verification email
     const emailSent = await emailService.sendEmailVerification(
       email,
-      verificationToken,
+      otp,
     );
 
+    if (!emailSent) {
+      return res.status(500).json({ error: "Failed to send verification email" });
+    }
+
     res.json({
-      message: "Verification email sent",
+      message: "Verification email sent successfully. Please check your email.",
       emailSent,
     });
   } catch (error) {
     console.error("Resend verification error:", error);
-    res.status(400).json({ error: "Failed to resend verification email" });
+    res.status(500).json({ error: "Failed to resend verification email" });
   }
 });
 
@@ -577,6 +610,7 @@ router.get("/me", authenticateToken, async (req, res) => {
     res.status(400).json({ error: "Failed to get user info" });
   }
 });
+
 
 // Cleanup expired tokens (cron job endpoint)
 router.post("/cleanup-tokens", async (req, res) => {

@@ -104,6 +104,10 @@ body {
   to { box-shadow: 0 0 40px rgba(139, 92, 246, 0.6); }
 }
 
+.pulse-glow-none {
+  animation: none;
+}
+
 /* Light mode specific styles */
 .light .glass-effect {
   @apply bg-white/90 shadow-lg;
