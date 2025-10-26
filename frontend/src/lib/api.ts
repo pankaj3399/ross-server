@@ -193,6 +193,12 @@ class ApiService {
     });
   }
 
+  async submitProject(id: string): Promise<{ message: string; project: Project; results: any }> {
+    return this.request<{ message: string; project: Project; results: any }>(`/projects/${id}/submit`, {
+      method: "POST",
+    });
+  }
+
   // AIMA Framework
   async getDomains(projectId?: string): Promise<{ domains: Domain[] }> {
     const url = projectId ? `/aima/domains?project_id=${projectId}` : "/aima/domains";

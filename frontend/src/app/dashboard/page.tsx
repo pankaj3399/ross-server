@@ -34,7 +34,7 @@ export default function DashboardPage() {
     aiSystemType: "",
   });
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [editProjectData, setEditProjectData] = useState({ name: "", description: "" });
+  const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "" });
 
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function DashboardPage() {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
-    setEditProjectData({ name: project.name, description: project.description || "" });
+    setEditProjectData({ name: project.name, description: project.description || "", aiSystemType: project.ai_system_type || "" });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                         href={`/assess/${project.id}`}
                         className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors text-sm font-medium"
                       >
-                        {project.status === 'in_progress' ? 'Continue Assessment': project.status === 'completed' ? 'Completed' : 'Start Assessment'}
+                        {project.status === 'in_progress' ? 'Continue Assessment' : project.status === 'completed' ? 'Completed' : 'Start Assessment'}
                         <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
@@ -444,6 +444,36 @@ export default function DashboardPage() {
                   rows={3}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  AI System Type
+                </label>
+                <select
+                  value={editProjectData.aiSystemType}
+                  onChange={(e) =>
+                    setEditProjectData({
+                      ...editProjectData,
+                      aiSystemType: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select AI System Type</option>
+                  <option value="Machine Learning Model">
+                    Machine Learning Model
+                  </option>
+                  <option value="Deep Learning System">
+                    Deep Learning System
+                  </option>
+                  <option value="NLP System">NLP System</option>
+                  <option value="Computer Vision">Computer Vision</option>
+                  <option value="Recommendation System">
+                    Recommendation System
+                  </option>
+                  <option value="Autonomous System">Autonomous System</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
@@ -456,7 +486,7 @@ export default function DashboardPage() {
                   type="submit"
                   className={`flex justify-center items-center w-40 h-12 px-6 py-3 ${isLoading ? "opacity-70" : ""} bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105`}
                 >
-                  {isLoading ? <Loader className="animate-spin"/> : "Save Changes"}
+                  {isLoading ? <Loader className="animate-spin" /> : "Save Changes"}
                 </button>
               </div>
             </form>

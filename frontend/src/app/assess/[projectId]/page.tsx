@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
-import { useTheme } from "../../../contexts/ThemeContext";
 import {
   apiService,
   Domain as ApiDomain,
@@ -21,7 +20,8 @@ import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigati
 import { SecureTextarea } from "../../../components/SecureTextarea";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
 import { sanitizeNoteInput } from "../../../lib/sanitize";
-import { usePracticeStore } from "../../../store/store";
+import { usePracticeStore } from "../../../store/practiceStore";
+import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
 
 interface Question {
   level: string;
@@ -54,6 +54,7 @@ export default function AssessmentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   // Use Zustand store for project-specific state
   const { 
@@ -61,6 +62,9 @@ export default function AssessmentPage() {
     setProjectState,
     clearProjectState,
   } = usePracticeStore();
+
+  // Use assessment results store
+  const { setProjectResults } = useAssessmentResultsStore();
 
   // Get current project state
   const projectState = getProjectState(projectId);
@@ -452,6 +456,22 @@ useEffect(() => {
     }
   };
 
+  const handleSubmitProject = async () => {
+    setSubmitting(true);
+    try {
+      const response = await apiService.submitProject(projectId);
+      
+      // Store the results in Zustand store
+      setProjectResults(projectId, response.project, response.results);
+      
+      router.push(`/score-report?projectId=${projectId}`);
+    } catch (error) {
+      console.error("Failed to submit project:", error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -554,12 +574,30 @@ useEffect(() => {
                 </p>
               </div>
             </div>
-            {saving && (
-              <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                <Save className="w-4 h-4 animate-spin" />
-                Saving...
-              </div>
-            )}
+            <div className="flex items-center gap-4">
+              {saving && (
+                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                  <Save className="w-4 h-4 animate-spin" />
+                  Saving...
+                </div>
+              )}
+              <button
+                onClick={handleSubmitProject}
+                disabled={submitting}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    Submit Project
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

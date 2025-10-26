@@ -7,10 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seedAIMA.ts && ts-node src/scripts/seedAdmin.ts",
-    "migrate": "ts-node src/scripts/migrateDatabase.ts",
-    "migration:create": "node-pg-migrate create",
-    "migration:up": "node-pg-migrate up",
-    "migration:down": "node-pg-migrate down"
+    "migrate": "ts-node src/scripts/migrateDatabase.ts && node-pg-migrate up",
+    "db:init": "npm run migrate && npm run seed"
   },
   "dependencies": {
     "@types/nodemailer": "^7.0.2",
