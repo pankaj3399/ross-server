@@ -214,16 +214,6 @@ export default function DashboardPage() {
     fetchPrices();
   };
 
-  const handleManageBilling = async () => {
-    try {
-      const { url } = await apiService.createPortalSession();
-      window.location.href = url;
-    } catch (error) {
-      console.error("Failed to create portal session:", error);
-      alert("Failed to open billing portal. Please try again.");
-    }
-  };
-
   const handleSelectPlan = async (priceId: string, planName: string) => {
     try {
       setUpgradingPlan(planName);
