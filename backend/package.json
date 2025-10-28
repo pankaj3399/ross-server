@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seedAIMA.ts && ts-node src/scripts/seedAdmin.ts",
     "migrate": "ts-node src/scripts/migrateDatabase.ts && node-pg-migrate up",
+    "migrate:up": "node-pg-migrate up",
     "db:init": "npm run migrate && npm run seed"
   },
   "dependencies": {
