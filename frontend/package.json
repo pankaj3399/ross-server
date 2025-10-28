@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^5.2.0",
+    "@stripe/stripe-js": "^8.1.0",
     "axios": "^1.6.2",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.545.0",

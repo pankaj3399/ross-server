@@ -5,6 +5,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { Header } from "../components/Header";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { Footer } from "../components/Footer";
+import StripeProvider from "@/components/StripeProvider";
 
 export const metadata: Metadata = {
   title: "MATUR.ai - AI Maturity Assessment Platform | OWASP AIMA Framework",
@@ -24,20 +25,22 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/favicon.svg" />
       </head>
       <body>
-        <ThemeProvider>
-          <AuthProvider>
-            <div className="min-h-screen flex flex-col">
-              <Header />
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                <div className="px-4 sm:px-0">
-                  <Breadcrumb />
+        <StripeProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <div className="min-h-screen flex flex-col">
+                <Header />
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+                  <div className="px-4 sm:px-0">
+                    <Breadcrumb />
+                  </div>
                 </div>
+                <main className="flex-1">{children}</main>
+                <Footer />
               </div>
-              <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
-          </AuthProvider>
-        </ThemeProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </StripeProvider>
       </body>
     </html>
   );

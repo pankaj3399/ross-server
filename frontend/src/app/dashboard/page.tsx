@@ -18,10 +18,14 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
+  Star,
 } from "lucide-react";
 
+const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
+const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+
 export default function DashboardPage() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, refreshUser } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -35,15 +39,77 @@ export default function DashboardPage() {
   });
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "" });
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showErrorMessage, setShowErrorMessage] = useState(false);
 
+  const handleStripeReturn = (success: string | null, canceled: string | null) => {
+    console.log('URL params:', { success, canceled });
+    
+    if (success === 'true') {
+      console.log('Payment successful! Showing success message...');
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000);
+      
+      // Clean URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Refresh user data after a delay
+      setTimeout(async () => {
+        try {
+          console.log('Refreshing user data...');
+          await refreshUser();
+          console.log('User data refreshed successfully');
+        } catch (error) {
+          console.error("Failed to refresh user:", error);
+        }
+      }, 2000);
+    } else if (canceled === 'true') {
+      console.log('Payment canceled! Showing error message...');
+      setShowErrorMessage(true);
+      setTimeout(() => setShowErrorMessage(false), 5000);
+      
+      // Clean URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  };
 
   useEffect(() => {
+    // Check for Stripe return parameters first
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const canceled = urlParams.get('canceled');
+    
+    // If we have Stripe parameters but user is not authenticated, 
+    // wait a bit for auth to initialize
+    if ((success || canceled) && !isAuthenticated) {
+      console.log('Stripe return detected but user not authenticated yet, waiting...');
+      const checkAuth = setInterval(() => {
+        if (isAuthenticated) {
+          clearInterval(checkAuth);
+          // Re-run the effect with authentication
+          loadProjects();
+          handleStripeReturn(success, canceled);
+        }
+      }, 100);
+      
+      // Clear interval after 5 seconds
+      setTimeout(() => clearInterval(checkAuth), 5000);
+      return;
+    }
+    
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
     loadProjects();
-  }, [isAuthenticated, router]);
+    
+    // Handle Stripe return if user is authenticated
+    handleStripeReturn(success, canceled);
+  }, [isAuthenticated, router, refreshUser]);
 
   const loadProjects = async () => {
     try {
@@ -102,6 +168,33 @@ export default function DashboardPage() {
     }
   };
 
+  const handleUpgradeToPremium = () => {
+    setShowSubscriptionModal(true);
+  };
+
+  const handleManageBilling = async () => {
+    try {
+      const { url } = await apiService.createPortalSession();
+      window.location.href = url;
+    } catch (error) {
+      console.error("Failed to create portal session:", error);
+      alert("Failed to open billing portal. Please try again.");
+    }
+  };
+
+  const handleSelectPlan = async (priceId: string, planName: string) => {
+    try {
+      setUpgradingPlan(planName);
+      const { url } = await apiService.createCheckoutSession(priceId);
+      window.location.href = url;
+    } catch (error) {
+      console.error("Failed to create checkout session:", error);
+      alert("Failed to start upgrade process. Please try again.");
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
+
   if (!isAuthenticated) {
     return <div>Loading...</div>;
   }
@@ -124,6 +217,42 @@ export default function DashboardPage() {
               Welcome back, {user?.name}! Manage your AI maturity assessments.
             </p>
           </motion.div>
+
+          {/* Success Message */}
+          {showSuccessMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="mb-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-xl shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-6 h-6" />
+                <div>
+                  <h3 className="font-semibold text-lg">🎉 Payment Successful!</h3>
+                  <p className="text-green-100">Your subscription has been upgraded. Welcome to premium!</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Error Message */}
+          {showErrorMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              className="mb-6 bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 rounded-xl shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-6 h-6" />
+                <div>
+                  <h3 className="font-semibold text-lg">Payment Canceled</h3>
+                  <p className="text-red-100">You can try upgrading again anytime.</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* User Info */}
           <motion.div
@@ -171,9 +300,31 @@ export default function DashboardPage() {
                   <label className="text-sm font-medium text-gray-400">
                     Subscription
                   </label>
-                  <p className="text-gray-900 dark:text-white capitalize">
-                    {user?.subscription_status}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-gray-900 dark:text-white capitalize">
+                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' : 
+                         user?.subscription_status === 'pro_premium' ? 'Pro Premium' : 
+                         user?.subscription_status}
+                      </p>
+                      {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
+                        <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                          ⭐ PREMIUM
+                        </span>
+                      )}
+                    </div>
+                    {user?.subscription_status === 'free' && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleUpgradeToPremium}
+                        className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300"
+                      >
+                        <Star className="w-4 h-4" />
+                        Upgrade to Premium
+                      </motion.button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -490,6 +641,160 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                Choose Your Premium Plan
+              </h2>
+              <p className="text-gray-600 dark:text-gray-300">
+                Unlock advanced features and take your AI maturity assessment to the next level
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              {/* Basic Premium Plan */}
+              <motion.div
+                whileHover={{ y: -5 }}
+                className="relative bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-400"
+              >
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Premium Basic
+                  </h3>
+                  <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+                    $29<span className="text-lg text-gray-500">/month</span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Perfect for small teams
+                  </p>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Unlimited assessments</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Advanced reporting</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Priority support</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Export to PDF</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Team collaboration</span>
+                  </li>
+                </ul>
+
+                <button
+                  onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
+                  disabled={upgradingPlan === "basic"}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {upgradingPlan === "basic" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Choose Basic Premium"
+                  )}
+                </button>
+              </motion.div>
+
+              {/* Pro Premium Plan */}
+              <motion.div
+                whileHover={{ y: -5 }}
+                className="relative bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-6 border-2 border-purple-200 dark:border-purple-400"
+              >
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                    Most Popular
+                  </span>
+                </div>
+
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Premium Pro
+                  </h3>
+                  <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+                    $49<span className="text-lg text-gray-500">/month</span>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Best for growing organizations
+                  </p>
+                </div>
+
+                <ul className="space-y-3 mb-8">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Everything in Basic</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Custom assessment templates</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">API access</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">White-label options</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">Advanced analytics</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <span className="text-gray-700 dark:text-gray-300">24/7 phone support</span>
+                  </li>
+                </ul>
+
+                <button
+                  onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
+                  disabled={upgradingPlan === "pro"}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {upgradingPlan === "pro" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Choose Pro Premium"
+                  )}
+                </button>
+              </motion.div>
+            </div>
+
+            <div className="text-center">
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </motion.div>
         </div>
       )}
