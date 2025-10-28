@@ -645,7 +645,7 @@ export default function SettingsPage() {
                 >
                   <input 
                     type="checkbox" 
-                    className="sr-only" 
+                    className="sr-only cursor-pointer" 
                     checked={emailNotifications}
                     onChange={handleEmailNotificationsToggle}
                   />
