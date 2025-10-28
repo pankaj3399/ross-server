@@ -6,7 +6,7 @@ import express from "express";
 const router = express.Router();
 // Webhook handler
 router.post(
-    "/webhook",
+    "/",
     express.raw({ type: "application/json" }),
     async (req, res) => {
         console.log("Raw body:", req.body.toString());

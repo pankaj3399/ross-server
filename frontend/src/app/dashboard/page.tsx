@@ -43,6 +43,8 @@ export default function DashboardPage() {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [prices, setPrices] = useState<{basic: number | null, pro: number | null}>({basic: null, pro: null});
+  const [loadingPrices, setLoadingPrices] = useState(false);
 
   const handleStripeReturn = (success: string | null, canceled: string | null) => {
     console.log('URL params:', { success, canceled });
@@ -168,8 +170,48 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchPrices = async () => {
+    if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
+      console.error('Price IDs not configured');
+      return;
+    }
+
+    setLoadingPrices(true);
+    try {
+      // Fetch prices from your backend API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscriptions/prices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPrices({
+          basic: data.prices[BASIC_PRICE_ID] || null,
+          pro: data.prices[PRO_PRICE_ID] || null
+        });
+      } else {
+        console.error('Failed to fetch prices');
+        // Fallback to hardcoded values if API fails
+        setPrices({basic: 29, pro: 49});
+      }
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+      // Fallback to hardcoded values if API fails
+      setPrices({basic: 29, pro: 49});
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
   const handleUpgradeToPremium = () => {
     setShowSubscriptionModal(true);
+    fetchPrices();
   };
 
   const handleManageBilling = async () => {
@@ -647,154 +689,268 @@ export default function DashboardPage() {
 
       {/* Subscription Modal */}
       {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 50 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-5xl h-[90vh] flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700"
           >
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            {/* Header */}
+            <div className="text-center mb-6 flex-shrink-0">
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="mb-3"
+              >
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mb-3">
+                  <Crown className="w-6 h-6 text-white" />
+                </div>
+              </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-3xl font-bold text-gray-900 dark:text-white mb-2"
+              >
                 Choose Your Premium Plan
-              </h2>
-              <p className="text-gray-600 dark:text-gray-300">
-                Unlock advanced features and take your AI maturity assessment to the next level
-              </p>
+              </motion.h2>
+              {/* <motion.p
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-base text-gray-600 dark:text-gray-300 max-w-xl mx-auto"
+              >
+                Unlock advanced features and take your AI maturity assessment to the next level.
+              </motion.p> */}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Pricing Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 flex-1 min-h-0">
               {/* Basic Premium Plan */}
               <motion.div
-                whileHover={{ y: -5 }}
-                className="relative bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-400"
+                initial={{ opacity: 0, x: -50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                whileHover={{ y: -4, scale: 1.01 }}
+                className="relative group h-full flex flex-col"
               >
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Premium Basic
-                  </h3>
-                  <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
-                    $29<span className="text-lg text-gray-500">/month</span>
+                <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 rounded-2xl p-6 border-2 border-blue-200 dark:border-blue-400 hover:border-blue-300 dark:hover:border-blue-300 transition-all duration-300 h-full flex flex-col">
+                  {/* Plan Badge */}
+                  <div className="absolute -top-3 left-6">
+                    <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                      Small Teams
+                    </span>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Perfect for small teams
-                  </p>
+
+                  <div className="text-center mb-6 flex-shrink-0">
+                    <div className="flex items-center justify-center mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                        <Building className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                      Premium Basic
+                    </h3>
+                    <div className="mb-3">
+                      {loadingPrices ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader className="w-6 h-6 animate-spin text-blue-500" />
+                          <span className="text-sm text-gray-500">Loading...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                            ${prices.basic || 29}
+                          </span>
+                          <div className="text-left">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">/month</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">
+                      Everything you need to get started
+                    </p>
+                  </div>
+
+                  {/* Features */}
+                  <div className="space-y-3 mb-6 flex-1 overflow-y-auto">
+                    {[
+                      "Unlimited AI assessments",
+                      "Advanced reporting & analytics",
+                      "Priority email support",
+                      "PDF export capabilities",
+                      "Team collaboration tools",
+                      "Custom assessment templates",
+                      "Data backup & security"
+                    ].map((feature, index) => (
+                      <motion.div
+                        key={feature}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="flex items-center gap-2"
+                      >
+                        <div className="w-5 h-5 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0">
+                          <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                        </div>
+                        <span className="text-gray-700 dark:text-gray-300 font-medium text-sm">{feature}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* CTA Button */}
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
+                    disabled={upgradingPlan === "basic"}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                  >
+                    {upgradingPlan === "basic" ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-4 h-4" />
+                        Choose Basic Premium
+                      </>
+                    )}
+                  </motion.button>
                 </div>
-
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Unlimited assessments</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Advanced reporting</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Priority support</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Export to PDF</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Team collaboration</span>
-                  </li>
-                </ul>
-
-                <button
-                  onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
-                  disabled={upgradingPlan === "basic"}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {upgradingPlan === "basic" ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    "Choose Basic Premium"
-                  )}
-                </button>
               </motion.div>
 
               {/* Pro Premium Plan */}
               <motion.div
-                whileHover={{ y: -5 }}
-                className="relative bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-700 dark:to-gray-600 rounded-2xl p-6 border-2 border-purple-200 dark:border-purple-400"
+                initial={{ opacity: 0, x: 50 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5 }}
+                whileHover={{ y: -4, scale: 1.01 }}
+                className="relative group h-full flex flex-col"
               >
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                    Most Popular
-                  </span>
+                {/* Popular Badge */}
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
+                    className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg"
+                  >
+                    ⭐ Most Popular
+                  </motion.div>
                 </div>
 
-                <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    Premium Pro
-                  </h3>
-                  <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">
-                    $49<span className="text-lg text-gray-500">/month</span>
+                <div className="bg-gradient-to-br from-purple-50 via-white to-pink-50 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 rounded-2xl p-6 border-2 border-purple-200 dark:border-purple-400 hover:border-purple-300 dark:hover:border-purple-300 transition-all duration-300 h-full flex flex-col relative overflow-hidden">
+                  {/* Background Pattern */}
+                  <div className="absolute inset-0 opacity-5">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full -translate-y-12 translate-x-12"></div>
+                    <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-pink-400 to-purple-400 rounded-full translate-y-10 -translate-x-10"></div>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Best for growing organizations
-                  </p>
+
+                  <div className="relative flex flex-col h-full">
+                    <div className="text-center mb-6 flex-shrink-0">
+                      <div className="flex items-center justify-center mb-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                          <Crown className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        Premium Pro
+                      </h3>
+                      <div className="mb-3">
+                        {loadingPrices ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader className="w-6 h-6 animate-spin text-purple-500" />
+                            <span className="text-sm text-gray-500">Loading...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1">
+                            <span className="text-4xl font-bold text-purple-600 dark:text-purple-400">
+                              ${prices.pro || 49}
+                            </span>
+                            <div className="text-left">
+                              <div className="text-sm text-gray-500 dark:text-gray-400">/month</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-gray-600 dark:text-gray-300 text-sm">
+                        For growing organizations
+                      </p>
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-3 mb-6 flex-1 overflow-y-auto">
+                      {[
+                        "Everything in Basic Premium",
+                        "Custom assessment templates",
+                        "Advanced API access",
+                        "White-label options",
+                        "Advanced analytics dashboard",
+                        "24/7 phone & chat support",
+                        "Dedicated account manager",
+                        "Custom integrations",
+                        "Priority feature requests"
+                      ].map((feature, index) => (
+                        <motion.div
+                          key={feature}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.6 + index * 0.05 }}
+                          className="flex items-center gap-2"
+                        >
+                          <div className="w-5 h-5 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0">
+                            <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400" />
+                          </div>
+                          <span className="text-gray-700 dark:text-gray-300 font-medium text-sm">{feature}</span>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* CTA Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
+                      disabled={upgradingPlan === "pro"}
+                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                    >
+                      {upgradingPlan === "pro" ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Crown className="w-4 h-4" />
+                          Choose Pro Premium
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
                 </div>
-
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Everything in Basic</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Custom assessment templates</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">API access</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">White-label options</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">Advanced analytics</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-gray-700 dark:text-gray-300">24/7 phone support</span>
-                  </li>
-                </ul>
-
-                <button
-                  onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
-                  disabled={upgradingPlan === "pro"}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {upgradingPlan === "pro" ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    "Choose Pro Premium"
-                  )}
-                </button>
               </motion.div>
             </div>
 
-            <div className="text-center">
+            {/* Additional Info */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="text-center space-y-3 flex-shrink-0"
+            >  
               <button
                 onClick={() => setShowSubscriptionModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors text-sm font-medium"
               >
-                Cancel
+                Maybe later
               </button>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
       )}
