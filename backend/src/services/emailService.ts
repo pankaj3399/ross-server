@@ -50,7 +50,7 @@ class EmailService {
     email: string,
     otp: string,
   ): Promise<boolean> {
-    const otpVerificationUrl = `${process.env.FRONTEND_URL}/auth/verify-otp?email=${encodeURIComponent(email)}`;
+    const otpVerificationUrl = `${process.env.FRONTEND_URL}/auth/verify-otp?email=${email}`;
 
     const html = `
       <!DOCTYPE html>

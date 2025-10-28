@@ -128,13 +128,22 @@ router.post("/verify-email", async (req, res) => {
   try {
     const { email, otp } = req.body;
 
+    console.log("Email Verification Debug:");
+    console.log("- Email:", email);
+    console.log("- OTP:", otp);
+    console.log("- OTP Type:", typeof otp);
+    console.log("- OTP Length:", otp?.length);
+
     if (!email || !otp) {
+      console.log("- Error: Missing email or OTP");
       return res.status(400).json({ error: "Email and OTP are required" });
     }
 
     const result = await tokenService.verifyEmailOTP(email, otp);
+    console.log("- Token Service Result:", result);
 
     if (!result.valid) {
+      console.log("- Error: Invalid or expired OTP");
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 

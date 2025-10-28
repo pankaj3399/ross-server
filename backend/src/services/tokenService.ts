@@ -49,14 +49,20 @@ class TokenService {
   ): Promise<{ userId: string; valid: boolean }> {
     try {
       const result = await pool.query(
-        `SELECT evt.user_id, evt.used 
+        `SELECT evt.user_id, evt.used, evt.expires_at
          FROM email_verification_tokens evt
          JOIN users u ON u.id = evt.user_id
          WHERE u.email = $1 AND evt.otp = $2 AND evt.expires_at > CURRENT_TIMESTAMP`,
         [email, otp],
       );
 
+      console.log("- Query Result Rows:", result.rows.length);
+      if (result.rows.length > 0) {
+        console.log("- First Row:", result.rows[0]);
+      }
+
       if (result.rows.length === 0) {
+        console.log("- No matching OTP found or expired");
         return { userId: "", valid: false };
       }
 
