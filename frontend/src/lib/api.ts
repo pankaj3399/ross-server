@@ -193,6 +193,12 @@ class ApiService {
     });
   }
 
+  async submitProject(id: string): Promise<{ message: string; project: Project; results: any }> {
+    return this.request<{ message: string; project: Project; results: any }>(`/projects/${id}/submit`, {
+      method: "POST",
+    });
+  }
+
   // AIMA Framework
   async getDomains(projectId?: string): Promise<{ domains: Domain[] }> {
     const url = projectId ? `/aima/domains?project_id=${projectId}` : "/aima/domains";
@@ -332,6 +338,16 @@ class ApiService {
     return this.request<{ message: string }>("/auth/reset-password", {
       method: "POST",
       body: JSON.stringify({ token, password }),
+    });
+  }
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
 

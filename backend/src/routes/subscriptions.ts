@@ -101,4 +101,36 @@ router.get("/status", authenticateToken, async (req, res) => {
   }
 });
 
+// Fetch prices for given price IDs
+router.post("/prices", async (req, res) => {
+  try {
+    const { priceIds } = req.body;
+
+    if (!priceIds || !Array.isArray(priceIds)) {
+      return res.status(400).json({ error: 'priceIds array is required' });
+    }
+
+    const prices: Record<string, number> = {};
+
+    // Fetch each price from Stripe
+    for (const priceId of priceIds) {
+      try {
+        const price = await stripe.prices.retrieve(priceId);
+        
+        // Convert from cents to dollars
+        const amountInDollars = price.unit_amount ? price.unit_amount / 100 : 0;
+        prices[priceId] = amountInDollars;
+      } catch (error) {
+        console.error(`Failed to fetch price ${priceId}:`, error);
+        // Continue with other prices even if one fails
+      }
+    }
+
+    res.json({ prices });
+  } catch (error) {
+    console.error('Error fetching Stripe prices:', error);
+    res.status(500).json({ error: 'Failed to fetch prices', details: error });
+  }
+});
+
 export default router;

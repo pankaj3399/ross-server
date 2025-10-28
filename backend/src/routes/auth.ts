@@ -37,6 +37,11 @@ const passwordResetSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(1, "New password is required"),
+});
+
 const mfaSetupSchema = z.object({
   mfaCode: z.string().min(6, "MFA code must be 6 digits"),
 });
@@ -128,13 +133,22 @@ router.post("/verify-email", async (req, res) => {
   try {
     const { email, otp } = req.body;
 
+    console.log("Email Verification Debug:");
+    console.log("- Email:", email);
+    console.log("- OTP:", otp);
+    console.log("- OTP Type:", typeof otp);
+    console.log("- OTP Length:", otp?.length);
+
     if (!email || !otp) {
+      console.log("- Error: Missing email or OTP");
       return res.status(400).json({ error: "Email and OTP are required" });
     }
 
     const result = await tokenService.verifyEmailOTP(email, otp);
+    console.log("- Token Service Result:", result);
 
     if (!result.valid) {
+      console.log("- Error: Invalid or expired OTP");
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
@@ -443,6 +457,65 @@ router.post("/reset-password", async (req, res) => {
         .json({ error: "Validation failed", details: error.errors });
     }
     res.status(400).json({ error: "Password reset failed" });
+  }
+});
+
+// Change password (for authenticated users)
+router.post("/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+
+    // Get user's current password hash
+    const result = await pool.query(
+      "SELECT password_hash FROM users WHERE id = $1",
+      [req.user!.id],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password_hash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({ error: "Current password is incorrect" });
+    }
+
+    // Validate new password
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        error: "New password does not meet requirements",
+        details: passwordValidation.errors,
+        score: passwordValidation.score,
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await pool.query(
+      "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+      [passwordHash, req.user!.id],
+    );
+
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    if (error instanceof z.ZodError) {
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: error.errors });
+    }
+    res.status(500).json({ error: "Failed to change password" });
   }
 });
 

@@ -150,7 +150,7 @@ export const migrateDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id)
     `);
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token)
+      CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_otp ON email_verification_tokens(otp)
     `);
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id)

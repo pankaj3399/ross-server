@@ -23,6 +23,7 @@ const AnswerSchema = z.object({
 router.post("/", authenticateToken, async (req, res) => {
   try {
     const parsed = AnswerSchema.safeParse(req.body);
+    const userId = req.user!.id;
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
@@ -43,9 +44,9 @@ router.post("/", authenticateToken, async (req, res) => {
       pool.query(
         `
         INSERT INTO assessment_answers
-          (project_id, domain_id, practice_id, level, stream, question_index, value)
-        VALUES ($1,$2,$3,$4,$5,$6,$7)
-        ON CONFLICT (project_id, domain_id, practice_id, level, stream, question_index)
+          (project_id, domain_id, practice_id, level, stream, question_index, value, user_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7, $8)
+        ON CONFLICT (project_id, domain_id, practice_id, level, stream, question_index, user_id)
         DO UPDATE SET value = $7, updated_at = CURRENT_TIMESTAMP
         `,
         [
@@ -55,7 +56,8 @@ router.post("/", authenticateToken, async (req, res) => {
           a.level,
           a.stream,
           a.questionIndex,
-          a.value
+          a.value,
+          userId
         ]
       )
     );
@@ -88,8 +90,8 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
 
     // Get all answers for project
     const result = await pool.query(
-      "SELECT domain_id, practice_id, level, stream, question_index, value FROM assessment_answers WHERE project_id = $1",
-      [projectId],
+      "SELECT domain_id, practice_id, level, stream, question_index, value FROM assessment_answers WHERE project_id = $1 AND user_id = $2",
+      [projectId, req.user!.id],
     );
 
     const answers: Record<string, number> = {};

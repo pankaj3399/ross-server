@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 
-app.use("/subscriptions", subscriptionsWebhookRouter);
+app.use("/webhook", subscriptionsWebhookRouter);
 
 app.use(express.json());
 
