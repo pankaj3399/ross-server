@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
+import { showToast } from "@/lib/toast";
 
 export default function VerifyOTPPage() {
   const router = useRouter();
@@ -107,18 +108,21 @@ export default function VerifyOTPPage() {
 
       if (response.ok) {
         setSuccess(true);
+        showToast.success("Email verified successfully!");
         // Redirect to dashboard after a short delay
         setTimeout(() => {
           router.push("/dashboard");
         }, 2000);
       } else {
         setError(data.error || "Invalid or expired OTP code");
+        showToast.error(data.error || "Invalid or expired OTP code");
         // Clear the OTP inputs on error
         setOtp(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
       setError("An error occurred during verification. Please try again.");
+      showToast.error("An error occurred during verification. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -142,11 +146,14 @@ export default function VerifyOTPPage() {
       if (response.ok) {
         setResendCooldown(60); // 60 seconds cooldown
         setError(""); // Clear any previous errors
+        showToast.success("OTP sent successfully! Please check your email.");
       } else {
         setError(data.error || "Failed to resend OTP. Please try again.");
+        showToast.error(data.error || "Failed to resend OTP. Please try again.");
       }
     } catch (error) {
       setError("Failed to resend OTP. Please try again.");
+      showToast.error("Failed to resend OTP. Please try again.");
     } finally {
       setIsResending(false);
     }

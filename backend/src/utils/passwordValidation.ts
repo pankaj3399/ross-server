@@ -60,8 +60,9 @@ const COMMON_PASSWORDS = [
   "qwertyuiop",
 ];
 
-// Special characters allowed
-const SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+// Only allow safe special characters (no quotes, semicolons, or SQL injection characters)
+export const ALLOWED_SPECIAL_CHARS = "@#$%^&*";
+const SPECIAL_CHARS = ALLOWED_SPECIAL_CHARS;
 
 export const DEFAULT_PASSWORD_REQUIREMENTS: PasswordRequirements = {
   minLength: 8,
@@ -85,6 +86,19 @@ export function validatePassword(
 ): PasswordValidationResult {
   const errors: string[] = [];
   let score = 0;
+
+  // First, check if password contains only allowed characters
+  const allowedPattern = new RegExp(`^[A-Za-z0-9${SPECIAL_CHARS.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}]+$`);
+  if (!allowedPattern.test(password)) {
+    errors.push(
+      `Password can only contain letters, numbers, and these special characters: ${SPECIAL_CHARS}`
+    );
+    return {
+      isValid: false,
+      errors,
+      score: 0,
+    };
+  }
 
   // Length validation
   if (password.length < requirements.minLength) {
@@ -192,15 +206,14 @@ export function validatePassword(
  * Generate a secure random password
  */
 export function generateSecurePassword(length: number = 16): string {
-  const charset =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
+  const charset = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789${ALLOWED_SPECIAL_CHARS}`;
   let password = "";
 
   // Ensure at least one character from each required type
   password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)]; // Uppercase
   password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)]; // Lowercase
   password += "0123456789"[Math.floor(Math.random() * 10)]; // Number
-  password += "!@#$%^&*()_+-=[]{}|;:,.<>?"[Math.floor(Math.random() * 32)]; // Special char
+  password += ALLOWED_SPECIAL_CHARS[Math.floor(Math.random() * ALLOWED_SPECIAL_CHARS.length)]; // Special char
 
   // Fill the rest randomly
   for (let i = password.length; i < length; i++) {

@@ -17,10 +17,6 @@ export async function seedAdmin() {
     `,
       [adminEmail, passwordHash],
     );
-
-    console.log("✅ Admin user seeded successfully!");
-    console.log("📧 Email: admin@maturai.com");
-    console.log("🔑 Password: Admin123!");
   } catch (err) {
     console.error("Error seeding admin:", err);
   }

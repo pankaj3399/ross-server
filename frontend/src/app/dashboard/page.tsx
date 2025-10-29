@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
 import Link from "next/link";
@@ -47,10 +48,7 @@ export default function DashboardPage() {
   const [loadingPrices, setLoadingPrices] = useState(false);
 
   const handleStripeReturn = (success: string | null, canceled: string | null) => {
-    console.log('URL params:', { success, canceled });
-    
     if (success === 'true') {
-      console.log('Payment successful! Showing success message...');
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 5000);
       
@@ -61,15 +59,12 @@ export default function DashboardPage() {
       // Refresh user data after a delay
       setTimeout(async () => {
         try {
-          console.log('Refreshing user data...');
           await refreshUser();
-          console.log('User data refreshed successfully');
         } catch (error) {
           console.error("Failed to refresh user:", error);
         }
       }, 2000);
     } else if (canceled === 'true') {
-      console.log('Payment canceled! Showing error message...');
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
       
@@ -88,7 +83,6 @@ export default function DashboardPage() {
     // If we have Stripe parameters but user is not authenticated, 
     // wait a bit for auth to initialize
     if ((success || canceled) && !isAuthenticated) {
-      console.log('Stripe return detected but user not authenticated yet, waiting...');
       const checkAuth = setInterval(() => {
         if (isAuthenticated) {
           clearInterval(checkAuth);
@@ -119,6 +113,7 @@ export default function DashboardPage() {
       setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load projects:", error);
+      showToast.error("Failed to load projects. Please try again.");
       setProjects([]);
     } finally {
       setLoading(false);
@@ -132,8 +127,10 @@ export default function DashboardPage() {
       setProjects([...projects, response.project]);
       setNewProject({ name: "", description: "", aiSystemType: "" });
       setShowCreateForm(false);
+      showToast.success("Project created successfully!");
     } catch (error) {
       console.error("Failed to create project:", error);
+      showToast.error("Failed to create project. Please try again.");
     }
   };
 
@@ -152,8 +149,10 @@ export default function DashboardPage() {
       const updatedProject: Project = response.project;
       setProjects(prev => prev.map(p => (p.id === editingProject.id ? updatedProject : p)));
       setEditingProject(null);
+      showToast.success("Project updated successfully!");
     } catch (error) {
       console.error("Failed to update project:", error);
+      showToast.error("Failed to update project. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -165,8 +164,10 @@ export default function DashboardPage() {
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
+      showToast.success("Project deleted successfully!");
     } catch (error) {
       console.error("Failed to delete project:", error);
+      showToast.error("Failed to delete project. Please try again.");
     }
   };
 
@@ -221,7 +222,7 @@ export default function DashboardPage() {
       window.location.href = url;
     } catch (error) {
       console.error("Failed to create checkout session:", error);
-      alert("Failed to start upgrade process. Please try again.");
+      showToast.error("Failed to start upgrade process. Please try again.");
     } finally {
       setUpgradingPlan(null);
     }

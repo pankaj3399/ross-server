@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { showToast } from "../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield,
@@ -58,8 +59,10 @@ export default function SettingsPage() {
         setMfaLoading(true);
         await apiService.disableMFA();
         await refreshUser();
+        showToast.success("MFA disabled successfully!");
       } catch (error) {
         console.error("Failed to disable MFA:", error);
+        showToast.error("Failed to disable MFA. Please try again.");
       } finally {
         setMfaLoading(false);
       }
@@ -183,6 +186,7 @@ export default function SettingsPage() {
       );
       
       setPasswordSuccess(true);
+      showToast.success("Password changed successfully!");
       setPasswordForm({
         currentPassword: "",
         newPassword: "",
@@ -195,6 +199,7 @@ export default function SettingsPage() {
       }, 3000);
     } catch (err: any) {
       setPasswordError(err.message || "Failed to change password");
+      showToast.error(err.message || "Failed to change password");
     } finally {
       setPasswordLoading(false);
     }
@@ -203,7 +208,6 @@ export default function SettingsPage() {
   const handleEmailNotificationsToggle = () => {
     setEmailNotifications(!emailNotifications);
     // Here you could add API call to save the preference
-    console.log("Email notifications:", !emailNotifications);
   };
 
   if (loading) {

@@ -68,7 +68,6 @@ router.get("/domains", async (req, res) => {
     console.log("Query params:", queryParams);
 
     const result = await pool.query(query, queryParams);
-    console.log("Query result rows:", result.rows.length);
 
     const domains = result.rows.map((row) => ({
       id: row.id,
