@@ -79,14 +79,6 @@ class MFAService {
         encoding: "base32",
       });
 
-      console.log("MFA Debug - User ID:", userId);
-      console.log("MFA Debug - Provided token:", token);
-      console.log("MFA Debug - Current valid code:", currentCode);
-      console.log(
-        "MFA Debug - Secret (first 10 chars):",
-        secret.substring(0, 10) + "...",
-      );
-
       const verified = speakeasy.totp.verify({
         secret,
         encoding: "base32",
@@ -95,7 +87,6 @@ class MFAService {
         time: Math.floor(Date.now() / 1000), // Explicitly set current time
       });
 
-      console.log("MFA Debug - Verification result:", verified);
       return { isValid: verified };
     } catch (error) {
       console.error("Error verifying TOTP:", error);

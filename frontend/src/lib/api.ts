@@ -95,7 +95,6 @@ class ApiService {
         .json()
         .catch(() => ({ error: "Network error" }));
       const errorMessage = error.error || `HTTP ${response.status}`;
-      console.log(`API Error: ${response.status} - ${errorMessage}`);
       throw new Error(errorMessage);
     }
 
@@ -118,7 +117,6 @@ class ApiService {
       localStorage.setItem("auth_token", response.token);
     }
 
-    console.log("API Service - register response:", response);
     return response;
   }
 

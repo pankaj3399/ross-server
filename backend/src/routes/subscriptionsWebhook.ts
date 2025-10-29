@@ -3,13 +3,18 @@ import pool from "../config/database";
 import stripe from "../config/stripe";
 import express from "express";
 
+enum SubscriptionStatus {
+    FREE = "free",
+    BASIC_PREMIUM = "basic_premium",
+    PRO_PREMIUM = "pro_premium",
+}
+
 const router = express.Router();
 // Webhook handler
 router.post(
     "/",
     express.raw({ type: "application/json" }),
     async (req, res) => {
-        console.log("Raw body:", req.body.toString());
         const sig = req.headers["stripe-signature"];
         const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -23,29 +28,25 @@ router.post(
         }
 
         try {
-            console.log('Webhook received:', event.type);
             switch (event.type) {
                 case "checkout.session.completed":
                     const session = event.data.object as Stripe.Checkout.Session;
                     const userId = session.metadata?.userId;
                     const priceId = session.metadata?.priceId;
 
-                    console.log('Checkout session completed for user:', userId, 'price:', priceId);
-
                     if (userId && priceId) {
                         // Determine subscription type based on price ID
                         let subscriptionStatus = 'premium'; // default
                         if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
-                            subscriptionStatus = 'basic_premium';
+                            subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
                         } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
-                            subscriptionStatus = 'pro_premium';
+                            subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
                         }
 
                         const result = await pool.query(
                             "UPDATE users SET subscription_status = $1 WHERE id = $2",
                             [subscriptionStatus, userId],
                         );
-                        console.log('Updated user subscription status to:', subscriptionStatus, result.rowCount);
                     }
                     break;
 

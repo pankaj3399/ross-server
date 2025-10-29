@@ -124,7 +124,7 @@ router.post("/register", async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "Registration failed", err: error });
+    res.status(400).json({ error: "Registration failed" });
   }
 });
 
@@ -133,22 +133,13 @@ router.post("/verify-email", async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    console.log("Email Verification Debug:");
-    console.log("- Email:", email);
-    console.log("- OTP:", otp);
-    console.log("- OTP Type:", typeof otp);
-    console.log("- OTP Length:", otp?.length);
-
     if (!email || !otp) {
-      console.log("- Error: Missing email or OTP");
       return res.status(400).json({ error: "Email and OTP are required" });
     }
 
     const result = await tokenService.verifyEmailOTP(email, otp);
-    console.log("- Token Service Result:", result);
 
     if (!result.valid) {
-      console.log("- Error: Invalid or expired OTP");
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
@@ -319,22 +310,13 @@ router.post("/login", async (req, res) => {
 
       let mfaValid = false;
       if (mfaCode) {
-        console.log("Login MFA Verification - User ID:", user.id);
-        console.log("Login MFA Verification - Code provided:", mfaCode);
         const mfaResult = await mfaService.verifyTOTP(user.id, mfaCode);
-        console.log("Login MFA Verification - Result:", mfaResult);
         mfaValid = mfaResult.isValid;
       } else if (backupCode) {
-        console.log("Login Backup Code Verification - User ID:", user.id);
-        console.log(
-          "Login Backup Code Verification - Code provided:",
-          backupCode,
-        );
         const backupResult = await mfaService.verifyBackupCode(
           user.id,
           backupCode,
         );
-        console.log("Login Backup Code Verification - Result:", backupResult);
         mfaValid = backupResult.isValid;
       }
 
@@ -368,7 +350,7 @@ router.post("/login", async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "Login failed" });
+    res.status(401).json({ error: "Login failed" });
   }
 });
 
@@ -411,7 +393,7 @@ router.post("/forgot-password", async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "Password reset request failed" });
+    res.status(500).json({ error: "Password reset request failed" });
   }
 });
 
@@ -456,7 +438,7 @@ router.post("/reset-password", async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "Password reset failed" });
+    res.status(500).json({ error: "Password reset failed" });
   }
 });
 
@@ -543,7 +525,7 @@ router.post("/setup-mfa", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("MFA setup error:", error);
-    res.status(400).json({ error: "MFA setup failed" });
+    res.status(500).json({ error: "MFA setup failed" });
   }
 });
 
@@ -553,12 +535,8 @@ router.post("/verify-mfa-setup", authenticateToken, async (req, res) => {
     const { mfaCode } = mfaSetupSchema.parse(req.body);
     const userId = req.user!.id;
 
-    console.log("MFA Setup Verification - User ID:", userId);
-    console.log("MFA Setup Verification - Code provided:", mfaCode);
-
     // Verify MFA code
     const mfaResult = await mfaService.verifyTOTP(userId, mfaCode);
-    console.log("MFA Setup Verification - Result:", mfaResult);
 
     if (!mfaResult.isValid) {
       return res.status(400).json({ error: "Invalid MFA code" });
@@ -577,7 +555,7 @@ router.post("/verify-mfa-setup", authenticateToken, async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "MFA verification failed" });
+    res.status(500).json({ error: "MFA verification failed" });
   }
 });
 
@@ -611,7 +589,7 @@ router.post("/disable-mfa", authenticateToken, async (req, res) => {
         .status(400)
         .json({ error: "Validation failed", details: error.errors });
     }
-    res.status(400).json({ error: "MFA disable failed" });
+    res.status(500).json({ error: "MFA disable failed" });
   }
 });
 
@@ -624,7 +602,7 @@ router.get("/backup-codes", authenticateToken, async (req, res) => {
     res.json({ backupCodes });
   } catch (error) {
     console.error("Get backup codes error:", error);
-    res.status(400).json({ error: "Failed to get backup codes" });
+    res.status(500).json({ error: "Failed to get backup codes" });
   }
 });
 
@@ -657,7 +635,7 @@ router.post("/disable-mfa", authenticateToken, async (req, res) => {
     res.json({ message: "MFA disabled successfully" });
   } catch (error) {
     console.error("Disable MFA error:", error);
-    res.status(400).json({ error: "Failed to disable MFA" });
+    res.status(500).json({ error: "Failed to disable MFA" });
   }
 });
 
@@ -680,7 +658,7 @@ router.get("/me", authenticateToken, async (req, res) => {
     res.json({ user });
   } catch (error) {
     console.error("Get user error:", error);
-    res.status(400).json({ error: "Failed to get user info" });
+    res.status(500).json({ error: "Failed to get user info" });
   }
 });
 

@@ -8,6 +8,7 @@ import {
   Domain as ApiDomain,
   Practice as ApiPractice,
 } from "../../../lib/api";
+import { showToast } from "../../../lib/toast";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -127,26 +128,21 @@ export default function AssessmentPage() {
         );
 
         setDomains(transformedDomains);
-        console.log("Loaded domains:", transformedDomains.length);
 
         // Only set initial domain and practice if we don't have existing state for this project
         if (transformedDomains.length > 0 && !projectState) {
           const firstDomain = transformedDomains[0];
           const firstPracticeId = Object.keys(firstDomain.practices)[0];
-          console.log("Setting initial domain for new project:", firstDomain.id, "practice:", firstPracticeId);
           setProjectState(projectId, {
             currentDomainId: firstDomain.id,
             currentPracticeId: firstPracticeId,
             currentQuestionIndex: 0,
             practice: null,
           });
-        } else {
-          console.log("No domains found for project:", projectId);
         }
 
         // Load existing answers
         const answersData = await apiService.getAnswers(projectId);
-        console.log("answersData", answersData);
 
         // Make a map from the answers object
         const answersMap: Record<string, number> = {};
@@ -162,7 +158,6 @@ export default function AssessmentPage() {
         // Load existing notes
         try {
           const notesData = await apiService.getQuestionNotes(projectId);
-          console.log('notesData', notesData);
           const notesMap: Record<string, string> = {};
           notesData.forEach((note: any) => {
             const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
@@ -185,18 +180,14 @@ export default function AssessmentPage() {
 // Resume from Zustand store after data is loaded
 useEffect(() => {
   if (!loading && domains.length > 0 && projectState) {
-    console.log("Checking project state for resume - practice:", !!practice, "domain:", currentDomainId, "practice:", currentPracticeId, "question:", currentQuestionIndex);
-    
     // Check if we have navigation state for this project
     if (currentDomainId && currentPracticeId) {
       // Check if the current practice is still valid (domain and practice exist)
       const domain = domains.find(d => d.id === currentDomainId);
       if (domain && domain.practices[currentPracticeId]) {
-        console.log("Resuming from project state - domain:", currentDomainId, "practice:", currentPracticeId, "question:", currentQuestionIndex);
         // The navigation state is already set, we just need to trigger the practice loading
         // The practice loading effect will handle fetching the practice data
       } else {
-        console.log("Project state is invalid, starting from beginning");
         // Clear invalid state for this project
         setProjectState(projectId, {
           currentDomainId: '',
@@ -205,8 +196,6 @@ useEffect(() => {
           practice: null,
         });
       }
-    } else {
-      console.log("No navigation state for this project, starting from beginning");
     }
   }
 }, [loading, domains, projectState, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState]);
@@ -217,13 +206,11 @@ useEffect(() => {
 
     const fetchPractice = async () => {
       try {
-        console.log("Fetching practice for domain:", currentDomainId, "practice:", currentPracticeId);
         const data = await apiService.getPracticeQuestions(
           currentDomainId,
           currentPracticeId,
           projectId,
         );
-        console.log("Practice data received:", data);
         
         setProjectState(projectId, {
           practice: {
@@ -249,7 +236,6 @@ useEffect(() => {
           );
         });
 
-        console.log("Flattened questions:", questionsList.length);
         setQuestions(questionsList);
         
         // Position is managed by Zustand store
@@ -463,10 +449,10 @@ useEffect(() => {
       
       // Store the results in Zustand store
       setProjectResults(projectId, response.project, response.results);
-      
       router.push(`/score-report?projectId=${projectId}`);
     } catch (error) {
       console.error("Failed to submit project:", error);
+      showToast.error("Failed to submit assessment. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -504,7 +490,6 @@ useEffect(() => {
   
   // If no navigation state and no practice, show overview
   if (!hasNavigationState && (!practice || questions.length === 0)) {
-    console.log("Showing assessment overview - practice:", !!practice, "questions:", questions.length, "domains:", domains.length);
     
     return (
       <div className="min-h-screen flex items-center justify-center">

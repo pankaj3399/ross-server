@@ -335,7 +335,6 @@ export const useAssessmentNavigation = ({
       return bestResumePosition;
     }
     
-    console.log("No answered questions found, starting from beginning");
     return null; // No questions answered, start from beginning
   }, [domains, assessmentData]);
 

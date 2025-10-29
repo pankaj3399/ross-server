@@ -146,9 +146,6 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
       [projectId, userId]
     );
 
-    console.log(`Found ${answersResult.rows.length} answers for project ${projectId}`);
-    console.log('Sample answers:', answersResult.rows.slice(0, 3));
-
     // Get total questions per domain from aima_questions table
     const totalQuestionsResult = await pool.query(
       `SELECT d.id as domain_id, d.title as domain_title, COUNT(aq.id) as total_questions
@@ -166,9 +163,6 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
         totalQuestions: parseInt(row.total_questions)
       });
     });
-
-    console.log(`Found ${domainStats.size} domains with questions`);
-    console.log('Domain stats:', Array.from(domainStats.entries()).slice(0, 3));
 
     // Initialize domain results for ALL domains (even those with no answers)
     const domainResults = new Map();
@@ -205,9 +199,6 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
         }
       }
     });
-
-    console.log(`Processed ${totalCount} answers, found ${correctCount} correct answers`);
-    console.log(`Total correct answers across all domains: ${totalCorrectAnswers}`);
 
     // Calculate percentages and prepare response
     const domains = Array.from(domainResults.values()).map(domain => {

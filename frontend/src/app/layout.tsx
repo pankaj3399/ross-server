@@ -3,9 +3,9 @@ import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { Header } from "../components/Header";
-import { Breadcrumb } from "../components/Breadcrumb";
 import { Footer } from "../components/Footer";
 import StripeProvider from "@/components/StripeProvider";
+import ToastComponent from "../components/Toast";
 
 export const metadata: Metadata = {
   title: "MATUR.ai - AI Maturity Assessment Platform | OWASP AIMA Framework",
@@ -30,14 +30,10 @@ export default function RootLayout({
             <AuthProvider>
               <div className="min-h-screen flex flex-col">
                 <Header />
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                  <div className="px-4 sm:px-0">
-                    <Breadcrumb />
-                  </div>
-                </div>
                 <main className="flex-1">{children}</main>
                 <Footer />
               </div>
+              <ToastComponent />
             </AuthProvider>
           </ThemeProvider>
         </StripeProvider>

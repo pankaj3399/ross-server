@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
+import { showToast } from "../../lib/toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { PasswordStrengthIndicator } from "../../components/PasswordStrengthIndicator";
 import { Eye, EyeOff } from "lucide-react";
+import { ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
 
 export default function AuthPage() {
   const isLogin = useSearchParams().get("isLogin") === "true";
@@ -40,6 +42,7 @@ export default function AuthPage() {
           formData.mfaCode || undefined,
           formData.backupCode || undefined,
         );
+        showToast.success("Login successful!");
         router.push("/dashboard")
       } else {
         if (formData.password !== formData.confirmPassword) {
@@ -55,7 +58,7 @@ export default function AuthPage() {
           organization: formData.organization,
         });
 
-        console.log("Frontend - register response:", data);
+        showToast.success("Registration successful! Please check your email for verification.");
         router.push(`/auth/verify-otp?email=${formData.email}`);
       }
     } catch (err: any) {
@@ -63,7 +66,7 @@ export default function AuthPage() {
         setMfaRequired(true);
         setError("");
       } else {
-        setError(`error: ${err.message}` || "An error occurred");
+        setError(err.message || "An error occurred");
       }
     } finally {
       setLoading(false);
