@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronRight,
@@ -66,8 +66,37 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     new Set([currentDomainId || domains[0]?.id]),
   );
   const [expandedPractices, setExpandedPractices] = useState<Set<string>>(
-    new Set(),
+    new Set([currentPracticeId || '']),
   );
+
+  // Refs for scrolling to current question
+  const currentQuestionRef = useRef<HTMLDivElement>(null);
+
+  // Auto-expand/collapse based on current question position
+  useEffect(() => {
+    if (currentDomainId) {
+      // Expand only the current domain, collapse others
+      setExpandedDomains(new Set([currentDomainId]));
+      
+      // Expand only the current practice in the current domain, collapse others
+      if (currentPracticeId) {
+        setExpandedPractices(new Set([currentPracticeId]));
+        
+        // Scroll to current question after a short delay to allow expansion animation
+        setTimeout(() => {
+          if (currentQuestionRef.current) {
+            currentQuestionRef.current.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          }
+        }, 300);
+      } else {
+        // If no current practice, collapse all practices
+        setExpandedPractices(new Set());
+      }
+    }
+  }, [currentDomainId, currentPracticeId, currentQuestionIndex]);
 
   const toggleDomain = (domainId: string) => {
     setExpandedDomains((prev) => {
@@ -273,13 +302,18 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                 transition={{ duration: 0.2 }}
                                 className="ml-6 space-y-1"
                               >
-                                {practice.questions.map((question, questionIndex) => (
+                                {practice.questions.map((question, questionIndex) => {
+                                  const isCurrentQuestion = 
+                                    currentDomainId === domain.id &&
+                                    currentPracticeId === practice.id &&
+                                    currentQuestionIndex === questionIndex;
+                                  
+                                  return (
                                   <div
                                     key={questionIndex}
+                                    ref={isCurrentQuestion ? currentQuestionRef : null}
                                     className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                                      currentDomainId === domain.id &&
-                                      currentPracticeId === practice.id &&
-                                      currentQuestionIndex === questionIndex
+                                      isCurrentQuestion
                                         ? "bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700"
                                         : "hover:bg-gray-50 dark:hover:bg-gray-800"
                                     }`}
@@ -304,7 +338,8 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       </div>
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </motion.div>
                             )}
                           </AnimatePresence>
