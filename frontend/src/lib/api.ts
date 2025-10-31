@@ -243,6 +243,114 @@ class ApiService {
     }>(url);
   }
 
+  async getFairnessQuestions(): Promise<{
+    questions: Array<{
+      label: string;
+      prompts: string[];
+    }>;
+  }> {
+    return this.request<{
+      questions: Array<{
+        label: string;
+        prompts: string[];
+      }>;
+    }>("/fairness/prompts");
+  }
+
+  async evaluateFairnessResponse(data: {
+    projectId: string;
+    category: string;
+    questionText: string;
+    userResponse: string;
+  }): Promise<{
+    success: boolean;
+    evaluation: {
+      id: string;
+      biasScore: number;
+      toxicityScore: number;
+      relevancyScore: number;
+      faithfulnessScore: number;
+      overallScore: number;
+      verdicts: {
+        bias: { score: number; verdict: string };
+        toxicity: { score: number; verdict: string };
+        relevancy: { score: number; verdict: string };
+        faithfulness: { score: number; verdict: string };
+      };
+      reasoning: string;
+      createdAt: string;
+    };
+  }> {
+    return this.request<{
+      success: boolean;
+      evaluation: {
+        id: string;
+        biasScore: number;
+        toxicityScore: number;
+        relevancyScore: number;
+        faithfulnessScore: number;
+        overallScore: number;
+        verdicts: {
+          bias: { score: number; verdict: string };
+          toxicity: { score: number; verdict: string };
+          relevancy: { score: number; verdict: string };
+          faithfulness: { score: number; verdict: string };
+        };
+        reasoning: string;
+        createdAt: string;
+      };
+    }>("/fairness/evaluate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFairnessEvaluations(projectId: string): Promise<{
+    success: boolean;
+    evaluations: Array<{
+      id: string;
+      category: string;
+      questionText: string;
+      userResponse: string;
+      biasScore: number;
+      toxicityScore: number;
+      relevancyScore: number;
+      faithfulnessScore: number;
+      overallScore: number;
+      verdicts: {
+        bias: { score: number; verdict: string };
+        toxicity: { score: number; verdict: string };
+        relevancy: { score: number; verdict: string };
+        faithfulness: { score: number; verdict: string };
+      };
+      reasoning: string;
+      createdAt: string;
+    }>;
+  }> {
+    return this.request<{
+      success: boolean;
+      evaluations: Array<{
+        id: string;
+        category: string;
+        questionText: string;
+        userResponse: string;
+        biasScore: number;
+        toxicityScore: number;
+        relevancyScore: number;
+        faithfulnessScore: number;
+        overallScore: number;
+        verdicts: {
+          bias: { score: number; verdict: string };
+          toxicity: { score: number; verdict: string };
+          relevancy: { score: number; verdict: string };
+          faithfulness: { score: number; verdict: string };
+        };
+        reasoning: string;
+        createdAt: string;
+      }>;
+    }>(`/fairness/evaluations/${projectId}`);
+  }
+
   // Assessment Answers
   async saveAnswers(
     projectId: string,

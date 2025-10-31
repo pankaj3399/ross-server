@@ -8,7 +8,8 @@ import projectsRouter from "./routes/projects";
 import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
-import { initializeDatabase } from "./utils/database";
+import fairnessRouter from "./routes/fairness";
+import { seedAIMAData } from "./scripts/seedAIMA";
 import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
 
 dotenv.config();
@@ -34,11 +35,12 @@ app.use("/admin", adminRouter);
 app.use("/aima", aimaRouter);
 app.use("/answers", answersRouter);
 app.use("/notes", notesRouter);
-
+app.use("/fairness", fairnessRouter);
 // Initialize database
 const initialize = async () => {
   try {
     // Skip database initialization since migration was already run
+    await seedAIMAData();
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
