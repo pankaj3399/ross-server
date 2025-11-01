@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import pool from "../config/database";
+import { getRoutesForSubscription, SubscriptionStatus } from "../config/subscriptionAccess";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -60,19 +61,37 @@ export const requireRole = (roles: string[]) => {
   };
 };
 
-export const requirePremium = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
+/**
+ * Check if user's subscription has access to a specific route
+ * Uses the subscription access configuration
+ */
+export const checkRouteAccess = (route: string) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
 
-  const PREMIUM_STATUSES = ["basic_premium", "pro_premium"];
-  if (!PREMIUM_STATUSES.includes(req.user.subscription_status)) {
-    return res.status(403).json({ error: "Premium subscription required. This feature is available only for premium users." });
-  }
+    const userStatus = req.user.subscription_status as SubscriptionStatus;
+    
+    // Validate subscription status
+    const validStatuses: SubscriptionStatus[] = ['free', 'basic_premium', 'pro_premium'];
+    if (!validStatuses.includes(userStatus)) {
+      return res.status(403).json({ 
+        error: "Invalid subscription status",
+        status: userStatus
+      });
+    }
 
-  next();
+    const allowedRoutes = getRoutesForSubscription(userStatus);
+
+    if (!allowedRoutes.includes(route)) {
+      return res.status(403).json({ 
+        error: "Access denied. This route requires a different subscription plan.",
+        required: "Premium subscription required",
+        current: userStatus
+      });
+    }
+
+    next();
+  };
 };

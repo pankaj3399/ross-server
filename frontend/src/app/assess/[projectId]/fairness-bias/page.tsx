@@ -21,8 +21,6 @@ interface FairnessQuestion {
   prompts: string[];
 }
 
-const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-
 interface CategoryNode {
   id: string;
   label: string;
@@ -37,6 +35,7 @@ export default function FairnessBiasTest() {
 
   const [fairnessQuestions, setFairnessQuestions] = useState<FairnessQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [responses, setResponses] = useState<{ [key: string]: string }>({});
   const [submitting, setSubmitting] = useState<{ [key: string]: boolean }>({});
   const [evaluations, setEvaluations] = useState<{ [key: string]: any }>({});
@@ -47,7 +46,6 @@ export default function FairnessBiasTest() {
   const projectId = params.projectId as string;
   const currentQuestionRef = useRef<HTMLDivElement>(null);
 
-  // Flatten questions into navigation structure
   const categories: CategoryNode[] = fairnessQuestions.map((category, catIdx) => ({
     id: `cat-${catIdx}`,
     label: category.label,
@@ -65,41 +63,28 @@ export default function FairnessBiasTest() {
     ? `${currentCategoryIndex}:${currentPromptIndex}`
     : "";
 
-  // Redirect non-premium users immediately
   useEffect(() => {
-    if (!loading && (!user || !PREMIUM_STATUS.includes(user.subscription_status))) {
-      router.push(`/assess/${projectId}`);
-    }
-  }, [loading, user, projectId, router]);
-
-  // Fetch fairness questions and existing evaluations from backend
-  useEffect(() => {
-    // Only fetch if user is premium
-    if (loading || !user || !PREMIUM_STATUS.includes(user.subscription_status) || !projectId) {
+    if (loading || !user || !projectId) {
       return;
     }
 
     const fetchData = async () => {
       try {
-        // Fetch questions
         const questionsData = await apiService.getFairnessQuestions();
         setFairnessQuestions(questionsData.questions);
+        setAccessDenied(false);
         
-        // Expand first category by default
         if (questionsData.questions.length > 0) {
           setExpandedCategories(new Set(["cat-0"]));
         }
 
-        // Fetch existing evaluations
         try {
           const evaluationsData = await apiService.getFairnessEvaluations(projectId);
           
-          // Map evaluations to responses and evaluations state
           const responsesMap: { [key: string]: string } = {};
           const evaluationsMap: { [key: string]: any } = {};
 
           evaluationsData.evaluations.forEach((evaluation) => {
-            // Find the matching category and prompt index
             const categoryIdx = questionsData.questions.findIndex(
               cat => cat.label === evaluation.category
             );
@@ -130,12 +115,15 @@ export default function FairnessBiasTest() {
 
           setResponses(responsesMap);
           setEvaluations(evaluationsMap);
-        } catch (error) {
-          console.error("Failed to fetch evaluations:", error);
-          // Continue even if evaluations fail to load
+        } catch (error: any) {
+          if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
+            setAccessDenied(true);
+          }
         }
-      } catch (error) {
-        console.error("Failed to fetch fairness questions:", error);
+      } catch (error: any) {
+        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
+          setAccessDenied(true);
+        }
       } finally {
         setQuestionsLoading(false);
       }
@@ -179,14 +167,16 @@ export default function FairnessBiasTest() {
     );
   }
 
-  // If user is not premium, redirect is happening in useEffect, but show locked message while redirecting
-  if (!user || !PREMIUM_STATUS.includes(user.subscription_status)) {
+  // Show locked message if backend returned 403 (access denied)
+  if (accessDenied || (!user && !loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="rounded-xl p-10 bg-white dark:bg-gray-900 border text-center max-w-lg shadow-lg">
           <div className="text-6xl mb-4">🔒</div>
-          <div className="text-xl font-bold mb-2">Locked</div>
-          <div className="text-gray-500 mb-4">This test is available only for premium users.</div>
+          <div className="text-xl font-bold mb-2">Access Denied</div>
+          <div className="text-gray-500 mb-4">
+            This feature is available only for premium users. Please upgrade your subscription to access fairness and bias testing.
+          </div>
           <button
             onClick={() => router.push(`/assess/${projectId}`)}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

@@ -1,4 +1,4 @@
-import pool from "../config/database";
+import pool from "../../config/database";
 
 export async function seedAdmin() {
   const adminEmail = "admin@maturai.com";
@@ -6,19 +6,31 @@ export async function seedAdmin() {
     "$2a$10$Z2REmdbEkMmafFy2KRTNl.Sf6m2FzWGcFnZXn8Unz6vp4dYfq8lXW";
 
   try {
-    // First, delete any existing admin user
-    await pool.query("DELETE FROM users WHERE email = $1", [adminEmail]);
+    // Check if admin user already exists
+    const adminCheck = await pool.query(
+      "SELECT COUNT(*) FROM users WHERE email = $1 AND role = 'ADMIN'",
+      [adminEmail]
+    );
+    const adminCount = parseInt(adminCheck.rows[0].count);
 
-    // Then insert the new admin user
+    if (adminCount > 0) {
+      console.log("✅ Admin user already exists, skipping seed...");
+      return;
+    }
+
+    // Insert the admin user (with conflict handling)
     await pool.query(
       `
       INSERT INTO users (email, password_hash, name, organization, role, email_verified)
       VALUES ($1, $2, 'Super Admin', 'System', 'ADMIN', true)
+      ON CONFLICT (email) DO NOTHING
     `,
       [adminEmail, passwordHash],
     );
+    console.log("✅ Admin user seeded successfully!");
   } catch (err) {
     console.error("Error seeding admin:", err);
+    throw err;
   }
 }
 

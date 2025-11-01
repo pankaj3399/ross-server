@@ -4,6 +4,18 @@ import path from "path";
 
 export const initializeDatabase = async () => {
   try {
+    // Check if database is already initialized by checking if users table exists
+    const tableCheck = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_name = 'users'
+    `);
+
+    if (tableCheck.rows.length > 0) {
+      console.log("✅ Database already initialized, skipping schema setup");
+      return;
+    }
+
     // Read and execute schema
     const schemaPath = path.join(__dirname, "../schema/schema.sql");
     const schema = fs.readFileSync(schemaPath, "utf8");

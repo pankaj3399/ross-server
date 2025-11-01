@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
-import { authenticateToken, requirePremium } from "../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -24,7 +24,7 @@ if(!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // GET /fairness-prompts
-router.get("/prompts", authenticateToken, requirePremium, async (req, res) => {
+router.get("/prompts", authenticateToken, async (req, res) => {
     try {
         // Fetch all fairness questions grouped by label
         const result = await pool.query(
@@ -57,7 +57,7 @@ router.get("/prompts", authenticateToken, requirePremium, async (req, res) => {
 });
 
 // POST /fairness/evaluate
-router.post("/evaluate", authenticateToken, requirePremium, async (req, res) => {
+router.post("/evaluate", authenticateToken, async (req, res) => {
     try {
         const { projectId, category, questionText, userResponse } = evaluateSchema.parse(req.body);
         const userId = req.user!.id;
@@ -245,7 +245,7 @@ router.post("/evaluate", authenticateToken, requirePremium, async (req, res) => 
 });
 
 // GET /fairness/evaluations/:projectId - Get all evaluations for a project
-router.get("/evaluations/:projectId", authenticateToken, requirePremium, async (req, res) => {
+router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user!.id;

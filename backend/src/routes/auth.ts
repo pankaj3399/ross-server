@@ -355,7 +355,7 @@ router.post("/login", async (req, res) => {
 });
 
 // Request password reset
-router.post("/forgot-password", async (req, res) => {
+router.post("/forgot-password", authenticateToken, async (req, res) => {
   try {
     const { email } = passwordResetRequestSchema.parse(req.body);
 
@@ -398,7 +398,7 @@ router.post("/forgot-password", async (req, res) => {
 });
 
 // Reset password
-router.post("/reset-password", async (req, res) => {
+router.post("/reset-password", authenticateToken, async (req, res) => {
   try {
     const { token, password } = passwordResetSchema.parse(req.body);
 

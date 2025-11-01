@@ -32,8 +32,6 @@ interface Evaluation {
   createdAt: string;
 }
 
-const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-
 export default function FairnessBiasReport() {
   const params = useParams();
   const router = useRouter();
@@ -43,42 +41,35 @@ export default function FairnessBiasReport() {
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [evaluationsLoading, setEvaluationsLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const projectId = params.projectId as string;
 
-  // Create a map for quick lookup of evaluations by category and questionText
   const evaluationMap = new Map<string, Evaluation>();
   evaluations.forEach((evaluation) => {
     const key = `${evaluation.category}:${evaluation.questionText}`;
     evaluationMap.set(key, evaluation);
   });
 
-  // Redirect non-premium users immediately
   useEffect(() => {
-    if (!loading && (!user || !PREMIUM_STATUS.includes(user.subscription_status))) {
-      router.push(`/assess/${projectId}`);
-    }
-  }, [loading, user, projectId, router]);
-
-  useEffect(() => {
-    // Only fetch if user is premium
-    if (loading || !user || !PREMIUM_STATUS.includes(user.subscription_status)) {
+    if (loading || !user || !projectId) {
       return;
     }
 
     const fetchData = async () => {
       try {
-        // Fetch questions
         const questionsData = await apiService.getFairnessQuestions();
         setFairnessQuestions(questionsData.questions);
         setQuestionsLoading(false);
+        setAccessDenied(false);
 
-        // Fetch evaluations
         const evaluationsData = await apiService.getFairnessEvaluations(projectId);
         setEvaluations(evaluationsData.evaluations);
         setEvaluationsLoading(false);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
+      } catch (error: any) {
+        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
+          setAccessDenied(true);
+        }
         setQuestionsLoading(false);
         setEvaluationsLoading(false);
       }
@@ -98,14 +89,15 @@ export default function FairnessBiasReport() {
     );
   }
 
-  // If user is not premium, redirect is happening in useEffect, but show locked message while redirecting
-  if (!user || !PREMIUM_STATUS.includes(user.subscription_status)) {
+  if (accessDenied || (!user && !loading)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="rounded-xl p-10 bg-white dark:bg-gray-900 border text-center max-w-lg shadow-lg">
           <div className="text-6xl mb-4">🔒</div>
-          <div className="text-xl font-bold mb-2">Locked</div>
-          <div className="text-gray-500 mb-4">This report is available only for premium users.</div>
+          <div className="text-xl font-bold mb-2">Access Denied</div>
+          <div className="text-gray-500 mb-4">
+            This report is available only for premium users. Please upgrade your subscription to access fairness and bias reports.
+          </div>
           <button
             onClick={() => router.push(`/assess/${projectId}`)}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

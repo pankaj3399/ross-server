@@ -95,7 +95,9 @@ class ApiService {
         .json()
         .catch(() => ({ error: "Network error" }));
       const errorMessage = error.error || `HTTP ${response.status}`;
-      throw new Error(errorMessage);
+      const errorWithStatus = new Error(errorMessage) as Error & { status?: number };
+      errorWithStatus.status = response.status;
+      throw errorWithStatus;
     }
 
     return response.json();
