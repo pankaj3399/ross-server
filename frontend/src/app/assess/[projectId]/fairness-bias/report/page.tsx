@@ -53,7 +53,19 @@ export default function FairnessBiasReport() {
     evaluationMap.set(key, evaluation);
   });
 
+  // Redirect non-premium users immediately
   useEffect(() => {
+    if (!loading && (!user || !PREMIUM_STATUS.includes(user.subscription_status))) {
+      router.push(`/assess/${projectId}`);
+    }
+  }, [loading, user, projectId, router]);
+
+  useEffect(() => {
+    // Only fetch if user is premium
+    if (loading || !user || !PREMIUM_STATUS.includes(user.subscription_status)) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         // Fetch questions
@@ -72,9 +84,7 @@ export default function FairnessBiasReport() {
       }
     };
 
-    if (!loading && user && PREMIUM_STATUS.includes(user.subscription_status)) {
-      fetchData();
-    }
+    fetchData();
   }, [loading, user, projectId]);
 
   if (loading || questionsLoading || evaluationsLoading) {
@@ -88,13 +98,20 @@ export default function FairnessBiasReport() {
     );
   }
 
+  // If user is not premium, redirect is happening in useEffect, but show locked message while redirecting
   if (!user || !PREMIUM_STATUS.includes(user.subscription_status)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="rounded-xl p-10 bg-white dark:bg-gray-900 border text-center max-w-lg shadow-lg">
           <div className="text-6xl mb-4">🔒</div>
           <div className="text-xl font-bold mb-2">Locked</div>
-          <div className="text-gray-500">This report is available only for premium users.</div>
+          <div className="text-gray-500 mb-4">This report is available only for premium users.</div>
+          <button
+            onClick={() => router.push(`/assess/${projectId}`)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Go Back to Assessment
+          </button>
         </div>
       </div>
     );

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
-import { authenticateToken } from "../middleware/auth";
+import { authenticateToken, requirePremium } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -21,10 +21,10 @@ if(!process.env.GEMINI_API_KEY) {
 }
 
 // Initialize Gemini client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // GET /fairness-prompts
-router.get("/prompts", async (req, res) => {
+router.get("/prompts", authenticateToken, requirePremium, async (req, res) => {
     try {
         // Fetch all fairness questions grouped by label
         const result = await pool.query(
@@ -57,7 +57,7 @@ router.get("/prompts", async (req, res) => {
 });
 
 // POST /fairness/evaluate
-router.post("/evaluate", authenticateToken, async (req, res) => {
+router.post("/evaluate", authenticateToken, requirePremium, async (req, res) => {
     try {
         const { projectId, category, questionText, userResponse } = evaluateSchema.parse(req.body);
         const userId = req.user!.id;
@@ -88,7 +88,6 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
 
             for (const modelName of modelsToTry) {
                 try {
-                    console.log(`[${metricName}] Trying model: ${modelName}`);
                     const model = genAI.getGenerativeModel({ model: modelName });
 
                     const prompt = `${evaluationPrompt}\n\nQuestion: ${questionText}\n\nUser Response: ${userResponse}\n\nEvaluate this response and provide:\n1. A score from 0.0 to 1.0 (where 0 is best/worst depending on metric)\n2. A brief reasoning explanation\n\nIMPORTANT: Respond ONLY in valid JSON format without markdown formatting: {"score": 0.5, "reason": "explanation here"}`;
@@ -112,15 +111,12 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
                     const resultObj = JSON.parse(cleanedContent);
                     const finalScore = Math.max(0, Math.min(1, parseFloat(resultObj.score) || 0));
                     
-                    console.log(`[${metricName}] Successfully evaluated using ${modelName} - Score: ${finalScore}`);
-                    
                     return {
                         score: finalScore,
                         reason: resultObj.reason || "No reasoning provided",
                     };
                 } catch (error: any) {
                     lastError = error;
-                    console.error(`[${metricName}] ${modelName} failed:`, error.message || error);
                     // Try next model
                     continue;
                 }
@@ -154,9 +150,7 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
         const relevancyScore = relevancyResult.score;
         const faithfulnessScore = faithfulnessResult.score;
 
-        // Calculate overall score (weighted average)
         // Lower bias and toxicity scores are better, higher relevancy and faithfulness are better
-        // Normalize: bias and toxicity should be inverted (1 - score), relevancy and faithfulness as-is
         const normalizedBias = Math.max(0, Math.min(1, 1 - biasScore));
         const normalizedToxicity = Math.max(0, Math.min(1, 1 - toxicityScore));
         const overallScore = (normalizedBias + normalizedToxicity + relevancyScore + faithfulnessScore) / 4;
@@ -251,7 +245,7 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
 });
 
 // GET /fairness/evaluations/:projectId - Get all evaluations for a project
-router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
+router.get("/evaluations/:projectId", authenticateToken, requirePremium, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user!.id;

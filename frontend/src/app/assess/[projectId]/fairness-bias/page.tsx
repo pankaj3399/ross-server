@@ -65,8 +65,20 @@ export default function FairnessBiasTest() {
     ? `${currentCategoryIndex}:${currentPromptIndex}`
     : "";
 
+  // Redirect non-premium users immediately
+  useEffect(() => {
+    if (!loading && (!user || !PREMIUM_STATUS.includes(user.subscription_status))) {
+      router.push(`/assess/${projectId}`);
+    }
+  }, [loading, user, projectId, router]);
+
   // Fetch fairness questions and existing evaluations from backend
   useEffect(() => {
+    // Only fetch if user is premium
+    if (loading || !user || !PREMIUM_STATUS.includes(user.subscription_status) || !projectId) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         // Fetch questions
@@ -129,9 +141,7 @@ export default function FairnessBiasTest() {
       }
     };
 
-    if (!loading && user && PREMIUM_STATUS.includes(user.subscription_status) && projectId) {
-      fetchData();
-    }
+    fetchData();
   }, [loading, user, projectId]);
 
   // Scroll to current question when it changes
@@ -157,6 +167,7 @@ export default function FairnessBiasTest() {
     }
   }, [currentCategoryIndex]);
 
+  // Show loading while checking auth or fetching data
   if (loading || questionsLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -168,14 +179,20 @@ export default function FairnessBiasTest() {
     );
   }
 
-  // If user is not premium
+  // If user is not premium, redirect is happening in useEffect, but show locked message while redirecting
   if (!user || !PREMIUM_STATUS.includes(user.subscription_status)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="rounded-xl p-10 bg-white dark:bg-gray-900 border text-center max-w-lg shadow-lg">
           <div className="text-6xl mb-4">🔒</div>
           <div className="text-xl font-bold mb-2">Locked</div>
-          <div className="text-gray-500">This test is available only for premium users.</div>
+          <div className="text-gray-500 mb-4">This test is available only for premium users.</div>
+          <button
+            onClick={() => router.push(`/assess/${projectId}`)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Go Back to Assessment
+          </button>
         </div>
       </div>
     );
@@ -225,11 +242,7 @@ export default function FairnessBiasTest() {
   };
 
   const handleNext = () => {
-    if (currentResKey && responses[currentResKey] && responses[currentResKey].trim()) {
-      handleSubmit(); // Fire and forget - don't await
-    }
-
-    // Navigate immediately without waiting
+    // Navigate to next question without evaluating
     if (currentCategory && currentPromptIndex < currentCategory.prompts.length - 1) {
       setCurrentPromptIndex(currentPromptIndex + 1);
     } else if (currentCategoryIndex < categories.length - 1) {
@@ -498,28 +511,37 @@ export default function FairnessBiasTest() {
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
               >
                 <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
-                    {currentPrompt.text}
-                  </h2>
+                  <div className="flex items-start justify-between gap-4">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed flex-1">
+                      {currentPrompt.text}
+                    </h2>
+                    {/* Evaluate/Re-evaluate Button */}
+                    {currentResKey && responses[currentResKey] && responses[currentResKey].trim() && (
+                      <button
+                        onClick={handleSubmit}
+                        disabled={submitting[currentResKey]}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                      >
+                        {submitting[currentResKey] ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            {evaluations[currentResKey] && !evaluations[currentResKey].error ? "Re-evaluating..." : "Evaluating..."}
+                          </>
+                        ) : (
+                          <>
+                            {evaluations[currentResKey] && !evaluations[currentResKey].error ? "Re-evaluate" : "Evaluate"}
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Textarea for Response */}
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Your Response
-                    </label>
-                    {evaluations[currentResKey] && !evaluations[currentResKey].error && (
-                      <button
-                        onClick={handleSubmit}
-                        disabled={submitting[currentResKey] || !(responses[currentResKey] && responses[currentResKey].trim())}
-                        className="text-xs px-3 py-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 border border-purple-300 dark:border-purple-600 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Re-evaluate this response"
-                      >
-                        {submitting[currentResKey] ? "Re-evaluating..." : "Re-evaluate"}
-                      </button>
-                    )}
-                  </div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Your Response
+                  </label>
                   <textarea
                     rows={8}
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"

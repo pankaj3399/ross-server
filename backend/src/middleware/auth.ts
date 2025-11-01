@@ -69,8 +69,9 @@ export const requirePremium = (
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  if (req.user.subscription_status !== "premium") {
-    return res.status(403).json({ error: "Premium subscription required" });
+  const PREMIUM_STATUSES = ["basic_premium", "pro_premium"];
+  if (!PREMIUM_STATUSES.includes(req.user.subscription_status)) {
+    return res.status(403).json({ error: "Premium subscription required. This feature is available only for premium users." });
   }
 
   next();
