@@ -6,12 +6,13 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "seed": "ts-node src/scripts/seedAIMA.ts && ts-node src/scripts/seedAdmin.ts",
-    "migrate": "ts-node src/scripts/migrateDatabase.ts && node-pg-migrate up",
-    "migrate:up": "node-pg-migrate up",
+    "seed": "ts-node src/scripts/seeds/index.ts",
+    "migrate": "node-pg-migrate up",
     "db:init": "npm run migrate && npm run seed"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@mastra/evals": "^0.14.2",
     "@types/nodemailer": "^7.0.2",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",

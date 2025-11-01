@@ -8,8 +8,11 @@ import projectsRouter from "./routes/projects";
 import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
-import { initializeDatabase } from "./utils/database";
+import fairnessRouter from "./routes/fairness";
+import { seedAIMAData } from "./scripts/seeds/seedAIMA";
 import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
+import { initializeDatabase } from "./utils/database";
+import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 
 dotenv.config();
 
@@ -26,19 +29,20 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "matur-ai-backend" });
 });
 
-// Routes
+// All routes go through authentication and subscription access check
 app.use("/auth", authRouter);
-app.use("/projects", projectsRouter);
-app.use("/subscriptions", subscriptionsRouter);
+app.use("/aima", authenticateToken, checkRouteAccess('/aima'), aimaRouter);
+app.use("/projects", authenticateToken, checkRouteAccess('/projects'), projectsRouter);
+app.use("/answers", authenticateToken, checkRouteAccess('/answers'), answersRouter);
+app.use("/notes", authenticateToken, checkRouteAccess('/notes'), notesRouter);
+app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'), subscriptionsRouter);
+app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
-app.use("/aima", aimaRouter);
-app.use("/answers", answersRouter);
-app.use("/notes", notesRouter);
 
 // Initialize database
 const initialize = async () => {
   try {
-    // Skip database initialization since migration was already run
+    await initializeDatabase();
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);

@@ -36,7 +36,7 @@ router.post(
 
                     if (userId && priceId) {
                         // Determine subscription type based on price ID
-                        let subscriptionStatus = 'premium'; // default
+                        let subscriptionStatus = 'free'; // default
                         if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
                             subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
                         } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {

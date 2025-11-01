@@ -1,4 +1,4 @@
-import pool from "../config/database";
+import pool from "../../config/database";
 
 const aimaData = {
   domains: {
@@ -777,42 +777,59 @@ async function seedAIMAData() {
   try {
     console.log("Starting AIMA data seeding...");
 
-    // STEP 1️⃣: Create a new version
+    // Check if AIMA data already exists
+    const domainCheck = await pool.query("SELECT COUNT(*) FROM aima_domains");
+    const domainCount = parseInt(domainCheck.rows[0].count);
+
+    if (domainCount >= 8) {
+      console.log("✅ AIMA data already exists, skipping seed...");
+      return;
+    }
+
+    // STEP 1️⃣: Create a new version (check if version already exists)
     const versionNumber = "1.0"; // or generate dynamically (e.g. from args/env)
-    const versionResult = await pool.query(
-      "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
+    
+    // Check if version already exists
+    let versionResult = await pool.query(
+      "SELECT id FROM versions WHERE version_number = $1",
       [versionNumber]
     );
-    const versionId = versionResult.rows[0].id;
-    console.log(`Inserted version: ${versionResult.rows}`);
+    
+    let versionId: string;
+    if (versionResult.rows.length > 0) {
+      versionId = versionResult.rows[0].id;
+      console.log(`Using existing version: ${versionNumber}`);
+    } else {
+      versionResult = await pool.query(
+        "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
+        [versionNumber]
+      );
+      versionId = versionResult.rows[0].id;
+      console.log(`Inserted version: ${versionNumber}`);
+    }
 
-    // Clear existing data
-    await pool.query("DELETE FROM aima_questions");
-    await pool.query("DELETE FROM aima_practices");
-    await pool.query("DELETE FROM aima_domains");
-
-    // Insert domains
+    // Insert domains (with conflict handling)
     for (const [domainId, domain] of Object.entries(aimaData.domains)) {
       await pool.query(
-        "INSERT INTO aima_domains (id, title, description, version_id) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO aima_domains (id, title, description, version_id) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING",
         [domainId, domain.title, domain.description, versionId]
       );
       console.log(`Inserted domain: ${domain.title}`);
 
-      // Insert practices
+      // Insert practices (with conflict handling)
       for (const [practiceId, practice] of Object.entries(domain.practices)) {
         await pool.query(
-          "INSERT INTO aima_practices (id, domain_id, title, description, version_id) VALUES ($1, $2, $3, $4, $5)",
+          "INSERT INTO aima_practices (id, domain_id, title, description, version_id) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
           [practiceId, domainId, practice.title, practice.description, versionId]
         );
         console.log(`  Inserted practice: ${practice.title}`);
 
-        // Insert questions
+        // Insert questions (with conflict handling)
         for (const [level, streams] of Object.entries(practice.levels)) {
           for (const [stream, questions] of Object.entries(streams)) {
             for (let questionIndex = 0; questionIndex < questions.length; questionIndex++) {
               await pool.query(
-                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, version_id) VALUES ($1, $2, $3, $4, $5, $6)",
+                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, version_id) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (practice_id, level, stream, question_index) DO NOTHING",
                 [practiceId, level, stream, questionIndex, questions[questionIndex], versionId]
               );
             }

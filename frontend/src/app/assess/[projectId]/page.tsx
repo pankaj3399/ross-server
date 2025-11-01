@@ -45,7 +45,7 @@ interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
 export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, loading: userLoading } = useAuth();
   const projectId = params.projectId as string;
 
   const [domains, setDomains] = useState<DomainWithLevels[]>([]);
@@ -523,6 +523,8 @@ useEffect(() => {
   ).length;
   const progress = (answeredQuestions / totalQuestions) * 100;
 
+  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+
   return (
     <div className="min-h-screen flex">
       {/* Tree Navigation Sidebar */}
@@ -538,7 +540,7 @@ useEffect(() => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
+        {/* HEADER + Premium Button */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -560,6 +562,16 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Premium-only Fairness button */}
+              {user && PREMIUM_STATUS.includes(user.subscription_status) && (
+                <button
+                  onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
+                  className="flex items-center px-4 py-2 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
+                  title="Exclusive: Fairness & Bias Test"
+                >
+                  <span className="mr-2"></span> Fairness & Bias Test
+                </button>
+              )}
               {saving && (
                 <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
                   <Save className="w-4 h-4 animate-spin" />
