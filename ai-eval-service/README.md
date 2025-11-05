@@ -2,6 +2,21 @@
 
 A Python microservice that evaluates AI responses for bias, fairness, toxicity, and stereotypes using the LangFair library.
 
+## ⚡ Quick Deploy on AWS Free Tier
+
+```bash
+# On AWS EC2 instance
+git clone <your-repo-url>
+cd ross-server/ai-eval-service
+echo "GEMINI_API_KEY=your_key" > .env
+docker build -t ai-eval-service .
+docker run -d -p 8000:8000 --env-file .env --restart unless-stopped ai-eval-service
+```
+
+That's it! Service runs at `http://your-ec2-ip:8000`
+
+See [Deployment Guide](#-aws-free-tier-deployment) for detailed steps.
+
 ## 🎯 What This Does
 
 This microservice evaluates AI responses for:
@@ -11,13 +26,10 @@ This microservice evaluates AI responses for:
 
 ## 📋 Prerequisites
 
-Before you begin, ensure you have:
-- **Python 3.12+** installed
-- **pip** (Python package installer)
+- **Docker** installed ([Get Docker](https://docs.docker.com/get-docker/))
 - **Google Gemini API Key** ([Get one here](https://aistudio.google.com/apikey))
-- **Disk space**: ~2-3GB per project (see details below)
 
-## 🚀 Quick Start (For Fresh Clones)
+## 🚀 Quick Start (Recommended: Docker)
 
 ### Step 1: Navigate to the Service Directory
 
@@ -25,80 +37,12 @@ Before you begin, ensure you have:
 cd ai-eval-service
 ```
 
-### Step 2: Create Virtual Environment
+### Step 2: Create .env File
 
-**Why?** A virtual environment isolates this project's dependencies from other Python projects, preventing conflicts.
-
-```bash
-python3 -m venv venv
-```
-
-**Troubleshooting:** If you get an error about `ensurepip` not being available:
-```bash
-# On Ubuntu/Debian:
-sudo apt install python3.12-venv
-
-# On macOS:
-# Usually comes with Python, but if not:
-brew install python@3.12
-```
-
-### Step 3: Activate Virtual Environment
+Create a `.env` file with your Google Gemini API key:
 
 ```bash
-source venv/bin/activate
-```
-
-**How to know it worked?** You'll see `(venv)` at the start of your terminal prompt.
-
-**On Windows:**
-```bash
-venv\Scripts\activate
-```
-
-### Step 4: Install Dependencies
-
-**Recommended:** Install CPU-only PyTorch first to save ~1.5GB per project:
-
-```bash
-# Install CPU-only PyTorch (saves ~1.5GB disk space)
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-# Then install the rest
-pip install -r requirements.txt
-```
-
-**Alternative (if you need GPU support):**
-```bash
-# Install full PyTorch with GPU support (takes ~2GB)
-pip install -r requirements.txt
-```
-
-**What gets installed?**
-- `langfair` - Main library for bias/fairness evaluation
-- `fastapi` - Web framework for creating the API server
-- `uvicorn` - Server that runs FastAPI
-- `python-dotenv` - Loads environment variables from .env file
-- PyTorch and other ML dependencies (~2-3GB total)
-
-**Note:** Installation may take 10-15 minutes. LangFair downloads ~2-3GB of packages on first install.
-
-**Troubleshooting:**
-- **"No space left on device"**: Clean pip cache: `rm -rf ~/.cache/pip` (frees ~2-3GB)
-- **Installation stuck**: Press Ctrl+C and try again, or check your internet connection
-
-### Step 5: Create .env File
-
-Create a `.env` file in the `ai-eval-service` directory:
-
-```bash
-nano .env
-```
-
-Add your Google Gemini API key:
-
-```
-GEMINI_API_KEY=your_actual_api_key_here
+echo "GEMINI_API_KEY=your_actual_api_key_here" > .env
 ```
 
 **Where to get API key?**
@@ -112,29 +56,96 @@ GEMINI_API_KEY=your_actual_api_key_here
 - Don't include quotes around the API key
 - Never commit this file to git (already in .gitignore)
 
-### Step 6: Run the Service
+### Step 3: Build and Run with Docker
 
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+# Build the Docker image
+docker build -t ai-eval-service .
+
+# Run the container
+docker run -d \
+  --name ai-eval-service \
+  -p 8000:8000 \
+  --env-file .env \
+  --restart unless-stopped \
+  ai-eval-service
 ```
 
 **What this does:**
-- `uvicorn` - Runs the FastAPI server
-- `main:app` - Uses the `app` from `main.py` file
-- `--host 0.0.0.0` - Makes it accessible from other services
-- `--port 8000` - Runs on port 8000
-- `--reload` - Auto-restarts when you change code (development mode)
+- `docker build` - Builds the Docker image with all dependencies
+- `docker run` - Starts the container
+- `-d` - Runs in background (detached mode)
+- `-p 8000:8000` - Maps port 8000 from container to host
+- `--env-file .env` - Loads environment variables from .env file
+- `--restart unless-stopped` - Auto-restarts if container crashes
 
 **Expected output:**
+```bash
+# Check if running
+docker ps
+
+# Check logs
+docker logs -f ai-eval-service
 ```
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Application startup complete.
+
+You should see:
+```
 ✅ LangFair evaluator initialized successfully
+INFO:     Application startup complete.
 ```
 
-**To stop the service:** Press `Ctrl+C`
+### Step 4: Verify Service is Running
 
-**To deactivate virtual environment:** Type `deactivate`
+```bash
+curl http://localhost:8000/health
+```
+
+**Expected response:**
+```json
+{"status":"healthy","service":"LangFair Evaluation Service"}
+```
+
+**To stop the service:**
+```bash
+docker stop ai-eval-service && docker rm ai-eval-service
+```
+
+**To restart the service:**
+```bash
+docker restart ai-eval-service
+```
+
+## 🐍 Alternative: Local Development (Without Docker)
+
+If you prefer to run without Docker for development:
+
+### Prerequisites
+- **Python 3.12+** installed
+- **pip** (Python package installer)
+
+### Setup
+
+```bash
+# 1. Create virtual environment
+python3 -m venv venv
+
+# 2. Activate virtual environment
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install CPU-only PyTorch first (saves ~1.5GB)
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Create .env file
+echo "GEMINI_API_KEY=your_key" > .env
+
+# 6. Run service
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Note:** Installation may take 10-15 minutes. LangFair downloads ~2-3GB of packages on first install.
 
 ## 🧪 Testing the Service
 
@@ -399,35 +410,33 @@ Then update Node.js backend to use port 8001.
 - Subsequent evaluations: ~1-2 seconds (models cached)
 - Counterfactual evaluation is slower (set `include_counterfactual: false`)
 
+### Problem: Docker container exits immediately
+
+**Solution:**
+1. Check logs: `docker logs ai-eval-service`
+2. Verify `.env` file exists and has correct API key
+3. Check if port 8000 is already in use: `docker ps`
+4. Rebuild the image: `docker build -t ai-eval-service .`
+
 ### Problem: Service crashes on startup
 
 **Solution:**
-1. Check logs for specific error message
+1. Check logs: `docker logs ai-eval-service`
 2. Verify `.env` file exists and has correct API key
-3. Make sure virtual environment is activated
-4. Try reinstalling dependencies: `pip install -r requirements.txt --force-reinstall`
+3. Rebuild the image: `docker build --no-cache -t ai-eval-service .`
 
 ## 📝 Quick Reference
 
-### Start Service
+### Start Service (Docker)
 ```bash
 cd ai-eval-service
-source venv/bin/activate
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+docker build -t ai-eval-service .
+docker run -d -p 8000:8000 --env-file .env --restart unless-stopped ai-eval-service
 ```
 
-### Stop Service
-Press `Ctrl+C` in the terminal running the service
-
-### Deactivate Virtual Environment
+### Stop Service (Docker)
 ```bash
-deactivate
-```
-
-### Reinstall Dependencies
-```bash
-source venv/bin/activate
-pip install -r requirements.txt --upgrade
+docker stop ai-eval-service && docker rm ai-eval-service
 ```
 
 ### Check Service Health
@@ -435,18 +444,176 @@ pip install -r requirements.txt --upgrade
 curl http://localhost:8000/health
 ```
 
-## ✅ Setup Checklist
+### View Logs
+```bash
+docker logs -f ai-eval-service
+```
+
+### Restart Service
+```bash
+docker restart ai-eval-service
+```
+
+## ✅ Setup Checklist (Docker)
 
 For fresh clones:
 - [ ] Navigate to `ai-eval-service` directory
-- [ ] Create virtual environment: `python3 -m venv venv`
-- [ ] Activate virtual environment: `source venv/bin/activate`
-- [ ] Install dependencies: `pip install -r requirements.txt`
 - [ ] Create `.env` file with `GEMINI_API_KEY`
-- [ ] Run service: `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
+- [ ] Build Docker image: `docker build -t ai-eval-service .`
+- [ ] Run container: `docker run -d -p 8000:8000 --env-file .env --restart unless-stopped ai-eval-service`
 - [ ] Test health endpoint: `curl http://localhost:8000/health`
 - [ ] Test evaluation endpoint (see Testing section)
 - [ ] Update backend `LANGFAIR_SERVICE_URL` environment variable
+
+## ☁️ AWS Free Tier Deployment
+
+Deploy this service on AWS EC2 free tier (t2.micro or t3.micro) with minimal configuration.
+
+### Prerequisites
+- AWS account (free tier eligible)
+- Basic knowledge of SSH and terminal commands
+
+### Step 1: Launch EC2 Instance
+
+1. **Go to AWS Console** → EC2 → Launch Instance
+2. **Configure instance**:
+   - **Name**: `ai-eval-service`
+   - **AMI**: Ubuntu 22.04 LTS (Free tier eligible)
+   - **Instance type**: `t2.micro` (Free tier eligible)
+   - **Key pair**: Create or select existing key pair (download `.pem` file)
+   - **Security group**: 
+     - Allow SSH (port 22) from your IP
+     - Allow HTTP (port 8000) from anywhere (0.0.0.0/0)
+     - Allow Custom TCP (port 8000) from anywhere
+3. **Launch instance**
+
+### Step 2: Connect to EC2 Instance
+
+```bash
+# Replace with your key file and instance details
+ssh -i your-key.pem ubuntu@your-instance-ip
+```
+
+### Step 3: Install Docker on EC2
+
+```bash
+# Update system
+sudo apt-get update
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Add your user to docker group (to run without sudo)
+sudo usermod -aG docker ubuntu
+
+# Install Docker Compose (optional, but recommended)
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Log out and log back in for group changes to take effect
+exit
+```
+
+### Step 4: Clone and Deploy
+
+```bash
+# SSH back into instance
+ssh -i your-key.pem ubuntu@your-instance-ip
+
+# Clone your repository
+git clone <your-repo-url>
+cd ross-server/ai-eval-service
+
+# Create .env file
+echo "GEMINI_API_KEY=your_actual_api_key_here" > .env
+
+# Build and run (ONE COMMAND!)
+docker build -t ai-eval-service . && \
+docker run -d -p 8000:8000 --env-file .env --restart unless-stopped ai-eval-service
+```
+
+### Step 5: Verify Deployment
+
+```bash
+# Check if container is running
+docker ps
+
+# Check health endpoint
+curl http://localhost:8000/health
+
+# View logs
+docker logs -f ai-eval-service
+
+# Test from your local machine
+curl http://your-ec2-public-ip:8000/health
+```
+
+### Step 6: Update Backend Configuration
+
+Update your Node.js backend `.env` file:
+```bash
+LANGFAIR_SERVICE_URL=http://your-ec2-public-ip:8000
+```
+
+### Troubleshooting AWS Deployment
+
+#### Problem: Out of memory on t2.micro
+
+**Solution**: The service needs at least 2GB RAM. Options:
+1. Use `t3.micro` (free tier eligible, 1GB RAM but can burst)
+2. Add swap space:
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+#### Problem: Port 8000 not accessible
+
+**Solution**: Check security group:
+1. Go to EC2 → Security Groups
+2. Edit inbound rules
+3. Add rule: Custom TCP, Port 8000, Source 0.0.0.0/0
+
+#### Problem: Service stops after SSH disconnect
+
+**Solution**: Use `--restart unless-stopped` flag (already included in deployment command):
+```bash
+docker run -d --restart unless-stopped -p 8000:8000 --env-file .env ai-eval-service
+```
+
+#### Problem: Docker build fails (out of disk space)
+
+**Solution**: Clean up Docker:
+```bash
+docker system prune -a --volumes
+```
+
+### Cost Optimization for AWS Free Tier
+
+- **Instance**: Use `t2.micro` or `t3.micro` (750 hours/month free)
+- **Storage**: Use 8GB gp3 EBS (30GB free tier)
+- **Data Transfer**: First 100GB/month free
+- **Total Cost**: $0/month if within free tier limits
+
+### Monitoring
+
+```bash
+# Check container status
+docker ps
+
+# View logs
+docker logs -f ai-eval-service
+
+# Check resource usage
+docker stats ai-eval-service
+
+# Restart service
+docker restart ai-eval-service
+```
 
 ## 📚 Additional Resources
 
