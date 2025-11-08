@@ -239,4 +239,3 @@ coverage/
 # Misc
 *.tgz
 *.tar.gz
-backend/package-lock.json
