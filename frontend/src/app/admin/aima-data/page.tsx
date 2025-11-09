@@ -99,7 +99,7 @@ export default function AdminQuestions() {
     try {
       setDownloadingEmails(true);
       const response = await apiService.getWaitlistEmails();
-      
+
       if (response.success && response.data.emails.length > 0) {
         // Convert to CSV format
         const headers = ["Email", "Source", "User Agent", "IP", "Created At"];
@@ -115,18 +115,22 @@ export default function AdminQuestions() {
         const csvContent = [
           headers.join(","),
           ...rows.map((row) =>
-            row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+            row
+              .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+              .join(","),
           ),
         ].join("\n");
 
         // Create blob and download
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
         link.setAttribute(
           "download",
-          `waitlist-emails-${new Date().toISOString().split("T")[0]}.csv`
+          `waitlist-emails-${new Date().toISOString().split("T")[0]}.csv`,
         );
         link.style.visibility = "hidden";
         document.body.appendChild(link);
@@ -396,7 +400,9 @@ export default function AdminQuestions() {
                 className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 disabled:transform-none disabled:cursor-not-allowed"
               >
                 <Download className="w-5 h-5 mr-2" />
-                {downloadingEmails ? "Downloading..." : "Download Waitlist Emails"}
+                {downloadingEmails
+                  ? "Downloading..."
+                  : "Download Waitlist Emails"}
               </button>
               <button
                 onClick={handleAddDomain}
