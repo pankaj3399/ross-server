@@ -281,4 +281,30 @@ router.post("/add-question", authenticateToken, requireRole(["ADMIN"]), async (r
   }
 });
 
+// Get all waitlist emails
+router.get("/waitlist-emails", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, email, source, user_agent, ip, created_at
+      FROM waitlist_emails
+      ORDER BY created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        emails: result.rows,
+        count: result.rows.length
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching waitlist emails:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch waitlist emails",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 export default router;
