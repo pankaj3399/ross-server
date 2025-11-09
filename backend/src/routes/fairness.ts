@@ -15,13 +15,14 @@ const evaluateSchema = z.object({
     userResponse: z.string().min(1),
 });
 
-if(!process.env.GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is not set");
-    process.exit(1);
+// Initialize Gemini client only if configured. Do not exit when missing.
+let genAI: GoogleGenerativeAI | null = null;
+if (!process.env.GEMINI_API_KEY) {
+    // eslint-disable-next-line no-console
+    console.warn("GEMINI_API_KEY is not set; fairness evaluation routes will be disabled.");
+} else {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
-
-// Initialize Gemini client
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // GET /fairness-prompts
 router.get("/prompts", authenticateToken, async (req, res) => {
@@ -58,6 +59,9 @@ router.get("/prompts", authenticateToken, async (req, res) => {
 
 // POST /fairness/evaluate
 router.post("/evaluate", authenticateToken, async (req, res) => {
+    if (!genAI) {
+        return res.status(503).json({ error: "Gemini is not configured" });
+    }
     try {
         const { projectId, category, questionText, userResponse } = evaluateSchema.parse(req.body);
         const userId = req.user!.id;
@@ -88,7 +92,7 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
 
             for (const modelName of modelsToTry) {
                 try {
-                    const model = genAI.getGenerativeModel({ model: modelName });
+                    const model = genAI!.getGenerativeModel({ model: modelName });
 
                     const prompt = `${evaluationPrompt}\n\nQuestion: ${questionText}\n\nUser Response: ${userResponse}\n\nEvaluate this response and provide:\n1. A score from 0.0 to 1.0 (where 0 is best/worst depending on metric)\n2. A brief reasoning explanation\n\nIMPORTANT: Respond ONLY in valid JSON format without markdown formatting: {"score": 0.5, "reason": "explanation here"}`;
 
