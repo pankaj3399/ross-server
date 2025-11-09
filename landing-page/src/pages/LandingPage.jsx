@@ -16,6 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import AIMaturityRunGame from "@/components/AIMaturityRunGame";
+import logoImage from "@/logo.webp";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
@@ -23,7 +24,7 @@ const LandingPage = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const logoUrl = "/logo.webp";
+  const logoUrl = logoImage;
 
   const handleNotify = async (e) => {
     e.preventDefault();
