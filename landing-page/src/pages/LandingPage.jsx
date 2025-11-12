@@ -197,7 +197,7 @@ const LandingPage = () => {
             className="space-y-6"
           >
             <img
-              src={logoUrl}
+              src="/logo.png"
               alt="MATUR.ai Logo"
               className="h-24 mx-auto mb-4"
             />
@@ -275,6 +275,64 @@ const LandingPage = () => {
                 100% FREE
               </div>
             </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Dashboard Preview Section */}
+      <section className="py-20 px-4 bg-gradient-to-b from-transparent via-gray-50/50 to-transparent dark:via-gray-900/20">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12"
+          >
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              <span className="gradient-text">See Your AI Maturity at a Glance</span>
+            </h2>
+            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Visualize your assessment results with comprehensive analytics and actionable insights
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="relative group"
+          >
+            {/* Decorative gradient border */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-violet-600 to-blue-600 rounded-2xl blur-lg opacity-20 group-hover:opacity-30 transition-opacity duration-300"></div>
+
+            {/* Main image container */}
+            <div className="relative bg-white dark:bg-gray-900 rounded-xl p-4 md:p-6 shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+              {/* Subtle pattern overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-blue-900/10 pointer-events-none"></div>
+
+              {/* Image with enhanced styling */}
+              <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shadow-lg">
+                <img
+                  src="/dashboard.jpeg"
+                  width={2000}
+                  height={1800}
+                  alt="MATUR.ai Dashboard Preview"
+                  className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                />
+
+                {/* Hover overlay with info */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-8">
+                  <div className="text-center text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                    <p className="text-lg font-semibold mb-2">Explore Your AI Maturity Metrics</p>
+                    <p className="text-sm opacity-90">Interactive charts and detailed analytics</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Corner accent */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600/10 to-transparent rounded-bl-full pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-blue-600/10 to-transparent rounded-tr-full pointer-events-none"></div>
+            </div>
           </motion.div>
         </div>
       </section>
