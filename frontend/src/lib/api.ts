@@ -561,6 +561,37 @@ class ApiService {
       }),
     });
   }
+
+  // Admin - Waitlist Emails
+  async getWaitlistEmails(): Promise<{
+    success: boolean;
+    data: {
+      emails: Array<{
+        id: string;
+        email: string;
+        source: string | null;
+        user_agent: string | null;
+        ip: string | null;
+        created_at: string;
+      }>;
+      count: number;
+    };
+  }> {
+    return this.request<{
+      success: boolean;
+      data: {
+        emails: Array<{
+          id: string;
+          email: string;
+          source: string | null;
+          user_agent: string | null;
+          ip: string | null;
+          created_at: string;
+        }>;
+        count: number;
+      };
+    }>("/admin/waitlist-emails");
+  }
 }
 
 export const apiService = new ApiService();

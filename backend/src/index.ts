@@ -9,6 +9,7 @@ import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
+import publicRouter from "./routes/public";
 import { seedAIMAData } from "./scripts/seeds/seedAIMA";
 import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
 import { initializeDatabase } from "./utils/database";
@@ -24,6 +25,8 @@ app.use(cors());
 app.use("/webhook", subscriptionsWebhookRouter);
 
 app.use(express.json());
+// Mount without path prefix so route is simply /subscribe and remains public
+app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "matur-ai-backend" });

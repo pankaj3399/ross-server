@@ -1,10 +1,11 @@
 "use client";
 
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, apiService } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
+import { Download } from "lucide-react";
 
 interface Question {
   id: string;
@@ -92,6 +93,59 @@ export default function AdminQuestions() {
     stream: "A",
     question_text: "",
   });
+  const [downloadingEmails, setDownloadingEmails] = useState(false);
+
+  const handleDownloadWaitlistEmails = async () => {
+    try {
+      setDownloadingEmails(true);
+      const response = await apiService.getWaitlistEmails();
+
+      if (response.success && response.data.emails.length > 0) {
+        // Convert to CSV format
+        const headers = ["Email", "Source", "User Agent", "IP", "Created At"];
+        const rows = response.data.emails.map((email) => [
+          email.email,
+          email.source || "",
+          email.user_agent || "",
+          email.ip || "",
+          new Date(email.created_at).toLocaleString(),
+        ]);
+
+        // Create CSV content
+        const csvContent = [
+          headers.join(","),
+          ...rows.map((row) =>
+            row
+              .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
+              .join(","),
+          ),
+        ].join("\n");
+
+        // Create blob and download
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute(
+          "download",
+          `waitlist-emails-${new Date().toISOString().split("T")[0]}.csv`,
+        );
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert("No waitlist emails found.");
+      }
+    } catch (error) {
+      console.error("Error downloading waitlist emails:", error);
+      alert("Failed to download waitlist emails. Please try again.");
+    } finally {
+      setDownloadingEmails(false);
+    }
+  };
 
   const toggleDomain = (domainId: string) => {
     const newExpandedDomains = new Set(expandedDomains);
@@ -339,25 +393,37 @@ export default function AdminQuestions() {
                 framework.
               </p>
             </div>
-            <button
-              onClick={handleAddDomain}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
-            >
-              <svg
-                className="w-5 h-5 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex gap-3">
+              <button
+                onClick={handleDownloadWaitlistEmails}
+                disabled={downloadingEmails}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 disabled:transform-none disabled:cursor-not-allowed"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Add New Domain
-            </button>
+                <Download className="w-5 h-5 mr-2" />
+                {downloadingEmails
+                  ? "Downloading..."
+                  : "Download Waitlist Emails"}
+              </button>
+              <button
+                onClick={handleAddDomain}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
+              >
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Add New Domain
+              </button>
+            </div>
           </div>
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
