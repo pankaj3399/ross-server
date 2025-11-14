@@ -29,6 +29,16 @@ This microservice evaluates AI responses for:
 - **Docker** installed ([Get Docker](https://docs.docker.com/get-docker/))
 - **Google Gemini API Key** ([Get one here](https://aistudio.google.com/apikey))
 
+## 🧠 Memory Optimization (Serverless Platforms)
+
+For serverless platforms with memory constraints, the service ships with a lightweight evaluation path enabled by default. You can fine-tune it with environment variables:
+
+- `LIGHTWEIGHT_EVAL_MODE` *(default: `true`)* — switches to smaller toxicity models and lower batch sizes.
+- `TOXICITY_CLASSIFIERS` *(optional)* — comma-separated list of LangFair classifier IDs (e.g. `toxigen`, `detoxify_unbiased`). When unset, lightweight mode defaults to `toxigen`.
+- `TOXICITY_BATCH_SIZE` *(default: `32` in lightweight mode)* — lower values reduce memory spikes during evaluation.
+
+If you need maximum fidelity (e.g. on EC2 or Render with >2 GB RAM), set `LIGHTWEIGHT_EVAL_MODE=false` to fall back to the original Detoxify ensemble.
+
 ## 🚀 Quick Start (Recommended: Docker)
 
 ### Step 1: Navigate to the Service Directory

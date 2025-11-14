@@ -42,25 +42,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize evaluator once when server starts
-# Why initialize once? Creating the LLM connection is expensive
-# Reusing it for all requests is more efficient
+# Initialize evaluator lazily (on first request)
+# Why lazy initialization? Initializing heavy ML models on startup can cause memory issues
+# Lazy initialization allows the service to start quickly and only load models when needed
 evaluator = None
 
-@app.on_event("startup")
-async def startup_event():
+def get_evaluator():
     """
-    Runs when the server starts.
-    Initializes the LangFair evaluator.
+    Get or create the evaluator instance (lazy initialization).
+    This ensures we only load heavy ML models when actually needed.
     """
     global evaluator
-    try:
-        evaluator = LangFairEvaluator()
-        print("✅ LangFair evaluator initialized successfully")
-    except Exception as e:
-        print(f"❌ Failed to initialize evaluator: {e}")
-        # Don't exit - let the server start so we can see errors
-        evaluator = None
+    if evaluator is None:
+        try:
+            evaluator = LangFairEvaluator()
+            print("✅ LangFair evaluator initialized successfully")
+        except Exception as e:
+            print(f"❌ Failed to initialize evaluator: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
+    return evaluator
 
 # Request model - defines what data we expect
 class EvaluateRequest(BaseModel):
@@ -116,18 +118,15 @@ async def evaluate(request: EvaluateRequest):
     Returns:
         EvaluateResponse with metrics and success status
     """
-    # Check if evaluator is initialized
-    if evaluator is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Evaluator not initialized. Check server logs."
-        )
-    
     try:
+        # Get evaluator (lazy initialization - only loads on first request)
+        # This prevents memory issues by avoiding heavy startup initialization
+        eval_instance = get_evaluator()
+        
         # Call the evaluator
         # Why async/await? LangFair makes async API calls
         # We need to wait for them to complete
-        result = await evaluator.evaluate_response(
+        result = await eval_instance.evaluate_response(
             question_text=request.question_text,
             user_response=request.user_response,
             category=request.category,

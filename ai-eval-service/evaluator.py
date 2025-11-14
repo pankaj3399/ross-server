@@ -16,7 +16,7 @@ Why this exists:
 """
 
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Counterfactual generation requires LLM which has version conflicts
 # For now, we'll skip it and only use toxicity/stereotype metrics
@@ -35,6 +35,17 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 # Why? So we can use GEMINI_API_KEY without hardcoding it
 load_dotenv()
+
+
+def _parse_bool_env(var_name: str, default: bool = False) -> bool:
+    """
+    Small helper to parse boolean environment variables.
+    Accepts: "1", "true", "yes", "on" (case insensitive) as True.
+    """
+    raw_value = os.getenv(var_name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 class LangFairEvaluator:
@@ -66,10 +77,26 @@ class LangFairEvaluator:
         # - StereotypeMetrics: Detects stereotype associations
         # - CounterfactualGenerator: Generates alternative responses (needs LLM) - optional
         # - CounterfactualMetrics: Compares responses across groups
-        
+
         # Note: device parameter is optional - uncomment if you have GPU
         # device = torch.device("cuda") if torch.cuda.is_available() else None
-        self.toxicity_metrics = ToxicityMetrics()  # device=device if GPU available
+
+        # Reduce memory usage by default when running on serverless platforms
+        # We prefer the lighter-weight toxigen classifier unless explicitly overridden.
+        self.lightweight_mode = _parse_bool_env("LIGHTWEIGHT_EVAL_MODE", default=True)
+
+        toxicity_classifiers = self._resolve_toxicity_classifiers()
+        toxicity_batch_size = int(
+            os.getenv(
+                "TOXICITY_BATCH_SIZE",
+                "32" if self.lightweight_mode else "250",
+            )
+        )
+
+        self.toxicity_metrics = ToxicityMetrics(
+            classifiers=toxicity_classifiers,
+            batch_size=toxicity_batch_size,
+        )
         self.stereotype_metrics = StereotypeMetrics()
         self.counterfactual_metrics = CounterfactualMetrics()
         
@@ -233,6 +260,29 @@ class LangFairEvaluator:
                 "counterfactual": self._format_counterfactual_metrics(counterfactual_metrics) if counterfactual_metrics else {},
             },
         }
+
+    def _resolve_toxicity_classifiers(self) -> List[str]:
+        """
+        Determine which toxicity classifiers to load.
+        Defaults to a lightweight toxigen model to keep memory usage low,
+        but can be overridden via TOXICITY_CLASSIFIERS env var.
+        """
+        override = os.getenv("TOXICITY_CLASSIFIERS")
+        if override:
+            classifiers = [
+                classifier.strip()
+                for classifier in override.split(",")
+                if classifier.strip()
+            ]
+            if classifiers:
+                return classifiers
+
+        # Lightweight default is toxigen. Fallback to detoxify if explicitly disabled.
+        if self.lightweight_mode:
+            return ["toxigen"]
+
+        # Original LangFair default
+        return ["detoxify_unbiased"]
     
     def _format_toxicity_metrics(self, toxicity_metrics: Dict) -> Dict[str, float]:
         """
