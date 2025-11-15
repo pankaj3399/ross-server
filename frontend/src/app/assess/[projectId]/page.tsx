@@ -565,7 +565,7 @@ useEffect(() => {
               {/* Premium-only Fairness button */}
               {user && PREMIUM_STATUS.includes(user.subscription_status) && (
                 <button
-                  onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
+                  onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
                   className="flex items-center px-4 py-2 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
                   title="Exclusive: Fairness & Bias Test"
                 >
