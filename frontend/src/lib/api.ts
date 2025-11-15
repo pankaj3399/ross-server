@@ -353,6 +353,91 @@ class ApiService {
     }>(`/fairness/evaluations/${projectId}`);
   }
 
+  async evaluateApiEndpoint(data: {
+    projectId: string;
+    apiUrl: string;
+    responseKey: string;
+  }): Promise<{
+    success: boolean;
+    summary: {
+      total: number;
+      successful: number;
+      failed: number;
+      averageOverallScore: number;
+      averageBiasScore: number;
+      averageToxicityScore: number;
+    };
+    results: Array<{
+      category: string;
+      prompt: string;
+      success: boolean;
+      evaluation?: {
+        id: string;
+        biasScore: number;
+        toxicityScore: number;
+        relevancyScore: number;
+        faithfulnessScore: number;
+        overallScore: number;
+        verdicts: {
+          bias: { score: number; verdict: string };
+          toxicity: { score: number; verdict: string };
+          relevancy: { score: number; verdict: string };
+          faithfulness: { score: number; verdict: string };
+        };
+        reasoning: string;
+        createdAt: string;
+      };
+    }>;
+    errors: Array<{
+      category: string;
+      prompt: string;
+      success: boolean;
+      error: string;
+    }>;
+  }> {
+    return this.request<{
+      success: boolean;
+      summary: {
+        total: number;
+        successful: number;
+        failed: number;
+        averageOverallScore: number;
+        averageBiasScore: number;
+        averageToxicityScore: number;
+      };
+      results: Array<{
+        category: string;
+        prompt: string;
+        success: boolean;
+        evaluation?: {
+          id: string;
+          biasScore: number;
+          toxicityScore: number;
+          relevancyScore: number;
+          faithfulnessScore: number;
+          overallScore: number;
+          verdicts: {
+            bias: { score: number; verdict: string };
+            toxicity: { score: number; verdict: string };
+            relevancy: { score: number; verdict: string };
+            faithfulness: { score: number; verdict: string };
+          };
+          reasoning: string;
+          createdAt: string;
+        };
+      }>;
+      errors: Array<{
+        category: string;
+        prompt: string;
+        success: boolean;
+        error: string;
+      }>;
+    }>("/fairness/evaluate-api", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   // Assessment Answers
   async saveAnswers(
     projectId: string,
