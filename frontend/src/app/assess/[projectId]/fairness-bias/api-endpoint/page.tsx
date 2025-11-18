@@ -9,28 +9,59 @@ import {
   ArrowLeft,
   Globe,
   Play,
-  CheckCircle,
-  XCircle,
   Loader2,
   AlertCircle,
 } from "lucide-react";
 
-interface TestProgress {
-  total: number;
-  completed: number;
-  current: string;
-  status: "idle" | "testing" | "completed" | "error";
-  error?: string;
-}
+const DEFAULT_REQUEST_TEMPLATE = `{
+  "contents": [
+    {
+      "parts": [
+        { "text": "{{prompt}}" }
+      ]
+    }
+  ]
+}`;
 
-interface EvaluationSummary {
-  total: number;
-  successful: number;
-  failed: number;
-  averageOverallScore: number;
-  averageBiasScore: number;
-  averageToxicityScore: number;
-}
+const PROMPT_PLACEHOLDER_REGEX = /{{\s*prompt\s*}}/i;
+
+type ApiKeyPlacement = "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
+
+const API_KEY_OPTIONS: Array<{
+  value: ApiKeyPlacement;
+  label: string;
+  description: string;
+}> = [
+  { value: "none", label: "None / Public API", description: "Do not send an API key with the request." },
+  {
+    value: "auth_header",
+    label: "Header - Authorization: Bearer <API_KEY>",
+    description: "Adds an Authorization header using the Bearer scheme.",
+  },
+  {
+    value: "x_api_key",
+    label: "Header - x-api-key: <API_KEY>",
+    description: "Adds an x-api-key header with your key. Customize the header name below.",
+  },
+  {
+    value: "query_param",
+    label: "Query Param - ?key=<API_KEY>",
+    description: "Appends ?key=<API_KEY> to your endpoint URL. Customize the parameter name below.",
+  },
+  {
+    value: "body_field",
+    label: "Body Field - include api_key",
+    description: "Adds \"api_key\": \"<API_KEY>\" to the request JSON body. Customize the property name below.",
+  },
+];
+
+const API_KEY_FIELD_HINTS: Record<ApiKeyPlacement, string> = {
+  none: "",
+  auth_header: "Authorization (Bearer)",
+  x_api_key: "x-goog-api-key",
+  query_param: "key",
+  body_field: "api_key",
+};
 
 export default function ApiEndpointPage() {
   const params = useParams();
@@ -39,16 +70,15 @@ export default function ApiEndpointPage() {
   const projectId = params.projectId as string;
 
   const [apiEndpoint, setApiEndpoint] = useState("");
+  const [requestTemplate, setRequestTemplate] = useState(DEFAULT_REQUEST_TEMPLATE);
   const [responseKey, setResponseKey] = useState("");
   const [isValidUrl, setIsValidUrl] = useState(true);
-  const [testProgress, setTestProgress] = useState<TestProgress>({
-    total: 0,
-    completed: 0,
-    current: "",
-    status: "idle",
-  });
-  const [testResults, setTestResults] = useState<any[]>([]);
-  const [evaluationSummary, setEvaluationSummary] = useState<EvaluationSummary | null>(null);
+  const [jobStartError, setJobStartError] = useState<string | null>(null);
+  const [jobStarting, setJobStarting] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [apiKeyPlacement, setApiKeyPlacement] = useState<ApiKeyPlacement>("none");
+  const [apiKeyFieldName, setApiKeyFieldName] = useState("");
 
   useEffect(() => {
     if (apiEndpoint) {
@@ -63,62 +93,73 @@ export default function ApiEndpointPage() {
     }
   }, [apiEndpoint]);
 
-  const handleTestModel = async () => {
-    if (!apiEndpoint || !isValidUrl || !responseKey.trim()) return;
+  useEffect(() => {
+    const trimmed = requestTemplate.trim();
 
-    setTestProgress({
-      total: 0,
-      completed: 0,
-      current: "Starting evaluation...",
-      status: "testing",
-    });
-    setTestResults([]);
+    if (!trimmed.length) {
+      setTemplateError("Request template is required.");
+      return;
+    }
+
+    if (!PROMPT_PLACEHOLDER_REGEX.test(trimmed)) {
+      setTemplateError(`Insert at least one {{prompt}} placeholder to inject the fairness question.`);
+      return;
+    }
 
     try {
-      // Call the batch evaluation endpoint
-      const result = await apiService.evaluateApiEndpoint({
+      JSON.parse(trimmed);
+      setTemplateError(null);
+    } catch {
+      setTemplateError("Request template must be valid JSON.");
+    }
+  }, [requestTemplate]);
+
+  const trimmedResponseKey = responseKey.trim();
+  const trimmedRequestTemplate = requestTemplate.trim();
+  const trimmedApiKey = apiKey.trim();
+  const requiresApiKey = apiKeyPlacement !== "none";
+  const trimmedApiKeyFieldName = apiKeyFieldName.trim();
+  const hasRequiredFields = Boolean(
+    apiEndpoint &&
+      isValidUrl &&
+      trimmedResponseKey &&
+      trimmedRequestTemplate &&
+      !templateError &&
+      (!requiresApiKey || trimmedApiKey),
+  );
+  const canSubmit = hasRequiredFields && !jobStarting;
+
+  const handleTestModel = async () => {
+    const trimmedTemplate = requestTemplate.trim();
+    if (
+      !apiEndpoint ||
+      !isValidUrl ||
+      !responseKey.trim() ||
+      !trimmedTemplate ||
+      templateError ||
+      (requiresApiKey && !trimmedApiKey)
+    )
+      return;
+
+    setJobStartError(null);
+    setJobStarting(true);
+
+    try {
+      const response = await apiService.startFairnessEvaluationJob({
         projectId,
         apiUrl: apiEndpoint,
+        requestTemplate: trimmedTemplate,
         responseKey: responseKey.trim(),
+        apiKey: trimmedApiKey || null,
+        apiKeyPlacement,
+        apiKeyFieldName: trimmedApiKeyFieldName || null,
       });
 
-      // Update progress
-      setTestProgress((prev) => ({
-        ...prev,
-        total: result.summary.total,
-        completed: result.summary.total,
-        current: "Evaluation completed!",
-        status: "completed",
-      }));
-
-      // Combine results and errors for display
-      const allResults = [
-        ...result.results.map((r) => ({
-          category: r.category,
-          prompt: r.prompt,
-          userResponse: "",
-          evaluation: r.evaluation || null,
-          success: r.success,
-        })),
-        ...result.errors.map((e) => ({
-          category: e.category,
-          prompt: e.prompt,
-          userResponse: "",
-          evaluation: null,
-          success: false,
-          error: e.error,
-        })),
-      ];
-
-      setTestResults(allResults);
-      setEvaluationSummary(result.summary);
+      router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
     } catch (error: any) {
-      setTestProgress((prev) => ({
-        ...prev,
-        status: "error",
-        error: error.message || "Failed to test model",
-      }));
-      setEvaluationSummary(null);
+      setJobStartError(error.message || "Failed to schedule evaluation");
+    } finally {
+      setJobStarting(false);
     }
   };
 
@@ -132,9 +173,6 @@ export default function ApiEndpointPage() {
       </div>
     );
   }
-
-  const successCount = testResults.filter((r) => r.success).length;
-  const failureCount = testResults.filter((r) => !r.success).length;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -198,7 +236,7 @@ export default function ApiEndpointPage() {
                 value={apiEndpoint}
                 onChange={(e) => setApiEndpoint(e.target.value)}
                 placeholder="https://api.example.com/v1/chat"
-                disabled={testProgress.status === "testing"}
+                disabled={jobStarting}
                 className={`
                   w-full px-4 py-3 rounded-xl border transition-colors
                   bg-white dark:bg-gray-900
@@ -223,20 +261,20 @@ export default function ApiEndpointPage() {
 
             <div>
               <label
-                htmlFor="response-key"
+                htmlFor="request-template"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
-                Response Key <span className="text-red-500">*</span>
+                Request Body Template
               </label>
-              <input
-                id="response-key"
-                type="text"
-                value={responseKey}
-                onChange={(e) => setResponseKey(e.target.value)}
-                placeholder="e.g., response, data.result.text, results[0].content"
-                disabled={testProgress.status === "testing"}
+              <textarea
+                id="request-template"
+                value={requestTemplate}
+                onChange={(e) => setRequestTemplate(e.target.value)}
+                rows={10}
+                spellCheck={false}
+                disabled={jobStarting}
                 className={`
-                  w-full px-4 py-3 rounded-xl border transition-colors
+                  w-full px-4 py-3 rounded-xl border transition-colors font-mono text-sm resize-y
                   bg-white dark:bg-gray-900
                   border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
                   text-gray-900 dark:text-white
@@ -246,195 +284,324 @@ export default function ApiEndpointPage() {
                 `}
               />
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Enter the full path to the response data in your API response JSON. Supports nested paths and arrays:
-                <br />• Simple: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">response</code>
-                <br />• Nested: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">data.result.text</code>
-                <br />• Array: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">results[0].content</code> or <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">results.0.content</code>
+                Paste the exact JSON payload your API expects (POST). Use <code>{"{{prompt}}"}</code> anywhere you want us to inject each fairness prompt. We will replace it before sending the request.
               </p>
-              {!responseKey.trim() && (
+              {templateError && (
                 <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
-                  Response key is required
+                  {templateError}
                 </p>
               )}
             </div>
 
+            <div>
+              <label
+                htmlFor="response-key-path"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Response Output Path
+              </label>
+              <input
+                id="response-key-path"
+                type="text"
+                value={responseKey}
+                onChange={(e) => setResponseKey(e.target.value)}
+                placeholder="data.answers[0].message"
+                disabled={jobStarting}
+                className={`
+                  w-full px-4 py-3 rounded-xl border transition-colors font-mono text-sm
+                  bg-white dark:bg-gray-900
+                  border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
+                  text-gray-900 dark:text-white
+                  placeholder-gray-400 dark:placeholder-gray-500
+                  focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              />
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to tell us where your model&apos;s final answer lives.
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="api-key-value"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  API Key (secured locally)
+                </label>
+                <input
+                  id="api-key-value"
+                  type="text"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Paste your provider API key"
+                  disabled={jobStarting}
+                  className={`
+                    w-full px-4 py-3 rounded-xl border transition-colors
+                    bg-white dark:bg-gray-900
+                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
+                    text-gray-900 dark:text-white
+                    placeholder-gray-400 dark:placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                />
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  We only use this key when sending requests to your model. It is never logged or shared.
+                </p>
+              </div>
+              <div>
+                <label
+                  htmlFor="api-key-placement"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  API Key Placement
+                </label>
+                <select
+                  id="api-key-placement"
+                  value={apiKeyPlacement}
+                  onChange={(e) => setApiKeyPlacement(e.target.value as ApiKeyPlacement)}
+                  disabled={jobStarting}
+                  className={`
+                    w-full px-4 py-3 rounded-xl border transition-colors
+                    bg-white dark:bg-gray-900
+                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
+                    text-gray-900 dark:text-white
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                >
+                  {API_KEY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {requiresApiKey && !trimmedApiKey && (
+                  <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    API key is required for the selected placement.
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.description}
+                  {apiKeyPlacement === "body_field" && " (We append an \"api_key\" property to your JSON body.)"}
+                </p>
+              </div>
+            </div>
+            {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) && (
+              <div>
+                <label
+                  htmlFor="api-key-field-name"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Field name for this placement
+                </label>
+                <input
+                  id="api-key-field-name"
+                  type="text"
+                  value={apiKeyFieldName}
+                  onChange={(e) => setApiKeyFieldName(e.target.value)}
+                  placeholder={API_KEY_FIELD_HINTS[apiKeyPlacement]}
+                  disabled={jobStarting}
+                  className={`
+                    w-full px-4 py-3 rounded-xl border transition-colors
+                    bg-white dark:bg-gray-900
+                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
+                    text-gray-900 dark:text-white
+                    placeholder-gray-400 dark:placeholder-gray-500
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                />
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  We will use this exact value as the header, query parameter, or JSON property name.
+                  Leave blank to use the suggested default above.
+                </p>
+              </div>
+            )}
+
+            {/* API Configuration Summary */}
+            {(apiEndpoint || requestTemplate || responseKey) && (
+              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+                  API Configuration Summary
+                </h3>
+                <div className="space-y-4">
+                  {apiEndpoint && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        API Endpoint URL
+                      </div>
+                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 break-all">
+                        {apiEndpoint}
+                      </div>
+                    </div>
+                  )}
+                  {requestTemplate && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Request Body Template
+                      </div>
+                      <pre className="text-xs sm:text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 whitespace-pre-wrap break-words">
+                        {requestTemplate}
+                      </pre>
+                    </div>
+                  )}
+                  {responseKey && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Response Key Path
+                      </div>
+                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700">
+                        {responseKey}
+                      </div>
+                    </div>
+                  )}
+                  {apiKeyPlacement !== "none" && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        API Key Placement
+                      </div>
+                      <div className="text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700">
+                        {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.label}
+                      </div>
+                    </div>
+                  )}
+                  {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) && (
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                        Field Name
+                      </div>
+                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 break-all">
+                        {trimmedApiKeyFieldName || API_KEY_FIELD_HINTS[apiKeyPlacement]}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                How to describe your request & response
+              </h3>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase font-semibold text-purple-800 dark:text-purple-200 tracking-wide mb-2">
+                    Request body template
+                  </p>
+                  <ul className="text-xs text-purple-900 dark:text-purple-100 space-y-1 mb-3 list-disc list-inside">
+                    <li>Paste the exact JSON body your API expects.</li>
+                    <li>Use the <code>{"{{prompt}}"}</code> token wherever the fairness prompt should be inserted.</li>
+                    <li>
+                      We send the body exactly as provided after replacing the token. If you choose the body API key option,
+                      we also append an <code>api_key</code> field containing your key.
+                    </li>
+                  </ul>
+                  <pre className="text-xs font-mono text-purple-900 dark:text-purple-100 bg-white dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-700 p-3 whitespace-pre-wrap">
+{`{
+  "model": "gpt-4o-mini",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{prompt}}"
+    }
+  ]
+}`}
+                  </pre>
+                </div>
+                <div>
+                  <p className="text-xs uppercase font-semibold text-purple-800 dark:text-purple-200 tracking-wide mb-2">
+                    Response output path
+                  </p>
+                  <ul className="text-xs text-purple-900 dark:text-purple-100 space-y-1 mb-3 list-disc list-inside">
+                    <li>Tell us how to locate the model&apos;s final text in your JSON response.</li>
+                    <li>Use dot/bracket notation (e.g. <code>choices[0].message.content</code>).</li>
+                    <li>We will extract that string and feed it into the fairness evaluator.</li>
+                  </ul>
+                  <pre className="text-xs font-mono text-purple-900 dark:text-purple-100 bg-white dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-700 p-3 whitespace-pre-wrap">
+{`{
+  "choices": [
+    {
+      "message": {
+        "content": "Model answer..."
+      }
+    }
+  ]
+}`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Note:</strong> Your API should accept POST requests with a JSON body containing
-                a <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">prompt</code>, <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">message</code>, or <code className="bg-blue-100 dark:bg-blue-900/40 px-1 rounded">input</code> field.
-                Enter the full path to where your model's output is located in the response JSON (supports nested objects and arrays).
+                <strong>Note:</strong> Your API should accept POST requests with a JSON body that matches your template.
+                We replace every <code>{"{{prompt}}"}</code> token before calling your endpoint. Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to point at the final answer inside the response JSON.
               </p>
             </div>
 
             <motion.button
               onClick={handleTestModel}
-              disabled={!apiEndpoint || !isValidUrl || !responseKey.trim() || testProgress.status === "testing"}
+              disabled={!canSubmit}
               className={`
                 w-full py-3 rounded-xl font-semibold text-lg transition-all duration-200
                 flex items-center justify-center gap-2
                 ${
-                  apiEndpoint && isValidUrl && responseKey.trim() && testProgress.status !== "testing"
+                  canSubmit
                     ? "bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl"
                     : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 }
               `}
               whileHover={
-                apiEndpoint && isValidUrl && responseKey.trim() && testProgress.status !== "testing"
-                  ? { scale: 1.02 }
-                  : {}
+                canSubmit ? { scale: 1.02 } : {}
               }
               whileTap={
-                apiEndpoint && isValidUrl && responseKey.trim() && testProgress.status !== "testing"
-                  ? { scale: 0.98 }
-                  : {}
+                canSubmit ? { scale: 0.98 } : {}
               }
             >
-              {testProgress.status === "testing" ? (
+              {jobStarting ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Testing...
+                  Scheduling...
                 </>
               ) : (
                 <>
                   <Play className="w-5 h-5" />
-                  Test Your Model
+                  Start Fairness Evaluation
                 </>
               )}
             </motion.button>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              We will queue the job instantly. You can monitor progress on the next screen—no more 5-minute loading spinners.
+            </p>
+            {jobStartError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm text-red-600 dark:text-red-300 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {jobStartError}
+              </div>
+            )}
           </div>
         </motion.div>
 
-        {/* Progress */}
-        {testProgress.status === "testing" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 mb-8"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Testing Progress
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  <span>{testProgress.current}</span>
-                  <span>
-                    {testProgress.completed} / {testProgress.total}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-purple-600 to-violet-600"
-                    initial={{ width: 0 }}
-                    animate={{
-                      width: `${
-                        testProgress.total > 0
-                          ? (testProgress.completed / testProgress.total) * 100
-                          : 0
-                      }%`,
-                    }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Error State */}
-        {testProgress.status === "error" && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-8"
-          >
-            <div className="flex items-center gap-3">
-              <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
-              <div>
-                <h3 className="text-lg font-semibold text-red-900 dark:text-red-200">
-                  Testing Failed
-                </h3>
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  {testProgress.error}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Results Summary */}
-        {testProgress.status === "completed" && testResults.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 mb-8"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Test Results Summary
-            </h3>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-green-900 dark:text-green-200">
-                    Successful
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                  {successCount}
-                </p>
-              </div>
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                  <span className="text-sm font-medium text-red-900 dark:text-red-200">
-                    Failed
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-red-700 dark:text-red-300">
-                  {failureCount}
-                </p>
-              </div>
-            </div>
-            {evaluationSummary && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
-                  <div className="text-xs text-purple-600 dark:text-purple-400 mb-1">
-                    Average Overall Score
-                  </div>
-                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                    {(evaluationSummary.averageOverallScore * 100).toFixed(1)}%
-                  </div>
-                </div>
-                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-4">
-                  <div className="text-xs text-orange-600 dark:text-orange-400 mb-1">
-                    Average Bias Score
-                  </div>
-                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                    {(evaluationSummary.averageBiasScore * 100).toFixed(1)}%
-                  </div>
-                </div>
-                <div className="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800 rounded-xl p-4">
-                  <div className="text-xs text-pink-600 dark:text-pink-400 mb-1">
-                    Average Toxicity Score
-                  </div>
-                  <div className="text-2xl font-bold text-pink-700 dark:text-pink-300">
-                    {(evaluationSummary.averageToxicityScore * 100).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="mt-6">
-              <button
-                onClick={() => router.push(`/assess/${projectId}/fairness-bias/report`)}
-                className="w-full py-3 rounded-xl font-semibold bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl transition-all"
-              >
-                View Detailed Report
-              </button>
-            </div>
-          </motion.div>
-        )}
+        {/* Job explainer */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-purple-200 dark:border-purple-800 p-6 mb-8"
+        >
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            What happens next?
+          </h3>
+          <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc pl-6">
+            <li>The backend creates a background job instantly and returns a job ID.</li>
+            <li>You will land on a live progress page that polls every few seconds and hard-refreshes every 20 seconds.</li>
+            <li>As soon as the job is done we redirect you to the Fairness &amp; Bias report automatically.</li>
+          </ul>
+        </motion.div>
       </div>
     </div>
   );

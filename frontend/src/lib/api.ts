@@ -353,12 +353,36 @@ class ApiService {
     }>(`/fairness/evaluations/${projectId}`);
   }
 
-  async evaluateApiEndpoint(data: {
+  async startFairnessEvaluationJob(data: {
     projectId: string;
     apiUrl: string;
+    requestTemplate: string;
     responseKey: string;
+    apiKey?: string | null;
+    apiKeyPlacement: "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
+    apiKeyFieldName?: string | null;
   }): Promise<{
-    success: boolean;
+    jobId: string;
+    totalPrompts: number;
+    message: string;
+  }> {
+    return this.request<{
+      jobId: string;
+      totalPrompts: number;
+      message: string;
+    }>("/fairness/evaluate-api", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFairnessJob(jobId: string): Promise<{
+    jobId: string;
+    status: "queued" | "running" | "completed" | "failed";
+    progress: string;
+    percent: number;
+    lastProcessedPrompt?: string | null;
+    totalPrompts: number;
     summary: {
       total: number;
       successful: number;
@@ -366,7 +390,7 @@ class ApiService {
       averageOverallScore: number;
       averageBiasScore: number;
       averageToxicityScore: number;
-    };
+    } | null;
     results: Array<{
       category: string;
       prompt: string;
@@ -394,9 +418,15 @@ class ApiService {
       success: boolean;
       error: string;
     }>;
+    errorMessage?: string | null;
   }> {
     return this.request<{
-      success: boolean;
+      jobId: string;
+      status: "queued" | "running" | "completed" | "failed";
+      progress: string;
+      percent: number;
+      lastProcessedPrompt?: string | null;
+      totalPrompts: number;
       summary: {
         total: number;
         successful: number;
@@ -404,7 +434,7 @@ class ApiService {
         averageOverallScore: number;
         averageBiasScore: number;
         averageToxicityScore: number;
-      };
+      } | null;
       results: Array<{
         category: string;
         prompt: string;
@@ -432,10 +462,8 @@ class ApiService {
         success: boolean;
         error: string;
       }>;
-    }>("/fairness/evaluate-api", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+      errorMessage?: string | null;
+    }>(`/fairness/jobs/${jobId}`);
   }
 
   // Assessment Answers
