@@ -59,6 +59,7 @@ type JobResult = {
   prompt: string;
   success: true;
   evaluation: EvaluationPayload;
+  message: string;
 };
 
 type JobError = {
@@ -66,6 +67,7 @@ type JobError = {
   prompt: string;
   success: false;
   error: string;
+  message: string;
 };
 
 type EvaluationPayload = {
@@ -87,6 +89,20 @@ const JOB_POLL_INTERVAL = Number(process.env.EVALUATION_JOB_POLL_INTERVAL_MS || 
 
 let workerTimer: NodeJS.Timeout | null = null;
 let workerBusy = false;
+const MIN_REQUEST_INTERVAL_MS = Number(process.env.EVALUATION_MIN_REQUEST_INTERVAL_MS || 20000);
+const USER_API_MAX_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.EVALUATION_USER_API_MAX_ATTEMPTS || 3),
+);
+const USER_API_BACKOFF_BASE_MS = Math.max(
+  100,
+  Number(process.env.EVALUATION_USER_API_BACKOFF_BASE_MS || 1000),
+);
+const USER_API_BACKOFF_MAX_MS = Math.max(
+  USER_API_BACKOFF_BASE_MS,
+  Number(process.env.EVALUATION_USER_API_BACKOFF_MAX_MS || 30000),
+);
+let lastRequestTimestamp = 0;
 
 const VALID_API_KEY_PLACEMENTS: ApiKeyPlacement[] = [
   "none",
@@ -276,6 +292,7 @@ async function runFairnessApiJob(job: EvaluationStatusRow, payload: FairnessApiJ
   for (let i = 0; i < prompts.length; i += 1) {
     const { category, prompt } = prompts[i];
     try {
+      await enforceRequestGap();
       const userResponse = await callUserApi(config, prompt);
       const evaluation = await callEvaluationService(
         config.projectId,
@@ -284,19 +301,23 @@ async function runFairnessApiJob(job: EvaluationStatusRow, payload: FairnessApiJ
         prompt,
         userResponse,
       );
+      const successMessage = `Prompt processed successfully. Overall score ${(evaluation.overallScore * 100).toFixed(1)}%.`;
 
       jobResults.push({
         category,
         prompt,
         success: true,
         evaluation,
+        message: successMessage,
       });
     } catch (error: any) {
+      const errorMessage = error?.message || "Unknown error";
       jobErrors.push({
         category,
         prompt,
         success: false,
-        error: error?.message || "Unknown error",
+        error: errorMessage,
+        message: errorMessage,
       });
     }
 
@@ -365,46 +386,69 @@ async function fetchFairnessPrompts(): Promise<Array<{ category: string; prompt:
 }
 
 async function callUserApi(config: FairnessApiJobConfig, prompt: string): Promise<string> {
-  try {
-    const trimmedTemplate = config.requestTemplate.trim();
-    const trimmedResponsePath = config.responseKey.trim();
+  const trimmedTemplate = config.requestTemplate.trim();
+  const trimmedResponsePath = config.responseKey.trim();
 
-    if (!trimmedResponsePath) {
-      throw new Error("Response key is required to extract the model output");
-    }
-
-    if (!trimmedTemplate) {
-      throw new Error("Request template cannot be empty");
-    }
-
-    const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
-    const { url, headers, body } = prepareRequestOptions(config, requestPayload);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const value = getNestedValue(data, trimmedResponsePath);
-
-    if (value === undefined) {
-      throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
-    }
-
-    if (typeof value !== "string") {
-      throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
-    }
-
-    return value;
-  } catch (error: any) {
-    throw new Error(`Failed to call user API: ${error.message}`);
+  if (!trimmedResponsePath) {
+    throw new Error("Response key is required to extract the model output");
   }
+
+  if (!trimmedTemplate) {
+    throw new Error("Request template cannot be empty");
+  }
+
+  const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
+  const { url, headers, body } = prepareRequestOptions(config, requestPayload);
+
+  for (let attempt = 1; attempt <= USER_API_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429 && attempt < USER_API_MAX_ATTEMPTS) {
+          const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
+          await delay(computeBackoffDelay(attempt, retryAfter));
+          continue;
+        }
+
+        const errorText = await response
+          .text()
+          .catch(() => `API returned status ${response.status}`);
+        throw new Error(
+          errorText?.trim() ? errorText : `API returned status ${response.status}`,
+        );
+      }
+
+      const data = await response.json();
+      const value = getNestedValue(data, trimmedResponsePath);
+
+      if (value === undefined) {
+        throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
+      }
+
+      if (typeof value !== "string") {
+        throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
+      }
+
+      return value;
+    } catch (error: any) {
+      const isRateLimit = /429/.test(error?.message || "");
+      const shouldRetry = isRateLimit && attempt < USER_API_MAX_ATTEMPTS;
+
+      if (shouldRetry) {
+        await delay(computeBackoffDelay(attempt));
+        continue;
+      }
+
+      throw new Error(`Failed to call user API: ${error.message}`);
+    }
+  }
+
+  throw new Error("Failed to call user API after maximum retry attempts");
 }
 
 function prepareRequestOptions(
@@ -598,6 +642,48 @@ async function callEvaluationService(
   } catch (error: any) {
     throw new Error(`Failed to call evaluation service: ${error.message}`);
   }
+}
+
+async function enforceRequestGap() {
+  const now = Date.now();
+  const elapsed = now - lastRequestTimestamp;
+  if (lastRequestTimestamp && elapsed < MIN_REQUEST_INTERVAL_MS) {
+    await delay(MIN_REQUEST_INTERVAL_MS - elapsed);
+  }
+  lastRequestTimestamp = Date.now();
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfter(headerValue: string | null): number | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  const numericSeconds = Number(headerValue);
+  if (!Number.isNaN(numericSeconds) && numericSeconds >= 0) {
+    return numericSeconds * 1000;
+  }
+
+  const dateTime = Date.parse(headerValue);
+  if (!Number.isNaN(dateTime)) {
+    const diff = dateTime - Date.now();
+    return diff > 0 ? diff : 0;
+  }
+
+  return null;
+}
+
+function computeBackoffDelay(attempt: number, retryAfterMs?: number | null): number {
+  if (retryAfterMs && retryAfterMs > 0) {
+    return retryAfterMs;
+  }
+
+  const exponent = attempt - 1;
+  const nextDelay = USER_API_BACKOFF_BASE_MS * 2 ** exponent;
+  return Math.min(nextDelay, USER_API_BACKOFF_MAX_MS);
 }
 
 function buildSummary(total: number, results: JobResult[], errors: JobError[]): JobSummary {

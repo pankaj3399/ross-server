@@ -395,6 +395,7 @@ class ApiService {
       category: string;
       prompt: string;
       success: boolean;
+      message?: string;
       evaluation?: {
         id: string;
         biasScore: number;
@@ -417,6 +418,7 @@ class ApiService {
       prompt: string;
       success: boolean;
       error: string;
+      message?: string;
     }>;
     errorMessage?: string | null;
   }> {
@@ -439,6 +441,7 @@ class ApiService {
         category: string;
         prompt: string;
         success: boolean;
+        message: string;
         evaluation?: {
           id: string;
           biasScore: number;
@@ -461,6 +464,7 @@ class ApiService {
         prompt: string;
         success: boolean;
         error: string;
+        message: string;
       }>;
       errorMessage?: string | null;
     }>(`/fairness/jobs/${jobId}`);

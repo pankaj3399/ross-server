@@ -56,22 +56,28 @@ export default function FairnessJobPage() {
     }
   }, [authLoading, jobId]);
 
-  // Poll every 5 seconds
+  // Poll every 5 seconds until job finishes
   useEffect(() => {
     if (!jobId) return;
+    if (jobStatus?.status === "completed" || jobStatus?.status === "failed") {
+      return;
+    }
     const interval = setInterval(() => {
       fetchStatus();
     }, 5000);
     return () => clearInterval(interval);
-  }, [jobId]);
+  }, [jobId, jobStatus?.status]);
 
-  // Hard refresh every 20 seconds per requirement
+  // Hard refresh every 20 seconds while job is active
   useEffect(() => {
+    if (jobStatus?.status === "completed" || jobStatus?.status === "failed") {
+      return;
+    }
     const refreshInterval = setInterval(() => {
       router.refresh();
     }, 20000);
     return () => clearInterval(refreshInterval);
-  }, [router]);
+  }, [jobStatus?.status, router]);
 
   // Auto redirect when completed
   useEffect(() => {
@@ -253,6 +259,9 @@ export default function FairnessJobPage() {
                       Overall score: {(result.evaluation.overallScore * 100).toFixed(1)}%
                     </div>
                   )}
+                  {result.message && (
+                    <p className="text-xs text-green-600 dark:text-green-300 mt-2">{result.message}</p>
+                  )}
                 </div>
               ))}
 
@@ -285,7 +294,9 @@ export default function FairnessJobPage() {
                 >
                   <p className="text-sm font-semibold text-red-700 dark:text-red-300">{item.category}</p>
                   <p className="text-sm text-red-600 dark:text-red-200 mt-1 line-clamp-2">{item.prompt}</p>
-                  <p className="text-xs text-red-500 dark:text-red-200 mt-2">{item.error}</p>
+                  <p className="text-xs text-red-500 dark:text-red-200 mt-2">
+                    {item.message ?? item.error ?? "Unknown error"}
+                  </p>
                 </div>
               ))}
               {jobStatus.errors.length > 5 && (

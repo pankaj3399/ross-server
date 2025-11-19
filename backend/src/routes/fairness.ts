@@ -32,7 +32,8 @@ const apiKeyFieldNameSchema = z
     .trim()
     .max(64, "API key field name must be 64 characters or fewer")
     .optional()
-    .transform((value) => (value && value.length > 0 ? value : null));
+    .or(z.literal(null))
+    .transform((value) => (typeof value === "string" && value.length > 0 ? value : null));
 
 // Batch API evaluation schema
 const evaluateApiSchema = z
