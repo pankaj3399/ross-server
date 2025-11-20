@@ -6,6 +6,7 @@ import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { wakeEvaluationWorker } from "../services/evaluationJobQueue";
+import { evaluateDatasetFairnessFromParsed, parseCSV } from "../utils/datasetFairness";
 
 const router = Router();
 
@@ -16,6 +17,171 @@ const evaluateSchema = z.object({
     questionText: z.string().min(1),
     userResponse: z.string().min(1),
 });
+
+const datasetEvaluateSchema = z.object({
+    projectId: z.string().uuid(),
+    fileName: z.string().min(1),
+    csvText: z
+        .string()
+        .min(10, "CSV text is required")
+        .max(2_000_000, "CSV payload is too large"),
+});
+
+type DatasetMetricKey = "fairness" | "biasness" | "toxicity" | "relevance" | "faithfulness";
+
+type DatasetMetric = {
+    score: number;
+    label: "low" | "moderate" | "high";
+    explanation: string;
+};
+
+const DATASET_METRIC_KEYS: DatasetMetricKey[] = ["fairness", "biasness", "toxicity", "relevance", "faithfulness"];
+const MAX_SAMPLE_ROWS = 8;
+const MAX_SAMPLE_COLUMNS = 16;
+
+function buildDatasetSummary(
+    fileName: string,
+    parsed: { headers: string[]; rows: Record<string, string>[] },
+    fairness: { overallVerdict: string; sensitiveColumns: Array<{ column: string; verdict: string; disparity: number }> }
+): string {
+    const rowCount = parsed.rows.length;
+    const columnCount = parsed.headers.length;
+    const headersPreview = parsed.headers.slice(0, MAX_SAMPLE_COLUMNS);
+    const sampleRows = parsed.rows.slice(0, MAX_SAMPLE_ROWS);
+
+    const fairnessHighlights =
+        fairness.sensitiveColumns.slice(0, 5).map((column) => {
+            return `${column.column}: verdict=${column.verdict}, disparity=${column.disparity}`;
+        }) || [];
+
+    const rowPreview = sampleRows
+        .map((row, index) => {
+            const values = headersPreview
+                .map((header) => `${header}=${(row[header] || "").slice(0, 32)}`)
+                .join(", ");
+            return `${index + 1}. ${values}`;
+        })
+        .join("\n");
+
+    return `Dataset file: ${fileName}
+Rows: ${rowCount}
+Columns: ${columnCount}
+Headers: ${headersPreview.join(", ")}
+
+Fairness verdict: ${fairness.overallVerdict}
+Fairness highlights:
+${fairnessHighlights.join("\n") || "None"}
+
+Sample rows:
+${rowPreview || "No rows provided"}`;
+}
+
+async function evaluateDatasetMetricsWithGemini(summary: string): Promise<Record<DatasetMetricKey, DatasetMetric>> {
+    if (!genAI) {
+        throw new Error("Gemini is not configured");
+    }
+
+    const prompt = `You are an expert responsible for evaluating CSV datasets across five dimensions: fairness, biasness, toxicity, relevance, and faithfulness.
+You will be given a dataset summary. For each dimension:
+- Provide a score between 0 (good) and 1 (bad)
+- Provide a label of "low", "moderate", or "high"
+- Provide a concise explanation (<= 2 sentences)
+- Your explanation MUST include a clear "why" based on the dataset summary (e.g., group imbalance, sensitive columns, skewed outcomes, extreme disparities, toxic text, irrelevant fields, unfaithful structure).
+
+
+Dataset Summary:
+${summary}
+
+Return ONLY valid JSON with this exact structure:
+{
+  "fairness": { "score": 0.0-1.0, "label": "low|moderate|high", "explanation": "..." },
+  "biasness": { "score": 0.0-1.0, "label": "low|moderate|high", "explanation": "..." },
+  "toxicity": { "score": 0.0-1.0, "label": "low|moderate|high", "explanation": "..." },
+  "relevance": { "score": 0.0-1.0, "label": "low|moderate|high", "explanation": "..." },
+  "faithfulness": { "score": 0.0-1.0, "label": "low|moderate|high", "explanation": "..." }
+}`;
+
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro"];
+    let lastError: any = null;
+
+    for (const modelName of modelsToTry) {
+        try {
+            const model = genAI!.getGenerativeModel({ model: modelName });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const content = response.text();
+            if (!content) {
+                throw new Error("Empty response from Gemini");
+            }
+
+            let cleanedContent = content.trim();
+            if (cleanedContent.startsWith("```")) {
+                cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            }
+
+            const parsed = JSON.parse(cleanedContent);
+            const metrics: Record<DatasetMetricKey, DatasetMetric> = {
+                fairness: { score: 0, label: "low", explanation: "No data" },
+                biasness: { score: 0, label: "low", explanation: "No data" },
+                toxicity: { score: 0, label: "low", explanation: "No data" },
+                relevance: { score: 0, label: "low", explanation: "No data" },
+                faithfulness: { score: 0, label: "low", explanation: "No data" },
+            };
+
+            DATASET_METRIC_KEYS.forEach((key) => {
+                const node = parsed[key] || {};
+                const rawScore = typeof node.score === "number" ? node.score : parseFloat(node.score ?? "0");
+                const score = Number.isFinite(rawScore) ? Math.min(1, Math.max(0, rawScore)) : 0;
+                const label = (node.label || "low").toLowerCase() as DatasetMetric["label"];
+                const explanation =
+                    typeof node.explanation === "string" && node.explanation.trim().length
+                        ? node.explanation.trim()
+                        : "No explanation provided";
+
+                metrics[key] = {
+                    score,
+                    label: label === "high" || label === "moderate" ? label : "low",
+                    explanation,
+                };
+            });
+
+            return metrics;
+        } catch (error) {
+            lastError = error;
+            continue;
+        }
+    }
+
+    console.error("Dataset Gemini evaluation failed:", lastError);
+    const fallback: Record<DatasetMetricKey, DatasetMetric> = {
+        fairness: {
+            score: 0,
+            label: "low",
+            explanation: `Evaluation failed: ${lastError?.message || "Unknown error"}`,
+        },
+        biasness: {
+            score: 0,
+            label: "low",
+            explanation: `Evaluation failed: ${lastError?.message || "Unknown error"}`,
+        },
+        toxicity: {
+            score: 0,
+            label: "low",
+            explanation: `Evaluation failed: ${lastError?.message || "Unknown error"}`,
+        },
+        relevance: {
+            score: 0,
+            label: "low",
+            explanation: `Evaluation failed: ${lastError?.message || "Unknown error"}`,
+        },
+        faithfulness: {
+            score: 0,
+            label: "low",
+            explanation: `Evaluation failed: ${lastError?.message || "Unknown error"}`,
+        },
+    };
+    return fallback;
+}
 
 const apiKeyPlacementEnum = z.enum(["none", "auth_header", "x_api_key", "query_param", "body_field"]);
 
@@ -254,6 +420,7 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
             return { score: combinedScore, reason: combinedReason };
         }
 
+
         // Helper function to evaluate using Gemini with custom prompts
         // Uses both gemini-2.5-flash and gemini-2.5-pro with fallback for reliability
         async function evaluateAllMetrics(
@@ -464,6 +631,56 @@ Return ONLY valid JSON (no markdown) with this exact structure:
             return res.status(400).json({ error: "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to evaluate response" });
+    }
+});
+
+// POST /fairness/dataset-evaluate - evaluate uploaded CSV dataset
+router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
+    if (!genAI) {
+        return res.status(503).json({ error: "Gemini is not configured" });
+    }
+    try {
+        const { projectId, fileName, csvText } = datasetEvaluateSchema.parse(req.body);
+        const userId = req.user!.id;
+
+        const projectCheck = await pool.query("SELECT id FROM projects WHERE id = $1 AND user_id = $2", [
+            projectId,
+            userId,
+        ]);
+
+        if (projectCheck.rows.length === 0) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const parsed = parseCSV(csvText);
+        if (!parsed.headers.length || !parsed.rows.length) {
+            return res.status(400).json({ error: "CSV appears to be empty or invalid" });
+        }
+
+        const fairnessAssessment = evaluateDatasetFairnessFromParsed(parsed);
+        const summarizedFairness = {
+            overallVerdict: fairnessAssessment.overallVerdict,
+            sensitiveColumns: fairnessAssessment.sensitiveColumns.slice(0, 8),
+        };
+
+        const summary = buildDatasetSummary(fileName, parsed, summarizedFairness);
+        const geminiMetrics = await evaluateDatasetMetricsWithGemini(summary);
+        console.log("geminiMetrics", geminiMetrics);
+
+        res.json({
+            fairness: summarizedFairness,
+            fairnessResult: geminiMetrics.fairness,
+            biasness: geminiMetrics.biasness,
+            toxicity: geminiMetrics.toxicity,
+            relevance: geminiMetrics.relevance,
+            faithfulness: geminiMetrics.faithfulness,
+        });
+    } catch (error) {
+        console.error("Error evaluating dataset fairness:", error);
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: "Validation failed", details: error.errors });
+        }
+        res.status(500).json({ error: "Failed to evaluate dataset" });
     }
 });
 

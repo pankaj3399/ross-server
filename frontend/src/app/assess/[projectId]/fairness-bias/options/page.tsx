@@ -16,7 +16,7 @@ import {
 type TestMethod = 
   | "prompt-response"
   | "api-endpoint"
-  | "config-json"
+  | "dataset-testing"
   | "github-repo"
   | null;
 
@@ -42,9 +42,9 @@ export default function FairnessBiasOptions() {
         // Navigate to API endpoint input page
         router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
         break;
-      case "config-json":
-        // TODO: Navigate to config JSON upload page
-        router.push(`/assess/${projectId}/fairness-bias/config`);
+      case "dataset-testing":
+        // TODO: Navigate to csv file upload page
+        router.push(`/assess/${projectId}/fairness-bias/dataset-testing`);
         break;
       case "github-repo":
         // TODO: Navigate to GitHub repo input page
@@ -71,9 +71,9 @@ export default function FairnessBiasOptions() {
       hoverColor: "from-blue-700 to-cyan-700",
     },
     {
-      id: "config-json" as TestMethod,
-      title: "Config-Based Evaluation",
-      description: "Upload a configuration JSON file with your model settings and test parameters",
+      id: "dataset-testing" as TestMethod,
+      title: "Dataset Testing",
+      description: "Upload your CSV file to automatically run fairness and bias evaluations on your data.",
       icon: Upload,
       color: "from-green-600 to-emerald-600",
       hoverColor: "from-green-700 to-emerald-700",

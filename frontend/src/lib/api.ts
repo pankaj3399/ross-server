@@ -353,6 +353,37 @@ class ApiService {
     }>(`/fairness/evaluations/${projectId}`);
   }
 
+  async evaluateDatasetFairness(data: {
+    projectId: string;
+    fileName: string;
+    csvText: string;
+  }): Promise<{
+    fairness: {
+      overallVerdict: "pass" | "caution" | "fail" | "insufficient";
+      sensitiveColumns: Array<{
+        column: string;
+        verdict: "pass" | "caution" | "fail" | "insufficient";
+        disparity: number;
+        groups: Array<{
+          value: string;
+          rows: number;
+          positive: number;
+          positiveRate: number;
+        }>;
+      }>;
+    };
+    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+  }> {
+    return this.request("/fairness/dataset-evaluate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async startFairnessEvaluationJob(data: {
     projectId: string;
     apiUrl: string;
