@@ -14,6 +14,7 @@ import { seedAIMAData } from "./scripts/seeds/seedAIMA";
 import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
 import { initializeDatabase } from "./utils/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
+import { startEvaluationWorker } from "./services/evaluationJobQueue";
 
 dotenv.config();
 
@@ -63,6 +64,7 @@ if (process.env.VERCEL || process.env.SERVERLESS) {
   // Local/standalone run
   initialize()
     .then(() => {
+      startEvaluationWorker();
       app.listen(PORT, () => {
         // eslint-disable-next-line no-console
         console.log(`🚀 Backend listening on http://localhost:${PORT}`);

@@ -353,6 +353,154 @@ class ApiService {
     }>(`/fairness/evaluations/${projectId}`);
   }
 
+  async evaluateDatasetFairness(data: {
+    projectId: string;
+    fileName: string;
+    csvText: string;
+  }): Promise<{
+    fairness: {
+      overallVerdict: "pass" | "caution" | "fail" | "insufficient";
+      sensitiveColumns: Array<{
+        column: string;
+        verdict: "pass" | "caution" | "fail" | "insufficient";
+        disparity: number;
+        groups: Array<{
+          value: string;
+          rows: number;
+          positive: number;
+          positiveRate: number;
+        }>;
+      }>;
+    };
+    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+  }> {
+    return this.request("/fairness/dataset-evaluate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async startFairnessEvaluationJob(data: {
+    projectId: string;
+    apiUrl: string;
+    requestTemplate: string;
+    responseKey: string;
+    apiKey?: string | null;
+    apiKeyPlacement: "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
+    apiKeyFieldName?: string | null;
+  }): Promise<{
+    jobId: string;
+    totalPrompts: number;
+    message: string;
+  }> {
+    return this.request<{
+      jobId: string;
+      totalPrompts: number;
+      message: string;
+    }>("/fairness/evaluate-api", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getFairnessJob(jobId: string): Promise<{
+    jobId: string;
+    status: "queued" | "running" | "completed" | "failed";
+    progress: string;
+    percent: number;
+    lastProcessedPrompt?: string | null;
+    totalPrompts: number;
+    summary: {
+      total: number;
+      successful: number;
+      failed: number;
+      averageOverallScore: number;
+      averageBiasScore: number;
+      averageToxicityScore: number;
+    } | null;
+    results: Array<{
+      category: string;
+      prompt: string;
+      success: boolean;
+      message?: string;
+      evaluation?: {
+        id: string;
+        biasScore: number;
+        toxicityScore: number;
+        relevancyScore: number;
+        faithfulnessScore: number;
+        overallScore: number;
+        verdicts: {
+          bias: { score: number; verdict: string };
+          toxicity: { score: number; verdict: string };
+          relevancy: { score: number; verdict: string };
+          faithfulness: { score: number; verdict: string };
+        };
+        reasoning: string;
+        createdAt: string;
+      };
+    }>;
+    errors: Array<{
+      category: string;
+      prompt: string;
+      success: boolean;
+      error: string;
+      message?: string;
+    }>;
+    errorMessage?: string | null;
+  }> {
+    return this.request<{
+      jobId: string;
+      status: "queued" | "running" | "completed" | "failed";
+      progress: string;
+      percent: number;
+      lastProcessedPrompt?: string | null;
+      totalPrompts: number;
+      summary: {
+        total: number;
+        successful: number;
+        failed: number;
+        averageOverallScore: number;
+        averageBiasScore: number;
+        averageToxicityScore: number;
+      } | null;
+      results: Array<{
+        category: string;
+        prompt: string;
+        success: boolean;
+        message: string;
+        evaluation?: {
+          id: string;
+          biasScore: number;
+          toxicityScore: number;
+          relevancyScore: number;
+          faithfulnessScore: number;
+          overallScore: number;
+          verdicts: {
+            bias: { score: number; verdict: string };
+            toxicity: { score: number; verdict: string };
+            relevancy: { score: number; verdict: string };
+            faithfulness: { score: number; verdict: string };
+          };
+          reasoning: string;
+          createdAt: string;
+        };
+      }>;
+      errors: Array<{
+        category: string;
+        prompt: string;
+        success: boolean;
+        error: string;
+        message: string;
+      }>;
+      errorMessage?: string | null;
+    }>(`/fairness/jobs/${jobId}`);
+  }
+
   // Assessment Answers
   async saveAnswers(
     projectId: string,
