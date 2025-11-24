@@ -27,6 +27,7 @@ export type DatasetEvaluationResponse = {
     overallVerdict: VerdictStatus;
     sensitiveColumns: FairnessColumn[];
   };
+  fairnessResult: DatasetMetric;
   biasness: DatasetMetric;
   toxicity: DatasetMetric;
   relevance: DatasetMetric;

@@ -5,12 +5,11 @@ import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { wakeEvaluationWorker } from "../services/evaluationJobQueue";
+
 import { evaluateDatasetFairnessFromParsed, parseCSV } from "../utils/datasetFairness";
 
 const router = Router();
 
-// Evaluation schema
 const evaluateSchema = z.object({
     projectId: z.string().uuid(),
     category: z.string().min(1),
@@ -201,7 +200,6 @@ const apiKeyFieldNameSchema = z
     .or(z.literal(null))
     .transform((value) => (typeof value === "string" && value.length > 0 ? value : null));
 
-// Batch API evaluation schema
 const evaluateApiSchema = z
     .object({
         projectId: z.string().uuid(),
@@ -265,17 +263,14 @@ if (!process.env.GEMINI_API_KEY) {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-// GET /fairness-prompts
 router.get("/prompts", authenticateToken, async (req, res) => {
     try {
-        // Fetch all fairness questions grouped by label
         const result = await pool.query(
             `SELECT label, prompt, id 
          FROM fairness_questions 
          ORDER BY label, created_at`
         );
 
-        // Group questions by label
         const groupedQuestions: Record<string, { label: string; prompts: string[] }> = {};
 
         result.rows.forEach((row) => {
@@ -288,7 +283,6 @@ router.get("/prompts", authenticateToken, async (req, res) => {
             groupedQuestions[row.label].prompts.push(row.prompt);
         });
 
-        // Convert to array format
         const questions = Object.values(groupedQuestions);
 
         res.json({ questions });
@@ -298,7 +292,6 @@ router.get("/prompts", authenticateToken, async (req, res) => {
     }
 });
 
-// POST /fairness/evaluate
 router.post("/evaluate", authenticateToken, async (req, res) => {
     if (!genAI) {
         return res.status(503).json({ error: "Gemini is not configured" });
@@ -307,7 +300,6 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
         const { projectId, category, questionText, userResponse } = evaluateSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
         const projectCheck = await pool.query(
             "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
             [projectId, userId]
@@ -421,8 +413,6 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
         }
 
 
-        // Helper function to evaluate using Gemini with custom prompts
-        // Uses both gemini-2.5-flash and gemini-2.5-pro with fallback for reliability
         async function evaluateAllMetrics(
             questionText: string,
             userResponse: string
@@ -460,7 +450,6 @@ Return ONLY valid JSON (no markdown) with this exact structure:
                         throw new Error("No response from Gemini");
                     }
 
-                    // Clean up the response - remove markdown code blocks if present
                     let cleanedContent = content.trim();
                     if (cleanedContent.startsWith("```json")) {
                         cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -488,12 +477,10 @@ Return ONLY valid JSON (no markdown) with this exact structure:
                     return metrics as Record<"bias" | "toxicity" | "relevancy" | "faithfulness", { score: number; reason: string }>;
                 } catch (error: any) {
                     lastError = error;
-                    // Try next model
                     continue;
                 }
             }
 
-            // If all models failed
             console.error(`[All Metrics] All models failed. Last error:`, lastError?.message || lastError);
             return {
                 bias: {
@@ -534,18 +521,15 @@ Return ONLY valid JSON (no markdown) with this exact structure:
         const relevancyResult = combineMetric("Relevancy", geminiMetrics.relevancy, langfairDerived?.relevancy || null);
         const faithfulnessResult = combineMetric("Faithfulness", geminiMetrics.faithfulness, langfairDerived?.faithfulness || null);
 
-        // Extract scores (0-1 scale)
         const biasScore = biasResult.score;
         const toxicityScore = toxicityResult.score;
         const relevancyScore = relevancyResult.score;
         const faithfulnessScore = faithfulnessResult.score;
 
-        // Lower bias and toxicity scores are better, higher relevancy and faithfulness are better
         const normalizedBias = Math.max(0, Math.min(1, 1 - biasScore));
         const normalizedToxicity = Math.max(0, Math.min(1, 1 - toxicityScore));
         const overallScore = (normalizedBias + normalizedToxicity + relevancyScore + faithfulnessScore) / 4;
 
-        // Collect verdicts and reasoning
         const verdicts = {
             bias: {
                 score: biasScore,
@@ -572,7 +556,6 @@ Return ONLY valid JSON (no markdown) with this exact structure:
             `Faithfulness: ${faithfulnessResult.reason}`,
         ].join("\n\n");
 
-        // Store evaluation in database using UPSERT to update existing entry if it exists
         const query = `INSERT INTO fairness_evaluations (
                 project_id, user_id, version_id, category, question_text, user_response,
                 bias_score, toxicity_score, relevancy_score, faithfulness_score,
@@ -610,7 +593,6 @@ Return ONLY valid JSON (no markdown) with this exact structure:
 
         const evaluation = insertResult.rows[0];
 
-        // Return evaluation results
         res.json({
             success: true,
             evaluation: {
@@ -634,7 +616,6 @@ Return ONLY valid JSON (no markdown) with this exact structure:
     }
 });
 
-// POST /fairness/dataset-evaluate - evaluate uploaded CSV dataset
 router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     if (!genAI) {
         return res.status(503).json({ error: "Gemini is not configured" });
@@ -684,7 +665,6 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     }
 });
 
-// POST /fairness/evaluate-api - Batch evaluate API endpoint (async)
 router.post("/evaluate-api", authenticateToken, async (req, res) => {
     try {
         const {
@@ -749,7 +729,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
             [userId, projectId, jobId, JSON.stringify(payload), totalPrompts, `0/${totalPrompts}`]
         );
 
-        wakeEvaluationWorker();
+
 
         res.status(202).json({
             jobId,
@@ -765,7 +745,6 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
     }
 });
 
-// GET /fairness/jobs/:jobId - Fetch job status
 router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
     try {
         const { jobId } = req.params;
@@ -786,9 +765,7 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         const job = jobResult.rows[0];
         const payload = typeof job.payload === "string" ? JSON.parse(job.payload) : job.payload || {};
 
-        if (job.status === "queued" || job.status === "running") {
-            wakeEvaluationWorker();
-        }
+
 
         res.json({
             jobId: job.job_id,

@@ -2,7 +2,6 @@ import pool from "../config/database";
 
 async function getNextVersion() {
   try {
-    // Get the latest version 
     const result = await pool.query(`
       SELECT version_number
       FROM versions
@@ -12,12 +11,11 @@ async function getNextVersion() {
       LIMIT 1
     `);
 
-    let nextVersion = "1.0"; 
+    let nextVersion = "1.0";
     if (result.rows.length > 0) {
       const currentVersion = result.rows[0].version_number;
       const [major, minor] = currentVersion.split('.').map(Number);
 
-      // Increment minor, if minor reaches 9, increment major
       if (minor < 9) {
         nextVersion = `${major}.${minor + 1}`;
       } else {
@@ -25,7 +23,6 @@ async function getNextVersion() {
       }
     }
 
-    // Create new version
     const versionResult = await pool.query(
       "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
       [nextVersion]

@@ -85,10 +85,6 @@ type EvaluationPayload = {
   createdAt: string;
 };
 
-const JOB_POLL_INTERVAL = Number(process.env.EVALUATION_JOB_POLL_INTERVAL_MS || 5000);
-
-let workerTimer: NodeJS.Timeout | null = null;
-let workerBusy = false;
 const MIN_REQUEST_INTERVAL_MS = Number(process.env.EVALUATION_MIN_REQUEST_INTERVAL_MS || 20000);
 const USER_API_MAX_ATTEMPTS = Math.max(
   1,
@@ -102,7 +98,7 @@ const USER_API_BACKOFF_MAX_MS = Math.max(
   USER_API_BACKOFF_BASE_MS,
   Number(process.env.EVALUATION_USER_API_BACKOFF_MAX_MS || 30000),
 );
-let lastRequestTimestamp = 0;
+
 
 const VALID_API_KEY_PLACEMENTS: ApiKeyPlacement[] = [
   "none",
@@ -120,60 +116,14 @@ const DEFAULT_API_KEY_FIELD_NAMES: Record<ApiKeyPlacement, string | null> = {
   body_field: "api_key",
 };
 
-export const startEvaluationWorker = () => {
-
-  if (workerTimer) {
-    return;
-  }
-
-  const run = () => {
-    void runWorker();
-  };
-
-  workerTimer = setInterval(run, JOB_POLL_INTERVAL);
-  run();
-};
-
-export const wakeEvaluationWorker = () => {
-
-  if (!workerTimer) {
-    startEvaluationWorker();
-    return;
-  }
-
-  if (!workerBusy) {
-    void runWorker();
-  }
-};
-
-async function runWorker() {
-  if (workerBusy) {
-    return;
-  }
-
-  workerBusy = true;
-
-  try {
-    const job = await fetchNextJob();
-    if (!job) {
-      return;
-    }
-    await processJob(job);
-  } catch (error) {
-    console.error("❌ Evaluation worker crashed:", error);
-  } finally {
-    workerBusy = false;
-  }
-}
-
-async function fetchNextJob(): Promise<EvaluationStatusRow | null> {
+export async function fetchNextJob(): Promise<EvaluationStatusRow | null> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query<EvaluationStatusRow>(
       `SELECT *
        FROM evaluation_status
-       WHERE status IN ('queued', 'running')
+       WHERE status = 'queued'
        ORDER BY created_at ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED`,
@@ -201,7 +151,7 @@ async function fetchNextJob(): Promise<EvaluationStatusRow | null> {
   }
 }
 
-async function processJob(job: EvaluationStatusRow) {
+export async function processJob(job: EvaluationStatusRow) {
   const payload: FairnessApiJobPayload | null =
     job.payload && typeof job.payload === "object"
       ? job.payload
@@ -217,10 +167,12 @@ async function processJob(job: EvaluationStatusRow) {
   try {
     await runFairnessApiJob(job, payload);
   } catch (error: any) {
-    console.error(`❌ Fairness job ${job.job_id} failed:`, error);
+    console.error(`Fairness job ${job.job_id} failed:`, error);
     await failJob(job.id, error?.message || "Unknown worker failure");
   }
 }
+
+
 
 function normalizeFairnessApiJobConfig(config: FairnessApiJobConfigStored): FairnessApiJobConfig {
   const placement: ApiKeyPlacement = VALID_API_KEY_PLACEMENTS.includes(
@@ -249,6 +201,16 @@ function resolveApiKeyFieldName(placement: ApiKeyPlacement, provided?: string | 
 }
 
 async function runFairnessApiJob(job: EvaluationStatusRow, payload: FairnessApiJobPayload) {
+  let lastRequestTimestamp = 0;
+
+  const enforceRequestGap = async () => {
+    const now = Date.now();
+    const elapsed = now - lastRequestTimestamp;
+    if (lastRequestTimestamp && elapsed < MIN_REQUEST_INTERVAL_MS) {
+      await delay(MIN_REQUEST_INTERVAL_MS - elapsed);
+    }
+    lastRequestTimestamp = Date.now();
+  };
   const config = normalizeFairnessApiJobConfig(payload.config);
 
   const projectCheck = await pool.query(
@@ -644,14 +606,7 @@ async function callEvaluationService(
   }
 }
 
-async function enforceRequestGap() {
-  const now = Date.now();
-  const elapsed = now - lastRequestTimestamp;
-  if (lastRequestTimestamp && elapsed < MIN_REQUEST_INTERVAL_MS) {
-    await delay(MIN_REQUEST_INTERVAL_MS - elapsed);
-  }
-  lastRequestTimestamp = Date.now();
-}
+
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
