@@ -22,6 +22,7 @@ export interface Project {
   name: string;
   description?: string;
   ai_system_type?: string;
+  industry?: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -44,7 +45,18 @@ export interface Question {
   stream: string;
   question_index: number;
   question_text: string;
+  description?: string | null;
 }
+
+export interface PracticeQuestionDetail {
+  question_text: string;
+  description?: string | null;
+}
+
+export type PracticeQuestionLevels = Record<
+  string,
+  Record<string, PracticeQuestionDetail[]>
+>;
 
 export interface AssessmentAnswer {
   domainId: string;
@@ -161,6 +173,7 @@ class ApiService {
     name: string;
     description?: string;
     aiSystemType?: string;
+    industry?: string;
   }): Promise<{ project: Project }> {
     return this.request<{ project: Project }>("/projects", {
       method: "POST",
@@ -178,6 +191,7 @@ class ApiService {
       name?: string;
       description?: string;
       aiSystemType?: string;
+      industry?: string;
       status?: string;
     },
   ): Promise<{ project: Project }> {
@@ -231,7 +245,7 @@ class ApiService {
     practiceId: string;
     title: string;
     description: string;
-    levels: Record<string, Record<string, string[]>>;
+    levels: PracticeQuestionLevels;
   }> {
     const url = projectId 
       ? `/aima/domains/${domainId}/practices/${practiceId}?project_id=${projectId}` 
@@ -241,7 +255,7 @@ class ApiService {
       practiceId: string;
       title: string;
       description: string;
-      levels: Record<string, Record<string, string[]>>;
+      levels: PracticeQuestionLevels;
     }>(url);
   }
 
@@ -739,6 +753,39 @@ class ApiService {
         count: number;
       };
     }>("/admin/waitlist-emails");
+  }
+
+  // Admin - Industry Analytics
+  async getIndustryAnalytics(): Promise<{
+    success: boolean;
+    data: {
+      industries: Array<{
+        industry: string;
+        count: string;
+        percentage: string;
+      }>;
+      summary: {
+        total_projects: string;
+        projects_with_industry: string;
+        projects_without_industry: string;
+      };
+    };
+  }> {
+    return this.request<{
+      success: boolean;
+      data: {
+        industries: Array<{
+          industry: string;
+          count: string;
+          percentage: string;
+        }>;
+        summary: {
+          total_projects: string;
+          projects_with_industry: string;
+          projects_without_industry: string;
+        };
+      };
+    }>("/admin/analytics/industries");
   }
 }
 

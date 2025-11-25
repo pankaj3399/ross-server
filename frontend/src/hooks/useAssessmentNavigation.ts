@@ -8,12 +8,19 @@ interface Question {
   question: string;
 }
 
+type LevelQuestionEntry =
+  | string
+  | {
+      question_text: string;
+      description?: string | null;
+    };
+
 interface Practice {
   title: string;
   description: string;
   levels: {
     [level: string]: {
-      [stream: string]: string[];
+      [stream: string]: LevelQuestionEntry[];
     };
   };
 }
@@ -38,15 +45,27 @@ interface AssessmentData {
 }
 
 // Helper function to get all questions from levels structure
+const extractQuestionText = (entry: LevelQuestionEntry | undefined): string | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    return entry;
+  }
+  return entry.question_text || null;
+};
+
 const getAllQuestions = (practice: any): Question[] => {
   const questions: Question[] = [];
   if (!practice?.levels) return questions;
 
   Object.entries(practice.levels).forEach(([level, streams]: [string, any]) => {
     Object.entries(streams).forEach(
-      ([stream, questionTexts]: [string, any]) => {
-        if (Array.isArray(questionTexts)) {
-          questionTexts.forEach((questionText: string, index: number) => {
+      ([stream, questionEntries]: [string, any]) => {
+        if (Array.isArray(questionEntries)) {
+          questionEntries.forEach((questionEntry: LevelQuestionEntry) => {
+            const questionText = extractQuestionText(questionEntry);
+            if (!questionText) {
+              return;
+            }
             questions.push({
               level,
               stream,
@@ -108,9 +127,13 @@ export const useAssessmentNavigation = ({
         
         Object.entries((practice as Practice).levels).forEach(
           ([level, streams]) => {
-            Object.entries(streams as Record<string, string[]>).forEach(
-              ([stream, questionTexts]) => {
-                questionTexts.forEach((questionText) => {
+            Object.entries(streams as Record<string, LevelQuestionEntry[]>).forEach(
+              ([stream, questionEntries]) => {
+                questionEntries.forEach((questionEntry) => {
+                  const questionText = extractQuestionText(questionEntry);
+                  if (!questionText) {
+                    return;
+                  }
                   const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
                   const isAnswered = key in assessmentData;
                   
@@ -301,9 +324,13 @@ export const useAssessmentNavigation = ({
           (practice as Practice).levels,
         )) {
           for (const [stream, questions] of Object.entries(
-            streams as Record<string, string[]>,
+            streams as Record<string, LevelQuestionEntry[]>,
           )) {
-            for (let i = 0; i < questions.length; i++) {
+            questions.forEach((questionEntry, i) => {
+              const questionText = extractQuestionText(questionEntry);
+              if (!questionText) {
+                return;
+              }
               const key = `${domain.id}:${practiceId}:${level}:${stream}:${i}`;
               if (key in assessmentData) {
                 answeredCount++;
@@ -313,7 +340,7 @@ export const useAssessmentNavigation = ({
                 console.log(`First unanswered question in this practice: ${key} at index: ${questionIndex}`);
               }
               questionIndex++;
-            }
+            });
           }
         }
         

@@ -56,19 +56,15 @@ DATABASE_URL=postgresql://user:pass@host:5432/matur_ai
 DATABASE_POOL_MAX=20
 JWT_SECRET=replace_with_secure_random_string
 FRONTEND_URL=http://localhost:3000
-
 STRIPE_SECRET_KEY=sk_test_***
 STRIPE_WEBHOOK_SECRET=whsec_***
 STRIPE_PRICE_ID_BASIC=price_basic_***
 STRIPE_PRICE_ID_PRO=price_pro_***
-
 GMAIL_USER=alerts@example.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
-
 LANGFAIR_SERVICE_URL=https://eval-service.example.com
 AI_EVAL_SERVICE_URL=
 GEMINI_API_KEY=AIza...
-
 API_URL=http://localhost:4000
 EVALUATION_JOB_POLL_INTERVAL_MS=20000
 EVALUATION_WORKER_CONCURRENCY=5
@@ -80,7 +76,6 @@ HEALTH_PORT=4001
 ```
 
 > Tip: keep `.env` out of source control. Use `dotenv` or your host's secret manager to inject these at runtime.
-
 ## Worker Guidance
 
 - **Bootstrapping**: run `npm run worker` from `backend/`. The worker loads `.env` on startup, so make sure the API credentials, DB URL, and `API_URL` (public base of the API) are present before launching.
@@ -94,5 +89,3 @@ HEALTH_PORT=4001
   - Incorrect DB URL → worker exits during `initializeDatabase()`.
   - Running worker without migrations → evaluation jobs can fail because required tables/seeds are absent. Always run `npm run db:init` first.
 - **Local debugging**: set `DEBUG=1` (or `NODE_ENV=development`) to get verbose logs, then enqueue jobs via the API and watch `activeJobs`/console output to verify processing.
-
-

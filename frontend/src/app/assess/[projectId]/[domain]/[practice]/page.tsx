@@ -11,17 +11,41 @@ interface Question {
   level: string;
   stream: string;
   question: string;
+  description?: string | null;
 }
+
+type LevelQuestionEntry =
+  | string
+  | {
+      question_text: string;
+      description?: string | null;
+    };
 
 interface Practice {
   title: string;
   description: string;
   levels: {
     [level: string]: {
-      [stream: string]: string[];
+      [stream: string]: LevelQuestionEntry[];
     };
   };
 }
+
+const normalizeQuestionEntry = (
+  entry: LevelQuestionEntry | undefined,
+): { question: string; description?: string | null } | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    return { question: entry, description: null };
+  }
+  if (!entry.question_text) {
+    return null;
+  }
+  return {
+    question: entry.question_text,
+    description: entry.description ?? null,
+  };
+};
 
 export default function AssessmentPage() {
   const params = useParams();
@@ -54,17 +78,22 @@ export default function AssessmentPage() {
         // Flatten questions from levels
         const questionsList: Question[] = [];
         Object.entries(data.levels).forEach(([level, streams]) => {
-          Object.entries(streams as Record<string, string[]>).forEach(
-            ([stream, questions]) => {
-              questions.forEach((question, index) => {
-                questionsList.push({
-                  level,
-                  stream,
-                  question,
-                });
+          Object.entries(
+            streams as Record<string, LevelQuestionEntry[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
               });
-            },
-          );
+            });
+          });
         });
 
         setQuestions(questionsList);
@@ -192,6 +221,11 @@ export default function AssessmentPage() {
                   <p className="text-white font-medium text-lg leading-relaxed">
                     {question.question}
                   </p>
+                  {question.description && (
+                    <div className="mt-3 rounded-xl border border-dashed border-white/20 bg-white/10 p-4 text-sm text-gray-200">
+                      {question.description}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-6">

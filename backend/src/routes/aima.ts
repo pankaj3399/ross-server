@@ -194,7 +194,8 @@ router.get("/domains/:domainId/practices/:practiceId", async (req, res) => {
       return res.status(404).json({ error: "Practice not found" });
     }
 
-    let questionsQuery = "SELECT level, stream, question_index, question_text FROM aima_questions WHERE practice_id = $1";
+    let questionsQuery =
+      "SELECT level, stream, question_index, question_text, description FROM aima_questions WHERE practice_id = $1";
     let questionsParams = [req.params.practiceId];
     
     if (project_id) {
@@ -219,7 +220,16 @@ router.get("/domains/:domainId/practices/:practiceId", async (req, res) => {
     const questionsResult = await pool.query(questionsQuery, questionsParams);
 
     const practice = practiceResult.rows[0];
-    const levels: Record<string, Record<string, string[]>> = {};
+    const levels: Record<
+      string,
+      Record<
+        string,
+        Array<{
+          question_text: string;
+          description: string | null;
+        }>
+      >
+    > = {};
 
     questionsResult.rows.forEach((row) => {
       if (!levels[row.level]) {
@@ -228,7 +238,10 @@ router.get("/domains/:domainId/practices/:practiceId", async (req, res) => {
       if (!levels[row.level][row.stream]) {
         levels[row.level][row.stream] = [];
       }
-      levels[row.level][row.stream][row.question_index] = row.question_text;
+      levels[row.level][row.stream][row.question_index] = {
+        question_text: row.question_text,
+        description: row.description,
+      };
     });
 
     res.json({

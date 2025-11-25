@@ -27,7 +27,27 @@ const addQuestionSchema = z.object({
   level: z.string().regex(/^[1-3]$/, "Level must be 1, 2, or 3"),
   stream: z.string().regex(/^[AB]$/, "Stream must be A or B"),
   question_text: z.string().min(1, "Question text is required"),
+  description: z.string().optional(),
 });
+
+const updateQuestionSchema = z
+  .object({
+    question_text: z.string().min(1, "Question text cannot be empty").optional(),
+    description: z.string().optional(),
+    level: z.string().regex(/^[1-3]$/, "Level must be 1, 2, or 3").optional(),
+    stream: z.string().regex(/^[AB]$/, "Stream must be A or B").optional(),
+  })
+  .refine(
+    (data) =>
+      data.question_text !== undefined ||
+      data.description !== undefined ||
+      data.level !== undefined ||
+      data.stream !== undefined,
+    {
+      message: "At least one field (question_text, description, level, or stream) must be provided",
+      path: ["question_text"],
+    },
+  );
 
 // Get all AIMA data (domains, practices, questions) in hierarchical structure
 router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
@@ -48,7 +68,7 @@ router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, 
 
     // Get all questions
     const questionsResult = await pool.query(`
-      SELECT id, practice_id, level, stream, question_index, question_text, created_at 
+      SELECT id, practice_id, level, stream, question_index, question_text, description, created_at 
       FROM aima_questions 
       ORDER BY practice_id, level, stream, question_index
     `);
@@ -66,6 +86,7 @@ router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, 
               stream: question.stream,
               question_index: question.question_index,
               question_text: question.question_text,
+              description: question.description,
               created_at: question.created_at
             }))
             .sort((a, b) => {
@@ -234,7 +255,8 @@ router.post("/add-practice", authenticateToken, requireRole(["ADMIN"]), async (r
 // Add new question
 router.post("/add-question", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { practice_id, level, stream, question_text } = addQuestionSchema.parse(req.body);
+    const { practice_id, level, stream, question_text, description } =
+      addQuestionSchema.parse(req.body);
 
     // Check if practice exists
     const practiceExists = await pool.query(
@@ -263,8 +285,16 @@ router.post("/add-question", authenticateToken, requireRole(["ADMIN"]), async (r
 
     // Insert new question
     const questionResult = await pool.query(
-      "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, version_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [practice_id, level, stream, questionIndex, question_text, versionId]
+      "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, description, version_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+      [
+        practice_id,
+        level,
+        stream,
+        questionIndex,
+        question_text,
+        description?.trim() ? description : null,
+        versionId,
+      ],
     );
 
     res.status(201).json({
@@ -280,6 +310,129 @@ router.post("/add-question", authenticateToken, requireRole(["ADMIN"]), async (r
     });
   }
 });
+
+router.patch(
+  "/questions/:id",
+  authenticateToken,
+  requireRole(["ADMIN"]),
+  async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const { question_text, description, level, stream } =
+        updateQuestionSchema.parse(req.body);
+
+      const existingResult = await client.query(
+        `
+        SELECT id, practice_id, level, stream, question_index 
+        FROM aima_questions 
+        WHERE id = $1
+        FOR UPDATE
+      `,
+        [req.params.id],
+      );
+
+      if (existingResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({
+          success: false,
+          error: "Question not found",
+        });
+      }
+
+      const existingQuestion = existingResult.rows[0];
+
+      let nextLevel = existingQuestion.level;
+      let nextStream = existingQuestion.stream;
+      let nextQuestionIndex = existingQuestion.question_index;
+      let levelChanged = false;
+      let streamChanged = false;
+
+      if (level !== undefined && level !== existingQuestion.level) {
+        nextLevel = level;
+        levelChanged = true;
+      }
+
+      if (stream !== undefined && stream !== existingQuestion.stream) {
+        nextStream = stream;
+        streamChanged = true;
+      }
+
+      const updates: string[] = [];
+      const values: Array<string | null> = [];
+
+      if (question_text !== undefined) {
+        updates.push(`question_text = $${updates.length + 1}`);
+        values.push(question_text);
+      }
+
+      if (description !== undefined) {
+        updates.push(`description = $${updates.length + 1}`);
+        values.push(description.trim() ? description : null);
+      }
+
+      if (levelChanged) {
+        updates.push(`level = $${updates.length + 1}`);
+        values.push(nextLevel);
+      }
+
+      if (streamChanged) {
+        updates.push(`stream = $${updates.length + 1}`);
+        values.push(nextStream);
+      }
+
+      if (levelChanged || streamChanged) {
+        const questionIndexResult = await client.query(
+          `SELECT COALESCE(MAX(question_index), -1) + 1 as next_index 
+           FROM aima_questions 
+           WHERE practice_id = $1 AND level = $2 AND stream = $3`,
+          [existingQuestion.practice_id, nextLevel, nextStream],
+        );
+
+        nextQuestionIndex = questionIndexResult.rows[0].next_index;
+        updates.push(`question_index = $${updates.length + 1}`);
+        values.push(nextQuestionIndex);
+      }
+
+      if (updates.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          success: false,
+          error: "No changes provided",
+        });
+      }
+
+      values.push(req.params.id);
+
+      const result = await client.query(
+        `UPDATE aima_questions 
+         SET ${updates.join(", ")} 
+         WHERE id = $${values.length} 
+         RETURNING *`,
+        values,
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        data: { question: result.rows[0] },
+        message: "Question updated successfully",
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error updating question:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update question",
+        details: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 // Get all waitlist emails
 router.get("/waitlist-emails", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
@@ -302,6 +455,47 @@ router.get("/waitlist-emails", authenticateToken, requireRole(["ADMIN"]), async 
     res.status(500).json({
       success: false,
       error: "Failed to fetch waitlist emails",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Get industry analytics
+router.get("/analytics/industries", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    // Get industry distribution
+    const industryResult = await pool.query(`
+      SELECT 
+        industry,
+        COUNT(*) as count,
+        COUNT(*) * 100.0 / (SELECT COUNT(*) FROM projects WHERE industry IS NOT NULL) as percentage
+      FROM projects
+      WHERE industry IS NOT NULL
+      GROUP BY industry
+      ORDER BY count DESC
+    `);
+
+    // Get total projects with and without industry
+    const totalResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_projects,
+        COUNT(industry) as projects_with_industry,
+        COUNT(*) - COUNT(industry) as projects_without_industry
+      FROM projects
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        industries: industryResult.rows,
+        summary: totalResult.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching industry analytics:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch industry analytics",
       details: error instanceof Error ? error.message : String(error)
     });
   }
