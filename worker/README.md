@@ -19,7 +19,6 @@ Standalone runner that polls the evaluation job queue defined in `backend/` and 
 ## Env Example
 
 ```env
-NODE_ENV=development
 DATABASE_URL=postgresql://user:pass@host:5432/matur_ai
 JWT_SECRET=replace_with_secure_random_string_should_be_same_in_worker_and_backend_service
 API_URL=http://localhost:4000

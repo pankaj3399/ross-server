@@ -1,20 +1,9 @@
-import fs from "fs";
-import path from "path";
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
-import { fetchNextJob, processJob } from "../backend/src/services/evaluationJobQueue";
-import { initializeDatabase } from "../backend/src/utils/database";
+import { fetchNextJob, processJob } from "./services/evaluationJobQueue";
+import { initializeDatabase } from "./utils/database";
 
-const workerEnvPath = path.resolve(__dirname, ".env");
-const backendEnvPath = path.resolve(__dirname, "../backend/.env");
-
-if (fs.existsSync(workerEnvPath)) {
-    dotenv.config({ path: workerEnvPath });
-} else if (fs.existsSync(backendEnvPath)) {
-    dotenv.config({ path: backendEnvPath });
-} else {
-    dotenv.config();
-}
+dotenv.config();
 
 const POLL_INTERVAL_MS = Number(process.env.EVALUATION_JOB_POLL_INTERVAL_MS || 20000);
 const CONCURRENCY = Number(process.env.EVALUATION_WORKER_CONCURRENCY || 5);
