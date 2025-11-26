@@ -64,7 +64,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3 group">
+          {/* <Link href="/" className="flex items-center space-x-3 group">
             <motion.div
               whileHover={{ scale: 1.05, rotate: 5 }}
               className="w-10 h-10 bg-gradient-to-br from-purple-600 via-purple-700 to-violet-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-purple-500/25 transition-all duration-300"
@@ -79,7 +79,15 @@ export function Header() {
                 AI Maturity Assessment
               </p>
             </div>
-          </Link>
+          </Link> */}
+
+          <div className="flex items-center space-x-3 group">
+            <img
+              src="/logo.png"
+              alt="MATUR.ai Logo"
+              className="h-14 my-2"
+            />
+          </div>
 
           {/* Desktop Navigation */}
           {isAuthenticated && (
@@ -90,18 +98,16 @@ export function Header() {
                   <Link
                     key={item.name}
                     href={item.href}
-                    className={`group flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden ${
-                      isActive(item.href)
-                        ? "bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 text-purple-700 dark:text-purple-300 shadow-sm"
-                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                    }`}
+                    className={`group flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden ${isActive(item.href)
+                      ? "bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 text-purple-700 dark:text-purple-300 shadow-sm"
+                      : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      }`}
                   >
                     <Icon
-                      className={`w-4 h-4 transition-transform duration-300 ${
-                        isActive(item.href)
-                          ? "scale-110"
-                          : "group-hover:scale-110"
-                      }`}
+                      className={`w-4 h-4 transition-transform duration-300 ${isActive(item.href)
+                        ? "scale-110"
+                        : "group-hover:scale-110"
+                        }`}
                     />
                     <span className="relative z-10">{item.name}</span>
                     {isActive(item.href) && (
@@ -128,18 +134,16 @@ export function Header() {
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`group flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden ${
-                        isActive(item.href)
-                          ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
-                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                      }`}
+                      className={`group flex items-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 relative overflow-hidden ${isActive(item.href)
+                        ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
+                        : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        }`}
                     >
                       <Icon
-                        className={`w-4 h-4 transition-transform duration-300 ${
-                          isActive(item.href)
-                            ? "scale-110"
-                            : "group-hover:scale-110"
-                        }`}
+                        className={`w-4 h-4 transition-transform duration-300 ${isActive(item.href)
+                          ? "scale-110"
+                          : "group-hover:scale-110"
+                          }`}
                       />
                       <span className="relative z-10">{item.name}</span>
                       {isActive(item.href) && (
@@ -186,9 +190,8 @@ export function Header() {
                     </span>
                   </div>
                   <ChevronDown
-                    className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${
-                      isUserMenuOpen ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 text-gray-500 transition-transform duration-300 ${isUserMenuOpen ? "rotate-180" : ""
+                      }`}
                   />
                 </motion.button>
 
@@ -293,18 +296,16 @@ export function Header() {
                         key={item.name}
                         href={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${
-                          isActive(item.href)
-                            ? "bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 text-purple-700 dark:text-purple-300 shadow-sm"
-                            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                        }`}
+                        className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${isActive(item.href)
+                          ? "bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/40 dark:to-violet-900/40 text-purple-700 dark:text-purple-300 shadow-sm"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                          }`}
                       >
                         <Icon
-                          className={`w-5 h-5 transition-transform duration-300 ${
-                            isActive(item.href)
-                              ? "scale-110"
-                              : "group-hover:scale-110"
-                          }`}
+                          className={`w-5 h-5 transition-transform duration-300 ${isActive(item.href)
+                            ? "scale-110"
+                            : "group-hover:scale-110"
+                            }`}
                         />
                         <span>{item.name}</span>
                       </Link>
@@ -321,18 +322,16 @@ export function Header() {
                         key={item.name}
                         href={item.href}
                         onClick={() => setIsMobileMenuOpen(false)}
-                        className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${
-                          isActive(item.href)
-                            ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
-                            : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                        }`}
+                        className={`group flex items-center space-x-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-300 ${isActive(item.href)
+                          ? "bg-gradient-to-r from-red-100 to-orange-100 dark:from-red-900/40 dark:to-orange-900/40 text-red-700 dark:text-red-300 shadow-sm"
+                          : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                          }`}
                       >
                         <Icon
-                          className={`w-5 h-5 transition-transform duration-300 ${
-                            isActive(item.href)
-                              ? "scale-110"
-                              : "group-hover:scale-110"
-                          }`}
+                          className={`w-5 h-5 transition-transform duration-300 ${isActive(item.href)
+                            ? "scale-110"
+                            : "group-hover:scale-110"
+                            }`}
                         />
                         <span>{item.name}</span>
                       </Link>

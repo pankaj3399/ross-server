@@ -1,14 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PracticeQuestionDetail } from '../lib/api';
+
+type PracticeLevels = {
+  [level: string]: {
+    [stream: string]: Array<string | PracticeQuestionDetail>;
+  };
+};
 
 interface PracticeWithLevels {
   title: string;
   description: string;
-  levels: {
-    [level: string]: {
-      [stream: string]: string[];
-    };
-  };
+  levels: PracticeLevels;
 }
 
 interface ProjectState {
