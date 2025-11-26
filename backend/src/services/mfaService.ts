@@ -27,13 +27,10 @@ class MFAService {
       length: 32,
     });
 
-    // Generate QR code
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url!);
 
-    // Generate backup codes
     const backupCodes = this.generateBackupCodes();
 
-    // Store in database
     await pool.query(
       `INSERT INTO user_mfa (user_id, secret, backup_codes, created_at) 
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
@@ -57,7 +54,6 @@ class MFAService {
     token: string,
   ): Promise<MFAVerificationResult> {
     try {
-      // Get user's MFA secret
       const result = await pool.query(
         "SELECT secret FROM user_mfa WHERE user_id = $1",
         [userId],
@@ -73,7 +69,6 @@ class MFAService {
 
       const secret = result.rows[0].secret;
 
-      // Generate current valid codes for debugging
       const currentCode = speakeasy.totp({
         secret,
         encoding: "base32",
@@ -83,8 +78,8 @@ class MFAService {
         secret,
         encoding: "base32",
         token,
-        window: 5, // Increased window to 5 time steps (150 seconds) of tolerance
-        time: Math.floor(Date.now() / 1000), // Explicitly set current time
+        window: 5,
+        time: Math.floor(Date.now() / 1000),
       });
 
       return { isValid: verified };
@@ -102,7 +97,6 @@ class MFAService {
     code: string,
   ): Promise<MFAVerificationResult> {
     try {
-      // Get user's backup codes
       const result = await pool.query(
         "SELECT backup_codes FROM user_mfa WHERE user_id = $1",
         [userId],
@@ -119,7 +113,6 @@ class MFAService {
         return { isValid: false };
       }
 
-      // Remove used backup code
       backupCodes.splice(codeIndex, 1);
       await pool.query(
         "UPDATE user_mfa SET backup_codes = $1, updated_at = CURRENT_TIMESTAMP WHERE user_id = $2",
@@ -258,7 +251,6 @@ class MFAService {
         return false;
       }
 
-      // Delete used code
       await pool.query(
         "DELETE FROM temp_mfa_codes WHERE user_id = $1 AND code = $2",
         [userId, code],

@@ -10,10 +10,11 @@ import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
 import publicRouter from "./routes/public";
-import { seedAIMAData } from "./scripts/seeds/seedAIMA";
+import { seedAIMAData } from "./scripts/seeds/seedAIMA"
 import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
 import { initializeDatabase } from "./utils/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
+
 
 dotenv.config();
 
@@ -25,14 +26,13 @@ app.use(cors());
 app.use("/webhook", subscriptionsWebhookRouter);
 
 app.use(express.json());
-// Mount without path prefix so route is simply /subscribe and remains public
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "matur-ai-backend" });
 });
 
-// All routes go through authentication and subscription access check
+
 app.use("/auth", authRouter);
 app.use("/aima", authenticateToken, checkRouteAccess('/aima'), aimaRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), projectsRouter);
@@ -42,31 +42,26 @@ app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'),
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
 
-// Initialize database
 const initialize = async () => {
   try {
     await initializeDatabase();
   } catch (error) {
-    console.error("❌ Failed to start server:", error);
+    console.error("Failed to start server:", error);
     process.exit(1);
   }
 };
 
-// If running as a standalone server, start listening. In serverless, export app.
 if (process.env.VERCEL || process.env.SERVERLESS) {
-  // For serverless platforms, export the app without starting a listener
-  // The platform will handle the request lifecycle
   initialize().catch((err) => {
     console.error("Initialization failed:", err);
   });
 } else {
-  // Local/standalone run
   initialize()
     .then(() => {
+
       app.listen(PORT, () => {
-        // eslint-disable-next-line no-console
-        console.log(`🚀 Backend listening on http://localhost:${PORT}`);
-        console.log(`📊 Database connected and initialized`);
+        console.log(`Backend listening on http://localhost:${PORT}`);
+        console.log(`Database connected and initialized`);
       });
     })
     .catch((err) => {

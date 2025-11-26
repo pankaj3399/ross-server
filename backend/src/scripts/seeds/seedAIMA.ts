@@ -828,9 +828,31 @@ async function seedAIMAData() {
         for (const [level, streams] of Object.entries(practice.levels)) {
           for (const [stream, questions] of Object.entries(streams)) {
             for (let questionIndex = 0; questionIndex < questions.length; questionIndex++) {
+              const questionEntry = questions[questionIndex] as
+                | string
+                | {
+                    question_text?: string;
+                    text?: string;
+                    description?: string | null;
+                  };
+
+              const questionText =
+                typeof questionEntry === "string"
+                  ? questionEntry
+                  : questionEntry.question_text || questionEntry.text || "";
+
+              if (!questionText) {
+                continue;
+              }
+
+              const questionDescription =
+                typeof questionEntry === "string"
+                  ? null
+                  : questionEntry.description ?? null;
+
               await pool.query(
-                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, version_id) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (practice_id, level, stream, question_index) DO NOTHING",
-                [practiceId, level, stream, questionIndex, questions[questionIndex], versionId]
+                "INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, description, version_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (practice_id, level, stream, question_index) DO NOTHING",
+                [practiceId, level, stream, questionIndex, questionText, questionDescription, versionId]
               );
             }
           }

@@ -30,7 +30,6 @@ export const authenticateToken = async (
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
-    // Get user from database
     const result = await pool.query(
       "SELECT id, email, role, subscription_status, stripe_customer_id FROM users WHERE id = $1",
       [decoded.userId],
@@ -72,11 +71,10 @@ export const checkRouteAccess = (route: string) => {
     }
 
     const userStatus = req.user.subscription_status as SubscriptionStatus;
-    
-    // Validate subscription status
+
     const validStatuses: SubscriptionStatus[] = ['free', 'basic_premium', 'pro_premium'];
     if (!validStatuses.includes(userStatus)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: "Invalid subscription status",
         status: userStatus
       });
@@ -85,7 +83,7 @@ export const checkRouteAccess = (route: string) => {
     const allowedRoutes = getRoutesForSubscription(userStatus);
 
     if (!allowedRoutes.includes(route)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: "Access denied. This route requires a different subscription plan.",
         required: "Premium subscription required",
         current: userStatus

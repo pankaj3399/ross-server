@@ -10,6 +10,7 @@ const createProjectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   aiSystemType: z.string().optional(),
+  industry: z.string().optional(),
 });
 
 // Get user's projects
@@ -30,7 +31,7 @@ router.get("/", authenticateToken, async (req, res) => {
 // Create new project
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    const { name, description, aiSystemType } = createProjectSchema.parse(
+    const { name, description, aiSystemType, industry } = createProjectSchema.parse(
       req.body,
     );
 
@@ -38,8 +39,8 @@ router.post("/", authenticateToken, async (req, res) => {
     const currentVersion = await getCurrentVersion();
 
     const result = await pool.query(
-      "INSERT INTO projects (user_id, name, description, ai_system_type, version_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [req.user!.id, name, description || null, aiSystemType || null, currentVersion.id],
+      "INSERT INTO projects (user_id, name, description, ai_system_type, industry, version_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [req.user!.id, name, description || null, aiSystemType || null, industry || null, currentVersion.id],
     );
 
     res.status(201).json({ 
@@ -77,14 +78,15 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
 // Update project
 router.put("/:projectId", authenticateToken, async (req, res) => {
   try {
-    const { name, description, aiSystemType, status } = req.body;
+    const { name, description, aiSystemType, industry, status } = req.body;
 
     const result = await pool.query(
-      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), status = COALESCE($4, status), updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND user_id = $6 RETURNING *",
+      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), industry = COALESCE($4, industry), status = COALESCE($5, status), updated_at = CURRENT_TIMESTAMP WHERE id = $6 AND user_id = $7 RETURNING *",
       [
         name,
         description,
         aiSystemType,
+        industry,
         status,
         req.params.projectId,
         req.user!.id,
