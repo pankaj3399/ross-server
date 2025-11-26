@@ -13,6 +13,7 @@ interface Question {
   stream: string;
   question_index: number;
   question_text: string;
+  description?: string | null;
   created_at: string;
 }
 
@@ -59,6 +60,11 @@ export default function AdminQuestions() {
   const [expandedPractices, setExpandedPractices] = useState<Set<string>>(
     new Set(),
   );
+  const [industryAnalytics, setIndustryAnalytics] = useState<{
+    industries: Array<{ industry: string; count: string; percentage: string }>;
+    summary: { total_projects: string; projects_with_industry: string; projects_without_industry: string };
+  } | null>(null);
+  const [loadingIndustryAnalytics, setLoadingIndustryAnalytics] = useState(true);
 
   // Check authentication and admin role
   useEffect(() => {
@@ -92,7 +98,17 @@ export default function AdminQuestions() {
     level: "1",
     stream: "A",
     question_text: "",
+    description: "",
   });
+  const [editingQuestions, setEditingQuestions] = useState<Record<string, boolean>>({});
+  const [questionTextEdits, setQuestionTextEdits] = useState<Record<string, string>>({});
+  const [questionLevelEdits, setQuestionLevelEdits] = useState<Record<string, string>>({});
+  const [questionStreamEdits, setQuestionStreamEdits] = useState<Record<string, string>>({});
+  const [savingQuestionUpdates, setSavingQuestionUpdates] = useState<Record<string, boolean>>({});
+  const [questionUpdateStatus, setQuestionUpdateStatus] = useState<Record<string, "saved" | "error">>({});
+  const [questionDescriptions, setQuestionDescriptions] = useState<Record<string, string>>({});
+  const [savingDescriptions, setSavingDescriptions] = useState<Record<string, boolean>>({});
+  const [descriptionStatus, setDescriptionStatus] = useState<Record<string, "saved" | "error">>({});
   const [downloadingEmails, setDownloadingEmails] = useState(false);
 
   const handleDownloadWaitlistEmails = async () => {
@@ -187,7 +203,7 @@ export default function AdminQuestions() {
 
   const handleAddQuestion = (practiceId: string) => {
     setSelectedPracticeId(practiceId);
-    setQuestionForm({ level: "1", stream: "A", question_text: "" });
+    setQuestionForm({ level: "1", stream: "A", question_text: "", description: "" });
     setShowQuestionModal(true);
   };
 
@@ -197,6 +213,7 @@ export default function AdminQuestions() {
     setShowQuestionModal(false);
     setSelectedDomainId("");
     setSelectedPracticeId("");
+    setQuestionForm({ level: "1", stream: "A", question_text: "", description: "" });
   };
 
   const submitDomain = async () => {
@@ -274,6 +291,240 @@ export default function AdminQuestions() {
     }
   };
 
+  const getQuestionDescriptionValue = (question: Question) =>
+    questionDescriptions[question.id] ?? question.description ?? "";
+
+  const startEditingQuestion = (question: Question) => {
+    setEditingQuestions((prev) => ({ ...prev, [question.id]: true }));
+    setQuestionTextEdits((prev) => ({
+      ...prev,
+      [question.id]: prev[question.id] ?? question.question_text,
+    }));
+    setQuestionLevelEdits((prev) => ({
+      ...prev,
+      [question.id]: prev[question.id] ?? question.level,
+    }));
+    setQuestionStreamEdits((prev) => ({
+      ...prev,
+      [question.id]: prev[question.id] ?? question.stream,
+    }));
+  };
+
+  const cancelEditingQuestion = (
+    questionId: string,
+    options?: { preserveStatus?: boolean },
+  ) => {
+    setEditingQuestions((prev) => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    setQuestionTextEdits((prev) => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    setQuestionLevelEdits((prev) => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    setQuestionStreamEdits((prev) => {
+      const updated = { ...prev };
+      delete updated[questionId];
+      return updated;
+    });
+    if (!options?.preserveStatus) {
+      setQuestionUpdateStatus((prev) => {
+        const updated = { ...prev };
+        delete updated[questionId];
+        return updated;
+      });
+    }
+  };
+
+  const handleQuestionUpdate = async (question: Question) => {
+    const draftedText = questionTextEdits[question.id];
+    const draftedLevel = questionLevelEdits[question.id];
+    const draftedStream = questionStreamEdits[question.id];
+
+    const payload: {
+      question_text?: string;
+      level?: string;
+      stream?: string;
+    } = {};
+
+    let hasChanges = false;
+
+    if (draftedText !== undefined) {
+      const trimmedText = draftedText.trim();
+      if (!trimmedText) {
+        setQuestionUpdateStatus((prev) => ({ ...prev, [question.id]: "error" }));
+        return;
+      }
+      if (trimmedText !== question.question_text.trim()) {
+        payload.question_text = trimmedText;
+        hasChanges = true;
+      }
+    }
+
+    if (draftedLevel !== undefined && draftedLevel !== question.level) {
+      payload.level = draftedLevel;
+      hasChanges = true;
+    }
+
+    if (draftedStream !== undefined && draftedStream !== question.stream) {
+      payload.stream = draftedStream;
+      hasChanges = true;
+    }
+
+    if (!hasChanges) {
+      return;
+    }
+
+    setSavingQuestionUpdates((prev) => ({ ...prev, [question.id]: true }));
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`${API_BASE_URL}/admin/questions/${question.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update question");
+      }
+
+      const data = await response.json();
+      const updatedQuestion = data?.data?.question;
+      const updatedText = updatedQuestion?.question_text ?? payload.question_text ?? question.question_text;
+      const updatedLevel = updatedQuestion?.level ?? payload.level ?? question.level;
+      const updatedStream = updatedQuestion?.stream ?? payload.stream ?? question.stream;
+
+      setAimaData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          data: {
+            ...prev.data,
+            domains: prev.data.domains.map((domain) => ({
+              ...domain,
+              practices: domain.practices.map((practice) => ({
+                ...practice,
+                questions: practice.questions
+                  .map((q) =>
+                    q.id === question.id
+                      ? {
+                          ...q,
+                          question_text: updatedText,
+                          level: updatedLevel,
+                          stream: updatedStream,
+                        }
+                      : q,
+                  )
+                  .sort((a, b) => {
+                    if (a.level !== b.level) return a.level.localeCompare(b.level);
+                    if (a.stream !== b.stream) return a.stream.localeCompare(b.stream);
+                    return a.question_index - b.question_index;
+                  }),
+              })),
+            })),
+          },
+        };
+      });
+
+      cancelEditingQuestion(question.id, { preserveStatus: true });
+
+      setQuestionUpdateStatus((prev) => ({ ...prev, [question.id]: "saved" }));
+      setTimeout(() => {
+        setQuestionUpdateStatus((prev) => {
+          const updated = { ...prev };
+          delete updated[question.id];
+          return updated;
+        });
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to update question:", error);
+      setQuestionUpdateStatus((prev) => ({ ...prev, [question.id]: "error" }));
+    } finally {
+      setSavingQuestionUpdates((prev) => ({ ...prev, [question.id]: false }));
+    }
+  };
+
+  const handleQuestionDescriptionChange = (questionId: string, value: string) => {
+    setQuestionDescriptions((prev) => ({ ...prev, [questionId]: value }));
+  };
+
+  const handleQuestionDescriptionSave = async (question: Question) => {
+    const descriptionValue = getQuestionDescriptionValue(question);
+    setSavingDescriptions((prev) => ({ ...prev, [question.id]: true }));
+
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`${API_BASE_URL}/admin/questions/${question.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ description: descriptionValue }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || "Failed to update question");
+      }
+
+      const data = await response.json();
+      const updatedDescription =
+        data?.data?.question?.description ?? (descriptionValue.trim() ? descriptionValue : null);
+
+      setAimaData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          data: {
+            ...prev.data,
+            domains: prev.data.domains.map((domain) => ({
+              ...domain,
+              practices: domain.practices.map((practice) => ({
+                ...practice,
+                questions: practice.questions.map((q) =>
+                  q.id === question.id ? { ...q, description: updatedDescription } : q,
+                ),
+              })),
+            })),
+          },
+        };
+      });
+
+      setQuestionDescriptions((prev) => {
+        const updated = { ...prev };
+        delete updated[question.id];
+        return updated;
+      });
+
+      setDescriptionStatus((prev) => ({ ...prev, [question.id]: "saved" }));
+      setTimeout(() => {
+        setDescriptionStatus((prev) => {
+          const updated = { ...prev };
+          delete updated[question.id];
+          return updated;
+        });
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to update question description:", error);
+      setDescriptionStatus((prev) => ({ ...prev, [question.id]: "error" }));
+    } finally {
+      setSavingDescriptions((prev) => ({ ...prev, [question.id]: false }));
+    }
+  };
+
   // Fetch AIMA data only if user is authenticated and is admin
   useEffect(() => {
     // Don't fetch if still loading auth or not authenticated or not admin
@@ -310,6 +561,26 @@ export default function AdminQuestions() {
     }
 
     fetchAIMAData();
+  }, [authLoading, isAuthenticated, user?.role]);
+
+  // Fetch industry analytics
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || user?.role !== "ADMIN") {
+      return;
+    }
+    async function fetchIndustryAnalytics() {
+      try {
+        const data = await apiService.getIndustryAnalytics();
+        if (data.success) {
+          setIndustryAnalytics(data.data);
+        }
+      } catch (err) {
+        console.error("Error fetching industry analytics:", err);
+      } finally {
+        setLoadingIndustryAnalytics(false);
+      }
+    }
+    fetchIndustryAnalytics();
   }, [authLoading, isAuthenticated, user?.role]);
 
   // Handle redirects
@@ -456,6 +727,100 @@ export default function AdminQuestions() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Industry Analytics Section */}
+      <div className="my-8">
+        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            Industry Analytics
+          </h2>
+          {loadingIndustryAnalytics ? (
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading analytics...</p>
+            </div>
+          ) : industryAnalytics ? (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl">
+                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                    {industryAnalytics.summary.total_projects}
+                  </div>
+                  <div className="text-indigo-700 dark:text-indigo-300 font-medium text-sm">
+                    Total Projects
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl">
+                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                    {industryAnalytics.summary.projects_with_industry}
+                  </div>
+                  <div className="text-emerald-700 dark:text-emerald-300 font-medium text-sm">
+                    With Industry
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl">
+                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                    {industryAnalytics.summary.projects_without_industry}
+                  </div>
+                  <div className="text-amber-700 dark:text-amber-300 font-medium text-sm">
+                    Without Industry
+                  </div>
+                </div>
+              </div>
+
+              {/* Industry Distribution */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Industry Distribution
+                </h3>
+                <div className="space-y-3">
+                  {industryAnalytics.industries.length > 0 ? (
+                    industryAnalytics.industries.map((item, index) => {
+                      const count = parseInt(item.count);
+                      const percentage = parseFloat(item.percentage);
+                      return (
+                        <div
+                          key={index}
+                          className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {item.industry || "Not Specified"}
+                            </span>
+                            <div className="flex items-center space-x-4">
+                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                {count} projects
+                              </span>
+                              <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                                {percentage.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-purple-500 to-violet-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-400 text-center py-4">
+                      No industry data available yet.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-600 dark:text-gray-400">Failed to load industry analytics.</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -643,29 +1008,224 @@ export default function AdminQuestions() {
                               </button>
                             </div>
                             <div className="space-y-3">
-                              {practice.questions.map((question) => (
-                                <div
-                                  key={question.id}
-                                  className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
-                                >
-                                  <div className="flex items-start justify-between mb-2">
-                                    <div className="flex items-center space-x-2">
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
-                                        Level {question.level}
-                                      </span>
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
-                                        Stream {question.stream}
-                                      </span>
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
-                                        Q{question.question_index + 1}
-                                      </span>
+                              {practice.questions.map((question) => {
+                                const descriptionValue = getQuestionDescriptionValue(question);
+                                const originalDescription = question.description ?? "";
+                                const descriptionChanged = descriptionValue !== originalDescription;
+                                const isSaving = !!savingDescriptions[question.id];
+                                const status = descriptionStatus[question.id];
+                                const isEditingQuestion = !!editingQuestions[question.id];
+                                const questionTextValue =
+                                  questionTextEdits[question.id] ?? question.question_text;
+                                const questionLevelValue =
+                                  questionLevelEdits[question.id] ?? question.level;
+                                const questionStreamValue =
+                                  questionStreamEdits[question.id] ?? question.stream;
+                                const questionTextChanged =
+                                  questionTextEdits[question.id] !== undefined &&
+                                  questionTextValue.trim() !== question.question_text.trim();
+                                const questionLevelChanged =
+                                  questionLevelEdits[question.id] !== undefined &&
+                                  questionLevelValue !== question.level;
+                                const questionStreamChanged =
+                                  questionStreamEdits[question.id] !== undefined &&
+                                  questionStreamValue !== question.stream;
+                                const hasQuestionChanges =
+                                  questionTextChanged || questionLevelChanged || questionStreamChanged;
+                                const isSavingQuestionUpdate = !!savingQuestionUpdates[question.id];
+                                const questionUpdateFeedback = questionUpdateStatus[question.id];
+
+                                return (
+                                  <div
+                                    key={question.id}
+                                    className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
+                                  >
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
+                                          Level {isEditingQuestion ? questionLevelValue : question.level}
+                                        </span>
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+                                          Stream {isEditingQuestion ? questionStreamValue : question.stream}
+                                        </span>
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                          Q{question.question_index + 1}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center space-x-2">
+                                        {isEditingQuestion && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              cancelEditingQuestion(question.id);
+                                            }}
+                                            className="px-2.5 py-1 text-xs font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                                          >
+                                            Cancel
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (isEditingQuestion) {
+                                              handleQuestionUpdate(question);
+                                            } else {
+                                              startEditingQuestion(question);
+                                            }
+                                          }}
+                                          disabled={
+                                            isEditingQuestion &&
+                                            (!hasQuestionChanges ||
+                                              (questionTextChanged && !questionTextValue.trim()) ||
+                                              isSavingQuestionUpdate)
+                                          }
+                                          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                                            isEditingQuestion
+                                              ? !hasQuestionChanges ||
+                                                (questionTextChanged && !questionTextValue.trim()) ||
+                                                isSavingQuestionUpdate
+                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700"
+                                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800"
+                                          }`}
+                                        >
+                                          {isEditingQuestion
+                                            ? isSavingQuestionUpdate
+                                              ? "Saving..."
+                                              : "Save Changes"
+                                            : "Edit Question"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {isEditingQuestion && (
+                                      <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                                            Level
+                                          </label>
+                                          <select
+                                            value={questionLevelValue}
+                                            onChange={(e) =>
+                                              setQuestionLevelEdits((prev) => ({
+                                                ...prev,
+                                                [question.id]: e.target.value,
+                                              }))
+                                            }
+                                            className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                          >
+                                            <option value="1">Level 1</option>
+                                            <option value="2">Level 2</option>
+                                            <option value="3">Level 3</option>
+                                          </select>
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                                            Stream
+                                          </label>
+                                          <select
+                                            value={questionStreamValue}
+                                            onChange={(e) =>
+                                              setQuestionStreamEdits((prev) => ({
+                                                ...prev,
+                                                [question.id]: e.target.value,
+                                              }))
+                                            }
+                                            className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                          >
+                                            <option value="A">Stream A</option>
+                                            <option value="B">Stream B</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {isEditingQuestion ? (
+                                      <textarea
+                                        value={questionTextValue}
+                                        onChange={(e) =>
+                                          setQuestionTextEdits((prev) => ({
+                                            ...prev,
+                                            [question.id]: e.target.value,
+                                          }))
+                                        }
+                                        className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                        rows={4}
+                                        placeholder="Update the question text..."
+                                      />
+                                    ) : (
+                                      <p className="text-gray-800 dark:text-gray-300 leading-relaxed">
+                                        {question.question_text}
+                                      </p>
+                                    )}
+                                    {questionUpdateFeedback === "saved" && (
+                                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                        Question updated
+                                      </p>
+                                    )}
+                                    {questionUpdateFeedback === "error" && (
+                                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                        Failed to save question. Please try again.
+                                      </p>
+                                    )}
+
+                                    <div className="mt-4 space-y-3">
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wide">
+                                          Description (guide text)
+                                        </label>
+                                        <textarea
+                                          value={descriptionValue}
+                                          onChange={(e) =>
+                                            handleQuestionDescriptionChange(
+                                              question.id,
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                          rows={3}
+                                          placeholder="Add guidance text to help users interpret this question..."
+                                        />
+                                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                          <span>Shown directly under this question in assessments.</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleQuestionDescriptionSave(question);
+                                            }}
+                                            disabled={!descriptionChanged || isSaving}
+                                            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                              !descriptionChanged || isSaving
+                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-sm"
+                                            }`}
+                                          >
+                                            {isSaving ? "Saving..." : "Save Description"}
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm text-gray-600 dark:text-gray-200">
+                                        {descriptionValue
+                                          ? descriptionValue
+                                          : "No description yet. This preview matches what respondents will see."}
+                                      </div>
+
+                                      {status === "saved" && (
+                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                          Description saved
+                                        </p>
+                                      )}
+                                      {status === "error" && (
+                                        <p className="text-xs text-red-600 dark:text-red-400">
+                                          Failed to save description. Please try again.
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
-                                  <p className="text-gray-800 dark:text-gray-300 leading-relaxed">
-                                    {question.question_text}
-                                  </p>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -884,6 +1444,27 @@ export default function AdminQuestions() {
                   rows={4}
                   placeholder="Enter the question text..."
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description (optional)
+                </label>
+                <textarea
+                  value={questionForm.description}
+                  onChange={(e) =>
+                    setQuestionForm({
+                      ...questionForm,
+                      description: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none"
+                  rows={3}
+                  placeholder="Add guidance to help users interpret this question..."
+                />
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  This text appears under the question for respondents.
+                </p>
               </div>
             </div>
 

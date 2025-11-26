@@ -28,19 +28,87 @@ interface Question {
   level: string;
   stream: string;
   question: string;
+  description?: string | null;
 }
+
+type LevelQuestionEntry =
+  | string
+  | {
+      question_text: string;
+      description?: string | null;
+    };
 
 interface PracticeWithLevels extends ApiPractice {
   levels: {
     [level: string]: {
-      [stream: string]: string[];
+      [stream: string]: LevelQuestionEntry[];
     };
   };
 }
 
+const normalizeQuestionEntry = (
+  entry: LevelQuestionEntry | undefined,
+): { question: string; description?: string | null } | null => {
+  if (!entry) return null;
+  if (typeof entry === "string") {
+    return { question: entry, description: null };
+  }
+  if (!entry.question_text) {
+    return null;
+  }
+  return {
+    question: entry.question_text,
+    description: entry.description ?? null,
+  };
+};
+
 interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
   practices: { [key: string]: PracticeWithLevels };
 }
+
+const DOMAIN_PRIORITY = [
+  { id: "responsible_ai_principles", title: "Responsible AI Principles" },
+  { id: "governance", title: "Governance" },
+  { id: "data_management", title: "Data Management" },
+  { id: "privacy", title: "Privacy" },
+  { id: "design", title: "Design" },
+  { id: "implementation", title: "Implementation" },
+  { id: "verification", title: "Verification" },
+  { id: "operations", title: "Operations" },
+];
+
+const normalize = (value?: string) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const sortDomainsByPriority = (domains: DomainWithLevels[]) => {
+  const originalOrderMap = new Map(domains.map((domain, index) => [domain.id, index]));
+
+  const getPriority = (domain: DomainWithLevels) => {
+    const normalizedId = normalize(domain.id);
+    const normalizedTitle = normalize(domain.title);
+
+    const idMatch = DOMAIN_PRIORITY.findIndex(
+      (entry) => normalize(entry.id) === normalizedId,
+    );
+    if (idMatch !== -1) return idMatch;
+
+    const titleMatch = DOMAIN_PRIORITY.findIndex(
+      (entry) => normalize(entry.title) === normalizedTitle,
+    );
+    if (titleMatch !== -1) return titleMatch;
+
+    return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
+  };
+
+  return [...domains].sort((a, b) => {
+    const priorityA = getPriority(a);
+    const priorityB = getPriority(b);
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    return (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
+  });
+};
 
 export default function AssessmentPage() {
   const params = useParams();
@@ -127,11 +195,12 @@ export default function AssessmentPage() {
           }),
         );
 
-        setDomains(transformedDomains);
+        const orderedDomains = sortDomainsByPriority(transformedDomains);
+        setDomains(orderedDomains);
 
         // Only set initial domain and practice if we don't have existing state for this project
-        if (transformedDomains.length > 0 && !projectState) {
-          const firstDomain = transformedDomains[0];
+        if (orderedDomains.length > 0 && !projectState) {
+          const firstDomain = orderedDomains[0];
           const firstPracticeId = Object.keys(firstDomain.practices)[0];
           setProjectState(projectId, {
             currentDomainId: firstDomain.id,
@@ -223,17 +292,22 @@ useEffect(() => {
         // Flatten questions from levels
         const questionsList: Question[] = [];
         Object.entries(data.levels).forEach(([level, streams]) => {
-          Object.entries(streams as Record<string, string[]>).forEach(
-            ([stream, questions]) => {
-              questions.forEach((question, index) => {
-                questionsList.push({
-                  level,
-                  stream,
-                  question,
-                });
+          Object.entries(
+            streams as Record<string, LevelQuestionEntry[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
               });
-            },
-          );
+            });
+          });
         });
 
         setQuestions(questionsList);
@@ -565,7 +639,7 @@ useEffect(() => {
               {/* Premium-only Fairness button */}
               {user && PREMIUM_STATUS.includes(user.subscription_status) && (
                 <button
-                  onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
+                  onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
                   className="flex items-center px-4 py-2 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
                   title="Exclusive: Fairness & Bias Test"
                 >
@@ -657,6 +731,11 @@ useEffect(() => {
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
                   {currentQuestion.question}
                 </h2>
+                {currentQuestion.description && (
+                  <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200">
+                    {currentQuestion.description}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
