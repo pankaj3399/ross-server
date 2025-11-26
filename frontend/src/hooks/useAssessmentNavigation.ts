@@ -45,7 +45,9 @@ interface AssessmentData {
 }
 
 // Helper function to get all questions from levels structure
-const extractQuestionText = (entry: LevelQuestionEntry | undefined): string | null => {
+const extractQuestionText = (
+  entry: LevelQuestionEntry | undefined,
+): string | null => {
   if (!entry) return null;
   if (typeof entry === "string") {
     return entry;
@@ -124,32 +126,32 @@ export const useAssessmentNavigation = ({
         let totalQuestions = 0;
         const questions: QuestionWithStatus[] = [];
         let questionIndex = 0;
-        
+
         Object.entries((practice as Practice).levels).forEach(
           ([level, streams]) => {
-            Object.entries(streams as Record<string, LevelQuestionEntry[]>).forEach(
-              ([stream, questionEntries]) => {
-                questionEntries.forEach((questionEntry) => {
-                  const questionText = extractQuestionText(questionEntry);
-                  if (!questionText) {
-                    return;
-                  }
-                  const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
-                  const isAnswered = key in assessmentData;
-                  
-                  questions.push({
-                    level,
-                    stream,
-                    question: questionText,
-                    index: questionIndex,
-                    isAnswered,
-                  });
-                  
-                  questionIndex++;
-                  totalQuestions++;
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const questionText = extractQuestionText(questionEntry);
+                if (!questionText) {
+                  return;
+                }
+                const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
+                const isAnswered = key in assessmentData;
+
+                questions.push({
+                  level,
+                  stream,
+                  question: questionText,
+                  index: questionIndex,
+                  isAnswered,
                 });
-              },
-            );
+
+                questionIndex++;
+                totalQuestions++;
+              });
+            });
           },
         );
 
@@ -312,13 +314,13 @@ export const useAssessmentNavigation = ({
     // Find the first unanswered question in the practice with the most progress
     let bestResumePosition = null;
     let maxAnsweredCount = 0;
-    
+
     for (const domain of domains) {
       for (const [practiceId, practice] of Object.entries(domain.practices)) {
         let answeredCount = 0;
         let questionIndex = 0;
-        let firstUnansweredIndex = null;
-        
+        let firstUnansweredIndex: number | null = null;
+
         // Count answered questions and find first unanswered in this practice
         for (const [level, streams] of Object.entries(
           (practice as Practice).levels,
@@ -334,16 +336,20 @@ export const useAssessmentNavigation = ({
               const key = `${domain.id}:${practiceId}:${level}:${stream}:${i}`;
               if (key in assessmentData) {
                 answeredCount++;
-                console.log(`Found answered question: ${key} at practice question index: ${questionIndex}`);
+                console.log(
+                  `Found answered question: ${key} at practice question index: ${questionIndex}`,
+                );
               } else if (firstUnansweredIndex === null) {
                 firstUnansweredIndex = questionIndex;
-                console.log(`First unanswered question in this practice: ${key} at index: ${questionIndex}`);
+                console.log(
+                  `First unanswered question in this practice: ${key} at index: ${questionIndex}`,
+                );
               }
               questionIndex++;
             });
           }
         }
-        
+
         // If this practice has more answered questions, it's a better resume point
         if (answeredCount > maxAnsweredCount && firstUnansweredIndex !== null) {
           maxAnsweredCount = answeredCount;
@@ -352,16 +358,18 @@ export const useAssessmentNavigation = ({
             practiceId,
             questionIndex: firstUnansweredIndex,
           };
-          console.log(`New best resume position: ${domain.id}:${practiceId} at question ${firstUnansweredIndex} (${answeredCount} answered)`);
+          console.log(
+            `New best resume position: ${domain.id}:${practiceId} at question ${firstUnansweredIndex} (${answeredCount} answered)`,
+          );
         }
       }
     }
-    
+
     if (bestResumePosition) {
       console.log(`Resuming from best position:`, bestResumePosition);
       return bestResumePosition;
     }
-    
+
     return null; // No questions answered, start from beginning
   }, [domains, assessmentData]);
 
