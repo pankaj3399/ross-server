@@ -26,7 +26,6 @@ DATABASE_URL=postgresql://user:pass@host:5432/matur_ai
 DATABASE_POOL_MAX=20
 JWT_SECRET=replace_with_secure_random_string_should_be_same_in_worker_and_backend_service
 FRONTEND_URL=http://localhost:3000
-API_URL=http://localhost:4000
 STRIPE_SECRET_KEY=sk_test_***
 STRIPE_WEBHOOK_SECRET=whsec_***
 STRIPE_PRICE_ID_BASIC=price_basic_***
