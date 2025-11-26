@@ -1351,8 +1351,8 @@ export const seedAIMAData = async () => {
     for (const question of allQuestions) {
       await pool.query(
         `
-        INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text) 
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO aima_questions (practice_id, level, stream, question_index, question_text, description) 
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (practice_id, level, stream, question_index) DO NOTHING
       `,
         [
@@ -1361,13 +1361,14 @@ export const seedAIMAData = async () => {
           question.stream,
           question.index,
           question.text,
+          (question as { description?: string | null }).description ?? null,
         ],
       );
     }
 
-    console.log("✅ AIMA data seeded successfully");
+    console.log("AIMA data seeded successfully");
   } catch (error) {
-    console.error("❌ Error seeding AIMA data:", error);
+    console.error("Error seeding AIMA data:", error);
     throw error;
   }
 };

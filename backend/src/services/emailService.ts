@@ -16,7 +16,7 @@ class EmailService {
       service: "gmail",
       auth: {
         user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD, // Use App Password, not regular password
+        pass: process.env.GMAIL_APP_PASSWORD,
       },
     });
   }
