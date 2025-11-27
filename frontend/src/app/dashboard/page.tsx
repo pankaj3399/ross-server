@@ -24,6 +24,27 @@ import {
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+const INDUSTRY_OPTIONS = [
+  "Healthcare & Life Sciences",
+  "Finance & Banking",
+  "Insurance",
+  "Retail & E-commerce",
+  "Manufacturing",
+  "Transportation & Logistics",
+  "Energy & Utilities",
+  "Telecommunications",
+  "Technology & Software",
+  "Government & Public Sector",
+  "Education",
+  "Legal & Compliance",
+  "Marketing & Advertising",
+  "HR & Workforce Tech",
+  "Media & Entertainment",
+  "Real Estate & Property Tech",
+  "Nonprofit",
+  "Research & Development",
+  "Others",
+];
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
@@ -37,9 +58,10 @@ export default function DashboardPage() {
     name: "",
     description: "",
     aiSystemType: "",
+    industry: "",
   });
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "" });
+  const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -125,7 +147,7 @@ export default function DashboardPage() {
     try {
       const response = await apiService.createProject(newProject);
       setProjects([...projects, response.project]);
-      setNewProject({ name: "", description: "", aiSystemType: "" });
+      setNewProject({ name: "", description: "", aiSystemType: "", industry: "" });
       setShowCreateForm(false);
       showToast.success("Project created successfully!");
     } catch (error) {
@@ -136,7 +158,12 @@ export default function DashboardPage() {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
-    setEditProjectData({ name: project.name, description: project.description || "", aiSystemType: project.ai_system_type || "" });
+    setEditProjectData({
+      name: project.name,
+      description: project.description || "",
+      aiSystemType: project.ai_system_type || "",
+      industry: project.industry || "",
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -576,6 +603,28 @@ export default function DashboardPage() {
                   <option value="Other">Other</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Industry
+                </label>
+                <select
+                  value={newProject.industry}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      industry: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select Industry</option>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
@@ -667,6 +716,28 @@ export default function DashboardPage() {
                   </option>
                   <option value="Autonomous System">Autonomous System</option>
                   <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Industry
+                </label>
+                <select
+                  value={editProjectData.industry}
+                  onChange={(e) =>
+                    setEditProjectData({
+                      ...editProjectData,
+                      industry: e.target.value,
+                    })
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="">Select Industry</option>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex space-x-3 pt-4">
