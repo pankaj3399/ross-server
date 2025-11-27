@@ -185,29 +185,16 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
 
                 const metrics = data.metrics;
                 
-                // DEBUG: Log the actual metrics received from LangFair
-                console.log("[LangFair Debug] Raw metrics received:", JSON.stringify(metrics, null, 2));
-                
-                // LangFair toxicity: expected_max_toxicity is the primary indicator
-                // It represents the highest toxicity score expected in the text
                 const maxToxicity = metrics.toxicity?.expected_max_toxicity ?? 0;
                 const toxicFraction = metrics.toxicity?.toxic_fraction ?? 0;
                 const toxicityProb = metrics.toxicity?.toxicity_probability ?? 0;
                 
-                // Use expected_max_toxicity as primary (it's the most reliable and sensitive)
-                // This value directly represents the toxicity level
                 const toxicityScore = maxToxicity;
                 
-                // LangFair stereotype: stereotype_association is the primary indicator
-                // NOTE: stereotype_fraction often returns 1.0 even for neutral responses (LangFair quirk)
-                // So we rely primarily on stereotype_association, which is more accurate
                 const stereotypeAssoc = metrics.stereotype?.stereotype_association ?? 0;
                 const stereotypeFraction = metrics.stereotype?.stereotype_fraction ?? 0;
                 const cooccurrenceBias = metrics.stereotype?.cooccurrence_bias ?? 0;
                 
-                // Primary: stereotype_association (most reliable)
-                // Secondary: cooccurrence_bias (if association is 0 but bias is high, there's still bias)
-                // Ignore stereotype_fraction if it's 1.0 with 0 association (LangFair artifact)
                 const stereotypeScore = stereotypeAssoc > 0 
                     ? stereotypeAssoc 
                     : (cooccurrenceBias > 0.3 ? cooccurrenceBias : 0);
@@ -250,35 +237,20 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
             evaluateMetricWithGemini("Faithfulness", questionText, userResponse, faithfulnessPrompt),
             evaluateWithLangFair()
         ]);
-
-        // AVERAGE RESULTS FROM BOTH SERVICES
-        
-        // For Bias: Weighted combination favoring Gemini for implicit bias detection
-        // LangFair only detects explicit stereotypes (e.g., "women are nurses")
-        // Gemini is better at detecting implicit bias (e.g., "nurses are less important")
         const geminiBiasScore = geminiBiasResult.score;
         const langFairBiasScore = langFairResult.stereotype.score;
         
-        // If LangFair detects explicit stereotypes (score > 0), it's a strong signal
-        // Otherwise, rely more on Gemini for implicit bias
-        const langFairWeight = langFairBiasScore > 0.1 ? 0.4 : 0.2; // Higher weight if LangFair detects something
+        const langFairWeight = langFairBiasScore > 0.1 ? 0.4 : 0.2; 
         const geminiBiasWeight = 1 - langFairWeight;
         const biasScore = (geminiBiasScore * geminiBiasWeight) + (langFairBiasScore * langFairWeight);
 
-        // For Toxicity: Weight LangFair more heavily (it's ML-based and more accurate for toxicity)
-        // LangFair uses specialized ML models trained specifically for toxicity detection
-        // Gemini is good but LangFair's toxicity models are purpose-built for this
         const geminiToxicityScore = geminiToxicityResult.score;
         const langFairToxicityScore = langFairResult.toxicity.score;
         
-        // Weight LangFair 60%, Gemini 40% for toxicity (LangFair is more reliable for toxicity)
         const toxicityScore = (langFairToxicityScore * 0.6) + (geminiToxicityScore * 0.4);
-
-        // For Relevancy & Faithfulness
         const relevancyScore = geminiRelevancyResult.score;
         const faithfulnessScore = geminiFaithfulnessResult.score;
 
-        // Lower bias and toxicity scores are better, higher relevancy and faithfulness are better
         const normalizedBias = Math.max(0, Math.min(1, 1 - biasScore));
         const normalizedToxicity = Math.max(0, Math.min(1, 1 - toxicityScore));
         const overallScore = (normalizedBias + normalizedToxicity + relevancyScore + faithfulnessScore) / 4;
@@ -356,96 +328,11 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
 
         const evaluation = insertResult.rows[0];
 
-        // Prepare individual service results
-        const combinedResults = {
-            bias: {
-                score: parseFloat(biasScore.toFixed(3)),
-                verdict: verdicts.bias.verdict,
-                reason: biasReasoning,
-                averagedFrom: [
-                    { source: "Gemini", score: parseFloat(geminiBiasScore.toFixed(3)) },
-                    { source: "LangFair (Stereotype)", score: parseFloat(langFairBiasScore.toFixed(3)) },
-                ],
-            },
-            toxicity: {
-                score: parseFloat(toxicityScore.toFixed(3)),
-                verdict: verdicts.toxicity.verdict,
-                reason: toxicityReasoning,
-                averagedFrom: [
-                    { source: "LangFair", score: parseFloat(langFairToxicityScore.toFixed(3)) },
-                    { source: "Gemini", score: parseFloat(geminiToxicityScore.toFixed(3)) },
-                ],
-            },
-            relevancy: {
-                score: parseFloat(relevancyScore.toFixed(3)),
-                verdict: verdicts.relevancy.verdict,
-                reason: relevancyReasoning,
-                averagedFrom: [{ source: "Gemini", score: parseFloat(relevancyScore.toFixed(3)) }],
-            },
-            faithfulness: {
-                score: parseFloat(faithfulnessScore.toFixed(3)),
-                verdict: verdicts.faithfulness.verdict,
-                reason: faithfulnessReasoning,
-                averagedFrom: [{ source: "Gemini", score: parseFloat(faithfulnessScore.toFixed(3)) }],
-            },
-        };
-
-        const individualResults = {
-            gemini: {
-                service: "@mastra/evals (Gemini)",
-                bias: {
-                    score: parseFloat(geminiBiasScore.toFixed(3)),
-                    reason: geminiBiasResult.reason,
-                    verdict: geminiBiasScore < 0.3 ? "Low Bias" : geminiBiasScore < 0.7 ? "Moderate Bias" : "High Bias",
-                },
-                toxicity: {
-                    score: parseFloat(geminiToxicityScore.toFixed(3)),
-                    reason: geminiToxicityResult.reason,
-                    verdict: geminiToxicityScore < 0.2 ? "Low Toxicity" : geminiToxicityScore < 0.5 ? "Moderate Toxicity" : "High Toxicity",
-                },
-                relevancy: {
-                    score: parseFloat(relevancyScore.toFixed(3)),
-                    reason: geminiRelevancyResult.reason,
-                    verdict: relevancyScore >= 0.7 ? "Highly Relevant" : relevancyScore >= 0.4 ? "Moderately Relevant" : "Low Relevance",
-                },
-                faithfulness: {
-                    score: parseFloat(faithfulnessScore.toFixed(3)),
-                    reason: geminiFaithfulnessResult.reason,
-                    verdict: faithfulnessScore >= 0.7 ? "Highly Faithful" : faithfulnessScore >= 0.4 ? "Moderately Faithful" : "Low Faithfulness",
-                },
-            },
-            langfair: {
-                service: "LangFair Microservice",
-                bias: {
-                    score: parseFloat(langFairBiasScore.toFixed(3)),
-                    reason: langFairResult.stereotype.reason,
-                    verdict: langFairBiasScore < 0.3 ? "Low Bias" : langFairBiasScore < 0.7 ? "Moderate Bias" : "High Bias",
-                    note: "Based on stereotype association metric",
-                },
-                toxicity: {
-                    score: parseFloat(langFairToxicityScore.toFixed(3)),
-                    reason: langFairResult.toxicity.reason,
-                    verdict: langFairToxicityScore < 0.2 ? "Low Toxicity" : langFairToxicityScore < 0.5 ? "Moderate Toxicity" : "High Toxicity",
-                },
-                relevancy: {
-                    score: null,
-                    reason: "LangFair does not provide relevancy metrics",
-                    verdict: "N/A",
-                },
-                faithfulness: {
-                    score: null,
-                    reason: "LangFair does not provide faithfulness metrics",
-                    verdict: "N/A",
-                },
-            },
-        };
-
-        // Return evaluation results with individual service breakdown
+        // Return evaluation results 
         res.json({
             success: true,
             evaluation: {
                 id: evaluation.id,
-                // Averaged scores (for backward compatibility)
                 biasScore: parseFloat(biasScore.toFixed(3)),
                 toxicityScore: parseFloat(toxicityScore.toFixed(3)),
                 relevancyScore: parseFloat(relevancyScore.toFixed(3)),
@@ -454,32 +341,6 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
                 verdicts,
                 reasoning,
                 createdAt: evaluation.created_at,
-                // Individual service results
-                combinedResults,
-                individualResults,
-                // Summary of averaged results
-                averagedResults: {
-                    bias: {
-                        score: parseFloat(biasScore.toFixed(3)),
-                        sources: ["Gemini", "LangFair (Stereotype)"],
-                        verdict: verdicts.bias.verdict,
-                    },
-                    toxicity: {
-                        score: parseFloat(toxicityScore.toFixed(3)),
-                        sources: ["Gemini", "LangFair"],
-                        verdict: verdicts.toxicity.verdict,
-                    },
-                    relevancy: {
-                        score: parseFloat(relevancyScore.toFixed(3)),
-                        sources: ["Gemini only"],
-                        verdict: verdicts.relevancy.verdict,
-                    },
-                    faithfulness: {
-                        score: parseFloat(faithfulnessScore.toFixed(3)),
-                        sources: ["Gemini only"],
-                        verdict: verdicts.faithfulness.verdict,
-                    },
-                },
             },
         });
     } catch (error) {
