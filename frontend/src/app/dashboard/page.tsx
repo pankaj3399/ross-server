@@ -24,6 +24,27 @@ import {
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+const INDUSTRY_OPTIONS = [
+  "Healthcare & Life Sciences",
+  "Finance & Banking",
+  "Insurance",
+  "Retail & E-commerce",
+  "Manufacturing",
+  "Transportation & Logistics",
+  "Energy & Utilities",
+  "Telecommunications",
+  "Technology & Software",
+  "Government & Public Sector",
+  "Education",
+  "Legal & Compliance",
+  "Marketing & Advertising",
+  "HR & Workforce Tech",
+  "Media & Entertainment",
+  "Real Estate & Property Tech",
+  "Nonprofit",
+  "Research & Development",
+  "Others",
+];
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
@@ -45,18 +66,18 @@ export default function DashboardPage() {
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
-  const [prices, setPrices] = useState<{ basic: number | null, pro: number | null }>({ basic: null, pro: null });
+  const [prices, setPrices] = useState<{basic: number | null, pro: number | null}>({basic: null, pro: null});
   const [loadingPrices, setLoadingPrices] = useState(false);
 
   const handleStripeReturn = (success: string | null, canceled: string | null) => {
     if (success === 'true') {
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 5000);
-
+      
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-
+      
       // Refresh user data after a delay
       setTimeout(async () => {
         try {
@@ -68,7 +89,7 @@ export default function DashboardPage() {
     } else if (canceled === 'true') {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
-
+      
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
@@ -80,7 +101,7 @@ export default function DashboardPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
-
+    
     // If we have Stripe parameters but user is not authenticated, 
     // wait a bit for auth to initialize
     if ((success || canceled) && !isAuthenticated) {
@@ -92,18 +113,18 @@ export default function DashboardPage() {
           handleStripeReturn(success, canceled);
         }
       }, 100);
-
+      
       // Clear interval after 5 seconds
       setTimeout(() => clearInterval(checkAuth), 5000);
       return;
     }
-
+    
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
     loadProjects();
-
+    
     // Handle Stripe return if user is authenticated
     handleStripeReturn(success, canceled);
   }, [isAuthenticated, router, refreshUser]);
@@ -137,7 +158,12 @@ export default function DashboardPage() {
 
   const handleEditProject = (project: Project) => {
     setEditingProject(project);
-    setEditProjectData({ name: project.name, description: project.description || "", aiSystemType: project.ai_system_type || "", industry: project.industry || "" });
+    setEditProjectData({
+      name: project.name,
+      description: project.description || "",
+      aiSystemType: project.ai_system_type || "",
+      industry: project.industry || "",
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -178,6 +204,16 @@ export default function DashboardPage() {
       return;
     }
 
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("auth_token")
+      : null;
+
+    if (!token) {
+      console.error("Auth token missing; cannot fetch subscription prices.");
+      showToast.error("Please sign in again to load subscription pricing.");
+      return;
+    }
+
     setLoadingPrices(true);
     try {
       // Fetch prices from your backend API
@@ -185,6 +221,7 @@ export default function DashboardPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
@@ -200,12 +237,12 @@ export default function DashboardPage() {
       } else {
         console.error('Failed to fetch prices');
         // Fallback to hardcoded values if API fails
-        setPrices({ basic: 29, pro: 49 });
+        setPrices({basic: 29, pro: 49});
       }
     } catch (error) {
       console.error('Error fetching prices:', error);
       // Fallback to hardcoded values if API fails
-      setPrices({ basic: 29, pro: 49 });
+      setPrices({basic: 29, pro: 49});
     } finally {
       setLoadingPrices(false);
     }
@@ -337,9 +374,9 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <p className="text-gray-900 dark:text-white capitalize">
-                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
-                          user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
-                            user?.subscription_status}
+                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' : 
+                         user?.subscription_status === 'pro_premium' ? 'Pro Premium' : 
+                         user?.subscription_status}
                       </p>
                       {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
                         <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
@@ -471,17 +508,10 @@ export default function DashboardPage() {
                     <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
                       {project.description || "No description provided"}
                     </p>
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <div className="flex flex-col items-start gap-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
-                          {project.ai_system_type || "General AI System"}
-                        </span>
-                        {project.industry && (
-                          <span className="text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full">
-                            {project.industry}
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
+                        {project.ai_system_type || "General AI System"}
+                      </span>
                       <Link
                         href={`/assess/${project.id}`}
                         className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors text-sm font-medium"
@@ -588,25 +618,11 @@ export default function DashboardPage() {
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="">Select Industry</option>
-                  <option value="Healthcare & Life Sciences">Healthcare & Life Sciences</option>
-                  <option value="Finance & Banking">Finance & Banking</option>
-                  <option value="Insurance">Insurance</option>
-                  <option value="Retail & E-commerce">Retail & E-commerce</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Transportation & Logistics">Transportation & Logistics</option>
-                  <option value="Energy & Utilities">Energy & Utilities</option>
-                  <option value="Telecommunications">Telecommunications</option>
-                  <option value="Technology & Software">Technology & Software</option>
-                  <option value="Government & Public Sector">Government & Public Sector</option>
-                  <option value="Education">Education</option>
-                  <option value="Legal & Compliance">Legal & Compliance</option>
-                  <option value="Marketing & Advertising">Marketing & Advertising</option>
-                  <option value="HR & Workforce Tech">HR & Workforce Tech</option>
-                  <option value="Media & Entertainment">Media & Entertainment</option>
-                  <option value="Real Estate & Property Tech">Real Estate & Property Tech</option>
-                  <option value="Nonprofit">Nonprofit</option>
-                  <option value="Research & Development">Research & Development</option>
-                  <option value="Others">Others</option>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex space-x-3 pt-4">
@@ -717,25 +733,11 @@ export default function DashboardPage() {
                   className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
                   <option value="">Select Industry</option>
-                  <option value="Healthcare & Life Sciences">Healthcare & Life Sciences</option>
-                  <option value="Finance & Banking">Finance & Banking</option>
-                  <option value="Insurance">Insurance</option>
-                  <option value="Retail & E-commerce">Retail & E-commerce</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="Transportation & Logistics">Transportation & Logistics</option>
-                  <option value="Energy & Utilities">Energy & Utilities</option>
-                  <option value="Telecommunications">Telecommunications</option>
-                  <option value="Technology & Software">Technology & Software</option>
-                  <option value="Government & Public Sector">Government & Public Sector</option>
-                  <option value="Education">Education</option>
-                  <option value="Legal & Compliance">Legal & Compliance</option>
-                  <option value="Marketing & Advertising">Marketing & Advertising</option>
-                  <option value="HR & Workforce Tech">HR & Workforce Tech</option>
-                  <option value="Media & Entertainment">Media & Entertainment</option>
-                  <option value="Real Estate & Property Tech">Real Estate & Property Tech</option>
-                  <option value="Nonprofit">Nonprofit</option>
-                  <option value="Research & Development">Research & Development</option>
-                  <option value="Others">Others</option>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <option key={industry} value={industry}>
+                      {industry}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex space-x-3 pt-4">
@@ -1014,7 +1016,7 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8 }}
               className="text-center space-y-3 flex-shrink-0"
-            >
+            >  
               <button
                 onClick={() => setShowSubscriptionModal(false)}
                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors text-sm font-medium"
