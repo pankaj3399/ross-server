@@ -1,21 +1,30 @@
 import { Router } from "express";
 import pool from "../config/database";
+import { authenticateToken } from "../middleware/auth";
 
 const router = Router();
 
 // GET /aima/domains?project_id=uuid
-router.get("/domains", async (req, res) => {
+router.get("/domains", authenticateToken, async (req, res) => {
   try {
     const { project_id } = req.query;
+    const user = req.user;
+    const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
     let query = `
-      SELECT d.id, d.title, d.description, 
+      SELECT d.id, d.title, d.description, COALESCE(d.is_premium, false) as is_premium,
               ARRAY_AGG(p.id) as practices
       FROM aima_domains d
       LEFT JOIN aima_practices p ON d.id = p.domain_id
     `;
     
     let queryParams: any[] = [];
+    let whereConditions: string[] = [];
+    
+    // Filter out premium domains for non-premium users
+    if (!isPremium) {
+      whereConditions.push("COALESCE(d.is_premium, false) = false");
+    }
     
     if (project_id) {
       // Get project's version_id first
@@ -44,23 +53,29 @@ router.get("/domains", async (req, res) => {
       if (projectVersionId) {
         // Filter by project's version - show only domains/practices created at or before this version
         // compare by created_at timestamp
-        query += `
-          WHERE (d.version_id IS NULL OR EXISTS (
+        const paramIndex = queryParams.length + 1;
+        const versionFilter = `
+          (d.version_id IS NULL OR EXISTS (
             SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
-            AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $1)
+            AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
           ))
           AND (p.version_id IS NULL OR EXISTS (
             SELECT 1 FROM versions v2 WHERE v2.id = p.version_id 
-            AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $1)
+            AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
           ))
         `;
+        whereConditions.push(versionFilter);
         queryParams.push(projectVersionId);
       }
       // If projectVersionId is NULL, show all domains (no filtering)
     }
     
+    if (whereConditions.length > 0) {
+      query += ` WHERE ${whereConditions.join(" AND ")}`;
+    }
+    
     query += `
-      GROUP BY d.id, d.title, d.description
+      GROUP BY d.id, d.title, d.description, d.is_premium
       ORDER BY d.id
     `;
 
@@ -84,12 +99,19 @@ router.get("/domains", async (req, res) => {
 });
 
 // GET /aima/domains/:domainId?project_id=uuid
-router.get("/domains/:domainId", async (req, res) => {
+router.get("/domains/:domainId", authenticateToken, async (req, res) => {
   try {
     const { project_id } = req.query;
+    const user = req.user;
+    const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
-    let domainQuery = "SELECT * FROM aima_domains WHERE id = $1";
+    let domainQuery = "SELECT *, COALESCE(is_premium, false) as is_premium FROM aima_domains WHERE id = $1";
     let domainParams = [req.params.domainId];
+    
+    // Filter out premium domains for non-premium users
+    if (!isPremium) {
+      domainQuery += " AND COALESCE(is_premium, false) = false";
+    }
     
     if (project_id) {
       // Get project's version_id first
@@ -114,6 +136,12 @@ router.get("/domains/:domainId", async (req, res) => {
 
     if (domainResult.rows.length === 0) {
       return res.status(404).json({ error: "Domain not found" });
+    }
+    
+    // Check if domain is premium and user is not premium
+    const domainData = domainResult.rows[0];
+    if (domainData.is_premium && !isPremium) {
+      return res.status(403).json({ error: "Premium domain - subscription required" });
     }
 
     let practicesQuery = "SELECT id, title, description FROM aima_practices WHERE domain_id = $1";
@@ -162,9 +190,25 @@ router.get("/domains/:domainId", async (req, res) => {
 });
 
 // GET /aima/domains/:domainId/practices/:practiceId?project_id=uuid
-router.get("/domains/:domainId/practices/:practiceId", async (req, res) => {
+router.get("/domains/:domainId/practices/:practiceId", authenticateToken, async (req, res) => {
   try {
     const { project_id } = req.query;
+    const user = req.user;
+    const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
+    
+    // First check if domain is premium
+    const domainCheck = await pool.query(
+      "SELECT COALESCE(is_premium, false) as is_premium FROM aima_domains WHERE id = $1",
+      [req.params.domainId]
+    );
+    
+    if (domainCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Domain not found" });
+    }
+    
+    if (domainCheck.rows[0].is_premium && !isPremium) {
+      return res.status(403).json({ error: "Premium domain - subscription required" });
+    }
     
     let practiceQuery = "SELECT * FROM aima_practices WHERE id = $1 AND domain_id = $2";
     let practiceParams = [req.params.practiceId, req.params.domainId];

@@ -23,6 +23,7 @@ import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation"
 import { sanitizeNoteInput } from "../../../lib/sanitize";
 import { usePracticeStore } from "../../../store/practiceStore";
 import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
+import UnlockPremium from "../../../components/UnlockPremium";
 
 interface Question {
   level: string;
@@ -124,6 +125,10 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+
+  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
 
   // Use Zustand store for project-specific state
   const { 
@@ -153,45 +158,66 @@ export default function AssessmentPage() {
 
     const fetchData = async () => {
       try {
-        // Fetch domains
+        // Fetch domains - only get the list, not all practice details
         const domainsData = await apiService.getDomains(projectId);
 
-        // Transform API data to match our interface
+        // Transform API data - PRE-LOAD all practice questions upfront
         const transformedDomains = await Promise.all(
           domainsData.domains.map(async (domain) => {
-            const domainDetails = await apiService.getDomain(domain.id, projectId);
+            try {
+              const domainDetails = await apiService.getDomain(domain.id, projectId);
 
-            // Transform practices to include levels structure
-            const practicesWithLevels: { [key: string]: PracticeWithLevels } =
-              {};
-            for (const [practiceId, practice] of Object.entries(
-              domainDetails.practices,
-            )) {
-              try {
-                const practiceQuestions = await apiService.getPracticeQuestions(
-                  domain.id,
-                  practiceId,
-                  projectId,
-                );
-                practicesWithLevels[practiceId] = {
-                  ...practice,
-                  levels: practiceQuestions.levels,
-                };
-              } catch (error) {
-                console.error(`Failed to load practice ${practiceId}:`, error);
-                practicesWithLevels[practiceId] = {
-                  ...practice,
-                  levels: {},
-                };
+              // Pre-load all practice questions for all practices in this domain
+              const practicesWithLevels: { [key: string]: PracticeWithLevels } =
+                {};
+              for (const [practiceId, practice] of Object.entries(
+                domainDetails.practices,
+              )) {
+                try {
+                  // Load practice questions immediately
+                  const practiceData = await apiService.getPracticeQuestions(
+                    domain.id,
+                    practiceId,
+                    projectId,
+                  );
+                  practicesWithLevels[practiceId] = {
+                    ...practice,
+                    levels: practiceData.levels, // Pre-loaded with all questions
+                  };
+                } catch (error: any) {
+                  console.error(`Failed to load practice ${practiceId}:`, error);
+                  // If it's a premium error, still store the practice but with empty levels
+                  if (error?.status === 403 || error?.message?.includes("Premium")) {
+                    practicesWithLevels[practiceId] = {
+                      ...practice,
+                      levels: {}, // Empty for premium practices
+                    };
+                  } else {
+                    // For other errors, store with empty levels
+                    practicesWithLevels[practiceId] = {
+                      ...practice,
+                      levels: {},
+                    };
+                  }
+                }
               }
-            }
 
-            return {
-              id: domain.id,
-              title: domain.title,
-              description: domain.description,
-              practices: practicesWithLevels,
-            };
+              return {
+                id: domain.id,
+                title: domain.title,
+                description: domain.description,
+                practices: practicesWithLevels,
+              };
+            } catch (error) {
+              console.error(`Failed to load domain ${domain.id}:`, error);
+              // Return domain with empty practices if it fails
+              return {
+                id: domain.id,
+                title: domain.title,
+                description: domain.description || "",
+                practices: {},
+              };
+            }
           }),
         );
 
@@ -202,27 +228,40 @@ export default function AssessmentPage() {
         if (orderedDomains.length > 0 && !projectState) {
           const firstDomain = orderedDomains[0];
           const firstPracticeId = Object.keys(firstDomain.practices)[0];
-          setProjectState(projectId, {
-            currentDomainId: firstDomain.id,
-            currentPracticeId: firstPracticeId,
-            currentQuestionIndex: 0,
-            practice: null,
-          });
+          if (firstPracticeId) {
+            const firstPractice = firstDomain.practices[firstPracticeId];
+            // Set practice data from pre-loaded data
+            setProjectState(projectId, {
+              currentDomainId: firstDomain.id,
+              currentPracticeId: firstPracticeId,
+              currentQuestionIndex: 0,
+              practice: firstPractice.levels ? {
+                title: firstPractice.title,
+                description: firstPractice.description,
+                levels: firstPractice.levels,
+              } : null,
+            });
+          }
         }
 
         // Load existing answers
-        const answersData = await apiService.getAnswers(projectId);
+        try {
+          const answersData = await apiService.getAnswers(projectId);
 
-        // Make a map from the answers object
-        const answersMap: Record<string, number> = {};
+          // Make a map from the answers object
+          const answersMap: Record<string, number> = {};
 
-        if (answersData && answersData.answers) {
-          Object.entries(answersData.answers).forEach(([key, value]) => {
-            answersMap[key] = value as number;
-          });
+          if (answersData && answersData.answers) {
+            Object.entries(answersData.answers).forEach(([key, value]) => {
+              answersMap[key] = value as number;
+            });
+          }
+
+          setAnswers(answersMap);
+        } catch (error) {
+          console.error("Failed to load answers:", error);
+          // Continue even if answers fail to load
         }
-
-        setAnswers(answersMap);
 
         // Load existing notes
         try {
@@ -232,30 +271,90 @@ export default function AssessmentPage() {
             const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
             notesMap[key] = note.note;
           });
-        setNotes(notesMap);
+          setNotes(notesMap);
+        } catch (error) {
+          console.error("Failed to load notes:", error);
+          // Continue even if notes fail to load
+        }
       } catch (error) {
-        console.error("Failed to load notes:", error);
+        console.error("Failed to fetch data:", error);
+        showToast.error("Failed to load assessment data. Please refresh the page.");
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   fetchData();
 }, [projectId, isAuthenticated, router]);
 
-// Resume from Zustand store after data is loaded
+// Resume from Zustand store after data is loaded and update questions when practice changes
 useEffect(() => {
-  if (!loading && domains.length > 0 && projectState) {
+  if (!loading && domains.length > 0) {
     // Check if we have navigation state for this project
     if (currentDomainId && currentPracticeId) {
       // Check if the current practice is still valid (domain and practice exist)
       const domain = domains.find(d => d.id === currentDomainId);
       if (domain && domain.practices[currentPracticeId]) {
-        // The navigation state is already set, we just need to trigger the practice loading
-        // The practice loading effect will handle fetching the practice data
+        const currentPractice = domain.practices[currentPracticeId];
+        
+        // If practice has levels (pre-loaded), use them directly
+        if (currentPractice.levels && Object.keys(currentPractice.levels).length > 0) {
+          // Update practice in store if not already set
+          if (!practice || practice.title !== currentPractice.title) {
+            setProjectState(projectId, {
+              practice: {
+                title: currentPractice.title,
+                description: currentPractice.description,
+                levels: currentPractice.levels,
+              },
+            });
+          }
+          
+          // Flatten questions from levels
+          const questionsList: Question[] = [];
+          Object.entries(currentPractice.levels).forEach(([level, streams]) => {
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const normalized = normalizeQuestionEntry(questionEntry);
+                if (!normalized) {
+                  return;
+                }
+                questionsList.push({
+                  level,
+                  stream,
+                  question: normalized.question,
+                  description: normalized.description ?? undefined,
+                });
+              });
+            });
+          });
+
+          setQuestions(questionsList);
+          
+          // Validate and adjust currentQuestionIndex if out of bounds
+          if (questionsList.length > 0) {
+            const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
+            if (validIndex !== currentQuestionIndex) {
+              setProjectState(projectId, {
+                currentQuestionIndex: validIndex,
+              });
+            }
+          } else {
+            // No questions available, reset index
+            setProjectState(projectId, {
+              currentQuestionIndex: 0,
+            });
+          }
+        } else {
+          // Practice has no levels (premium or error case)
+          setQuestions([]);
+          setProjectState(projectId, {
+            practice: null,
+            currentQuestionIndex: 0,
+          });
+        }
       } else {
         // Clear invalid state for this project
         setProjectState(projectId, {
@@ -264,62 +363,11 @@ useEffect(() => {
           currentQuestionIndex: 0,
           practice: null,
         });
+        setQuestions([]);
       }
     }
   }
-}, [loading, domains, projectState, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState]);
-
-  // Load practice questions when domain/practice changes
-  useEffect(() => {
-    if (!currentDomainId || !currentPracticeId) return;
-
-    const fetchPractice = async () => {
-      try {
-        const data = await apiService.getPracticeQuestions(
-          currentDomainId,
-          currentPracticeId,
-          projectId,
-        );
-        
-        setProjectState(projectId, {
-          practice: {
-            title: data.title,
-            description: data.description,
-            levels: data.levels,
-          },
-        });
-
-        // Flatten questions from levels
-        const questionsList: Question[] = [];
-        Object.entries(data.levels).forEach(([level, streams]) => {
-          Object.entries(
-            streams as Record<string, LevelQuestionEntry[]>,
-          ).forEach(([stream, questionEntries]) => {
-            questionEntries.forEach((questionEntry) => {
-              const normalized = normalizeQuestionEntry(questionEntry);
-              if (!normalized) {
-                return;
-              }
-              questionsList.push({
-                level,
-                stream,
-                question: normalized.question,
-                description: normalized.description ?? undefined,
-              });
-            });
-          });
-        });
-
-        setQuestions(questionsList);
-        
-        // Position is managed by Zustand store
-      } catch (error) {
-        console.error("Failed to fetch practice:", error);
-      }
-    };
-
-    fetchPractice();
-  }, [currentDomainId, currentPracticeId, projectId]);
+}, [loading, domains, currentDomainId, currentPracticeId, projectId, setProjectState, practice]);
 
   // Use assessment navigation hook
   const {
@@ -339,6 +387,10 @@ useEffect(() => {
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
+    if (!question) {
+      console.error(`Question at index ${questionIndex} not found`);
+      return;
+    }
     const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
 
     setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -369,6 +421,10 @@ useEffect(() => {
 
   const handleNoteChange = (questionIndex: number, note: string) => {
     const question = questions[questionIndex];
+    if (!question) {
+      console.error(`Question at index ${questionIndex} not found`);
+      return;
+    }
     const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
 
     setNotes((prev) => ({ ...prev, [key]: note }));
@@ -376,6 +432,10 @@ useEffect(() => {
 
   const handleNoteSave = async (questionIndex: number) => {
     const question = questions[questionIndex];
+    if (!question) {
+      console.error(`Question at index ${questionIndex} not found`);
+      return;
+    }
     const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
     const note = notes[key] || "";
 
@@ -405,11 +465,55 @@ useEffect(() => {
     const domain = domains.find((d) => d.id === domainId);
     if (domain) {
       const firstPracticeId = Object.keys(domain.practices)[0];
-      setProjectState(projectId, {
-        currentDomainId: domainId,
-        currentPracticeId: firstPracticeId,
-        currentQuestionIndex: 0,
-      });
+      if (firstPracticeId) {
+        const firstPractice = domain.practices[firstPracticeId];
+        
+        // If practice has levels (pre-loaded), use them directly
+        if (firstPractice.levels && Object.keys(firstPractice.levels).length > 0) {
+          setProjectState(projectId, {
+            currentDomainId: domainId,
+            currentPracticeId: firstPracticeId,
+            currentQuestionIndex: 0,
+            practice: {
+              title: firstPractice.title,
+              description: firstPractice.description,
+              levels: firstPractice.levels,
+            },
+          });
+          
+          // Flatten questions from levels
+          const questionsList: Question[] = [];
+          Object.entries(firstPractice.levels).forEach(([level, streams]) => {
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const normalized = normalizeQuestionEntry(questionEntry);
+                if (!normalized) {
+                  return;
+                }
+                questionsList.push({
+                  level,
+                  stream,
+                  question: normalized.question,
+                  description: normalized.description ?? undefined,
+                });
+              });
+            });
+          });
+
+          setQuestions(questionsList);
+        } else {
+          // Practice has no levels (premium or error case)
+          setProjectState(projectId, {
+            currentDomainId: domainId,
+            currentPracticeId: firstPracticeId,
+            currentQuestionIndex: 0,
+            practice: null,
+          });
+          setQuestions([]);
+        }
+      }
       
       // Navigate to domain
     }
@@ -417,24 +521,157 @@ useEffect(() => {
   };
 
   const handlePracticeClick = (domainId: string, practiceId: string) => {
-    setProjectState(projectId, {
-      currentDomainId: domainId,
-      currentPracticeId: practiceId,
-      currentQuestionIndex: 0,
-    });
+    const domain = domains.find(d => d.id === domainId);
+    if (domain && domain.practices[practiceId]) {
+      const selectedPractice = domain.practices[practiceId];
+      
+      // If practice has levels (pre-loaded), use them directly
+      if (selectedPractice.levels && Object.keys(selectedPractice.levels).length > 0) {
+        setProjectState(projectId, {
+          currentDomainId: domainId,
+          currentPracticeId: practiceId,
+          currentQuestionIndex: 0,
+          practice: {
+            title: selectedPractice.title,
+            description: selectedPractice.description,
+            levels: selectedPractice.levels,
+          },
+        });
+        
+        // Flatten questions from levels
+        const questionsList: Question[] = [];
+        Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
+          Object.entries(
+            streams as Record<string, LevelQuestionEntry[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
+              });
+            });
+          });
+        });
+
+        setQuestions(questionsList);
+      } else {
+        // Practice has no levels (premium or error case)
+        setProjectState(projectId, {
+          currentDomainId: domainId,
+          currentPracticeId: practiceId,
+          currentQuestionIndex: 0,
+          practice: null,
+        });
+        setQuestions([]);
+        showToast.error("This practice requires a premium subscription or could not be loaded.");
+      }
+    }
     
     // Navigate to practice
     navigateToPractice(domainId, practiceId);
   };
 
   const handleQuestionClick = (domainId: string, practiceId: string, questionIndex: number) => {
-    setProjectState(projectId, {
-      currentDomainId: domainId,
-      currentPracticeId: practiceId,
-      currentQuestionIndex: questionIndex,
-    });
+    const domain = domains.find(d => d.id === domainId);
+    if (domain && domain.practices[practiceId]) {
+      const selectedPractice = domain.practices[practiceId];
+      
+      // If practice has levels (pre-loaded), use them directly
+      if (selectedPractice.levels && Object.keys(selectedPractice.levels).length > 0) {
+        setProjectState(projectId, {
+          currentDomainId: domainId,
+          currentPracticeId: practiceId,
+          currentQuestionIndex: questionIndex,
+          practice: {
+            title: selectedPractice.title,
+            description: selectedPractice.description,
+            levels: selectedPractice.levels,
+          },
+        });
+        
+        // Flatten questions from levels if not already loaded
+        if (currentDomainId !== domainId || currentPracticeId !== practiceId || questions.length === 0) {
+          const questionsList: Question[] = [];
+          Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const normalized = normalizeQuestionEntry(questionEntry);
+                if (!normalized) {
+                  return;
+                }
+                questionsList.push({
+                  level,
+                  stream,
+                  question: normalized.question,
+                  description: normalized.description ?? undefined,
+                });
+              });
+            });
+          });
+
+          setQuestions(questionsList);
+        }
+      }
+    }
     
     // Navigate to question
+  };
+
+  // Helper function to load questions from pre-loaded practice data
+  const loadQuestionsFromPractice = (domainId: string, practiceId: string) => {
+    const domain = domains.find(d => d.id === domainId);
+    if (domain && domain.practices[practiceId]) {
+      const selectedPractice = domain.practices[practiceId];
+      
+      // If practice has levels (pre-loaded), use them directly
+      if (selectedPractice.levels && Object.keys(selectedPractice.levels).length > 0) {
+        // Flatten questions from levels
+        const questionsList: Question[] = [];
+        Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
+          Object.entries(
+            streams as Record<string, LevelQuestionEntry[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
+              });
+            });
+          });
+        });
+
+        setQuestions(questionsList);
+        
+        return {
+          practice: {
+            title: selectedPractice.title,
+            description: selectedPractice.description,
+            levels: selectedPractice.levels,
+          },
+        };
+      } else {
+        // Practice has no levels (premium or error case)
+        setQuestions([]);
+        return {
+          practice: null,
+        };
+      }
+    }
+    return { practice: null };
   };
 
   const handleNextQuestion = () => {
@@ -445,12 +682,16 @@ useEffect(() => {
       const isMovingToDifferentPractice = next.practiceId !== currentPracticeId;
       
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
+        // Load questions from pre-loaded practice data
+        const practiceData = loadQuestionsFromPractice(next.domainId, next.practiceId);
+        
         // Add a small delay for smooth transition
         setTimeout(() => {
           setProjectState(projectId, {
             currentDomainId: next.domainId,
             currentPracticeId: next.practiceId,
             currentQuestionIndex: next.questionIndex,
+            ...practiceData,
           });
           
           // Position updated in Zustand
@@ -475,11 +716,15 @@ useEffect(() => {
       const isMovingToDifferentPractice = prev.practiceId !== currentPracticeId;
       
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
+        // Load questions from pre-loaded practice data
+        const practiceData = loadQuestionsFromPractice(prev.domainId, prev.practiceId);
+        
         setTimeout(() => {
           setProjectState(projectId, {
             currentDomainId: prev.domainId,
             currentPracticeId: prev.practiceId,
             currentQuestionIndex: prev.questionIndex,
+            ...practiceData,
           });
           
           // Position updated in Zustand
@@ -505,12 +750,54 @@ useEffect(() => {
     const firstDomain = domains[0];
     if (firstDomain) {
       const firstPracticeId = Object.keys(firstDomain.practices)[0];
-      setProjectState(projectId, {
-        currentDomainId: firstDomain.id,
-        currentPracticeId: firstPracticeId,
-        currentQuestionIndex: 0,
-        practice: null,
-      });
+      if (firstPracticeId) {
+        const firstPractice = firstDomain.practices[firstPracticeId];
+        
+        // If practice has levels (pre-loaded), use them directly
+        if (firstPractice.levels && Object.keys(firstPractice.levels).length > 0) {
+          setProjectState(projectId, {
+            currentDomainId: firstDomain.id,
+            currentPracticeId: firstPracticeId,
+            currentQuestionIndex: 0,
+            practice: {
+              title: firstPractice.title,
+              description: firstPractice.description,
+              levels: firstPractice.levels,
+            },
+          });
+          
+          // Flatten questions from levels
+          const questionsList: Question[] = [];
+          Object.entries(firstPractice.levels).forEach(([level, streams]) => {
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const normalized = normalizeQuestionEntry(questionEntry);
+                if (!normalized) {
+                  return;
+                }
+                questionsList.push({
+                  level,
+                  stream,
+                  question: normalized.question,
+                  description: normalized.description ?? undefined,
+                });
+              });
+            });
+          });
+
+          setQuestions(questionsList);
+        } else {
+          setProjectState(projectId, {
+            currentDomainId: firstDomain.id,
+            currentPracticeId: firstPracticeId,
+            currentQuestionIndex: 0,
+            practice: null,
+          });
+          setQuestions([]);
+        }
+      }
       
       // Starting assessment
     }
@@ -545,26 +832,9 @@ useEffect(() => {
     );
   }
 
-  // Check if there's navigation state for the current project
-  const hasNavigationState = currentDomainId && currentPracticeId;
-  
-  // If we have navigation state but no practice loaded yet, show loading
-  if (hasNavigationState && (!practice || questions.length === 0)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
-            Resuming your assessment...
-          </p>
-        </div>
-      </div>
-    );
-  }
-  
-  // If no navigation state and no practice, show overview
-  if (!hasNavigationState && (!practice || questions.length === 0)) {
-    
+  // If we have practice and questions loaded, show the assessment
+  if (!practice || questions.length === 0) {
+    // No practice loaded yet or failed to load - show overview
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -575,19 +845,46 @@ useEffect(() => {
             Ready to measure your AI maturity? Let's get started.
           </p>
           
-          <button
-            onClick={handleStartAssessment}
-            className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
-          >
-            Start Assessment
-          </button>
+          {domains.length > 0 && (
+            <button
+              onClick={handleStartAssessment}
+              className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
+            >
+              Start Assessment
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${currentQuestionIndex}`;
+  // Validate currentQuestionIndex is within bounds
+  const validQuestionIndex = Math.min(currentQuestionIndex, questions.length - 1);
+  const currentQuestion = questions[validQuestionIndex];
+  
+  // Guard against undefined currentQuestion (shouldn't happen if questions.length > 0, but safety check)
+  if (!currentQuestion) {
+    // If no question is available, show loading or return early
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-300">
+            Loading question...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Update index if it was out of bounds
+  if (validQuestionIndex !== currentQuestionIndex) {
+    setProjectState(projectId, {
+      currentQuestionIndex: validQuestionIndex,
+    });
+  }
+
+  const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${validQuestionIndex}`;
   const currentAnswer = answers[questionKey];
   const currentNote = notes[questionKey] || "";
 
@@ -595,14 +892,19 @@ useEffect(() => {
   const answeredQuestions = Object.keys(answers).filter((key) =>
     key.startsWith(`${currentDomainId}:${currentPracticeId}:`),
   ).length;
-  const progress = (answeredQuestions / totalQuestions) * 100;
-
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+  const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
   return (
-    <div className="min-h-screen flex">
-      {/* Tree Navigation Sidebar */}
-      <AssessmentTreeNavigation
+    <>
+      {showUnlockPremium && (
+        <UnlockPremium
+          featureName="Fairness & Bias Test"
+          onClose={() => setShowUnlockPremium(false)}
+        />
+      )}
+      <div className="min-h-screen flex">
+        {/* Tree Navigation Sidebar */}
+        <AssessmentTreeNavigation
         domains={progressData}
         currentDomainId={currentDomainId}
         currentPracticeId={currentPracticeId}
@@ -631,17 +933,22 @@ useEffect(() => {
                   {practice?.title || 'Loading...'}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {domains.find(d => d.id === currentDomainId)?.title} • Question {currentQuestionIndex + 1} of {totalQuestions}
+                  {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {/* Premium-only Fairness button */}
-              {user && PREMIUM_STATUS.includes(user.subscription_status) && (
+              {user && (
                 <button
-                  onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+                  onClick={() => {
+                    if (isPremium) {
+                      router.push(`/assess/${projectId}/fairness-bias/options`);
+                    } else {
+                      setShowUnlockPremium(true);
+                    }
+                  }}
                   className="flex items-center px-4 py-2 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
-                  title="Exclusive: Fairness & Bias Test"
+                  title="Fairness & Bias Test"
                 >
                   <span className="mr-2"></span> Fairness & Bias Test
                 </button>
@@ -679,7 +986,7 @@ useEffect(() => {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Question {currentQuestionIndex + 1} of {totalQuestions}
+                  Question {validQuestionIndex + 1} of {totalQuestions}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {Math.round(progress)}% Complete
@@ -695,7 +1002,7 @@ useEffect(() => {
 
             {/* Question Card */}
             <motion.div
-              key={currentQuestionIndex}
+              key={validQuestionIndex}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
@@ -769,7 +1076,7 @@ useEffect(() => {
                       value={option.value}
                       checked={currentAnswer === option.value}
                       onChange={() =>
-                        handleAnswerChange(currentQuestionIndex, option.value)
+                        handleAnswerChange(validQuestionIndex, option.value)
                       }
                       className="mt-1 w-4 h-4 text-purple-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-purple-500 focus:ring-2"
                     />
@@ -793,9 +1100,9 @@ useEffect(() => {
                 <SecureTextarea
                   value={currentNote}
                   onChange={(note) =>
-                    handleNoteChange(currentQuestionIndex, note)
+                    handleNoteChange(validQuestionIndex, note)
                   }
-                  onSave={() => handleNoteSave(currentQuestionIndex)}
+                  onSave={() => handleNoteSave(validQuestionIndex)}
                   placeholder="Add your notes, reminders, or thoughts about this question..."
                   maxLength={5000}
                   className="w-full"
@@ -827,5 +1134,6 @@ useEffect(() => {
         </div>
       </div>
     </div>
+    </>
   );
 }

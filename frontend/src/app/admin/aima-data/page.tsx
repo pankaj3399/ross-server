@@ -30,6 +30,7 @@ interface Domain {
   id: string;
   title: string;
   description: string;
+  is_premium: boolean;
   created_at: string;
   practices: Practice[];
 }
@@ -89,7 +90,7 @@ export default function AdminQuestions() {
   const [selectedPracticeId, setSelectedPracticeId] = useState<string>("");
 
   // Form states
-  const [domainForm, setDomainForm] = useState({ title: "", description: "" });
+  const [domainForm, setDomainForm] = useState({ title: "", description: "", is_premium: false });
   const [practiceForm, setPracticeForm] = useState({
     title: "",
     description: "",
@@ -191,7 +192,7 @@ export default function AdminQuestions() {
   };
 
   const handleAddDomain = () => {
-    setDomainForm({ title: "", description: "" });
+    setDomainForm({ title: "", description: "", is_premium: false });
     setShowDomainModal(true);
   };
 
@@ -213,6 +214,7 @@ export default function AdminQuestions() {
     setShowQuestionModal(false);
     setSelectedDomainId("");
     setSelectedPracticeId("");
+    setDomainForm({ title: "", description: "", is_premium: false });
     setQuestionForm({ level: "1", stream: "A", question_text: "", description: "" });
   };
 
@@ -237,6 +239,31 @@ export default function AdminQuestions() {
       }
     } catch (err) {
       console.error("Failed to add domain");
+    }
+  };
+
+  const toggleDomainPremium = async (domainId: string, currentPremiumStatus: boolean) => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`${API_BASE_URL}/admin/domains/${domainId}/premium`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_premium: !currentPremiumStatus }),
+      });
+
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        console.error(`Error: ${error.error}`);
+        alert(`Failed to update premium status: ${error.error}`);
+      }
+    } catch (err) {
+      console.error("Failed to toggle domain premium status");
+      alert("Failed to update premium status. Please try again.");
     }
   };
 
@@ -870,9 +897,16 @@ export default function AdminQuestions() {
                       )}
                     </div>
                     <div>
-                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {domain.title}
-                      </h2>
+                      <div className="flex items-center space-x-2">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                          {domain.title}
+                        </h2>
+                        {domain.is_premium && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                            ⭐ Premium
+                          </span>
+                        )}
+                      </div>
                       <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                         {domain.description}
                       </p>
@@ -880,6 +914,20 @@ export default function AdminQuestions() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleDomainPremium(domain.id, domain.is_premium);
+                    }}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      domain.is_premium
+                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                    title={domain.is_premium ? "Click to remove premium status" : "Click to mark as premium"}
+                  >
+                    {domain.is_premium ? "⭐ Premium" : "Mark as Premium"}
+                  </button>
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                     {domain.practices.length} practices
                   </span>
@@ -963,9 +1011,16 @@ export default function AdminQuestions() {
                                 )}
                               </div>
                               <div>
-                                <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">
-                                  {practice.title}
-                                </h3>
+                                <div className="flex items-center space-x-2">
+                                  <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">
+                                    {practice.title}
+                                  </h3>
+                                  {aimaData?.data.domains.find(d => d.id === practice.domain_id)?.is_premium && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                                      ⭐ Premium
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                                   {practice.description}
                                 </p>
@@ -1041,7 +1096,16 @@ export default function AdminQuestions() {
                                     className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
                                   >
                                     <div className="flex items-start justify-between mb-2">
-                                      <div className="flex items-center space-x-2">
+                                      <div className="flex items-center space-x-2 flex-wrap gap-1">
+                                        {(() => {
+                                          const domain = aimaData?.data.domains.find(d => d.id === practice.domain_id);
+                                          const isPremium = domain?.is_premium || false;
+                                          return isPremium ? (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                                              ⭐ Premium
+                                            </span>
+                                          ) : null;
+                                        })()}
                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
                                           Level {isEditingQuestion ? questionLevelValue : question.level}
                                         </span>
@@ -1334,6 +1398,32 @@ export default function AdminQuestions() {
                   }
                 />
               </div>
+
+              {showDomainModal && (
+                <div className="flex items-center space-x-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="is_premium"
+                    checked={domainForm.is_premium}
+                    onChange={(e) =>
+                      setDomainForm({
+                        ...domainForm,
+                        is_premium: e.target.checked,
+                      })
+                    }
+                    className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500 focus:ring-2"
+                  />
+                  <label
+                    htmlFor="is_premium"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
+                  >
+                    <span className="font-semibold text-yellow-700 dark:text-yellow-400">⭐ Premium Domain</span>
+                    <span className="block text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Mark this domain as premium. All practices and questions under this domain will be considered premium and only visible to premium users.
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end space-x-3 mt-8">

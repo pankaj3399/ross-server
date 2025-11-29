@@ -14,6 +14,7 @@ const generateId = (title: string): string =>
 const addDomainSchema = z.object({
   title: z.string().min(1, "Domain title is required"),
   description: z.string().optional(),
+  is_premium: z.boolean().optional().default(false),
 });
 
 const addPracticeSchema = z.object({
@@ -54,7 +55,7 @@ router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, 
   try {
     // Get all domains
     const domainsResult = await pool.query(`
-      SELECT id, title, description, created_at 
+      SELECT id, title, description, is_premium, created_at 
       FROM aima_domains 
       ORDER BY title
     `);
@@ -110,6 +111,7 @@ router.get("/aima-data", authenticateToken, requireRole(["ADMIN"]), async (req, 
         id: domain.id,
         title: domain.title,
         description: domain.description,
+        is_premium: domain.is_premium || false,
         created_at: domain.created_at,
         practices: domainPractices
       };
@@ -154,7 +156,7 @@ router.post("/reset-aima-data", async (req, res) => {
 // Add new domain
 router.post("/add-domain", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { title, description } = addDomainSchema.parse(req.body);
+    const { title, description, is_premium } = addDomainSchema.parse(req.body);
 
     // Generate ID from title
     const id = generateId(title);
@@ -177,8 +179,8 @@ router.post("/add-domain", authenticateToken, requireRole(["ADMIN"]), async (req
 
     // Insert new domain
     const domainResult = await pool.query(
-      "INSERT INTO aima_domains (id, title, description, version_id) VALUES ($1, $2, $3, $4) RETURNING *",
-      [id, title, description || null, versionId]
+      "INSERT INTO aima_domains (id, title, description, is_premium, version_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [id, title, description || null, is_premium || false, versionId]
     );
 
     res.status(201).json({
@@ -455,6 +457,40 @@ router.get("/waitlist-emails", authenticateToken, requireRole(["ADMIN"]), async 
     res.status(500).json({
       success: false,
       error: "Failed to fetch waitlist emails",
+      details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// Update domain premium status
+router.patch("/domains/:id/premium", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { is_premium } = z.object({
+      is_premium: z.boolean(),
+    }).parse(req.body);
+
+    const result = await pool.query(
+      "UPDATE aima_domains SET is_premium = $1 WHERE id = $2 RETURNING *",
+      [is_premium, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Domain not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { domain: result.rows[0] },
+      message: "Domain premium status updated successfully"
+    });
+  } catch (error) {
+    console.error("Error updating domain premium status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update domain premium status",
       details: error instanceof Error ? error.message : String(error)
     });
   }

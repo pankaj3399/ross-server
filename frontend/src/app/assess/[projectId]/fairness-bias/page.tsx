@@ -15,6 +15,7 @@ import {
   FileText,
   BarChart3,
 } from "lucide-react";
+import UnlockPremium from "../../../../components/UnlockPremium";
 
 interface FairnessQuestion {
   label: string;
@@ -35,16 +36,26 @@ export default function FairnessBiasTest() {
 
   const [fairnessQuestions, setFairnessQuestions] = useState<FairnessQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
-  const [accessDenied, setAccessDenied] = useState(false);
   const [responses, setResponses] = useState<{ [key: string]: string }>({});
   const [submitting, setSubmitting] = useState<{ [key: string]: boolean }>({});
   const [evaluations, setEvaluations] = useState<{ [key: string]: any }>({});
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
 
   const projectId = params.projectId as string;
   const currentQuestionRef = useRef<HTMLDivElement>(null);
+
+  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+
+  // Show unlock premium modal automatically for non-premium users
+  useEffect(() => {
+    if (!loading && user) {
+      setShowUnlockPremium(!isPremium);
+    }
+  }, [loading, user, isPremium]);
 
   const categories: CategoryNode[] = fairnessQuestions.map((category, catIdx) => ({
     id: `cat-${catIdx}`,
@@ -72,7 +83,6 @@ export default function FairnessBiasTest() {
       try {
         const questionsData = await apiService.getFairnessQuestions();
         setFairnessQuestions(questionsData.questions);
-        setAccessDenied(false);
         
         if (questionsData.questions.length > 0) {
           setExpandedCategories(new Set(["cat-0"]));
@@ -116,13 +126,17 @@ export default function FairnessBiasTest() {
           setResponses(responsesMap);
           setEvaluations(evaluationsMap);
         } catch (error: any) {
+          // Don't block UI on 403 - we'll show blurred content with unlock premium overlay
           if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
-            setAccessDenied(true);
+            // Still allow questions to be displayed (blurred) for non-premium users
+            console.log("Premium access required for evaluations");
           }
         }
       } catch (error: any) {
+        // Don't block UI on 403 - we'll show blurred content with unlock premium overlay
         if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
-          setAccessDenied(true);
+          // Still allow questions to be displayed (blurred) for non-premium users
+          console.log("Premium access required");
         }
       } finally {
         setQuestionsLoading(false);
@@ -155,8 +169,8 @@ export default function FairnessBiasTest() {
     }
   }, [currentCategoryIndex]);
 
-  // Show loading while checking auth or fetching data
-  if (loading || questionsLoading) {
+  // Show loading if user is not loaded yet
+  if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
@@ -167,22 +181,29 @@ export default function FairnessBiasTest() {
     );
   }
 
-  // Show locked message if backend returned 403 (access denied)
-  if (accessDenied || (!user && !loading)) {
+  // Show loading while fetching questions, but still show the page structure with blur for non-premium
+  if (questionsLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="rounded-xl p-10 bg-white dark:bg-gray-900 border text-center max-w-lg shadow-lg">
-          <div className="text-6xl mb-4">🔒</div>
-          <div className="text-xl font-bold mb-2">Access Denied</div>
-          <div className="text-gray-500 mb-4">
-            This feature is available only for premium users. Please upgrade your subscription to access fairness and bias testing.
+      <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+        {/* Blur overlay and unlock premium modal for non-premium users */}
+        {!isPremium && (
+          <>
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            {showUnlockPremium && (
+              <div className="absolute inset-0 flex items-center justify-center z-50">
+                <UnlockPremium
+                  featureName="Fairness & Bias Test"
+                  onClose={() => setShowUnlockPremium(false)}
+                />
+              </div>
+            )}
+          </>
+        )}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-lg text-gray-400">Loading questions...</p>
           </div>
-          <button
-            onClick={() => router.push(`/assess/${projectId}`)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Go Back to Assessment
-          </button>
         </div>
       </div>
     );
@@ -190,9 +211,25 @@ export default function FairnessBiasTest() {
 
   if (fairnessQuestions.length === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg text-gray-400">No fairness questions available.</p>
+      <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+        {/* Blur overlay and unlock premium modal for non-premium users */}
+        {!isPremium && (
+          <>
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            {showUnlockPremium && (
+              <div className="absolute inset-0 flex items-center justify-center z-50">
+                <UnlockPremium
+                  featureName="Fairness & Bias Test"
+                  onClose={() => setShowUnlockPremium(false)}
+                />
+              </div>
+            )}
+          </>
+        )}
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-lg text-gray-400">No fairness questions available.</p>
+          </div>
         </div>
       </div>
     );
@@ -286,9 +323,17 @@ export default function FairnessBiasTest() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+      {/* Blur overlay and unlock premium modal for non-premium users */}
+      {!isPremium && showUnlockPremium && (
+        <UnlockPremium
+          featureName="Fairness & Bias Test"
+          onClose={() => setShowUnlockPremium(false)}
+        />
+      )}
+
       {/* Left Sidebar - Tree Navigation */}
-      <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen overflow-y-auto">
+      <div className={`w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen overflow-y-auto ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         <div className="p-6">
           <div className="flex items-center gap-2 mb-6">
             <BarChart3 className="w-6 h-6 text-purple-600" />
@@ -437,7 +482,7 @@ export default function FairnessBiasTest() {
       </div>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className={`flex-1 flex flex-col ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         {/* Header */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
