@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ import {
   Github,
   CheckCircle,
 } from "lucide-react";
+import UnlockPremium from "../../../../../components/UnlockPremium";
 
 type TestMethod = 
   | "prompt-response"
@@ -26,6 +27,9 @@ export default function FairnessBiasOptions() {
   const { user, loading } = useAuth();
   const projectId = params.projectId as string;
   const [selectedMethod, setSelectedMethod] = useState<TestMethod>(null);
+
+  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
 
   const handleMethodSelect = (method: TestMethod) => {
     setSelectedMethod(method);
@@ -88,13 +92,25 @@ export default function FairnessBiasOptions() {
     },
   ];
 
-  if (loading) {
+  if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-lg text-gray-400">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show unlock premium modal for non-premium users and redirect them back
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center relative">
+        <UnlockPremium
+          featureName="Fairness & Bias Test"
+          onClose={() => router.push(`/assess/${projectId}`)}
+        />
       </div>
     );
   }
