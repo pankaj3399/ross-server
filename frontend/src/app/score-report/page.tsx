@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAssessmentResultsStore } from "../../store/assessmentResultsStore";
+import { apiService } from "../../lib/api";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
   Trophy, 
-  Star
+  Star,
+  Sparkles,
+  Brain
 } from "lucide-react";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
 
@@ -36,12 +39,17 @@ const PERFORMANCE_COLORS = {
 export default function ScoreReportPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { getProjectResults } = useAssessmentResultsStore();
+  
+  // Check if user is premium
+  const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
   
   const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [insights, setInsights] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -64,6 +72,64 @@ export default function ScoreReportPage() {
     
     setLoading(false);
   }, [projectId, isAuthenticated, router, getProjectResults]);
+
+  // Auto-generate insights when page loads
+  useEffect(() => {
+    if (!projectId || !results || loading) return;
+    
+    // Don't regenerate if insights already exist in results
+    const hasExistingInsights = results.results.domains.some((domain: any) => domain.insights);
+    if (hasExistingInsights) {
+      // If insights exist in results, populate the insights state
+      const existingInsights: Record<string, string> = {};
+      results.results.domains.forEach((domain: any) => {
+        if (domain.insights) {
+          existingInsights[domain.domainId] = domain.insights;
+        }
+      });
+      if (Object.keys(existingInsights).length > 0) {
+        setInsights(existingInsights);
+      }
+      return;
+    }
+
+    const generateInsights = async () => {
+      setGeneratingInsights(true);
+      try {
+        const response = await apiService.generateDomainInsights(projectId);
+        
+        if (response.success && response.insights) {
+          setInsights(response.insights);
+          
+          // Update results with insights
+          const updatedDomains = results.results.domains.map((domain: any) => {
+            if (response.insights[domain.domainId]) {
+              return {
+                ...domain,
+                insights: response.insights[domain.domainId]
+              };
+            }
+            return domain;
+          });
+          
+          setResults({
+            ...results,
+            results: {
+              ...results.results,
+              domains: updatedDomains
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error generating insights:", error);
+        // Don't show alert, just log the error
+      } finally {
+        setGeneratingInsights(false);
+      }
+    };
+
+    generateInsights();
+  }, [projectId, results, loading]);
 
   if (loading) {
     return (
@@ -126,6 +192,7 @@ export default function ScoreReportPage() {
   };
 
   const performance = getPerformanceLevel(results.results.overall.overallPercentage);
+
 
   return (
     <div className="min-h-screen bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-purple-900 dark:to-slate-900">
@@ -218,9 +285,11 @@ export default function ScoreReportPage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-12"
         >
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white text-center mb-8">
-            Domain Performance
-          </h2>
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Domain Performance
+            </h2>
+          </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {results.results.domains.map((domain: any, index: number) => {
@@ -239,9 +308,11 @@ export default function ScoreReportPage() {
                   className="bg-white dark:bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm dark:shadow-none"
                 >
                   <div className="text-center space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                      {domain.domainTitle}
-                    </h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        {domain.domainTitle}
+                      </h3>
+                    </div>
                     
                     <div className="relative w-32 h-32 mx-auto">
                       <ResponsiveContainer width="100%" height="100%">
@@ -282,11 +353,69 @@ export default function ScoreReportPage() {
                         {domain.correctAnswers}/{domain.totalQuestions} correct
                       </div>
                     </div>
+                    
                   </div>
                 </motion.div>
               );
             })}
           </div>
+        </motion.div>
+
+        {/* AI Insights Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mb-12"
+        >
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                AI Insights
+              </h2>
+            </div>
+            <p className="text-gray-600 dark:text-white/70">
+              {generatingInsights 
+                ? "Generating personalized insights based on your assessment results..." 
+                : "Actionable recommendations based on your domain performance"}
+            </p>
+          </div>
+
+          {generatingInsights && Object.keys(insights).length === 0 ? (
+            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-white/10 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-white/70">Generating insights...</p>
+            </div>
+          ) : Object.keys(insights).length > 0 ? (
+            <div className="space-y-6">
+              {results.results.domains
+                .filter((domain: any) => insights[domain.domainId])
+                .map((domain: any, index: number) => (
+                  <motion.div
+                    key={domain.domainId}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.1 }}
+                    className="bg-white dark:bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10 transition-all duration-300 shadow-sm dark:shadow-none"
+                  >
+                    <div className="flex items-center gap-2 mb-4">
+                      <Sparkles className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {domain.domainTitle}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-white/70 leading-relaxed">
+                      {insights[domain.domainId]}
+                    </p>
+                  </motion.div>
+                ))}
+            </div>
+          ) : !generatingInsights ? (
+            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-white/10 text-center">
+              <p className="text-gray-600 dark:text-white/70">No insights available at this time.</p>
+            </div>
+          ) : null}
         </motion.div>
 
         {/* Action Buttons */}

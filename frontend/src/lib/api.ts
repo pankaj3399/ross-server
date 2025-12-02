@@ -787,6 +787,18 @@ class ApiService {
       };
     }>("/admin/analytics/industries");
   }
+  // Generate AI insights for premium domains
+  async generateDomainInsights(projectId: string): Promise<{
+    success: boolean;
+    insights: Record<string, string>; // domainId -> insights text
+  }> {
+    return this.request<{
+      success: boolean;
+      insights: Record<string, string>;
+    }>(`/projects/${projectId}/generate-insights`, {
+      method: "POST",
+    });
+  }
 }
 
 export const apiService = new ApiService();
