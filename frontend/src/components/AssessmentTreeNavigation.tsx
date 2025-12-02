@@ -50,6 +50,9 @@ interface AssessmentTreeNavigationProps {
   onDomainClick: (domainId: string) => void;
   onPracticeClick: (domainId: string, practiceId: string) => void;
   onQuestionClick: (domainId: string, practiceId: string, questionIndex: number) => void;
+  projectId?: string;
+  isPremium?: boolean;
+  onFairnessBiasClick?: () => void;
 }
 
 const DOMAIN_PRIORITY = [
@@ -73,6 +76,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   onDomainClick,
   onPracticeClick,
   onQuestionClick,
+  projectId,
+  isPremium,
+  onFairnessBiasClick,
 }) => {
   const { theme } = useTheme();
   const orderedDomains = useMemo(() => {
@@ -429,6 +435,19 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
           );
         })}
         </div>
+
+        {/* Fairness & Bias Test Button */}
+        {projectId && onFairnessBiasClick && (
+          <div className="mt-8">
+            <button
+              onClick={onFairnessBiasClick}
+              className="w-full flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
+              title="Fairness & Bias Test"
+            >
+              Fairness & Bias Test
+            </button>
+          </div>
+        )}
 
         {/* Overall Progress Summary */}
         <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">

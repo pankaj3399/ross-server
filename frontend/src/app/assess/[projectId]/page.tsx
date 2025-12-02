@@ -23,7 +23,6 @@ import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation"
 import { sanitizeNoteInput } from "../../../lib/sanitize";
 import { usePracticeStore } from "../../../store/practiceStore";
 import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
-import UnlockPremium from "../../../components/UnlockPremium";
 
 interface Question {
   level: string;
@@ -125,7 +124,6 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
@@ -896,12 +894,6 @@ useEffect(() => {
 
   return (
     <>
-      {showUnlockPremium && (
-        <UnlockPremium
-          featureName="Fairness & Bias Test"
-          onClose={() => setShowUnlockPremium(false)}
-        />
-      )}
       <div className="min-h-screen flex">
         {/* Tree Navigation Sidebar */}
         <AssessmentTreeNavigation
@@ -912,6 +904,11 @@ useEffect(() => {
         onDomainClick={handleDomainClick}
         onPracticeClick={handlePracticeClick}
         onQuestionClick={handleQuestionClick}
+        projectId={projectId}
+        isPremium={isPremium}
+        onFairnessBiasClick={() => {
+          router.push(`/assess/${projectId}/fairness-bias/options`);
+        }}
       />
 
       {/* Main Content */}
@@ -938,21 +935,6 @@ useEffect(() => {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {user && (
-                <button
-                  onClick={() => {
-                    if (isPremium) {
-                      router.push(`/assess/${projectId}/fairness-bias/options`);
-                    } else {
-                      setShowUnlockPremium(true);
-                    }
-                  }}
-                  className="flex items-center px-4 py-2 bg-gradient-to-r from-violet-700 to-purple-600 text-white rounded-lg font-medium shadow hover:shadow-md hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
-                  title="Fairness & Bias Test"
-                >
-                  <span className="mr-2"></span> Fairness & Bias Test
-                </button>
-              )}
               {saving && (
                 <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
                   <Save className="w-4 h-4 animate-spin" />
