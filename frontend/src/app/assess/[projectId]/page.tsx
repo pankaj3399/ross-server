@@ -23,6 +23,8 @@ import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation"
 import { sanitizeNoteInput } from "../../../lib/sanitize";
 import { usePracticeStore } from "../../../store/practiceStore";
 import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
+import { usePriceStore } from "../../../store/priceStore";
+import { AssessmentSkeleton, Skeleton } from "../../../components/Skeleton";
 
 interface Question {
   level: string;
@@ -138,12 +140,72 @@ export default function AssessmentPage() {
   // Use assessment results store
   const { setProjectResults } = useAssessmentResultsStore();
 
+  // Use price store to pre-load prices
+  const { prices, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
+
   // Get current project state
   const projectState = getProjectState(projectId);
   const practice = projectState?.practice || null;
   const currentDomainId = projectState?.currentDomainId || '';
   const currentPracticeId = projectState?.currentPracticeId || '';
   const currentQuestionIndex = projectState?.currentQuestionIndex || 0;
+
+  // Pre-load prices when assessment page loads
+  useEffect(() => {
+    const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
+    const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+
+    // Only fetch if not already fetched
+    if (fetched || !BASIC_PRICE_ID || !PRO_PRICE_ID) {
+      return;
+    }
+
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("auth_token")
+      : null;
+
+    if (!token) {
+      return;
+    }
+
+    const fetchPrices = async () => {
+      setPriceLoading(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscriptions/prices`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setPrices({
+            basic: data.prices[BASIC_PRICE_ID] || null,
+            pro: data.prices[PRO_PRICE_ID] || null
+          });
+          setFetched(true);
+        } else {
+          // Fallback to hardcoded values if API fails
+          setPrices({ basic: 29, pro: 49 });
+          setFetched(true);
+        }
+      } catch (error) {
+        console.error('Error fetching prices:', error);
+        // Fallback to hardcoded values if API fails
+        setPrices({ basic: 29, pro: 49 });
+        setFetched(true);
+      } finally {
+        setPriceLoading(false);
+      }
+    };
+
+    fetchPrices();
+  }, [fetched, setPrices, setLoading, setFetched]);
 
   // Load domains and initial data
   useEffect(() => {
@@ -818,16 +880,7 @@ useEffect(() => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
-            Loading assessment...
-          </p>
-        </div>
-      </div>
-    );
+    return <AssessmentSkeleton />;
   }
 
   // If we have practice and questions loaded, show the assessment
@@ -865,11 +918,9 @@ useEffect(() => {
     // If no question is available, show loading or return early
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
-            Loading question...
-          </p>
+        <div className="text-center space-y-4">
+          <Skeleton variant="circular" width="3rem" height="3rem" className="mx-auto" />
+          <Skeleton height="1.25rem" width="150px" className="mx-auto" />
         </div>
       </div>
     );

@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
 import { showToast } from "@/lib/toast";
+import { Skeleton } from "@/components/Skeleton";
 
 export default function VerifyOTPPage() {
   const router = useRouter();
@@ -222,7 +223,7 @@ export default function VerifyOTPPage() {
                   Your account has been verified. Redirecting to dashboard...
                 </p>
                 <div className="flex justify-center">
-                  <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                  <Skeleton variant="circular" width="1.5rem" height="1.5rem" />
                 </div>
               </motion.div>
             ) : (

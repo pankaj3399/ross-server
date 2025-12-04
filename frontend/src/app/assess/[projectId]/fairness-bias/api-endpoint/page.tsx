@@ -154,6 +154,7 @@ export default function ApiEndpointPage() {
         apiKeyPlacement,
         apiKeyFieldName: trimmedApiKeyFieldName || null,
       });
+      console.log(response);
 
       router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
     } catch (error: any) {
