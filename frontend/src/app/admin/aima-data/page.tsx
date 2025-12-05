@@ -6,6 +6,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
+import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
 
 interface Question {
   id: string;
@@ -627,14 +628,7 @@ export default function AdminQuestions() {
 
   // Show loading while checking auth
   if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    );
+    return <SimplePageSkeleton />;
   }
 
   // Don't render anything if not authenticated or not admin (redirects will handle this)
@@ -643,16 +637,7 @@ export default function AdminQuestions() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-700 dark:text-gray-300">
-            Loading AIMA data...
-          </span>
-        </div>
-      </div>
-    );
+    return <AimaDataManagementSkeleton />;
   }
 
   if (error) {
@@ -764,9 +749,9 @@ export default function AdminQuestions() {
             Industry Analytics
           </h2>
           {loadingIndustryAnalytics ? (
-            <div className="text-center py-8">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">Loading analytics...</p>
+            <div className="text-center py-8 space-y-3">
+              <Skeleton variant="circular" width="2rem" height="2rem" className="mx-auto" />
+              <Skeleton height="1rem" width="150px" className="mx-auto" />
             </div>
           ) : industryAnalytics ? (
             <div className="space-y-6">

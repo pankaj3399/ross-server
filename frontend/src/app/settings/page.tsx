@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
 import { apiService } from "../../lib/api";
+import { SimplePageSkeleton } from "../../components/Skeleton";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -211,11 +212,7 @@ export default function SettingsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-      </div>
-    );
+    return <SimplePageSkeleton />;
   }
 
   if (showMFASetup) {

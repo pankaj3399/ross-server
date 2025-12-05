@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Crown, Star, X } from "lucide-react";
 import { apiService } from "../lib/api";
 import { showToast } from "../lib/toast";
+import { Skeleton } from "./Skeleton";
+import { usePriceStore } from "../store/priceStore";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
@@ -15,19 +17,24 @@ interface UnlockPremiumProps {
 }
 
 export default function UnlockPremium({ onClose, featureName = "this feature" }: UnlockPremiumProps) {
-  const [prices, setPrices] = useState<{ basic: number | null; pro: number | null }>({ basic: null, pro: null });
-  const [loadingPrices, setLoadingPrices] = useState(false);
+  const { prices: storePrices, loading: storeLoading, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchPrices();
-  }, []);
+  // Use prices from store if available, otherwise fetch
+  const prices = storePrices;
+  const loadingPrices = storeLoading;
 
-  const fetchPrices = async () => {
+  useEffect(() => {
+    // Only fetch if not already fetched
+    if (fetched) {
+      return;
+    }
+
     if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
       console.error('Price IDs not configured');
       // Fallback to hardcoded values if price IDs not configured
       setPrices({ basic: 29, pro: 49 });
+      setFetched(true);
       return;
     }
 
@@ -39,42 +46,48 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
       console.error("Auth token missing; cannot fetch subscription prices.");
       // Fallback to hardcoded values if no token
       setPrices({ basic: 29, pro: 49 });
+      setFetched(true);
       return;
     }
 
-    setLoadingPrices(true);
-    try {
-      // Fetch prices from your backend API
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscriptions/prices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPrices({
-          basic: data.prices[BASIC_PRICE_ID] || null,
-          pro: data.prices[PRO_PRICE_ID] || null
+    const fetchPrices = async () => {
+      setPriceLoading(true);
+      try {
+        // Fetch prices from your backend API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscriptions/prices`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
+          })
         });
-      } else {
-        console.error('Failed to fetch prices');
+
+        if (response.ok) {
+          const data = await response.json();
+          setPrices({
+            basic: data.prices[BASIC_PRICE_ID] || null,
+            pro: data.prices[PRO_PRICE_ID] || null
+          });
+        } else {
+          console.error('Failed to fetch prices');
+          // Fallback to hardcoded values if API fails
+          setPrices({ basic: 29, pro: 49 });
+        }
+      } catch (error) {
+        console.error('Error fetching prices:', error);
         // Fallback to hardcoded values if API fails
         setPrices({ basic: 29, pro: 49 });
+      } finally {
+        setPriceLoading(false);
+        setFetched(true);
       }
-    } catch (error) {
-      console.error('Error fetching prices:', error);
-      // Fallback to hardcoded values if API fails
-      setPrices({ basic: 29, pro: 49 });
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
+    };
+
+    fetchPrices();
+  }, [fetched, setPrices, setPriceLoading, setFetched]);
 
   const handleSelectPlan = async (priceId: string, planName: string) => {
     try {
@@ -132,8 +145,9 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
               </h3>
               <div className="mb-4">
                 {loadingPrices ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="flex items-baseline justify-center gap-2">
+                    <Skeleton height="2rem" width="60px" />
+                    <Skeleton height="1rem" width="50px" />
                   </div>
                 ) : (
                   <>
@@ -184,8 +198,9 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
               </h3>
               <div className="mb-4">
                 {loadingPrices ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="flex items-baseline justify-center gap-2">
+                    <Skeleton height="2rem" width="60px" />
+                    <Skeleton height="1rem" width="50px" />
                   </div>
                 ) : (
                   <>

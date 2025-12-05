@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { DatasetMetric, DatasetReportPayload, FairnessColumn, MetricLabel, VerdictStatus } from "../types";
 import { getDatasetTestingReportKey } from "../storage";
+import { Skeleton } from "@/components/Skeleton";
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -174,9 +175,9 @@ const DatasetTestingReportPage = () => {
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-gray-950">
-                <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 text-sm">
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Loading dataset report...
+                <div className="text-center space-y-3">
+                    <Skeleton variant="circular" width="2rem" height="2rem" className="mx-auto" />
+                    <Skeleton height="1rem" width="180px" className="mx-auto" />
                 </div>
             </div>
         );

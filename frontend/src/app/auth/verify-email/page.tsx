@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
 
@@ -74,10 +75,8 @@ export default function VerifyEmailPage() {
                 transition={{ duration: 0.5 }}
                 className="mb-6"
               >
-                <Loader2 className="w-16 h-16 text-purple-600 dark:text-purple-400 mx-auto animate-spin" />
-                <p className="mt-4 text-gray-600 dark:text-gray-300">
-                  Verifying your email...
-                </p>
+                <Skeleton variant="circular" width="4rem" height="4rem" className="mx-auto mb-4" />
+                <Skeleton height="1.25rem" width="200px" className="mx-auto" />
               </motion.div>
             )}
 

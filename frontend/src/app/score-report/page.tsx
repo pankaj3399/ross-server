@@ -14,6 +14,7 @@ import {
   Brain
 } from "lucide-react";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
+import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
 
 // Beautiful color palette
 const DOMAIN_COLORS = [
@@ -132,14 +133,7 @@ export default function ScoreReportPage() {
   }, [projectId, results, loading]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-violet-900 to-purple-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4 text-white">Loading score report...</p>
-        </div>
-      </div>
-    );
+    return <ReportSkeleton />;
   }
 
   if (!results) {
@@ -383,9 +377,9 @@ export default function ScoreReportPage() {
           </div>
 
           {generatingInsights && Object.keys(insights).length === 0 ? (
-            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-white/10 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-white/70">Generating insights...</p>
+            <div className="bg-gray-50 dark:bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-white/10 text-center space-y-4">
+              <Skeleton variant="circular" width="3rem" height="3rem" className="mx-auto" />
+              <Skeleton height="1.25rem" width="180px" className="mx-auto" />
             </div>
           ) : Object.keys(insights).length > 0 ? (
             <div className="space-y-6">

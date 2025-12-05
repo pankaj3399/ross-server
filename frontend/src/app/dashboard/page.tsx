@@ -21,6 +21,7 @@ import {
   Loader,
   Star,
 } from "lucide-react";
+import { CardSkeleton, Skeleton } from "../../components/Skeleton";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
@@ -450,8 +451,10 @@ export default function DashboardPage() {
               Your Projects
             </h2>
             {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <CardSkeleton key={i} />
+                ))}
               </div>
             ) : projects.length === 0 ? (
               <div className="text-center py-12">
@@ -830,8 +833,7 @@ export default function DashboardPage() {
                     <div className="mb-3">
                       {loadingPrices ? (
                         <div className="flex items-center justify-center gap-2">
-                          <Loader className="w-6 h-6 animate-spin text-blue-500" />
-                          <span className="text-sm text-gray-500">Loading...</span>
+                          <Skeleton height="1.5rem" width="60px" />
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-1">
@@ -938,8 +940,7 @@ export default function DashboardPage() {
                       <div className="mb-3">
                         {loadingPrices ? (
                           <div className="flex items-center justify-center gap-2">
-                            <Loader className="w-6 h-6 animate-spin text-purple-500" />
-                            <span className="text-sm text-gray-500">Loading...</span>
+                            <Skeleton height="1.5rem" width="60px" />
                           </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1">

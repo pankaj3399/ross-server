@@ -16,6 +16,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import UnlockPremium from "../../../../components/UnlockPremium";
+import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
 
 interface FairnessQuestion {
   label: string;
@@ -171,14 +172,7 @@ export default function FairnessBiasTest() {
 
   // Show loading if user is not loaded yet
   if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-400">Loading...</p>
-        </div>
-      </div>
-    );
+    return <SimplePageSkeleton />;
   }
 
   // Show loading while fetching questions, but still show the page structure with blur for non-premium
@@ -199,11 +193,8 @@ export default function FairnessBiasTest() {
             )}
           </>
         )}
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-400">Loading questions...</p>
-          </div>
+        <div className="flex-1">
+          <FairnessTestSkeleton />
         </div>
       </div>
     );
