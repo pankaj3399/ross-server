@@ -37,7 +37,11 @@ docker stop ai-eval-service && docker rm ai-eval-service
 4. **Set runtime values.**
    - `PORT=8000`.
    - Add `GEMINI_API_KEY` and any other required env variables.
-   - Instance type: Starter is enough for light usage.
+   - **Memory optimization environment variables:**
+     - `MAX_CONCURRENT_REQUESTS=2` - Limit concurrent requests (default: 2)
+     - `MAX_REQUESTS=1000` - Auto-restart after N requests to prevent leaks (default: 1000)
+     - `TOXICITY_BATCH_SIZE=1` - Batch size for toxicity evaluation (default: 1 for lightweight mode)
+     - `LIGHTWEIGHT_EVAL_MODE=true` - Use lightweight models (default: true)
 5. **Deploy and verify.**
    - Hit `https://<render-service>.onrender.com/health`.
    - Point clients to `LANGFAIR_SERVICE_URL=https://<render-service>.onrender.com`.

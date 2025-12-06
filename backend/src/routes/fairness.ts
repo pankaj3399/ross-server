@@ -4,6 +4,7 @@ import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 
 const router = Router();
 
@@ -26,12 +27,18 @@ const evaluateApiSchema = z.object({
     apiKeyFieldName: z.string().nullable().optional(),
 });
 
+// Dataset evaluation schema
+const evaluateDatasetSchema = z.object({
+    projectId: z.string().uuid(),
+    fileName: z.string().min(1, "File name is required"),
+    csvText: z.string().min(1, "CSV text is required"),
+});
+
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
 
 // Initialize Gemini client only if configured to avoid crashing when unset
 let genAI: GoogleGenerativeAI | null = null;
 if (!process.env.GEMINI_API_KEY) {
-    // eslint-disable-next-line no-console
     console.warn("GEMINI_API_KEY is not set; fairness evaluation routes will be disabled.");
 } else {
     genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -353,6 +360,374 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
             return res.status(400).json({ error: "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to evaluate response"         });
+    }
+});
+
+// POST /fairness/dataset-evaluate - Evaluate dataset fairness from CSV
+router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
+    try {
+        const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
+        const userId = req.user!.id;
+
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+
+        if (projectCheck.rows.length === 0) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        // Parse CSV to analyze data
+        const parsed = parseCSV(csvText);
+        const { headers, rows } = parsed;
+
+        // Evaluate dataset fairness
+        const fairnessAssessment = evaluateDatasetFairness(csvText);
+
+        // Calculate overall fairness score based on verdict
+        const getScoreFromVerdict = (verdict: string): number => {
+            switch (verdict) {
+                case "pass":
+                    return 0.2; 
+                case "caution":
+                    return 0.5; 
+                case "fail":
+                    return 0.8; 
+                default:
+                    return 0.5; 
+            }
+        };
+
+        const getLabelFromScore = (score: number): "low" | "moderate" | "high" => {
+            if (score < 0.4) return "low";
+            if (score < 0.7) return "moderate";
+            return "high";
+        };
+
+        const getLabelFromPositiveScore = (score: number): "low" | "moderate" | "high" => {
+            // For positive metrics, higher is better
+            if (score < 0.4) return "low";
+            if (score < 0.7) return "moderate";
+            return "high";
+        };
+
+        // Helper function to evaluate metric with Gemini
+        async function evaluateMetricWithGemini(
+            metricName: string,
+            text: string,
+            evaluationPrompt: string
+        ): Promise<{ score: number; reason: string }> {
+            if (!genAI) {
+                return { score: 0, reason: "Gemini is not configured" };
+            }
+
+            const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro"];
+            let lastError: any = null;
+
+            for (const modelName of modelsToTry) {
+                try {
+                    const model = genAI.getGenerativeModel({ model: modelName });
+                    const prompt = `${evaluationPrompt}\n\nText to evaluate: ${text}\n\nEvaluate this text and provide:\n1. A score from 0.0 to 1.0 (where 0 is best/worst depending on metric)\n2. A brief reasoning explanation\n\nIMPORTANT: Respond ONLY in valid JSON format without markdown formatting: {"score": 0.5, "reason": "explanation here"}`;
+
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const content = response.text();
+
+                    if (!content) {
+                        throw new Error("No response from Gemini");
+                    }
+
+                    let cleanedContent = content.trim();
+                    if (cleanedContent.startsWith("```json")) {
+                        cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+                    } else if (cleanedContent.startsWith("```")) {
+                        cleanedContent = cleanedContent.replace(/```\n?/g, "").trim();
+                    }
+
+                    const resultObj = JSON.parse(cleanedContent);
+                    const finalScore = Math.max(0, Math.min(1, parseFloat(resultObj.score) || 0));
+                    
+                    return {
+                        score: finalScore,
+                        reason: resultObj.reason || "No reasoning provided",
+                    };
+                } catch (error: any) {
+                    lastError = error;
+                    continue;
+                }
+            }
+
+            return { 
+                score: 0, 
+                reason: `Evaluation failed: ${lastError?.message || 'Unknown error'}` 
+            };
+        }
+
+        // Helper function to generate explanation using Gemini
+        async function generateExplanationWithGemini(
+            metricName: string,
+            score: number,
+            label: string,
+            context: string,
+            dataSummary: string
+        ): Promise<string> {
+            if (!genAI) {
+                return `Gemini is not configured. ${context}`;
+            }
+
+            const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro"];
+            let lastError: any = null;
+
+            for (const modelName of modelsToTry) {
+                try {
+                    const model = genAI.getGenerativeModel({ model: modelName });
+                    const prompt = `You are an expert evaluator providing explanations for dataset fairness metrics.
+
+Metric: ${metricName}
+Score: ${score.toFixed(3)} (0.0 to 1.0 scale)
+Label: ${label}
+
+Context: ${context}
+
+Dataset Summary: ${dataSummary}
+
+Provide a clear, concise explanation (2-3 sentences) for this ${metricName} evaluation result. Explain what the score means and why it received this rating based on the dataset characteristics.
+
+IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatting, just plain text.`;
+
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const content = response.text();
+
+                    if (content && content.trim().length > 0) {
+                        return content.trim();
+                    }
+                } catch (error: any) {
+                    lastError = error;
+                    continue;
+                }
+            }
+
+            return context; // Fallback to context if Gemini fails
+        }
+
+        // Prepare dataset summary for Gemini explanations
+        const datasetSummary = `Dataset contains ${rows.length} rows and ${headers.length} columns. ` +
+            `Sensitive columns detected: ${fairnessAssessment.sensitiveColumns.length}. ` +
+            `Overall verdict: ${fairnessAssessment.overallVerdict}. ` +
+            `Columns: ${headers.slice(0, 5).join(", ")}${headers.length > 5 ? "..." : ""}`;
+
+        // Calculate scores based on fairness assessment
+        const overallScore = getScoreFromVerdict(fairnessAssessment.overallVerdict);
+        const fairnessLabel = getLabelFromScore(overallScore);
+        const fairnessContext = `The dataset fairness assessment resulted in a "${fairnessAssessment.overallVerdict}" verdict with a score of ${overallScore.toFixed(3)}. ` +
+            `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`;
+        
+        const fairnessExplanation = await generateExplanationWithGemini(
+            "Fairness",
+            overallScore,
+            fairnessLabel,
+            fairnessContext,
+            datasetSummary
+        );
+
+        const fairnessResult = {
+            score: overallScore,
+            label: fairnessLabel,
+            explanation: fairnessExplanation,
+        };
+
+        // Calculate biasness score from sensitive columns
+        const maxDisparity = fairnessAssessment.sensitiveColumns.length > 0
+            ? Math.max(...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
+            : 0;
+        const biasnessScore = Math.min(1, maxDisparity * 2); // Scale disparity to 0-1
+        const biasnessLabel = getLabelFromScore(biasnessScore);
+        const biasnessContext = maxDisparity > 0
+            ? `Maximum disparity of ${(maxDisparity * 100).toFixed(1)}% detected across sensitive groups. ` +
+              `Sensitive columns analyzed: ${fairnessAssessment.sensitiveColumns.map(col => col.column).join(", ")}.`
+            : "No significant bias detected in sensitive columns. The dataset shows relatively balanced representation across demographic groups.";
+        
+        const biasnessExplanation = await generateExplanationWithGemini(
+            "Biasness",
+            biasnessScore,
+            biasnessLabel,
+            biasnessContext,
+            datasetSummary
+        );
+
+        const biasness = {
+            score: biasnessScore,
+            label: biasnessLabel,
+            explanation: biasnessExplanation,
+        };
+
+        // Extract text content from CSV for evaluation
+        // Combine all text fields from rows (sample up to 20 rows to avoid too much data)
+        const sampleRows = rows.slice(0, Math.min(20, rows.length));
+        const textContent = sampleRows
+            .map(row => 
+                Object.values(row)
+                    .filter(val => val && val.trim().length > 0)
+                    .join(" ")
+            )
+            .filter(text => text.length > 0)
+            .join("\n");
+
+        // Evaluate toxicity from actual CSV data using only Gemini
+        let toxicityScore = 0;
+        let toxicityExplanation = "No text content found in dataset";
+        
+        if (textContent.length > 0) {
+            const toxicityPrompt = `You are an expert evaluator assessing toxicity in dataset content. Evaluate if the text contains toxic, harmful, or offensive language. Score: 0.0 = no toxicity, 1.0 = highly toxic.`;
+            
+            const geminiToxicityResult = await evaluateMetricWithGemini("Toxicity", textContent, toxicityPrompt);
+            toxicityScore = geminiToxicityResult.score;
+            
+            const toxicityLabel = getLabelFromScore(toxicityScore);
+            const toxicityContext = `Toxicity evaluation of dataset content resulted in a score of ${toxicityScore.toFixed(3)}. ` +
+                `The dataset contains ${sampleRows.length} sampled rows with text content. ` +
+                `${geminiToxicityResult.reason}`;
+            
+            toxicityExplanation = await generateExplanationWithGemini(
+                "Toxicity",
+                toxicityScore,
+                toxicityLabel,
+                toxicityContext,
+                datasetSummary
+            );
+        }
+
+        const toxicity = {
+            score: Math.max(0, Math.min(1, toxicityScore)),
+            label: getLabelFromScore(toxicityScore),
+            explanation: toxicityExplanation,
+        };
+
+        // Evaluate relevancy based on data structure and content
+        let relevancyScore = 0.5;
+        let relevancyExplanation = "Insufficient data to assess relevancy";
+        
+        if (rows.length > 0 && headers.length > 0) {
+            // Check if dataset has relevant structure for fairness evaluation
+            const hasSensitiveColumns = fairnessAssessment.sensitiveColumns.length > 0;
+            const hasOutcomeColumn = fairnessAssessment.overallVerdict !== "insufficient";
+            const hasEnoughData = rows.length >= 10;
+            const hasMultipleGroups = fairnessAssessment.sensitiveColumns.some(col => col.groups.length >= 2);
+            
+            let relevancyFactors = 0;
+            if (hasSensitiveColumns) relevancyFactors += 0.3;
+            if (hasOutcomeColumn) relevancyFactors += 0.3;
+            if (hasEnoughData) relevancyFactors += 0.2;
+            if (hasMultipleGroups) relevancyFactors += 0.2;
+            
+            relevancyScore = relevancyFactors;
+            
+            const factors = [];
+            if (hasSensitiveColumns) factors.push("contains sensitive demographic columns");
+            if (hasOutcomeColumn) factors.push("has identifiable outcome column");
+            if (hasEnoughData) factors.push("has sufficient data points");
+            if (hasMultipleGroups) factors.push("has multiple groups for comparison");
+            
+            const relevancyLabel = getLabelFromPositiveScore(relevancyScore);
+            const relevancyContext = `Relevancy assessment for fairness evaluation. ` +
+                `Score: ${relevancyScore.toFixed(3)}. ` +
+                (factors.length > 0
+                    ? `Dataset is relevant for fairness evaluation: ${factors.join(", ")}.`
+                    : "Dataset structure may not be optimal for fairness evaluation.");
+            
+            relevancyExplanation = await generateExplanationWithGemini(
+                "Relevancy",
+                relevancyScore,
+                relevancyLabel,
+                relevancyContext,
+                datasetSummary
+            );
+        }
+
+        const relevance = {
+            score: Math.max(0, Math.min(1, relevancyScore)),
+            label: getLabelFromPositiveScore(relevancyScore),
+            explanation: relevancyExplanation,
+        };
+
+        // Evaluate faithfulness based on data consistency and validity
+        let faithfulnessScore = 0.5;
+        let faithfulnessExplanation = "Insufficient data to assess faithfulness";
+        
+        if (rows.length > 0 && headers.length > 0) {
+            // Check data consistency
+            const totalCells = rows.length * headers.length;
+            const emptyCells = rows.reduce((count, row) => {
+                return count + headers.filter(header => !row[header] || row[header].trim() === "").length;
+            }, 0);
+            
+            const completeness = 1 - (emptyCells / totalCells);
+            
+            // Check for consistent data types per column
+            let typeConsistency = 1;
+            headers.forEach(header => {
+                const values = rows.map(row => row[header]).filter(v => v && v.trim());
+                if (values.length > 0) {
+                    const numericCount = values.filter(v => !isNaN(Number(v))).length;
+                    const numericRatio = numericCount / values.length;
+                    // If column is mostly numeric or mostly text, it's consistent
+                    typeConsistency *= Math.max(numericRatio, 1 - numericRatio);
+                }
+            });
+            
+            // Check for duplicate rows (may indicate data quality issues)
+            const uniqueRows = new Set(rows.map(row => JSON.stringify(row)));
+            const uniqueness = uniqueRows.size / rows.length;
+            
+            faithfulnessScore = (completeness * 0.4) + (typeConsistency * 0.3) + (uniqueness * 0.3);
+            
+            const issues = [];
+            if (completeness < 0.8) issues.push(`${((1 - completeness) * 100).toFixed(1)}% missing values`);
+            if (typeConsistency < 0.7) issues.push("inconsistent data types");
+            if (uniqueness < 0.9) issues.push(`${((1 - uniqueness) * 100).toFixed(1)}% duplicate rows`);
+            
+            const faithfulnessLabel = getLabelFromPositiveScore(faithfulnessScore);
+            const faithfulnessContext = `Faithfulness assessment based on data quality metrics. ` +
+                `Score: ${faithfulnessScore.toFixed(3)}. ` +
+                (issues.length > 0
+                    ? `Data quality concerns: ${issues.join(", ")}.`
+                    : `Data appears consistent: ${(completeness * 100).toFixed(1)}% complete, ${(typeConsistency * 100).toFixed(1)}% type consistency, ${(uniqueness * 100).toFixed(1)}% unique rows.`);
+            
+            faithfulnessExplanation = await generateExplanationWithGemini(
+                "Faithfulness",
+                faithfulnessScore,
+                faithfulnessLabel,
+                faithfulnessContext,
+                datasetSummary
+            );
+        }
+
+        const faithfulness = {
+            score: Math.max(0, Math.min(1, faithfulnessScore)),
+            label: getLabelFromPositiveScore(faithfulnessScore),
+            explanation: faithfulnessExplanation,
+        };
+
+        res.json({
+            fairness: {
+                overallVerdict: fairnessAssessment.overallVerdict,
+                sensitiveColumns: fairnessAssessment.sensitiveColumns,
+            },
+            fairnessResult,
+            biasness,
+            toxicity,
+            relevance,
+            faithfulness,
+        });
+    } catch (error) {
+        console.error("Error evaluating dataset fairness:", error);
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: "Validation failed", details: error.errors });
+        }
+        res.status(500).json({ error: "Failed to evaluate dataset fairness" });
     }
 });
 

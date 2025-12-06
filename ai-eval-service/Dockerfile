@@ -62,6 +62,11 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Run the application
 # Use --host 0.0.0.0 to allow external connections
 # PORT can be set via environment variable (defaults to 8000)
+# Memory-optimized settings for 512MB RAM:
+# - Single worker (workers=1)
+# - Limited concurrency (limit-concurrency=2)
+# - No access logs (saves memory)
+# - Auto-restart after 1000 requests to prevent memory leaks
 # Using shell form to allow environment variable expansion
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency ${MAX_CONCURRENT_REQUESTS:-2} --limit-max-requests ${MAX_REQUESTS:-1000} --no-access-log"]
 

@@ -16,6 +16,8 @@ Why this exists:
 """
 
 import os
+import logging
+import gc
 from typing import Dict, Any, Optional, List
 
 # Counterfactual generation requires LLM which has version conflicts
@@ -35,6 +37,9 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 # Why? So we can use GEMINI_API_KEY without hardcoding it
 load_dotenv()
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 def _parse_bool_env(var_name: str, default: bool = False) -> bool:
@@ -86,10 +91,12 @@ class LangFairEvaluator:
         self.lightweight_mode = _parse_bool_env("LIGHTWEIGHT_EVAL_MODE", default=True)
 
         toxicity_classifiers = self._resolve_toxicity_classifiers()
+        # Further reduce batch size for 512MB RAM constraint
+        # Process one response at a time to minimize memory usage
         toxicity_batch_size = int(
             os.getenv(
                 "TOXICITY_BATCH_SIZE",
-                "32" if self.lightweight_mode else "250",
+                "1" if self.lightweight_mode else "8",  # Reduced from 32/250 to 1/8
             )
         )
 
@@ -122,10 +129,10 @@ class LangFairEvaluator:
                 )
                 self.counterfactual_generator = CounterfactualGenerator(langchain_llm=self.llm)
             except Exception as e:
-                print(f"Warning: Could not initialize LLM for counterfactual generation: {e}")
-                print("Counterfactual evaluation will be disabled. Toxicity and stereotype metrics will still work.")
+                logger.warning(f"Could not initialize LLM for counterfactual generation: {e}")
+                logger.warning("Counterfactual evaluation will be disabled. Toxicity and stereotype metrics will still work.")
         else:
-            print("Note: Counterfactual evaluation is disabled. Toxicity and stereotype metrics are available.")
+            logger.info("Counterfactual evaluation is disabled. Toxicity and stereotype metrics are available.")
     
     async def evaluate_response(
         self,
@@ -176,9 +183,9 @@ class LangFairEvaluator:
             )
             toxicity_metrics = toxicity_result.get('metrics', {})
         except Exception as e:
-            print(f"Error evaluating toxicity: {e}")
-            import traceback
-            traceback.print_exc()
+            # Log error without full traceback to save memory
+            error_msg = str(e)[:200]  # Limit error message length
+            logger.error(f"Error evaluating toxicity: {error_msg}", exc_info=False)
             # Return default values on error
             toxicity_metrics = {
                 "Toxic Fraction": 0.0,
@@ -206,9 +213,9 @@ class LangFairEvaluator:
             )
             stereotype_metrics = stereotype_result.get('metrics', {})
         except Exception as e:
-            print(f"Error evaluating stereotypes: {e}")
-            import traceback
-            traceback.print_exc()
+            # Log error without full traceback to save memory
+            error_msg = str(e)[:200]  # Limit error message length
+            logger.error(f"Error evaluating stereotypes: {error_msg}", exc_info=False)
             # Return default values on error
             stereotype_metrics = {
                 "Stereotype Association": 0.0,
@@ -228,7 +235,7 @@ class LangFairEvaluator:
                 cf_generations = await self.counterfactual_generator.generate_responses(
                     prompts=prompts,
                     attribute=langfair_category,
-                    count=5  # Generate 5 counterfactual pairs (less than standard 25 for speed)
+                    count=2  # Reduced from 5 to 2 for memory optimization (512MB RAM constraint)
                 )
                 
                 # Extract male/female or other attribute pairs
@@ -248,11 +255,13 @@ class LangFairEvaluator:
                 )
                 counterfactual_metrics = cf_result.get('metrics', {})
             except Exception as e:
-                print(f"Counterfactual evaluation failed: {e}")
-                counterfactual_metrics = {"error": str(e)}
+                # Log error without full traceback to save memory
+                error_msg = str(e)[:200]  # Limit error message length
+                logger.error(f"Counterfactual evaluation failed: {error_msg}", exc_info=False)
+                counterfactual_metrics = {"error": error_msg}
         
         # Format the response in a way our Node.js backend expects
-        return {
+        result = {
             "success": True,
             "metrics": {
                 "toxicity": self._format_toxicity_metrics(toxicity_metrics),
@@ -260,6 +269,19 @@ class LangFairEvaluator:
                 "counterfactual": self._format_counterfactual_metrics(counterfactual_metrics) if counterfactual_metrics else {},
             },
         }
+        
+        # Clear large intermediate variables to free memory
+        # Use try/except to handle cases where variables might not exist
+        try:
+            del prompts, responses
+        except NameError:
+            pass
+        
+        # Suggest garbage collection periodically (Python will decide if it's needed)
+        # Only collect every N requests to avoid overhead
+        gc.collect()
+        
+        return result
 
     def _resolve_toxicity_classifiers(self) -> List[str]:
         """

@@ -18,11 +18,37 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional
 import os
+import logging
+import sys
 from dotenv import load_dotenv
 from evaluator import LangFairEvaluator
 
 # Load environment variables
 load_dotenv()
+
+# Configure logging to prevent memory accumulation
+# Use stderr with limited buffer, no file logging to avoid disk I/O
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)  # Use stderr, not stdout
+    ],
+    force=True  # Override any existing configuration
+)
+logger = logging.getLogger(__name__)
+
+# Limit log message length to prevent memory issues
+class MemoryLimitedFormatter(logging.Formatter):
+    def format(self, record):
+        # Truncate very long messages
+        if hasattr(record, 'msg') and isinstance(record.msg, str) and len(record.msg) > 500:
+            record.msg = record.msg[:500] + "... [truncated]"
+        return super().format(record)
+
+# Apply formatter to all handlers
+for handler in logging.root.handlers:
+    handler.setFormatter(MemoryLimitedFormatter())
 
 # Create FastAPI app
 # Why FastAPI? It's modern, fast, and has great documentation features
@@ -56,11 +82,9 @@ def get_evaluator():
     if evaluator is None:
         try:
             evaluator = LangFairEvaluator()
-            print("✅ LangFair evaluator initialized successfully")
+            logger.info("LangFair evaluator initialized successfully")
         except Exception as e:
-            print(f"❌ Failed to initialize evaluator: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"Failed to initialize evaluator: {e}", exc_info=False)  # exc_info=False to save memory
             raise
     return evaluator
 
@@ -141,20 +165,19 @@ async def evaluate(request: EvaluateRequest):
     
     except ValueError as e:
         # Handle validation errors (e.g., missing API key, empty input)
-        print(f"Validation error: {e}")
-        import traceback
-        traceback.print_exc()
+        # Use logger with exc_info=False to avoid storing full traceback in memory
+        logger.warning(f"Validation error: {e}", exc_info=False)
         raise HTTPException(
             status_code=400,
             detail=f"Validation error: {str(e)}"
         )
     except Exception as e:
         # Handle any other errors
-        print(f"Error during evaluation: {e}")
-        import traceback
-        traceback.print_exc()
+        # Log only error message, not full traceback to save memory
+        error_msg = str(e)[:200]  # Limit error message length
+        logger.error(f"Error during evaluation: {error_msg}", exc_info=False)
         # Return more detailed error for debugging
-        error_detail = f"Evaluation failed: {str(e)}"
+        error_detail = f"Evaluation failed: {error_msg}"
         if hasattr(e, '__class__'):
             error_detail += f" (Type: {e.__class__.__name__})"
         raise HTTPException(
@@ -170,10 +193,18 @@ if __name__ == "__main__":
     # In production (Render), PORT is set by Render, reload should be False
     # In development, reload=True for auto-restart on code changes
     is_production = os.getenv("RENDER") is not None or os.getenv("ENV") == "production"
+    
+    # Memory-optimized settings for 512MB RAM
+    # Single worker, limited connections, no access logs (saves memory)
     uvicorn.run(
         "main:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8000)),
-        reload=not is_production  # Auto-reload only in development
+        reload=not is_production,  # Auto-reload only in development
+        workers=1,  # Single worker for low memory
+        limit_concurrency=int(os.getenv("MAX_CONCURRENT_REQUESTS", "2")),  # Limit concurrent requests
+        limit_max_requests=int(os.getenv("MAX_REQUESTS", "1000")),  # Restart after N requests to prevent leaks
+        access_log=False,  # Disable access logs to save memory
+        log_level="info"
     )
 
