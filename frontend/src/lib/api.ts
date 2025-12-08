@@ -515,6 +515,36 @@ class ApiService {
     }>(`/fairness/jobs/${jobId}`);
   }
 
+  async getJobs(projectId: string): Promise<{
+    success: boolean;
+    jobs: Array<{
+      jobId: string;
+      status: "queued" | "running" | "completed";
+      progress: string;
+      percent: number;
+      lastProcessedPrompt: string | null;
+      totalPrompts: number;
+      createdAt: string;
+      updatedAt: string;
+    }>;
+    count: number;
+  }> {
+    return this.request<{
+      success: boolean;
+      jobs: Array<{
+        jobId: string;
+        status: "queued" | "running" | "completed";
+        progress: string;
+        percent: number;
+        lastProcessedPrompt: string | null;
+        totalPrompts: number;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      count: number;
+    }>(`/fairness/jobs/project/${projectId}`);
+  }
+
   // Assessment Answers
   async saveAnswers(
     projectId: string,

@@ -180,23 +180,31 @@ export default function ApiEndpointPage() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-              className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                API Automated Testing
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Test your model's API endpoint for fairness and bias
-              </p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </button>
+              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  API Automated Testing
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Test your model's API endpoint for fairness and bias
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint/pending-jobs`)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+            >
+              Show all pending jobs
+            </button>
           </div>
         </div>
       </div>

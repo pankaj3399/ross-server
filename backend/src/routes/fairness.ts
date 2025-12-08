@@ -863,6 +863,64 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
     }
 });
 
+// GET /fairness/jobs/project/:projectId - Get all jobs for a user and project
+router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.user!.id;
+
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+
+        if (projectCheck.rows.length === 0) {
+            return res.status(403).json({ error: "Project not found or access denied" });
+        }
+
+        // Fetch all jobs (queued, running, completed) for this project and user
+        const result = await pool.query(
+            `SELECT 
+                id,
+                job_id,
+                user_id,
+                project_id,
+                status,
+                total_prompts,
+                progress,
+                last_processed_prompt,
+                percent,
+                created_at,
+                updated_at
+            FROM evaluation_status
+            WHERE project_id = $1 AND user_id = $2 AND status IN ('queued', 'running', 'completed')
+            ORDER BY created_at DESC`,
+            [projectId, userId]
+        );
+
+        const jobs = result.rows.map(row => ({
+            jobId: row.job_id,
+            status: row.status as "queued" | "running" | "completed",
+            progress: row.progress || "0/0",
+            percent: row.percent || 0,
+            lastProcessedPrompt: row.last_processed_prompt || null,
+            totalPrompts: row.total_prompts || 0,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+        }));
+
+        res.json({
+            success: true,
+            jobs,
+            count: jobs.length,
+        });
+    } catch (error: any) {
+        console.error("Error fetching pending jobs:", error);
+        res.status(500).json({ error: "Failed to fetch pending jobs" });
+    }
+});
+
 // GET /fairness/evaluations/:projectId - Get all evaluations for a project
 router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
     try {
