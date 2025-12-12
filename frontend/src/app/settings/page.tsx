@@ -18,10 +18,15 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
+  CreditCard,
+  Crown,
+  ArrowRight,
+  X,
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
 import { apiService } from "../../lib/api";
 import { SimplePageSkeleton } from "../../components/Skeleton";
+import Link from "next/link";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -174,7 +179,7 @@ export default function SettingsPage() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validatePasswordForm()) return;
 
     setPasswordLoading(true);
@@ -185,7 +190,7 @@ export default function SettingsPage() {
         passwordForm.currentPassword,
         passwordForm.newPassword
       );
-      
+
       setPasswordSuccess(true);
       showToast.success("Password changed successfully!");
       setPasswordForm({
@@ -193,7 +198,7 @@ export default function SettingsPage() {
         newPassword: "",
         confirmPassword: "",
       });
-      
+
       setTimeout(() => {
         setPasswordSuccess(false);
         setShowChangePassword(false);
@@ -368,17 +373,16 @@ export default function SettingsPage() {
                     whileTap={{ scale: 0.95 }}
                     onClick={handleMFAToggle}
                     disabled={mfaLoading}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                      user?.mfa_enabled
-                        ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
-                        : "bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${user?.mfa_enabled
+                      ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
+                      : "bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {mfaLoading
                       ? "Loading..."
                       : user?.mfa_enabled
-                      ? "Disable"
-                      : "Enable"}
+                        ? "Disable"
+                        : "Enable"}
                   </motion.button>
                 </div>
               </div>
@@ -604,6 +608,67 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Subscription Management Section */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                <Crown className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Subscription
+                </h2>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Current Plan
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">
+                      {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
+                        user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
+                          'Free'}
+                    </p>
+                    {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
+                      <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                        ⭐ PREMIUM
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+
+              {user?.subscription_status === 'free' && (
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                    Upgrade to premium to access advanced features and manage your subscription.
+                  </p>
+                  <Link href="/dashboard">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full flex items-center justify-center space-x-2 p-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-all duration-300"
+                    >
+                      <Crown className="w-4 h-4" />
+                      <span>Upgrade to Premium</span>
+                    </motion.button>
+                  </Link>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Manage your subscription, update payment methods, view invoices, and cancel or change your plan through Stripe's secure billing portal.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Notifications Section */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
             <div className="flex items-center space-x-4 mb-6">
@@ -627,11 +692,10 @@ export default function SettingsPage() {
                     <p className="font-medium text-gray-900 dark:text-white">
                       Email Notifications
                     </p>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      emailNotifications 
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${emailNotifications
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      }`}>
                       {emailNotifications ? 'Enabled' : 'Disabled'}
                     </div>
                   </div>
@@ -639,24 +703,23 @@ export default function SettingsPage() {
                     Receive updates about your assessments
                   </p>
                 </div>
-                <motion.div 
+                <motion.div
                   className="relative inline-block w-12 h-6"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <input 
-                    type="checkbox" 
-                    className="sr-only" 
+                  <input
+                    type="checkbox"
+                    className="sr-only"
                     checked={emailNotifications}
                     onChange={handleEmailNotificationsToggle}
                   />
-                  <div 
-                    className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 cursor-pointer ${
-                      emailNotifications ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
+                  <div
+                    className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 cursor-pointer ${emailNotifications ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
                     onClick={handleEmailNotificationsToggle}
                   ></div>
-                  <motion.div 
+                  <motion.div
                     className="absolute top-1 w-4 h-4 bg-white rounded-full shadow cursor-pointer"
                     animate={{
                       x: emailNotifications ? 20 : 4

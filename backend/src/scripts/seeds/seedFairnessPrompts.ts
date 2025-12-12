@@ -83,7 +83,7 @@ export async function seedFairnessQuestions() {
                     "SELECT id FROM fairness_questions WHERE label = $1 AND prompt = $2 LIMIT 1",
                     [fairness.label, prompt]
                 );
-                
+
                 if (existingCheck.rows.length === 0) {
                     await pool.query(
                         "INSERT INTO fairness_questions (label, prompt, version_id) VALUES ($1, $2, $3)",

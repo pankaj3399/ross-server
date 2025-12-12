@@ -10,6 +10,7 @@ import { usePriceStore } from "../store/priceStore";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 
 interface UnlockPremiumProps {
   onClose?: () => void;
@@ -23,6 +24,16 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
   // Use prices from store if available, otherwise fetch
   const prices = storePrices;
   const loadingPrices = storeLoading;
+
+  const saveReturnUrlForCheckout = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      localStorage.setItem(POST_CHECKOUT_RETURN_URL_KEY, currentUrl);
+    } catch (error) {
+      console.error("Failed to save return URL:", error);
+    }
+  };
 
   useEffect(() => {
     // Only fetch if not already fetched
@@ -92,6 +103,7 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
   const handleSelectPlan = async (priceId: string, planName: string) => {
     try {
       setUpgradingPlan(planName);
+      saveReturnUrlForCheckout();
       const { url } = await apiService.createCheckoutSession(priceId);
       window.location.href = url;
     } catch (error) {
