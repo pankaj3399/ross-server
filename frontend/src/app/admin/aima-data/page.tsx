@@ -48,6 +48,31 @@ interface AIMAResponse {
   };
 }
 
+const DOMAIN_DISPLAY_ORDER = [
+  "Responsible AI Principles",
+  "Governance",
+  "Data Management",
+  "Privacy",
+  "Design",
+  "Implementation",
+  "Verification",
+  "Operations",
+];
+
+const sortDomainsByOrder = (domains: Domain[]) => {
+  const orderMap = new Map(
+    DOMAIN_DISPLAY_ORDER.map((title, index) => [title.toLowerCase(), index]),
+  );
+  const fallbackIndex = DOMAIN_DISPLAY_ORDER.length;
+
+  return [...domains].sort((a, b) => {
+    const aIndex = orderMap.get(a.title.toLowerCase()) ?? fallbackIndex;
+    const bIndex = orderMap.get(b.title.toLowerCase()) ?? fallbackIndex;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.title.localeCompare(b.title);
+  });
+};
+
 export default function AdminQuestions() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { theme } = useTheme();
@@ -576,7 +601,13 @@ export default function AdminQuestions() {
         const data: AIMAResponse = await response.json();
 
         if (data.success) {
-          setAimaData(data);
+          setAimaData({
+            ...data,
+            data: {
+              ...data.data,
+              domains: sortDomainsByOrder(data.data.domains),
+            },
+          });
         } else {
           throw new Error("Failed to fetch AIMA data");
         }

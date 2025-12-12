@@ -29,8 +29,15 @@ export default function AuthPage() {
     backupCode: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    const form = e.currentTarget;
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -214,11 +221,16 @@ export default function AuthPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                   />
-                  <button className="absolute right-4" onClick={(e) => {
-                    e.preventDefault()
-                    setShowPassword(prev => !prev)
-                  }
-                  }>{showPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}</button>
+                  <button
+                    type="button"
+                    className="absolute right-4"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setShowPassword(prev => !prev)
+                    }}
+                  >
+                    {showPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}
+                  </button>
                 </div>
               </div>
             </div>
@@ -242,10 +254,16 @@ export default function AuthPage() {
                     onChange={handleChange}
                     className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
                   />
-                  <button className="absolute right-4" onClick={(e) => {
-                    e.preventDefault()
-                    setShowConfirmPassword(prev => !prev)
-                  }}>{showConfirmPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}</button>
+                  <button
+                    type="button"
+                    className="absolute right-4"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setShowConfirmPassword(prev => !prev)
+                    }}
+                  >
+                    {showConfirmPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}
+                  </button>
                 </div>
               </div>
             </div>}

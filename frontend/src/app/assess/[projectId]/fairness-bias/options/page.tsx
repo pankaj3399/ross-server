@@ -12,7 +12,7 @@ import {
   Github,
   CheckCircle,
 } from "lucide-react";
-import UnlockPremium from "../../../../../components/UnlockPremium";
+import SubscriptionModal from "../../../../../components/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
 
 type TestMethod = 
@@ -28,9 +28,17 @@ export default function FairnessBiasOptions() {
   const { user, loading } = useAuth();
   const projectId = params.projectId as string;
   const [selectedMethod, setSelectedMethod] = useState<TestMethod>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+
+  // Show subscription modal for non-premium users
+  useEffect(() => {
+    if (!loading && user && !isPremium) {
+      setShowSubscriptionModal(true);
+    }
+  }, [loading, user, isPremium]);
 
   const handleMethodSelect = (method: TestMethod) => {
     setSelectedMethod(method);
@@ -211,26 +219,14 @@ export default function FairnessBiasOptions() {
         </div>
       </div>
 
-      {/* Upgrade Overlay for Non-Premium Users */}
-      {!isPremium && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/10 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-2xl">
-            <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">
-                Upgrade to Unlock This Page
-              </h2>
-              <p className="text-white/90 text-lg drop-shadow-md">
-                Get access to Fairness & Bias Test and unlock advanced features
-              </p>
-            </div>
-            <UnlockPremium
-              featureName="Fairness & Bias Test"
-              onClose={() => router.push(`/assess/${projectId}`)}
-            />
-          </div>
-        </div>
-      )}
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => {
+          setShowSubscriptionModal(false);
+          router.push(`/assess/${projectId}/fairness-bias/options`);
+        }}
+      />
     </div>
   );
 }

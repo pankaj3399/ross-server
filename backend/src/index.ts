@@ -11,7 +11,7 @@ import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
 import publicRouter from "./routes/public";
 import { seedAIMAData } from "./scripts/seeds/seedAIMA"
-import subscriptionsWebhookRouter from "./routes/subscriptionsWebhook";
+import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
 import { initializeDatabase } from "./utils/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 
@@ -21,16 +21,20 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+app.post(
+  "/webhook",
+  express.raw({ type: "application/json" }),
+  subscriptionsWebhookHandler
+);
 
-app.use("/webhook", subscriptionsWebhookRouter);
+app.use(cors());
 
 app.use(express.json());
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "matur-ai-backend" });
-});
+}); 
 
 
 app.use("/auth", authRouter);

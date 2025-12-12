@@ -118,40 +118,42 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const defaultDomainId = orderedDomains[0]?.id;
   const activeDomainId = currentDomainId ?? defaultDomainId;
 
-  const [expandedDomains, setExpandedDomains] = useState<Set<string>>(
-    () => new Set(activeDomainId ? [activeDomainId] : []),
+  const [expandedDomainId, setExpandedDomainId] = useState<string | null>(
+    activeDomainId ?? null,
   );
-  const [expandedPractices, setExpandedPractices] = useState<Set<string>>(
-    new Set([currentPracticeId || '']),
+  const [expandedPractices, setExpandedPractices] = useState<
+    Record<string, string | null>
+  >(() =>
+    activeDomainId && currentPracticeId
+      ? { [activeDomainId]: currentPracticeId }
+      : {},
   );
 
   // Refs for scrolling to current question
   const currentQuestionRef = useRef<HTMLDivElement>(null);
 
-  // Keep the active domain expanded
+  // Keep the active domain expanded when navigation changes it
   useEffect(() => {
-    if (!activeDomainId) return;
-    setExpandedDomains((prev) => {
-      if (prev.size === 1 && prev.has(activeDomainId)) {
-        return prev;
-      }
-      return new Set([activeDomainId]);
-    });
-  }, [activeDomainId]);
-
-  // Keep the active practice expanded
-  useEffect(() => {
-    if (!currentPracticeId) {
-      setExpandedPractices(new Set());
+    if (!activeDomainId) {
+      setExpandedDomainId(null);
       return;
     }
+    setExpandedDomainId((prev) =>
+      prev === activeDomainId ? prev : activeDomainId,
+    );
+  }, [activeDomainId]);
+
+  // Keep the active practice expanded when navigation changes it
+  useEffect(() => {
+    if (!activeDomainId) return;
+    if (currentPracticeId === undefined) return;
+
     setExpandedPractices((prev) => {
-      if (prev.size === 1 && prev.has(currentPracticeId)) {
-        return prev;
-      }
-      return new Set([currentPracticeId]);
+      const current = prev[activeDomainId];
+      if (current === currentPracticeId) return prev;
+      return { ...prev, [activeDomainId]: currentPracticeId ?? null };
     });
-  }, [currentPracticeId]);
+  }, [activeDomainId, currentPracticeId]);
 
   // Scroll the tree to keep the active question centered
   useEffect(() => {
@@ -169,26 +171,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   }, [activeDomainId, currentPracticeId, currentQuestionIndex]);
 
   const toggleDomain = (domainId: string) => {
-    setExpandedDomains((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(domainId)) {
-        newSet.delete(domainId);
-      } else {
-        newSet.add(domainId);
-      }
-      return newSet;
-    });
+    setExpandedDomainId((prev) => (prev === domainId ? null : domainId));
   };
 
-  const togglePractice = (practiceId: string) => {
+  const togglePractice = (domainId: string, practiceId: string) => {
     setExpandedPractices((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(practiceId)) {
-        newSet.delete(practiceId);
-      } else {
-        newSet.add(practiceId);
-      }
-      return newSet;
+      const current = prev[domainId];
+      return { ...prev, [domainId]: current === practiceId ? null : practiceId };
     });
   };
 
@@ -221,8 +210,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         <div className="space-y-2">
           {orderedDomains.map((domain) => {
             const isDomainActive = activeDomainId === domain.id;
-            const isDomainExpanded =
-              expandedDomains.has(domain.id) || isDomainActive;
+            const isDomainExpanded = expandedDomainId === domain.id;
 
             return (
               <div key={domain.id} className="select-none">
@@ -299,7 +287,8 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                           activeDomainId === domain.id &&
                           currentPracticeId === practice.id;
                         const isPracticeExpanded =
-                          expandedPractices.has(practice.id) || isPracticeActive;
+                          isDomainExpanded &&
+                          expandedPractices[domain.id] === practice.id;
 
                         return (
                           <div key={practice.id} className="space-y-1">
@@ -313,7 +302,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onPracticeClick(domain.id, practice.id);
-                                togglePractice(practice.id);
+                                togglePractice(domain.id, practice.id);
                               }}
                             >
                               <div className="flex items-center gap-2">
