@@ -46,47 +46,64 @@ export default async function subscriptionsWebhookHandler(
 
     try {
         switch (event.type) {
-            case "checkout.session.completed":
-                const session = event.data.object as Stripe.Checkout.Session;
-                const userId = session.metadata?.userId;
-                const priceId = session.metadata?.priceId;
+            case "customer.subscription.created":
+            case "customer.subscription.updated":
+                // Single source of truth for subscription status updates
+                const subscription = event.data.object as Stripe.Subscription;
+                const customerId = subscription.customer as string;
+                const subscriptionId = subscription.id;
+                const priceId = subscription.items.data[0]?.price?.id;
 
-                console.log("Checkout session completed:", { userId, priceId });
+                console.log("Subscription event:", { 
+                    type: event.type, 
+                    customerId, 
+                    subscriptionId, 
+                    priceId 
+                });
 
-                if (userId && priceId) {
-                    // Determine subscription type based on price ID
-                    let subscriptionStatus = "free"; // default
-                    if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
-                        subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
-                    } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
-                        subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
-                    }
+                if (!priceId) {
+                    console.warn("No price ID found in subscription items");
+                    break;
+                }
 
-                    console.log(`Updating user ${userId} to ${subscriptionStatus}`);
+                // Determine subscription status based on price ID
+                let subscriptionStatus = SubscriptionStatus.FREE;
+                if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
+                    subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
+                } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
+                    subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
+                }
 
-                    await pool.query(
-                        "UPDATE users SET subscription_status = $1 WHERE id = $2",
-                        [subscriptionStatus, userId]
-                    );
+                // Update user subscription status and subscription ID with logging
+                const updateResult = await pool.query(
+                    "UPDATE users SET subscription_status = $1, stripe_subscription_id = $2 WHERE stripe_customer_id = $3 RETURNING id",
+                    [subscriptionStatus, subscriptionId, customerId]
+                );
 
-                    console.log(`Successfully updated user ${userId} subscription status`);
+                if (updateResult.rows.length > 0) {
+                    console.log(`Updated user ${updateResult.rows[0].id} (customer ${customerId}) to ${subscriptionStatus} with subscription ${subscriptionId}`);
                 } else {
-                    console.warn("Missing userId or priceId in session metadata");
+                    console.warn(`No user found with stripe_customer_id ${customerId}`);
                 }
                 break;
 
             case "customer.subscription.deleted":
-                const subscription = event.data.object as Stripe.Subscription;
-                const customerId = subscription.customer as string;
+                const deletedSubscription = event.data.object as Stripe.Subscription;
+                const deletedCustomerId = deletedSubscription.customer as string;
 
-                console.log("Subscription deleted for customer:", customerId);
+                console.log("Subscription deleted for customer:", deletedCustomerId);
 
-                await pool.query(
-                    "UPDATE users SET subscription_status = $1 WHERE stripe_customer_id = $2",
-                    [SubscriptionStatus.FREE, customerId]
+                // Set status to free and clear subscription ID with logging
+                const deleteResult = await pool.query(
+                    "UPDATE users SET subscription_status = $1, stripe_subscription_id = NULL WHERE stripe_customer_id = $2 RETURNING id",
+                    [SubscriptionStatus.FREE, deletedCustomerId]
                 );
 
-                console.log(`Successfully updated subscription status to free for customer ${customerId}`);
+                if (deleteResult.rows.length > 0) {
+                    console.log(`Updated user ${deleteResult.rows[0].id} (customer ${deletedCustomerId}) to free subscription`);
+                } else {
+                    console.warn(`No user found with stripe_customer_id ${deletedCustomerId}`);
+                }
                 break;
 
             case "invoice.payment_failed":
@@ -101,6 +118,41 @@ export default async function subscriptionsWebhookHandler(
                 );
 
                 console.log(`Successfully updated subscription status to free for customer ${customerIdFailed}`);
+                break;
+
+            case "checkout.session.completed":
+                const session = event.data.object as Stripe.Checkout.Session;
+                
+                // Only handle subscription checkouts - link user with Stripe only
+                if (session.mode === "subscription") {
+                    const sessionCustomerId = session.customer as string;
+                    const sessionSubscriptionId = session.subscription as string;
+                    const userId = session.metadata?.userId;
+
+                    console.log("Checkout session completed:", { 
+                        customerId: sessionCustomerId, 
+                        subscriptionId: sessionSubscriptionId,
+                        userId
+                    });
+
+                    if (!userId) {
+                        console.warn("No userId in session metadata");
+                        break;
+                    }
+
+                    // Link user with Stripe - save customer ID and subscription ID only
+                    // Do NOT update subscription_status here - that's handled by customer.subscription.updated
+                    const linkResult = await pool.query(
+                        "UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2 WHERE id = $3 RETURNING id",
+                        [sessionCustomerId, sessionSubscriptionId, userId]
+                    );
+
+                    if (linkResult.rows.length > 0) {
+                        console.log(`Linked user ${linkResult.rows[0].id} with Stripe customer ${sessionCustomerId} and subscription ${sessionSubscriptionId}`);
+                    } else {
+                        console.warn(`No user found with id ${userId}`);
+                    }
+                }
                 break;
 
             default:

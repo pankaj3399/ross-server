@@ -133,4 +133,157 @@ router.post("/prices", async (req, res) => {
   }
 });
 
+// Upgrade to Pro - Create Stripe Checkout Session
+router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const currentStatus = req.user!.subscription_status;
+
+    // Validate user is on Basic
+    if (currentStatus !== "basic_premium") {
+      return res.status(400).json({ 
+        error: "Only Basic subscribers can upgrade to Pro" 
+      });
+    }
+
+    // Get or create Stripe customer
+    let customerId = req.user!.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: req.user!.email,
+        metadata: { userId },
+      });
+      customerId = customer.id;
+      await pool.query(
+        "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
+        [customerId, userId]
+      );
+    }
+
+    // Cancel existing Basic subscription if it exists
+    const userResult = await pool.query(
+      "SELECT stripe_subscription_id FROM users WHERE id = $1",
+      [userId]
+    );
+    const existingSubscriptionId = userResult.rows[0]?.stripe_subscription_id;
+    if (existingSubscriptionId) {
+      await stripe.subscriptions.cancel(existingSubscriptionId);
+    }
+
+    const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
+    if (!proPriceId) {
+      return res.status(500).json({ error: "Pro price ID not configured" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [{ price: proPriceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: `${process.env.FRONTEND_URL}/dashboard?success=true`,
+      cancel_url: `${process.env.FRONTEND_URL}/dashboard?canceled=true`,
+      metadata: { userId },
+    });
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error("Error creating upgrade checkout session:", error);
+    res.status(500).json({ error: "Failed to create upgrade session" });
+  }
+});
+
+// Downgrade to Basic - Update existing subscription
+router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const currentStatus = req.user!.subscription_status;
+
+    // Validate user is on Pro
+    if (currentStatus !== "pro_premium") {
+      return res.status(400).json({ 
+        error: "Only Pro subscribers can downgrade to Basic" 
+      });
+    }
+
+    // Fetch subscription ID from database
+    const userResult = await pool.query(
+      "SELECT stripe_subscription_id FROM users WHERE id = $1",
+      [userId]
+    );
+    const subscriptionId = userResult.rows[0]?.stripe_subscription_id;
+
+    if (!subscriptionId) {
+      return res.status(400).json({ 
+        error: "No active subscription found" 
+      });
+    }
+
+    const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
+    if (!basicPriceId) {
+      return res.status(500).json({ error: "Basic price ID not configured" });
+    }
+
+    // Retrieve current subscription
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const currentItemId = subscription.items.data[0]?.id;
+
+    if (!currentItemId) {
+      return res.status(400).json({ error: "Invalid subscription structure" });
+    }
+
+    // Update subscription to Basic price with no proration
+    await stripe.subscriptions.update(subscriptionId, {
+      items: [{
+        id: currentItemId,
+        price: basicPriceId,
+      }],
+      proration_behavior: "none",
+      billing_cycle_anchor: "unchanged",
+    });
+
+    res.json({ message: "Subscription downgraded to Basic" });
+  } catch (error) {
+    console.error("Error downgrading subscription:", error);
+    res.status(500).json({ error: "Failed to downgrade subscription" });
+  }
+});
+
+// Cancel subscription
+router.post("/cancel-subscription", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const currentStatus = req.user!.subscription_status;
+
+    // Validate user has active subscription
+    if (currentStatus === "free") {
+      return res.status(400).json({ 
+        error: "No active subscription to cancel" 
+      });
+    }
+
+    // Fetch subscription ID from database
+    const userResult = await pool.query(
+      "SELECT stripe_subscription_id FROM users WHERE id = $1",
+      [userId]
+    );
+    const subscriptionId = userResult.rows[0]?.stripe_subscription_id;
+
+    if (!subscriptionId) {
+      return res.status(400).json({ 
+        error: "No active subscription found" 
+      });
+    }
+
+    // Set subscription to cancel at period end
+    await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
+
+    res.json({ message: "Subscription will be canceled at period end" });
+  } catch (error) {
+    console.error("Error canceling subscription:", error);
+    res.status(500).json({ error: "Failed to cancel subscription" });
+  }
+});
+
 export default router;

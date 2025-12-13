@@ -601,6 +601,33 @@ class ApiService {
     );
   }
 
+  async upgradeToPro(): Promise<{ sessionId: string; url: string }> {
+    return this.request<{ sessionId: string; url: string }>(
+      "/subscriptions/upgrade-to-pro",
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  async downgradeToBasic(): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      "/subscriptions/downgrade-to-basic",
+      {
+        method: "POST",
+      },
+    );
+  }
+
+  async cancelSubscription(): Promise<{ message: string }> {
+    return this.request<{ message: string }>(
+      "/subscriptions/cancel-subscription",
+      {
+        method: "POST",
+      },
+    );
+  }
+
   // // Email Verification
   // async verifyEmail(token: string): Promise<AuthResponse> {
   //   return this.request<AuthResponse>("/auth/verify-email", {
