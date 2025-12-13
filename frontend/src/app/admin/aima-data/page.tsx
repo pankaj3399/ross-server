@@ -7,6 +7,8 @@ import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { safeRenderHTML } from "@/lib/htmlUtils";
 
 interface Question {
   id: string;
@@ -1221,22 +1223,23 @@ export default function AdminQuestions() {
                                       </div>
                                     )}
                                     {isEditingQuestion ? (
-                                      <textarea
+                                      <RichTextEditor
                                         value={questionTextValue}
-                                        onChange={(e) =>
+                                        onChange={(value) =>
                                           setQuestionTextEdits((prev) => ({
                                             ...prev,
-                                            [question.id]: e.target.value,
+                                            [question.id]: value,
                                           }))
                                         }
-                                        className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                        className="w-full"
                                         rows={4}
                                         placeholder="Update the question text..."
                                       />
                                     ) : (
-                                      <p className="text-gray-800 dark:text-gray-300 leading-relaxed">
-                                        {question.question_text}
-                                      </p>
+                                      <div 
+                                        className="text-gray-800 dark:text-gray-300 leading-relaxed [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2"
+                                        dangerouslySetInnerHTML={{ __html: safeRenderHTML(question.question_text) }}
+                                      />
                                     )}
                                     {questionUpdateFeedback === "saved" && (
                                       <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -1254,15 +1257,15 @@ export default function AdminQuestions() {
                                         <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wide">
                                           Description (guide text)
                                         </label>
-                                        <textarea
+                                        <RichTextEditor
                                           value={descriptionValue}
-                                          onChange={(e) =>
+                                          onChange={(value) =>
                                             handleQuestionDescriptionChange(
                                               question.id,
-                                              e.target.value,
+                                              value,
                                             )
                                           }
-                                          className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                          className="w-full"
                                           rows={3}
                                           placeholder="Add guidance text to help users interpret this question..."
                                         />
@@ -1287,9 +1290,14 @@ export default function AdminQuestions() {
                                       </div>
 
                                       <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm text-gray-600 dark:text-gray-200">
-                                        {descriptionValue
-                                          ? descriptionValue
-                                          : "No description yet. This preview matches what respondents will see."}
+                                        {descriptionValue ? (
+                                          <div 
+                                            className="[&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2"
+                                            dangerouslySetInnerHTML={{ __html: safeRenderHTML(descriptionValue) }}
+                                          />
+                                        ) : (
+                                          "No description yet. This preview matches what respondents will see."
+                                        )}
                                       </div>
 
                                       {status === "saved" && (
@@ -1538,15 +1546,15 @@ export default function AdminQuestions() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Question Text
                 </label>
-                <textarea
+                <RichTextEditor
                   value={questionForm.question_text}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setQuestionForm({
                       ...questionForm,
-                      question_text: e.target.value,
+                      question_text: value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none"
+                  className="w-full"
                   rows={4}
                   placeholder="Enter the question text..."
                 />
@@ -1556,15 +1564,15 @@ export default function AdminQuestions() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Description (optional)
                 </label>
-                <textarea
+                <RichTextEditor
                   value={questionForm.description}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setQuestionForm({
                       ...questionForm,
-                      description: e.target.value,
+                      description: value,
                     })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none"
+                  className="w-full"
                   rows={3}
                   placeholder="Add guidance to help users interpret this question..."
                 />
