@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Download } from "lucide-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { safeRenderHTML } from "@/lib/htmlUtils";
+import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
 
 interface Question {
   id: string;
@@ -353,7 +353,7 @@ export default function AdminQuestions() {
     setEditingQuestions((prev) => ({ ...prev, [question.id]: true }));
     setQuestionTextEdits((prev) => ({
       ...prev,
-      [question.id]: prev[question.id] ?? question.question_text,
+      [question.id]: prev[question.id] ?? stripHTML(question.question_text),
     }));
     setQuestionLevelEdits((prev) => ({
       ...prev,
@@ -417,7 +417,9 @@ export default function AdminQuestions() {
         setQuestionUpdateStatus((prev) => ({ ...prev, [question.id]: "error" }));
         return;
       }
-      if (trimmedText !== question.question_text.trim()) {
+      // Compare with stripped HTML to handle existing HTML-formatted questions
+      const existingText = stripHTML(question.question_text).trim();
+      if (trimmedText !== existingText) {
         payload.question_text = trimmedText;
         hasChanges = true;
       }
@@ -1089,14 +1091,14 @@ export default function AdminQuestions() {
                                 const status = descriptionStatus[question.id];
                                 const isEditingQuestion = !!editingQuestions[question.id];
                                 const questionTextValue =
-                                  questionTextEdits[question.id] ?? question.question_text;
+                                  questionTextEdits[question.id] ?? stripHTML(question.question_text);
                                 const questionLevelValue =
                                   questionLevelEdits[question.id] ?? question.level;
                                 const questionStreamValue =
                                   questionStreamEdits[question.id] ?? question.stream;
                                 const questionTextChanged =
                                   questionTextEdits[question.id] !== undefined &&
-                                  questionTextValue.trim() !== question.question_text.trim();
+                                  questionTextValue.trim() !== stripHTML(question.question_text).trim();
                                 const questionLevelChanged =
                                   questionLevelEdits[question.id] !== undefined &&
                                   questionLevelValue !== question.level;
@@ -1223,23 +1225,22 @@ export default function AdminQuestions() {
                                       </div>
                                     )}
                                     {isEditingQuestion ? (
-                                      <RichTextEditor
-                                        value={questionTextValue}
-                                        onChange={(value) =>
+                                      <textarea
+                                        value={stripHTML(questionTextValue)}
+                                        onChange={(e) =>
                                           setQuestionTextEdits((prev) => ({
                                             ...prev,
-                                            [question.id]: value,
+                                            [question.id]: e.target.value,
                                           }))
                                         }
-                                        className="w-full"
+                                        className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
                                         rows={4}
                                         placeholder="Update the question text..."
                                       />
                                     ) : (
-                                      <div 
-                                        className="text-gray-800 dark:text-gray-300 leading-relaxed [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2"
-                                        dangerouslySetInnerHTML={{ __html: safeRenderHTML(question.question_text) }}
-                                      />
+                                      <p className="text-gray-800 dark:text-gray-300 leading-relaxed">
+                                        {stripHTML(question.question_text)}
+                                      </p>
                                     )}
                                     {questionUpdateFeedback === "saved" && (
                                       <p className="text-xs text-green-600 dark:text-green-400 mt-1">
@@ -1289,14 +1290,14 @@ export default function AdminQuestions() {
                                         </div>
                                       </div>
 
-                                      <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm text-gray-600 dark:text-gray-200">
+                                      <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm">
                                         {descriptionValue ? (
                                           <div 
-                                            className="[&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2"
+                                            className="rich-text-preview text-gray-600 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0"
                                             dangerouslySetInnerHTML={{ __html: safeRenderHTML(descriptionValue) }}
                                           />
                                         ) : (
-                                          "No description yet. This preview matches what respondents will see."
+                                          <span className="text-gray-600 dark:text-gray-200">No description yet. This preview matches what respondents will see.</span>
                                         )}
                                       </div>
 
@@ -1546,15 +1547,15 @@ export default function AdminQuestions() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Question Text
                 </label>
-                <RichTextEditor
+                <textarea
                   value={questionForm.question_text}
-                  onChange={(value) =>
+                  onChange={(e) =>
                     setQuestionForm({
                       ...questionForm,
-                      question_text: value,
+                      question_text: e.target.value,
                     })
                   }
-                  className="w-full"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none"
                   rows={4}
                   placeholder="Enter the question text..."
                 />
