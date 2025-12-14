@@ -25,6 +25,8 @@ import { usePracticeStore } from "../../../store/practiceStore";
 import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
 import { usePriceStore } from "../../../store/priceStore";
 import { AssessmentSkeleton, Skeleton } from "../../../components/Skeleton";
+import { stripHTML } from "../../../lib/htmlUtils";
+import { safeRenderHTML } from "../../../lib/htmlUtils";
 
 interface Question {
   level: string;
@@ -53,13 +55,13 @@ const normalizeQuestionEntry = (
 ): { question: string; description?: string | null } | null => {
   if (!entry) return null;
   if (typeof entry === "string") {
-    return { question: entry, description: null };
+    return { question: stripHTML(entry), description: null };
   }
   if (!entry.question_text) {
     return null;
   }
   return {
-    question: entry.question_text,
+    question: stripHTML(entry.question_text),
     description: entry.description ?? null,
   };
 };
@@ -1072,8 +1074,8 @@ useEffect(() => {
                   {currentQuestion.question}
                 </h2>
                 {currentQuestion.description && (
-                  <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200">
-                    {currentQuestion.description}
+                  <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
+                    <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
                   </div>
                 )}
               </div>

@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import SubscriptionModal from "../../components/SubscriptionModal";
 import {
   Plus,
   Trash2,
@@ -66,7 +65,6 @@ export default function DashboardPage() {
   });
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
 
@@ -103,11 +101,11 @@ export default function DashboardPage() {
     if (success === 'true') {
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 5000);
-      
+
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-      
+
       if (savedReturnUrl) {
         // Refresh user in background, but navigate immediately to preserve context
         (async () => {
@@ -132,7 +130,7 @@ export default function DashboardPage() {
     } else if (canceled === 'true') {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
-      
+
       // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
@@ -144,7 +142,7 @@ export default function DashboardPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
-    
+
     // If we have Stripe parameters but user is not authenticated, 
     // wait a bit for auth to initialize
     if ((success || canceled) && !isAuthenticated) {
@@ -156,18 +154,18 @@ export default function DashboardPage() {
           handleStripeReturn(success, canceled);
         }
       }, 100);
-      
+
       // Clear interval after 5 seconds
       setTimeout(() => clearInterval(checkAuth), 5000);
       return;
     }
-    
+
     if (!isAuthenticated) {
       router.push("/auth");
       return;
     }
     loadProjects();
-    
+
     // Handle Stripe return if user is authenticated
     handleStripeReturn(success, canceled);
   }, [isAuthenticated, router, refreshUser]);
@@ -243,10 +241,9 @@ export default function DashboardPage() {
 
 
   const handleUpgradeToPremium = () => {
-    setShowSubscriptionModal(true);
+    router.push("/manage-subscription");
   };
 
-  // handleSelectPlan is now handled by SubscriptionModal component
 
   if (!isAuthenticated) {
     return <div>Loading...</div>;
@@ -257,19 +254,54 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-8">
           {/* Page Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="mb-8"
-          >
-            <h1 className="text-4xl font-bold mb-2">
-              <span className="gradient-text">Dashboard</span>
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Welcome back, {user?.name}! Manage your AI maturity assessments.
-            </p>
-          </motion.div>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="flex-1"
+            >
+              <h1 className="text-4xl font-bold mb-2">
+                <span className="gradient-text">Dashboard</span>
+              </h1>
+              <div>
+                <p className="text-gray-600 dark:text-gray-300 font-medium">
+                  Welcome back, <span className="text-purple-600 dark:text-purple-400 font-bold">{user?.name}</span>! Manage your AI maturity assessments
+                </p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="flex flex-col items-start md:items-end gap-3"
+            >
+              {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') ? (
+                <Link href="/manage-subscription">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    Manage Subscription
+                  </motion.button>
+                </Link>
+              ) : (
+                <Link href="/manage-subscription">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
+                  >
+                    <Star className="w-4 h-4" />
+                    Upgrade to Premium
+                  </motion.button>
+                </Link>
+              )}
+            </motion.div>
+          </div>
 
           {/* Success Message */}
           {showSuccessMessage && (
@@ -355,9 +387,9 @@ export default function DashboardPage() {
                   </label>
                   <div className="flex items-center gap-2">
                     <p className="text-gray-900 dark:text-white capitalize">
-                      {user?.subscription_status === 'basic_premium' ? 'Basic Premium' : 
-                       user?.subscription_status === 'pro_premium' ? 'Pro Premium' : 
-                       user?.subscription_status}
+                      {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
+                        user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
+                          user?.subscription_status}
                     </p>
                     {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
                       <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
@@ -399,28 +431,7 @@ export default function DashboardPage() {
             className="flex justify-between items-center mb-8"
           >
             <div>
-              {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') ? (
-                <Link href="/manage-subscription">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
-                  >
-                    <CreditCard className="w-5 h-5" />
-                    Manage Subscription
-                  </motion.button>
-                </Link>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleUpgradeToPremium}
-                  className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300"
-                >
-                  <Star className="w-5 h-5" />
-                  Upgrade to Premium
-                </motion.button>
-              )}
+              {/* Spacer to keep layout if needed, or just empty div */}
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -755,11 +766,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Subscription Modal */}
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-      />
     </div>
   );
 }

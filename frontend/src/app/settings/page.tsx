@@ -641,31 +641,6 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-
-
-              {user?.subscription_status === 'free' && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                    Upgrade to premium to access advanced features and manage your subscription.
-                  </p>
-                  <Link href="/dashboard">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full flex items-center justify-center space-x-2 p-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-lg font-medium transition-all duration-300"
-                    >
-                      <Crown className="w-4 h-4" />
-                      <span>Upgrade to Premium</span>
-                    </motion.button>
-                  </Link>
-                </div>
-              )}
-
-              <div className="pt-2">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Manage your subscription, update payment methods, view invoices, and cancel or change your plan through Stripe's secure billing portal.
-                </p>
-              </div>
             </div>
           </div>
 
