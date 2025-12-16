@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "../../../contexts/AuthContext";
+import { useAuth } from "../../../../contexts/AuthContext";
 import {
   apiService,
   Domain as ApiDomain,
   Practice as ApiPractice,
-} from "../../../lib/api";
-import { showToast } from "../../../lib/toast";
+} from "../../../../lib/api";
+import { showToast } from "../../../../lib/toast";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,17 +16,16 @@ import {
   ArrowRight,
   ArrowLeft as ArrowLeftIcon,
   Info,
+  Crown,
+  Scale,
 } from "lucide-react";
-import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigation";
-import { SecureTextarea } from "../../../components/SecureTextarea";
-import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
-import { sanitizeNoteInput } from "../../../lib/sanitize";
-import { usePracticeStore } from "../../../store/practiceStore";
-import { useAssessmentResultsStore } from "../../../store/assessmentResultsStore";
-import { usePriceStore } from "../../../store/priceStore";
-import { AssessmentSkeleton, Skeleton } from "../../../components/Skeleton";
-import { stripHTML } from "../../../lib/htmlUtils";
-import { safeRenderHTML } from "../../../lib/htmlUtils";
+import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
+import { SecureTextarea } from "../../../../components/SecureTextarea";
+import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
+import { sanitizeNoteInput } from "../../../../lib/sanitize";
+import { AssessmentSkeleton, Skeleton } from "../../../../components/Skeleton";
+import { stripHTML } from "../../../../lib/htmlUtils";
+import { safeRenderHTML } from "../../../../lib/htmlUtils";
 
 interface Question {
   level: string;
@@ -70,51 +69,7 @@ interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
   practices: { [key: string]: PracticeWithLevels };
 }
 
-const DOMAIN_PRIORITY = [
-  { id: "responsible_ai_principles", title: "Responsible AI Principles" },
-  { id: "governance", title: "Governance" },
-  { id: "data_management", title: "Data Management" },
-  { id: "privacy", title: "Privacy" },
-  { id: "design", title: "Design" },
-  { id: "implementation", title: "Implementation" },
-  { id: "verification", title: "Verification" },
-  { id: "operations", title: "Operations" },
-];
-
-const normalize = (value?: string) =>
-  typeof value === "string" ? value.trim().toLowerCase() : "";
-
-const sortDomainsByPriority = (domains: DomainWithLevels[]) => {
-  const originalOrderMap = new Map(domains.map((domain, index) => [domain.id, index]));
-
-  const getPriority = (domain: DomainWithLevels) => {
-    const normalizedId = normalize(domain.id);
-    const normalizedTitle = normalize(domain.title);
-
-    const idMatch = DOMAIN_PRIORITY.findIndex(
-      (entry) => normalize(entry.id) === normalizedId,
-    );
-    if (idMatch !== -1) return idMatch;
-
-    const titleMatch = DOMAIN_PRIORITY.findIndex(
-      (entry) => normalize(entry.title) === normalizedTitle,
-    );
-    if (titleMatch !== -1) return titleMatch;
-
-    return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
-  };
-
-  return [...domains].sort((a, b) => {
-    const priorityA = getPriority(a);
-    const priorityB = getPriority(b);
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
-    return (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
-  });
-};
-
-export default function AssessmentPage() {
+export default function PremiumDomainsPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated, user, loading: userLoading } = useAuth();
@@ -125,82 +80,16 @@ export default function AssessmentPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [loadingPractice, setLoadingPractice] = useState<string | null>(null);
+  const [loadingPractice, setLoadingPractice] = useState<string | null>(null); // Track which practice is loading
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [currentDomainId, setCurrentDomainId] = useState<string>("");
+  const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [currentPractice, setCurrentPractice] = useState<{ title: string; description: string } | null>(null);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
-
-  const { 
-    getProjectState,
-    setProjectState,
-    clearProjectState,
-  } = usePracticeStore();
-
-  const { setProjectResults } = useAssessmentResultsStore();
-
-  const { prices, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
-
-  const projectState = getProjectState(projectId);
-  const practice = projectState?.practice || null;
-  const currentDomainId = projectState?.currentDomainId || '';
-  const currentPracticeId = projectState?.currentPracticeId || '';
-  const currentQuestionIndex = projectState?.currentQuestionIndex || 0;
-
-  useEffect(() => {
-    const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
-    const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
-
-    if (fetched || !BASIC_PRICE_ID || !PRO_PRICE_ID) {
-      return;
-    }
-
-    const token = typeof window !== "undefined"
-      ? localStorage.getItem("auth_token")
-      : null;
-
-    if (!token) {
-      return;
-    }
-
-    const fetchPrices = async () => {
-      setPriceLoading(true);
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscriptions/prices`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            priceIds: [BASIC_PRICE_ID, PRO_PRICE_ID]
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setPrices({
-            basic: data.prices[BASIC_PRICE_ID] || null,
-            pro: data.prices[PRO_PRICE_ID] || null
-          });
-          setFetched(true);
-        } else {
-          setPrices({ basic: 29, pro: 49 });
-          setFetched(true);
-        }
-      } catch (error) {
-        console.error('Error fetching prices:', error);
-        setPrices({ basic: 29, pro: 49 });
-        setFetched(true);
-      } finally {
-        setPriceLoading(false);
-      }
-    };
-
-    fetchPrices();
-  }, [fetched, setPrices, setLoading, setFetched]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -208,49 +97,34 @@ export default function AssessmentPage() {
       return;
     }
 
+    if (!isPremium) {
+      showToast.error("Premium subscription required to access premium domains.");
+      router.push(`/assess/${projectId}`);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const domainsData = await apiService.getDomainsFull(projectId);
 
-        const practiceRequests: Array<{ domainId: string; practiceId: string }> = [];
-        domainsData.domains.forEach((domain) => {
-          Object.keys(domain.practices).forEach((practiceId) => {
-            practiceRequests.push({ domainId: domain.id, practiceId });
-          });
-        });
-
-        const practiceQuestionsPromises = practiceRequests.map(({ domainId, practiceId }) =>
-          apiService.getPracticeQuestions(domainId, practiceId, projectId)
-            .then((data) => ({ domainId, practiceId, data, success: true }))
-            .catch((error) => ({ domainId, practiceId, error, success: false }))
+        const premiumDomains = domainsData.domains.filter(
+          (domain) => domain.is_premium === true
         );
 
-        const practiceResults = await Promise.allSettled(practiceQuestionsPromises);
+        if (premiumDomains.length === 0) {
+          showToast.info("No premium domains available.");
+          setLoading(false);
+          return;
+        }
 
-        const transformedDomains = domainsData.domains.map((domain) => {
+        const transformedDomains = premiumDomains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
           
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
-            const result = practiceResults.find((r) => {
-              if (r.status === 'fulfilled') {
-                const value = r.value as any;
-                return value.domainId === domain.id && value.practiceId === practiceId && value.success;
-              }
-              return false;
-            });
-
-            if (result && result.status === 'fulfilled') {
-              const value = result.value as any;
-              practicesWithLevels[practiceId] = {
-                ...practice,
-                levels: value.data.levels,
-              };
-            } else {
-              practicesWithLevels[practiceId] = {
-                ...practice,
-                levels: {},
-              };
-            }
+            practicesWithLevels[practiceId] = {
+              ...practice,
+              levels: {},
+            };
           });
 
           return {
@@ -261,74 +135,43 @@ export default function AssessmentPage() {
           };
         });
 
-        const orderedDomains = sortDomainsByPriority(transformedDomains);
-        setDomains(orderedDomains);
+        setDomains(transformedDomains);
 
-        const savedState = getProjectState(projectId);
-        let targetDomainId = savedState?.currentDomainId || '';
-        let targetPracticeId = savedState?.currentPracticeId || '';
-        let targetQuestionIndex = savedState?.currentQuestionIndex || 0;
-
-        if (!targetDomainId || !targetPracticeId) {
-          if (orderedDomains.length > 0) {
-            const firstDomain = orderedDomains[0];
-            const firstPracticeId = Object.keys(firstDomain.practices)[0];
-            if (firstPracticeId) {
-              targetDomainId = firstDomain.id;
-              targetPracticeId = firstPracticeId;
-              targetQuestionIndex = 0;
-            }
-          }
-        }
-
-        if (targetDomainId && targetPracticeId) {
-          const targetDomain = orderedDomains.find(d => d.id === targetDomainId);
-          const targetPractice = targetDomain?.practices[targetPracticeId];
-          
-          if (targetPractice && targetPractice.levels && Object.keys(targetPractice.levels).length > 0) {
-            const questionsList: Question[] = [];
-            Object.entries(targetPractice.levels).forEach(([level, streams]) => {
-              Object.entries(
-                streams as Record<string, LevelQuestionEntry[]>,
-              ).forEach(([stream, questionEntries]) => {
-                questionEntries.forEach((questionEntry) => {
-                  const normalized = normalizeQuestionEntry(questionEntry);
-                  if (!normalized) {
-                    return;
-                  }
-                  questionsList.push({
-                    level,
-                    stream,
-                    question: normalized.question,
-                    description: normalized.description ?? undefined,
+        if (transformedDomains.length > 0) {
+          const firstDomain = transformedDomains[0];
+          const firstPracticeId = Object.keys(firstDomain.practices)[0];
+          if (firstPracticeId) {
+            const firstPractice = firstDomain.practices[firstPracticeId];
+            setCurrentDomainId(firstDomain.id);
+            setCurrentPracticeId(firstPracticeId);
+            setCurrentQuestionIndex(0);
+            
+            if (firstPractice.levels && Object.keys(firstPractice.levels).length > 0) {
+              const questionsList: Question[] = [];
+              Object.entries(firstPractice.levels).forEach(([level, streams]) => {
+                Object.entries(
+                  streams as Record<string, LevelQuestionEntry[]>,
+                ).forEach(([stream, questionEntries]) => {
+                  questionEntries.forEach((questionEntry) => {
+                    const normalized = normalizeQuestionEntry(questionEntry);
+                    if (!normalized) {
+                      return;
+                    }
+                    questionsList.push({
+                      level,
+                      stream,
+                      question: normalized.question,
+                      description: normalized.description ?? undefined,
+                    });
                   });
                 });
               });
-            });
-
-            setQuestions(questionsList);
-            
-            const validIndex = Math.min(targetQuestionIndex, Math.max(0, questionsList.length - 1));
-            
-            setProjectState(projectId, {
-              currentDomainId: targetDomainId,
-              currentPracticeId: targetPracticeId,
-              currentQuestionIndex: validIndex,
-              practice: {
-                title: targetPractice.title,
-                description: targetPractice.description,
-                levels: targetPractice.levels,
-              },
-            });
-          } else {
-            // No questions available (premium or error)
-            setQuestions([]);
-            setProjectState(projectId, {
-              currentDomainId: targetDomainId,
-              currentPracticeId: targetPracticeId,
-              currentQuestionIndex: 0,
-              practice: null,
-            });
+              setQuestions(questionsList);
+              setCurrentPractice({
+                title: firstPractice.title,
+                description: firstPractice.description,
+              });
+            }
           }
         }
 
@@ -355,79 +198,14 @@ export default function AssessmentPage() {
         });
       } catch (error) {
         console.error("Failed to fetch data:", error);
-        showToast.error("Failed to load assessment data. Please refresh the page.");
+        showToast.error("Failed to load premium domains. Please refresh the page.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, router]);
-
-useEffect(() => {
-  if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
-    const domain = domains.find(d => d.id === currentDomainId);
-    const currentPractice = domain?.practices[currentPracticeId];
-    
-    if (currentPractice && currentPractice.levels && Object.keys(currentPractice.levels).length > 0) {
-      const questionsList: Question[] = [];
-      Object.entries(currentPractice.levels).forEach(([level, streams]) => {
-        Object.entries(
-          streams as Record<string, LevelQuestionEntry[]>,
-        ).forEach(([stream, questionEntries]) => {
-          questionEntries.forEach((questionEntry) => {
-            const normalized = normalizeQuestionEntry(questionEntry);
-            if (!normalized) {
-              return;
-            }
-            questionsList.push({
-              level,
-              stream,
-              question: normalized.question,
-              description: normalized.description ?? undefined,
-            });
-          });
-        });
-      });
-
-      setQuestions(questionsList);
-      
-      if (questionsList.length > 0) {
-        const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
-        if (validIndex !== currentQuestionIndex) {
-          setProjectState(projectId, {
-            currentQuestionIndex: validIndex,
-          });
-        }
-      }
-      
-      if (!practice || practice.title !== currentPractice.title) {
-        setProjectState(projectId, {
-          practice: {
-            title: currentPractice.title,
-            description: currentPractice.description,
-            levels: currentPractice.levels,
-          },
-        });
-      }
-    } else {
-      setQuestions([]);
-      if (currentPractice) {
-        setProjectState(projectId, {
-          practice: {
-            title: currentPractice.title,
-            description: currentPractice.description,
-            levels: {},
-          },
-        });
-      } else {
-        setProjectState(projectId, {
-          practice: null,
-        });
-      }
-    }
-  }
-}, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState, practice]);
+  }, [projectId, isAuthenticated, router, isPremium]);
 
   const {
     progressData,
@@ -443,6 +221,120 @@ useEffect(() => {
     currentPracticeId,
     currentQuestionIndex,
   });
+
+  useEffect(() => {
+    if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
+      const domain = domains.find(d => d.id === currentDomainId);
+      if (domain && domain.practices[currentPracticeId]) {
+        const practice = domain.practices[currentPracticeId];
+        
+        if (practice.levels && Object.keys(practice.levels).length > 0) {
+          const questionsList: Question[] = [];
+          Object.entries(practice.levels).forEach(([level, streams]) => {
+            Object.entries(
+              streams as Record<string, LevelQuestionEntry[]>,
+            ).forEach(([stream, questionEntries]) => {
+              questionEntries.forEach((questionEntry) => {
+                const normalized = normalizeQuestionEntry(questionEntry);
+                if (!normalized) {
+                  return;
+                }
+                questionsList.push({
+                  level,
+                  stream,
+                  question: normalized.question,
+                  description: normalized.description ?? undefined,
+                });
+              });
+            });
+          });
+          
+          setQuestions(questionsList);
+          setCurrentPractice({
+            title: practice.title,
+            description: practice.description,
+          });
+          
+          if (questionsList.length > 0) {
+            const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
+            if (validIndex !== currentQuestionIndex) {
+              setCurrentQuestionIndex(validIndex);
+            }
+          } else {
+            setCurrentQuestionIndex(0);
+          }
+        } else {
+          setLoadingPractice(currentPracticeId);
+          apiService.getPracticeQuestions(currentDomainId, currentPracticeId, projectId)
+            .then((practiceData) => {
+              setDomains(prevDomains => 
+                prevDomains.map(d => {
+                  if (d.id === currentDomainId && d.practices[currentPracticeId]) {
+                    return {
+                      ...d,
+                      practices: {
+                        ...d.practices,
+                        [currentPracticeId]: {
+                          ...d.practices[currentPracticeId],
+                          levels: practiceData.levels,
+                        },
+                      },
+                    };
+                  }
+                  return d;
+                })
+              );
+              
+              const questionsList: Question[] = [];
+              Object.entries(practiceData.levels).forEach(([level, streams]) => {
+                Object.entries(
+                  streams as Record<string, LevelQuestionEntry[]>,
+                ).forEach(([stream, questionEntries]) => {
+                  questionEntries.forEach((questionEntry) => {
+                    const normalized = normalizeQuestionEntry(questionEntry);
+                    if (!normalized) {
+                      return;
+                    }
+                    questionsList.push({
+                      level,
+                      stream,
+                      question: normalized.question,
+                      description: normalized.description ?? undefined,
+                    });
+                  });
+                });
+              });
+              
+              setQuestions(questionsList);
+              setCurrentPractice({
+                title: practiceData.title,
+                description: practiceData.description,
+              });
+              
+              if (questionsList.length > 0) {
+                const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
+                if (validIndex !== currentQuestionIndex) {
+                  setCurrentQuestionIndex(validIndex);
+                }
+              } else {
+                setCurrentQuestionIndex(0);
+              }
+            })
+            .catch((error: any) => {
+              console.error(`Failed to load practice ${currentPracticeId}:`, error);
+              setQuestions([]);
+              setCurrentPractice({
+                title: practice.title,
+                description: practice.description,
+              });
+            })
+            .finally(() => {
+              setLoadingPractice(null);
+            });
+        }
+      }
+    }
+  }, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
@@ -521,74 +413,63 @@ useEffect(() => {
     if (domain) {
       const firstPracticeId = Object.keys(domain.practices)[0];
       if (firstPracticeId) {
-        const firstPractice = domain.practices[firstPracticeId];
-        
-        setProjectState(projectId, {
-          currentDomainId: domainId,
-          currentPracticeId: firstPracticeId,
-          currentQuestionIndex: 0,
-          practice: {
-            title: firstPractice.title,
-            description: firstPractice.description,
-            levels: firstPractice.levels,
-          },
-        });
+        setCurrentDomainId(domainId);
+        setCurrentPracticeId(firstPracticeId);
+        setCurrentQuestionIndex(0);
       }
     }
     navigateToDomain(domainId);
   };
 
   const handlePracticeClick = (domainId: string, practiceId: string) => {
-    const domain = domains.find(d => d.id === domainId);
-    if (domain && domain.practices[practiceId]) {
-      const selectedPractice = domain.practices[practiceId];
-      
-      navigateToPractice(domainId, practiceId);
-      
-      setProjectState(projectId, {
-        currentDomainId: domainId,
-        currentPracticeId: practiceId,
-        currentQuestionIndex: 0,
-        practice: {
-          title: selectedPractice.title,
-          description: selectedPractice.description,
-          levels: selectedPractice.levels,
-        },
-      });
-    }
+    setCurrentDomainId(domainId);
+    setCurrentPracticeId(practiceId);
+    setCurrentQuestionIndex(0);
+    navigateToPractice(domainId, practiceId);
   };
 
   const handleQuestionClick = (domainId: string, practiceId: string, questionIndex: number) => {
+    setCurrentDomainId(domainId);
+    setCurrentPracticeId(practiceId);
+    setCurrentQuestionIndex(questionIndex);
+  };
+
+  const loadQuestionsFromPractice = (domainId: string, practiceId: string) => {
     const domain = domains.find(d => d.id === domainId);
     if (domain && domain.practices[practiceId]) {
       const selectedPractice = domain.practices[practiceId];
       
-      setProjectState(projectId, {
-        currentDomainId: domainId,
-        currentPracticeId: practiceId,
-        currentQuestionIndex: questionIndex,
-        practice: {
-          title: selectedPractice.title,
-          description: selectedPractice.description,
-          levels: selectedPractice.levels,
-        },
-      });
-    }
-  };
+      if (selectedPractice.levels && Object.keys(selectedPractice.levels).length > 0) {
+        const questionsList: Question[] = [];
+        Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
+          Object.entries(
+            streams as Record<string, LevelQuestionEntry[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
+              });
+            });
+          });
+        });
 
-  const getPracticeData = (domainId: string, practiceId: string) => {
-    const domain = domains.find(d => d.id === domainId);
-    if (domain && domain.practices[practiceId]) {
-      const selectedPractice = domain.practices[practiceId];
-      return {
-        practice: {
+        setQuestions(questionsList);
+        setCurrentPractice({
           title: selectedPractice.title,
           description: selectedPractice.description,
-          levels: selectedPractice.levels,
-        },
-      };
+        });
+      } else {
+        setQuestions([]);
+        setCurrentPractice(null);
+      }
     }
-    return { practice: null };
   };
 
   const handleNextQuestion = () => {
@@ -598,20 +479,16 @@ useEffect(() => {
       const isMovingToDifferentPractice = next.practiceId !== currentPracticeId;
       
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
-        const practiceData = getPracticeData(next.domainId, next.practiceId);
-        
-        setProjectState(projectId, {
-          currentDomainId: next.domainId,
-          currentPracticeId: next.practiceId,
-          currentQuestionIndex: next.questionIndex,
-          ...practiceData,
-        });
+        loadQuestionsFromPractice(next.domainId, next.practiceId);
+        setTimeout(() => {
+          setCurrentDomainId(next.domainId);
+          setCurrentPracticeId(next.practiceId);
+          setCurrentQuestionIndex(next.questionIndex);
+        }, 100);
       } else {
-        setProjectState(projectId, {
-          currentDomainId: next.domainId,
-          currentPracticeId: next.practiceId,
-          currentQuestionIndex: next.questionIndex,
-        });
+        setCurrentDomainId(next.domainId);
+        setCurrentPracticeId(next.practiceId);
+        setCurrentQuestionIndex(next.questionIndex);
       }
     }
   };
@@ -623,20 +500,16 @@ useEffect(() => {
       const isMovingToDifferentPractice = prev.practiceId !== currentPracticeId;
       
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
-        const practiceData = getPracticeData(prev.domainId, prev.practiceId);
-        
-        setProjectState(projectId, {
-          currentDomainId: prev.domainId,
-          currentPracticeId: prev.practiceId,
-          currentQuestionIndex: prev.questionIndex,
-          ...practiceData,
-        });
+        loadQuestionsFromPractice(prev.domainId, prev.practiceId);
+        setTimeout(() => {
+          setCurrentDomainId(prev.domainId);
+          setCurrentPracticeId(prev.practiceId);
+          setCurrentQuestionIndex(prev.questionIndex);
+        }, 100);
       } else {
-        setProjectState(projectId, {
-          currentDomainId: prev.domainId,
-          currentPracticeId: prev.practiceId,
-          currentQuestionIndex: prev.questionIndex,
-        });
+        setCurrentDomainId(prev.domainId);
+        setCurrentPracticeId(prev.practiceId);
+        setCurrentQuestionIndex(prev.questionIndex);
       }
     }
   };
@@ -644,28 +517,101 @@ useEffect(() => {
   const hasNextQuestion = getNextQuestion() !== null;
   const hasPreviousQuestion = getPreviousQuestion() !== null;
 
-
-  const handleSubmitProject = async () => {
-    setSubmitting(true);
-    try {
-      const response = await apiService.submitProject(projectId);
-      
-      setProjectResults(projectId, response.project, response.results);
-      router.push(`/score-report?projectId=${projectId}`);
-    } catch (error) {
-      console.error("Failed to submit project:", error);
-      showToast.error("Failed to submit assessment. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   if (loading) {
     return <AssessmentSkeleton />;
   }
 
-  if (!practice || questions.length === 0) {
-    return <AssessmentSkeleton />;
+  if (domains.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            No Premium Domains Available
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            There are no premium domains available at this time.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => router.push(`/assess/${projectId}`)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Assessment
+            </button>
+            <button
+              onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300"
+            >
+              <Scale className="w-4 h-4" />
+              Fairness & Bias Test
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentPractice || questions.length === 0) {
+    return (
+      <div className="min-h-screen flex">
+        <AssessmentTreeNavigation
+          domains={progressData}
+          currentDomainId={currentDomainId}
+          currentPracticeId={currentPracticeId}
+          currentQuestionIndex={currentQuestionIndex}
+          onDomainClick={handleDomainClick}
+          onPracticeClick={handlePracticeClick}
+          onQuestionClick={handleQuestionClick}
+          projectId={projectId}
+          isPremium={isPremium}
+          hidePremiumFeaturesButton={true}
+        />
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => router.push(`/assess/${projectId}`)}
+                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Premium Domains Assessment
+                  </h1>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
+                >
+                  <Scale className="w-4 h-4" />
+                  Fairness & Bias Test
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Premium Domains Assessment
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Select a domain, practice, or question from the navigation tree to get started.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const validQuestionIndex = Math.min(currentQuestionIndex, questions.length - 1);
@@ -683,9 +629,7 @@ useEffect(() => {
   }
 
   if (validQuestionIndex !== currentQuestionIndex) {
-    setProjectState(projectId, {
-      currentQuestionIndex: validQuestionIndex,
-    });
+    setCurrentQuestionIndex(validQuestionIndex);
   }
 
   const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${validQuestionIndex}`;
@@ -699,10 +643,9 @@ useEffect(() => {
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
   return (
-    <>
-      <div className="min-h-screen flex">
-        {/* Tree Navigation Sidebar */}
-        <AssessmentTreeNavigation
+    <div className="min-h-screen flex">
+      {/* Tree Navigation Sidebar */}
+      <AssessmentTreeNavigation
         domains={progressData}
         currentDomainId={currentDomainId}
         currentPracticeId={currentPracticeId}
@@ -712,19 +655,17 @@ useEffect(() => {
         onQuestionClick={handleQuestionClick}
         projectId={projectId}
         isPremium={isPremium}
-        onFairnessBiasClick={() => {
-          router.push(`/assess/${projectId}/fairness-bias/options`);
-        }}
+        hidePremiumFeaturesButton={true}
       />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* HEADER + Premium Button */}
+        {/* Header */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push(`/assess/${projectId}`)}
                 className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -733,7 +674,7 @@ useEffect(() => {
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {practice?.title || 'Loading...'}
+                  {currentPractice?.title || 'Loading...'}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
@@ -748,20 +689,11 @@ useEffect(() => {
                 </div>
               )}
               <button
-                onClick={handleSubmitProject}
-                disabled={submitting}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
               >
-                {submitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    Submit Project
-                  </>
-                )}
+                <Scale className="w-4 h-4" />
+                Fairness & Bias Test
               </button>
             </div>
           </div>
@@ -922,6 +854,6 @@ useEffect(() => {
         </div>
       </div>
     </div>
-    </>
   );
 }
+
