@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useAssessmentResultsStore } from "../../store/assessmentResultsStore";
 import { apiService } from "../../lib/api";
 import { motion } from "framer-motion";
@@ -41,6 +42,7 @@ export default function ScoreReportPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const { getProjectResults } = useAssessmentResultsStore();
   
   // Check if user is premium
@@ -53,26 +55,30 @@ export default function ScoreReportPage() {
   const [insights, setInsights] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+    
     if (!isAuthenticated) {
-      router.push("/auth");
       return;
     }
 
     if (!projectId) {
-      router.push("/dashboard");
+      // Don't redirect on missing projectId - just show loading/error state
+      setLoading(false);
       return;
     }
 
     const projectResults = getProjectResults(projectId);
     if (projectResults) {
       setResults(projectResults);
+      setLoading(false);
     } else {
-      // If no results found, redirect to dashboard
-      router.push("/dashboard");
+      // If no results found, don't redirect - just show empty state
+      setLoading(false);
     }
-    
-    setLoading(false);
-  }, [projectId, isAuthenticated, router, getProjectResults]);
+  }, [projectId, isAuthenticated, authLoading, router, getProjectResults]);
 
   // Auto-generate insights when page loads
   useEffect(() => {

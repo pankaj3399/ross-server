@@ -5,6 +5,7 @@ import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
+import { sanitizeNote } from "../utils/sanitize";
 
 const router = Router();
 
@@ -83,7 +84,11 @@ router.post("/evaluate", authenticateToken, async (req, res) => {
         return res.status(503).json({ error: "Gemini is not configured" });
     }
     try {
-        const { projectId, category, questionText, userResponse } = evaluateSchema.parse(req.body);
+        const { projectId, category, questionText, userResponse: rawUserResponse } = evaluateSchema.parse(req.body);
+        
+        // Sanitize user response to prevent XSS
+        const userResponse = sanitizeNote(rawUserResponse);
+        
         const userId = req.user!.id;
 
         // Verify project belongs to user

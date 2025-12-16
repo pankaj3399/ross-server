@@ -6,6 +6,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -49,6 +50,7 @@ const INDUSTRY_OPTIONS = [
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const { theme } = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -111,7 +113,8 @@ export default function DashboardPage() {
             console.error("Failed to refresh user before redirect:", error);
           }
         })();
-        router.replace(savedReturnUrl);
+        // Use push instead of replace to preserve history
+        router.push(savedReturnUrl);
         return;
       }
 
@@ -132,31 +135,23 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+
+    // Only proceed if authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
 
-    if ((success || canceled) && !isAuthenticated) {
-      const checkAuth = setInterval(() => {
-        if (isAuthenticated) {
-          clearInterval(checkAuth);
-          loadProjects();
-          handleStripeReturn(success, canceled);
-        }
-      }, 100);
-
-      setTimeout(() => clearInterval(checkAuth), 5000);
-      return;
-    }
-
-    if (!isAuthenticated) {
-      router.push("/auth");
-      return;
-    }
     loadProjects();
-
     handleStripeReturn(success, canceled);
-  }, [isAuthenticated, router, refreshUser]);
+  }, [isAuthenticated, authLoading, router, refreshUser]);
 
   const loadProjects = async () => {
     try {

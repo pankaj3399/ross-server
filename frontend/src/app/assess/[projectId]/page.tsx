@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useRequireAuth } from "../../../hooks/useRequireAuth";
 import {
   apiService,
   Domain as ApiDomain,
@@ -118,6 +119,7 @@ export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated, user, loading: userLoading } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const projectId = params.projectId as string;
 
   const [domains, setDomains] = useState<DomainWithLevels[]>([]);
@@ -203,8 +205,8 @@ export default function AssessmentPage() {
   }, [fetched, setPrices, setLoading, setFetched]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
+    // Wait for auth to finish loading
+    if (authLoading || !isAuthenticated) {
       return;
     }
 
@@ -362,7 +364,7 @@ export default function AssessmentPage() {
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, router]);
+  }, [projectId, isAuthenticated, authLoading, router]);
 
 useEffect(() => {
   if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
@@ -712,9 +714,6 @@ useEffect(() => {
         onQuestionClick={handleQuestionClick}
         projectId={projectId}
         isPremium={isPremium}
-        onFairnessBiasClick={() => {
-          router.push(`/assess/${projectId}/fairness-bias/options`);
-        }}
       />
 
       {/* Main Content */}

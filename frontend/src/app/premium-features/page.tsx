@@ -10,16 +10,17 @@ import {
   Bug,
 } from "lucide-react";
 import { useEffect } from "react";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 
 export default function PremiumFeaturesPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
-    }
-  }, [isAuthenticated, router]);
+    // Auth check is handled by useRequireAuth hook
+    // This effect only needs to handle the loading state
+  }, [isAuthenticated, authLoading, router]);
 
   const handleUpgrade = () => {
     router.push("/manage-subscription");
@@ -27,7 +28,7 @@ export default function PremiumFeaturesPage() {
 
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
-  if (!isAuthenticated) {
+  if (authLoading || !isAuthenticated) {
     return null;
   }
 
@@ -45,7 +46,7 @@ export default function PremiumFeaturesPage() {
             <h1 className="text-4xl md:text-5xl font-bold text-purple-950 dark:text-purple-300 mb-3">
               Unlock advanced AI governance tools.
             </h1>
-            <p className="text-lg text-gray-800 dark:text-gray-300">
+            <p className="text-lg text-gray-800 dark:text-gray-300 mb-6">
               Take your AI maturity to the next level with automated testing and actionable insights.
             </p>
           </motion.div>

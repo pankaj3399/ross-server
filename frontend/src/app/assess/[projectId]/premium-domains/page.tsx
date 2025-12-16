@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useRequireAuth } from "../../../../hooks/useRequireAuth";
 import {
   apiService,
   Domain as ApiDomain,
@@ -73,6 +74,7 @@ export default function PremiumDomainsPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated, user, loading: userLoading } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const projectId = params.projectId as string;
 
   const [domains, setDomains] = useState<DomainWithLevels[]>([]);
@@ -92,14 +94,18 @@ export default function PremiumDomainsPage() {
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+    
     if (!isAuthenticated) {
-      router.push("/auth");
       return;
     }
 
     if (!isPremium) {
-      showToast.error("Premium subscription required to access premium domains.");
-      router.push(`/assess/${projectId}`);
+      // Redirect to premium features page to purchase subscription
+      router.push(`/premium-features`);
       return;
     }
 
@@ -112,7 +118,8 @@ export default function PremiumDomainsPage() {
         );
 
         if (premiumDomains.length === 0) {
-          showToast.info("No premium domains available.");
+          // Redirect to premium features page if no premium domains available
+          router.push(`/premium-features`);
           setLoading(false);
           return;
         }
@@ -205,7 +212,7 @@ export default function PremiumDomainsPage() {
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, router, isPremium]);
+  }, [projectId, isAuthenticated, authLoading, router, isPremium]);
 
   const {
     progressData,
@@ -335,6 +342,13 @@ export default function PremiumDomainsPage() {
       }
     }
   }, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex]);
+
+  // Redirect to premium features if no domains available
+  useEffect(() => {
+    if (!loading && domains.length === 0 && isPremium) {
+      router.push(`/premium-features`);
+    }
+  }, [loading, domains.length, isPremium, router]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
@@ -522,35 +536,8 @@ export default function PremiumDomainsPage() {
   }
 
   if (domains.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            No Premium Domains Available
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            There are no premium domains available at this time.
-          </p>
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => router.push(`/assess/${projectId}`)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Assessment
-            </button>
-            <button
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300"
-            >
-              <Scale className="w-4 h-4" />
-              Fairness & Bias Test
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    // Show loading or redirect (handled by useEffect above)
+    return <AssessmentSkeleton />;
   }
 
   if (!currentPractice || questions.length === 0) {
@@ -567,6 +554,9 @@ export default function PremiumDomainsPage() {
           projectId={projectId}
           isPremium={isPremium}
           hidePremiumFeaturesButton={true}
+          onFairnessBiasClick={() => {
+            router.push(`/assess/${projectId}/fairness-bias/options`);
+          }}
         />
         <div className="flex-1 flex flex-col">
           {/* Header */}
@@ -586,15 +576,6 @@ export default function PremiumDomainsPage() {
                     Premium Domains Assessment
                   </h1>
                 </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
-                >
-                  <Scale className="w-4 h-4" />
-                  Fairness & Bias Test
-                </button>
               </div>
             </div>
           </div>
@@ -656,6 +637,9 @@ export default function PremiumDomainsPage() {
         projectId={projectId}
         isPremium={isPremium}
         hidePremiumFeaturesButton={true}
+        onFairnessBiasClick={() => {
+          router.push(`/assess/${projectId}/fairness-bias/options`);
+        }}
       />
 
       {/* Main Content */}
@@ -689,11 +673,9 @@ export default function PremiumDomainsPage() {
                 </div>
               )}
               <button
-                onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300"
               >
-                <Scale className="w-4 h-4" />
-                Fairness & Bias Test
+                Submit Project
               </button>
             </div>
           </div>

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
+import { useRequireAuth } from "../../../hooks/useRequireAuth";
 import { Download } from "lucide-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -76,7 +77,8 @@ const sortDomainsByOrder = (domains: Domain[]) => {
 };
 
 export default function AdminQuestions() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const { theme } = useTheme();
   const router = useRouter();
 
@@ -100,11 +102,11 @@ export default function AdminQuestions() {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      router.push("/auth");
-      return;
+      return; // useRequireAuth handles redirect to /auth
     }
 
     if (user?.role !== "ADMIN") {
+      // Redirect non-admin users to dashboard (preserves history)
       router.push("/dashboard");
       return;
     }
@@ -646,20 +648,8 @@ export default function AdminQuestions() {
     fetchIndustryAnalytics();
   }, [authLoading, isAuthenticated, user?.role]);
 
-  // Handle redirects
-  useEffect(() => {
-    if (authLoading) return; // Still loading auth state
-
-    if (!isAuthenticated) {
-      router.push("/auth");
-      return;
-    }
-
-    if (user?.role !== "ADMIN") {
-      router.push("/dashboard");
-      return;
-    }
-  }, [isAuthenticated, user, authLoading, router]);
+  // Note: Auth redirect is handled by useRequireAuth hook
+  // Admin role check is handled in the first useEffect above
 
   // Show loading while checking auth
   if (authLoading) {

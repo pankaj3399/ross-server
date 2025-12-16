@@ -12,6 +12,7 @@ import {
   Brain,
   Lock,
   Crown,
+  Scale,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
@@ -423,12 +424,39 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             );
           })}
 
+          {/* Fairness & Bias Test Button */}
+          {projectId && onFairnessBiasClick && (
+            <div className="select-none mt-4">
+              <div
+                className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200 hover:opacity-90`}
+                onClick={onFairnessBiasClick}
+              >
+                <div className="flex justify-center items-center gap-3 flex-1 bg-gradient-to-r from-purple-600 to-violet-600 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Scale className="w-4 h-4 text-white dark:text-white stroke-2" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white dark:text-white truncate">
+                      Fairness & Bias Test
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Premium Features Section */}
           {projectId && !hidePremiumFeaturesButton && (
             <div className="select-none">
               <div
                 className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200`}
-                onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
+                onClick={() => {
+                  if (isPremium) {
+                    router.push(`/assess/${projectId}/premium-domains`);
+                  } else {
+                    router.push(`/premium-features`);
+                  }
+                }}
               >
                 <div className="flex justify-center items-center gap-3 flex-1 bg-purple-600 rounded-lg p-3">
                   <div className="flex items-center gap-2">
@@ -436,7 +464,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-white dark:text-white truncate">
-                      Premium Features
+                      Premium Domains
                     </h3>
                   </div>
                 </div>
