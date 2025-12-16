@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService } from "../../lib/api";
 import { motion } from "framer-motion";
 import {
@@ -25,6 +26,7 @@ import SubscriptionModal from "../../components/SubscriptionModal";
 
 export default function ManageSubscriptionPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +39,12 @@ export default function ManageSubscriptionPage() {
   const [processingAction, setProcessingAction] = useState<string | null>(null);
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+    
     if (!isAuthenticated) {
-      router.push("/auth");
       return;
     }
 
@@ -57,7 +63,7 @@ export default function ManageSubscriptionPage() {
     };
 
     loadData();
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   // Helper to reload subscription status and user profile
   const reloadSubscriptionData = async () => {

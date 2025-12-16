@@ -11,8 +11,11 @@ import {
   FileText,
   Brain,
   Lock,
+  Crown,
+  Scale,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useRouter } from "next/navigation";
 
 interface Question {
   level: string;
@@ -54,6 +57,7 @@ interface AssessmentTreeNavigationProps {
   projectId?: string;
   isPremium?: boolean;
   onFairnessBiasClick?: () => void;
+  hidePremiumFeaturesButton?: boolean;
 }
 
 const DOMAIN_PRIORITY = [
@@ -80,8 +84,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   projectId,
   isPremium,
   onFairnessBiasClick,
+  hidePremiumFeaturesButton = false,
 }) => {
   const { theme } = useTheme();
+  const router = useRouter();
   const orderedDomains = useMemo(() => {
     const originalOrderMap = new Map<string, number>();
     domains.forEach((domain, index) => {
@@ -418,24 +424,47 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             );
           })}
 
-          {/* Fairness & Bias Test Section */}
+          {/* Fairness & Bias Test Button */}
           {projectId && onFairnessBiasClick && (
-            <div className="select-none">
+            <div className="select-none mt-4">
               <div
-                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${"hover:bg-gray-50 dark:hover:bg-gray-800"
-                  }`}
+                className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200 hover:opacity-90`}
                 onClick={onFairnessBiasClick}
               >
-                <div className="flex items-center gap-3 flex-1">
+                <div className="flex justify-center items-center gap-3 flex-1 bg-gradient-to-r from-purple-600 to-violet-600 rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    {!isPremium && (
-                      <Lock className="w-4 h-4 text-gray-500" />
-                    )}
-                    <FileText className="w-4 h-4 text-gray-500" />
+                    <Scale className="w-4 h-4 text-white dark:text-white stroke-2" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    <h3 className="font-semibold text-white dark:text-white truncate">
                       Fairness & Bias Test
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Premium Features Section */}
+          {projectId && !hidePremiumFeaturesButton && (
+            <div className="select-none">
+              <div
+                className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200`}
+                onClick={() => {
+                  if (isPremium) {
+                    router.push(`/assess/${projectId}/premium-domains`);
+                  } else {
+                    router.push(`/premium-features`);
+                  }
+                }}
+              >
+                <div className="flex justify-center items-center gap-3 flex-1 bg-purple-600 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-white dark:text-white stroke-2 fill-white dark:fill-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white dark:text-white truncate">
+                      Premium Domains
                     </h3>
                   </div>
                 </div>

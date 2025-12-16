@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { SidebarProvider } from "../contexts/SidebarContext";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
+import { Sidebar } from "../components/Sidebar";
 import StripeProvider from "@/components/StripeProvider";
 import ToastComponent from "../components/Toast";
 
@@ -28,12 +30,17 @@ export default function RootLayout({
         <StripeProvider>
           <ThemeProvider>
             <AuthProvider>
-              <div className="min-h-screen flex flex-col">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
-              </div>
-              <ToastComponent />
+              <SidebarProvider>
+                <div className="min-h-screen flex">
+                  <Sidebar />
+                  <div className="flex-1 flex flex-col min-w-0">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
+                  </div>
+                </div>
+                <ToastComponent />
+              </SidebarProvider>
             </AuthProvider>
           </ThemeProvider>
         </StripeProvider>

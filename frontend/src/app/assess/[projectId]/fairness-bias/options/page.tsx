@@ -114,7 +114,7 @@ export default function FairnessBiasOptions() {
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => router.push(`/assess/${projectId}`)}
+                onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
                 className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />

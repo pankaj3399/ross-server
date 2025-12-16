@@ -32,6 +32,7 @@ export interface Domain {
   id: string;
   title: string;
   description: string;
+  is_premium?: boolean;
   practices: string[];
 }
 
@@ -217,6 +218,27 @@ class ApiService {
   async getDomains(projectId?: string): Promise<{ domains: Domain[] }> {
     const url = projectId ? `/aima/domains?project_id=${projectId}` : "/aima/domains";
     return this.request<{ domains: Domain[] }>(url);
+  }
+
+  async getDomainsFull(projectId?: string): Promise<{
+    domains: Array<{
+      id: string;
+      title: string;
+      description: string;
+      is_premium?: boolean;
+      practices: Record<string, Practice>;
+    }>;
+  }> {
+    const url = projectId ? `/aima/domains-full?project_id=${projectId}` : "/aima/domains-full";
+    return this.request<{
+      domains: Array<{
+        id: string;
+        title: string;
+        description: string;
+        is_premium?: boolean;
+        practices: Record<string, Practice>;
+      }>;
+    }>(url);
   }
 
   async getDomain(domainId: string, projectId?: string): Promise<{
@@ -628,13 +650,6 @@ class ApiService {
     );
   }
 
-  // // Email Verification
-  // async verifyEmail(token: string): Promise<AuthResponse> {
-  //   return this.request<AuthResponse>("/auth/verify-email", {
-  //     method: "POST",
-  //     body: JSON.stringify({ token }),
-  //   });
-  // }
 
   async resendVerification(): Promise<{ message: string; emailSent: boolean }> {
     return this.request<{ message: string; emailSent: boolean }>(
@@ -844,7 +859,6 @@ class ApiService {
       };
     }>("/admin/analytics/industries");
   }
-  // Generate AI insights for premium domains
   async generateDomainInsights(projectId: string): Promise<{
     success: boolean;
     insights: Record<string, string>; // domainId -> insights text

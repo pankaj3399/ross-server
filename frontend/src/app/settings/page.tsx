@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { showToast } from "../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -30,6 +31,7 @@ import Link from "next/link";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [showMFASetup, setShowMFASetup] = useState(false);
@@ -51,12 +53,15 @@ export default function SettingsPage() {
   const [emailNotifications, setEmailNotifications] = useState(true);
 
   useEffect(() => {
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
     if (!isAuthenticated) {
-      router.push("/auth");
       return;
     }
     setLoading(false);
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   const handleMFAToggle = async () => {
     if (user?.mfa_enabled) {

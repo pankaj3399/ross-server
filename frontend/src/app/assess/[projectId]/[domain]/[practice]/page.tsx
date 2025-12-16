@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
+import { useRequireAuth } from "../../../../../hooks/useRequireAuth";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
 import { ArrowLeft, Save, CheckCircle, Clock, Target } from "lucide-react";
@@ -53,6 +54,7 @@ export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const projectId = params.projectId as string;
   const domainId = params.domain as string;
   const practiceId = params.practice as string;
@@ -64,8 +66,8 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/auth");
+    // Wait for auth to finish loading
+    if (authLoading || !isAuthenticated) {
       return;
     }
 
@@ -107,7 +109,7 @@ export default function AssessmentPage() {
     };
 
     fetchPractice();
-  }, [domainId, practiceId, isAuthenticated, router]);
+  }, [domainId, practiceId, isAuthenticated, authLoading, router]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];

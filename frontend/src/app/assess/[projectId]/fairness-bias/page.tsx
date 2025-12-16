@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
+import { sanitizeNoteInput } from "../../../../lib/sanitize";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -572,11 +573,17 @@ export default function FairnessBiasTest() {
                     rows={8}
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
-                    onChange={(e) =>
-                      setResponses({ ...responses, [currentResKey]: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const sanitizedValue = sanitizeNoteInput(e.target.value);
+                      setResponses({ ...responses, [currentResKey]: sanitizedValue });
+                    }}
                     placeholder="Type or paste your response here..."
                   />
+                  {/* Security notice */}
+                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+                    <strong>Security:</strong> Your notes are automatically sanitized to
+                    prevent malicious content. HTML tags and scripts are not allowed.
+                  </div>
                 </div>
 
               </motion.div>

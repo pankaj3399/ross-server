@@ -6,6 +6,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
+import { useRequireAuth } from "../../hooks/useRequireAuth";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -19,8 +20,6 @@ import {
   CheckCircle,
   AlertCircle,
   Loader,
-  Star,
-  CreditCard,
 } from "lucide-react";
 import { CardSkeleton } from "../../components/Skeleton";
 
@@ -51,6 +50,7 @@ const INDUSTRY_OPTIONS = [
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
+  const { loading: authLoading } = useRequireAuth();
   const { theme } = useTheme();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -102,12 +102,10 @@ export default function DashboardPage() {
       setShowSuccessMessage(true);
       setTimeout(() => setShowSuccessMessage(false), 5000);
 
-      // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
 
       if (savedReturnUrl) {
-        // Refresh user in background, but navigate immediately to preserve context
         (async () => {
           try {
             await refreshUser();
@@ -115,11 +113,11 @@ export default function DashboardPage() {
             console.error("Failed to refresh user before redirect:", error);
           }
         })();
-        router.replace(savedReturnUrl);
+        // Use push instead of replace to preserve history
+        router.push(savedReturnUrl);
         return;
       }
 
-      // No saved return URL; stay on dashboard but refresh user
       setTimeout(async () => {
         try {
           await refreshUser();
@@ -131,44 +129,29 @@ export default function DashboardPage() {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
 
-      // Clean URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
   };
 
   useEffect(() => {
-    // Check for Stripe return parameters first
+    // Wait for auth to finish loading
+    if (authLoading) {
+      return;
+    }
+
+    // Only proceed if authenticated
+    if (!isAuthenticated) {
+      return;
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const canceled = urlParams.get('canceled');
 
-    // If we have Stripe parameters but user is not authenticated, 
-    // wait a bit for auth to initialize
-    if ((success || canceled) && !isAuthenticated) {
-      const checkAuth = setInterval(() => {
-        if (isAuthenticated) {
-          clearInterval(checkAuth);
-          // Re-run the effect with authentication
-          loadProjects();
-          handleStripeReturn(success, canceled);
-        }
-      }, 100);
-
-      // Clear interval after 5 seconds
-      setTimeout(() => clearInterval(checkAuth), 5000);
-      return;
-    }
-
-    if (!isAuthenticated) {
-      router.push("/auth");
-      return;
-    }
     loadProjects();
-
-    // Handle Stripe return if user is authenticated
     handleStripeReturn(success, canceled);
-  }, [isAuthenticated, router, refreshUser]);
+  }, [isAuthenticated, authLoading, router, refreshUser]);
 
   const loadProjects = async () => {
     try {
@@ -240,11 +223,6 @@ export default function DashboardPage() {
   };
 
 
-  const handleUpgradeToPremium = () => {
-    router.push("/manage-subscription");
-  };
-
-
   if (!isAuthenticated) {
     return <div>Loading...</div>;
   }
@@ -271,36 +249,6 @@ export default function DashboardPage() {
               </div>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex flex-col items-start md:items-end gap-3"
-            >
-              {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') ? (
-                <Link href="/manage-subscription">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    Manage Subscription
-                  </motion.button>
-                </Link>
-              ) : (
-                <Link href="/manage-subscription">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 shadow-md hover:shadow-lg"
-                  >
-                    <Star className="w-4 h-4" />
-                    Upgrade to Premium
-                  </motion.button>
-                </Link>
-              )}
-            </motion.div>
           </div>
 
           {/* Success Message */}
@@ -481,7 +429,7 @@ export default function DashboardPage() {
                 </motion.button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {projects.map((project) => (
                   <motion.div
                     key={project.id}
