@@ -10,9 +10,8 @@ import adminRouter from "./routes/admin";
 import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
 import publicRouter from "./routes/public";
-import { seedAIMAData } from "./scripts/seeds/seedAIMA"
 import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
-import { initializeDatabase } from "./utils/database";
+import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 
 
@@ -48,12 +47,15 @@ app.use("/admin", adminRouter);
 
 const initialize = async () => {
   try {
-    await initializeDatabase();
+    await pool.query("SELECT 1");
+    console.log("Database connection verified");
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("Database connection failed");
+    console.error(error);
     process.exit(1);
   }
 };
+
 
 if (process.env.VERCEL || process.env.SERVERLESS) {
   initialize().catch((err) => {

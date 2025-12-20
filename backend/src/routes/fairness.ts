@@ -6,6 +6,7 @@ import { getCurrentVersion } from "../services/getCurrentVersion";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 import { sanitizeNote } from "../utils/sanitize";
+import { wakeWorker } from "../services/workerService";
 
 const router = Router();
 
@@ -797,6 +798,9 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
 
         const job = insertResult.rows[0];
 
+        // Wake up the worker to fetch the new job immediately
+        wakeWorker();
+        
         res.json({
             jobId: job.job_id,
             totalPrompts: job.total_prompts,
