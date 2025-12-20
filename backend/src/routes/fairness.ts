@@ -3,10 +3,10 @@ import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
+import { wakeWorker } from "../services/workerService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 import { sanitizeNote } from "../utils/sanitize";
-import { wakeWorker } from "../services/workerService";
 
 const router = Router();
 
@@ -34,6 +34,16 @@ const evaluateDatasetSchema = z.object({
     projectId: z.string().uuid(),
     fileName: z.string().min(1, "File name is required"),
     csvText: z.string().min(1, "CSV text is required"),
+});
+
+// Manual prompt test schema
+const evaluatePromptsSchema = z.object({
+    projectId: z.string().uuid(),
+    responses: z.array(z.object({
+        category: z.string().min(1),
+        prompt: z.string().min(1),
+        response: z.string().min(1),
+    })).min(1, "At least one response is required"),
 });
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
@@ -737,6 +747,74 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
     }
 });
 
+// POST /fairness/evaluate-prompts - Create a job for manual prompt testing
+router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
+    try {
+        const { projectId, responses } = evaluatePromptsSchema.parse(req.body);
+        const userId = req.user!.id;
+
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+
+        if (projectCheck.rows.length === 0) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const totalPrompts = responses.length;
+
+        // Generate a unique job ID
+        const jobId = `fairness-prompts-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+        // Create job payload with responses
+        const jobPayload = {
+            type: "FAIRNESS_PROMPTS",
+            responses: responses.map(r => ({
+                category: r.category,
+                prompt: r.prompt,
+                response: r.response,
+            })),
+        };
+
+        // Insert job into evaluation_status table with job_type = MANUAL_PROMPT_TEST
+        const insertResult = await pool.query(
+            `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent, job_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING id, job_id, total_prompts`,
+            [
+                userId,
+                projectId,
+                jobId,
+                JSON.stringify(jobPayload),
+                "queued",
+                totalPrompts,
+                `0/${totalPrompts}`,
+                0,
+                "MANUAL_PROMPT_TEST",
+            ]
+        );
+
+        const job = insertResult.rows[0];
+
+        // Wake up the worker to fetch the new job immediately
+        wakeWorker();
+
+        res.json({
+            jobId: job.job_id,
+            totalPrompts: job.total_prompts,
+            message: `Evaluation job created successfully. Processing ${totalPrompts} prompts.`,
+        });
+    } catch (error) {
+        console.error("Error creating manual prompt evaluation job:", error);
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: "Validation failed", details: error.errors });
+        }
+        res.status(500).json({ error: "Failed to create evaluation job" });
+    }
+});
+
 // POST /fairness/evaluate-api - Create a job for batch API evaluation
 router.post("/evaluate-api", authenticateToken, async (req, res) => {
     try {
@@ -779,10 +857,10 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
             },
         };
 
-        // Insert job into evaluation_status table
+        // Insert job into evaluation_status table with job_type = AUTOMATED_API_TEST
         const insertResult = await pool.query(
-            `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent, job_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING id, job_id, total_prompts`,
             [
                 userId,
@@ -793,14 +871,12 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
                 totalPrompts,
                 `0/${totalPrompts}`,
                 0,
+                "AUTOMATED_API_TEST",
             ]
         );
 
         const job = insertResult.rows[0];
 
-        // Wake up the worker to fetch the new job immediately
-        wakeWorker();
-        
         res.json({
             jobId: job.job_id,
             totalPrompts: job.total_prompts,

@@ -73,6 +73,7 @@ export function Sidebar({
 
   const isAssessmentPage = pathname?.startsWith("/assess/") || false;
   const isAuthPage = pathname?.startsWith("/auth") || false;
+  const isLandingPage = pathname === "/" || false;
 
   const isActive = (href: string, id: string) => {
     if (href === "#") return false;
@@ -107,7 +108,7 @@ export function Sidebar({
   const sidebarContent = (
     <>
       {/* Logo Section */}
-      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -191,7 +192,7 @@ export function Sidebar({
     </>
   );
 
-  if (isAssessmentPage || isAuthPage) {
+  if (isAssessmentPage || isAuthPage || isLandingPage) {
     return null;
   }
 
@@ -239,7 +240,7 @@ export function Sidebar({
       {/* Desktop Sidebar - Only show when authenticated */}
       {isAuthenticated && (
         <aside
-          className={`hidden lg:flex flex-col h-screen sticky top-0 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
+          className={`hidden lg:flex flex-col h-screen sticky top-0 bg-gray-50/5 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
             collapsed ? "w-20" : "w-64"
           }`}
         >

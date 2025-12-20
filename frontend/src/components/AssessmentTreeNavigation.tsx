@@ -454,7 +454,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   if (isPremium) {
                     router.push(`/assess/${projectId}/premium-domains`);
                   } else {
-                    router.push(`/premium-features`);
+                    router.push(`/assess/${projectId}/premium-features`);
                   }
                 }}
               >
@@ -464,7 +464,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-white dark:text-white truncate">
-                      Premium Domains
+                      Premium Features
                     </h3>
                   </div>
                 </div>

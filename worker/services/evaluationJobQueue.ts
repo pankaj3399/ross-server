@@ -12,6 +12,7 @@ type EvaluationStatusRow = {
   progress: string | null;
   last_processed_prompt: string | null;
   percent: number | null;
+  job_type: string;
 };
 
 type ApiKeyPlacement = "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
@@ -39,6 +40,19 @@ type FairnessApiJobConfig = {
 type FairnessApiJobPayload = {
   type: "FAIRNESS_API";
   config: FairnessApiJobConfigStored;
+  summary?: JobSummary;
+  results?: JobResult[];
+  errors?: JobError[];
+  error?: string;
+};
+
+type FairnessPromptsJobPayload = {
+  type: "FAIRNESS_PROMPTS";
+  responses: Array<{
+    category: string;
+    prompt: string;
+    response: string;
+  }>;
   summary?: JobSummary;
   results?: JobResult[];
   errors?: JobError[];
@@ -152,20 +166,30 @@ export async function fetchNextJob(): Promise<EvaluationStatusRow | null> {
 }
 
 export async function processJob(job: EvaluationStatusRow) {
-  const payload: FairnessApiJobPayload | null =
+  const payload: any =
     job.payload && typeof job.payload === "object"
       ? job.payload
       : job.payload
         ? JSON.parse(job.payload)
         : null;
 
-  if (!payload || payload.type !== "FAIRNESS_API") {
-    await failJob(job.id, "Unsupported or missing job payload");
+  if (!payload) {
+    await failJob(job.id, "Missing job payload");
     return;
   }
 
   try {
-    await runFairnessApiJob(job, payload);
+    // Route by job_type
+    switch (job.job_type) {
+      case "AUTOMATED_API_TEST":
+        await processAutomatedApiTest(job, payload);
+        break;
+      case "MANUAL_PROMPT_TEST":
+        await processManualPromptTest(job, payload);
+        break;
+      default:
+        throw new Error(`Unknown job type: ${job.job_type}`);
+    }
   } catch (error: any) {
     console.error(`Fairness job ${job.job_id} failed:`, error);
     await failJob(job.id, error?.message || "Unknown worker failure");
@@ -198,6 +222,103 @@ function resolveApiKeyFieldName(placement: ApiKeyPlacement, provided?: string | 
     return trimmed;
   }
   return DEFAULT_API_KEY_FIELD_NAMES[placement] || null;
+}
+
+async function processAutomatedApiTest(job: EvaluationStatusRow, payload: FairnessApiJobPayload) {
+  if (payload.type !== "FAIRNESS_API") {
+    throw new Error("Invalid payload type for AUTOMATED_API_TEST job");
+  }
+  await runFairnessApiJob(job, payload);
+}
+
+async function processManualPromptTest(job: EvaluationStatusRow, payload: FairnessPromptsJobPayload) {
+  if (payload.type !== "FAIRNESS_PROMPTS") {
+    throw new Error("Invalid payload type for MANUAL_PROMPT_TEST job");
+  }
+
+  const projectCheck = await pool.query(
+    "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
+    [job.project_id, job.user_id],
+  );
+
+  if (projectCheck.rowCount === 0) {
+    throw new Error("Project not found or access denied for this job");
+  }
+
+  const responses = payload.responses || [];
+  if (responses.length === 0) {
+    await markJobCompleted(job.id, payload, {
+      summary: {
+        total: 0,
+        successful: 0,
+        failed: 0,
+        averageOverallScore: 0,
+        averageBiasScore: 0,
+        averageToxicityScore: 0,
+      },
+      results: [],
+      errors: [],
+    });
+    return;
+  }
+
+  await pool.query(
+    `UPDATE evaluation_status
+     SET total_prompts = $1,
+         progress = $2,
+         percent = 0
+     WHERE id = $3`,
+    [responses.length, `0/${responses.length}`, job.id],
+  );
+
+  const jobResults: JobResult[] = [];
+  const jobErrors: JobError[] = [];
+
+  for (let i = 0; i < responses.length; i += 1) {
+    const { category, prompt, response: userResponse } = responses[i];
+    try {
+      const evaluation = await callEvaluationService(
+        job.project_id,
+        job.user_id,
+        category,
+        prompt,
+        userResponse,
+      );
+      const successMessage = `Prompt processed successfully. Overall score ${(evaluation.overallScore * 100).toFixed(1)}%.`;
+
+      jobResults.push({
+        category,
+        prompt,
+        success: true,
+        evaluation,
+        message: successMessage,
+      });
+    } catch (error: any) {
+      const errorMessage = error?.message || "Unknown error";
+      jobErrors.push({
+        category,
+        prompt,
+        success: false,
+        error: errorMessage,
+        message: errorMessage,
+      });
+    }
+
+    const completed = jobResults.length + jobErrors.length;
+    const percent = Math.round((completed / responses.length) * 100);
+
+    await pool.query(
+      `UPDATE evaluation_status
+       SET progress = $1,
+           percent = $2,
+           last_processed_prompt = $3
+       WHERE id = $4`,
+      [`${completed}/${responses.length}`, percent, prompt, job.id],
+    );
+  }
+
+  const summary = buildSummary(responses.length, jobResults, jobErrors);
+  await markJobCompleted(job.id, payload, { summary, results: jobResults, errors: jobErrors });
 }
 
 async function runFairnessApiJob(job: EvaluationStatusRow, payload: FairnessApiJobPayload) {
@@ -310,9 +431,32 @@ async function failJob(jobInternalId: number, message: string) {
   );
 }
 
+export async function checkAndFailStaleJobs() {
+  try {
+    const result = await pool.query(
+      `UPDATE evaluation_status
+       SET status = 'failed',
+           payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
+       WHERE status = 'running'
+       AND NOW() - updated_at > INTERVAL '24 hours'
+       RETURNING id, job_id`,
+      [JSON.stringify({ error: "Job failed due to exceeding maximum execution time (24 hours)." })],
+    );
+
+    if (result.rowCount && result.rowCount > 0) {
+      console.log(`Auto-failed ${result.rowCount} stale job(s) that exceeded 24-hour timeout`);
+      result.rows.forEach((row: { id: number; job_id: string }) => {
+        console.log(`  - Job ${row.job_id} (id: ${row.id})`);
+      });
+    }
+  } catch (error: any) {
+    console.error("Error checking for stale jobs:", error);
+  }
+}
+
 async function markJobCompleted(
   jobInternalId: number,
-  payload: FairnessApiJobPayload,
+  payload: FairnessApiJobPayload | FairnessPromptsJobPayload,
   data: { summary: JobSummary; results: JobResult[]; errors: JobError[] },
 ) {
   await pool.query(
