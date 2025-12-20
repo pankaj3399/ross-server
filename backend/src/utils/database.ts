@@ -1372,3 +1372,15 @@ export const seedAIMAData = async () => {
     throw error;
   }
 };
+
+async function main() {
+  await initializeDatabase();
+  process.exit(0);
+}
+
+if (require.main === module) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

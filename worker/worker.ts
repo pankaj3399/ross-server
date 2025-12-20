@@ -5,14 +5,18 @@ import { initializeDatabase } from "./utils/database";
 
 dotenv.config();
 
-const POLL_INTERVAL_MS = Number(process.env.EVALUATION_JOB_POLL_INTERVAL_MS || 20000);
+const MIN_POLL_MS = Number(process.env.EVALUATION_JOB_MIN_POLL_INTERVAL_MS || 5000);
+const MAX_POLL_MS = Number(process.env.EVALUATION_JOB_MAX_POLL_INTERVAL_MS || 600000);
 const CONCURRENCY = Number(process.env.EVALUATION_WORKER_CONCURRENCY || 5);
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 4001);
+const STALE_JOB_CHECK_INTERVAL_MS = Number(process.env.STALE_JOB_CHECK_INTERVAL_MS || 3600000);
 
 let isShuttingDown = false;
 let activeJobs = 0;
 let workerStartTime = Date.now();
 let totalJobsProcessed = 0;
+let currentPollInterval = MIN_POLL_MS;
+let loopTimeoutId: NodeJS.Timeout | null = null;
 
 async function startWorker() {
     console.log("Starting evaluation worker...");
@@ -26,6 +30,8 @@ async function startWorker() {
     }
 
     const app = express();
+    app.use(express.json());
+    
     app.get("/health", (req: Request, res: Response) => {
         const uptime = Math.floor((Date.now() - workerStartTime) / 1000);
         res.json({
@@ -35,6 +41,29 @@ async function startWorker() {
             totalJobsProcessed,
             uptime: `${uptime}s`,
             concurrency: CONCURRENCY,
+        });
+    });
+
+    // POST /wake - Wake up the worker to check for jobs immediately
+    app.post("/wake", (req: Request, res: Response) => {
+        
+        console.log("Waking up worker...");
+        currentPollInterval = MIN_POLL_MS;
+        
+        if (loopTimeoutId) {
+            clearTimeout(loopTimeoutId);
+            loopTimeoutId = null;
+        }
+        
+        if (!isShuttingDown) {
+            setImmediate(loop);
+        }
+        
+        res.json({ 
+            status: "ok", 
+            message: "Worker woken up",
+            currentPollInterval: currentPollInterval,
+            activeJobs 
         });
     });
 
@@ -55,13 +84,14 @@ async function loop() {
     }
 
     if (activeJobs >= CONCURRENCY) {
-        setTimeout(loop, 1000);
+        loopTimeoutId = setTimeout(loop, 1000);
         return;
     }
 
     try {
         const job = await fetchNextJob();
         if (job) {
+            currentPollInterval = MIN_POLL_MS;
             activeJobs++;
             processJob(job)
                 .catch((err) => console.error(`Job ${job.id} failed unhandled:`, err))
@@ -72,11 +102,13 @@ async function loop() {
 
             setImmediate(loop);
         } else {
-            setTimeout(loop, POLL_INTERVAL_MS);
+            loopTimeoutId = setTimeout(loop, currentPollInterval);
+            currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_MS);
         }
     } catch (error) {
         console.error("Error fetching job:", error);
-        setTimeout(loop, POLL_INTERVAL_MS);
+        loopTimeoutId = setTimeout(loop, currentPollInterval);
+        currentPollInterval = Math.min(currentPollInterval * 2, MAX_POLL_MS);
     }
 }
 

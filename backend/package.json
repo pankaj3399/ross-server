@@ -8,7 +8,7 @@
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seeds/index.ts",
     "migrate": "npx node-pg-migrate up",
-    "db:init": "npm run migrate && npm run seed"
+    "db:init": "npx ts-node -r dotenv/config src/utils/database.ts && npm run migrate && npm run seed"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
