@@ -653,7 +653,7 @@ useEffect(() => {
       const response = await apiService.submitProject(projectId);
       
       setProjectResults(projectId, response.project, response.results);
-      router.push(`/score-report?projectId=${projectId}`);
+      router.push(`/score-report-aima?projectId=${projectId}`);
     } catch (error) {
       console.error("Failed to submit project:", error);
       showToast.error("Failed to submit assessment. Please try again.");

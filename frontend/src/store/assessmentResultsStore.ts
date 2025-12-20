@@ -8,6 +8,7 @@ interface DomainResult {
   correctAnswers: number;
   totalQuestions: number;
   percentage: number;
+  isPremium?: boolean;
 }
 
 interface OverallResult {

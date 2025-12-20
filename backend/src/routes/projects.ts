@@ -271,7 +271,8 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
         domainTitle: domain.domainTitle,
         correctAnswers: domain.correctAnswers,
         totalQuestions: domain.totalQuestions,
-        percentage
+        percentage,
+        isPremium: domain.isPremium
       };
       
       return domainResponse;

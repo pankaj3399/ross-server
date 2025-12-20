@@ -39,8 +39,7 @@ export default function FairnessBiasTest() {
   const [fairnessQuestions, setFairnessQuestions] = useState<FairnessQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [responses, setResponses] = useState<{ [key: string]: string }>({});
-  const [submitting, setSubmitting] = useState<{ [key: string]: boolean }>({});
-  const [evaluations, setEvaluations] = useState<{ [key: string]: any }>({});
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -52,7 +51,6 @@ export default function FairnessBiasTest() {
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
 
-  // Show unlock premium modal automatically for non-premium users
   useEffect(() => {
     if (!loading && user) {
       setShowUnlockPremium(!isPremium);
@@ -90,54 +88,8 @@ export default function FairnessBiasTest() {
           setExpandedCategories(new Set(["cat-0"]));
         }
 
-        try {
-          const evaluationsData = await apiService.getFairnessEvaluations(projectId);
-          
-          const responsesMap: { [key: string]: string } = {};
-          const evaluationsMap: { [key: string]: any } = {};
-
-          evaluationsData.evaluations.forEach((evaluation) => {
-            const categoryIdx = questionsData.questions.findIndex(
-              cat => cat.label === evaluation.category
-            );
-            
-            if (categoryIdx !== -1) {
-              const category = questionsData.questions[categoryIdx];
-              const promptIdx = category.prompts.findIndex(
-                prompt => prompt === evaluation.questionText
-              );
-              
-              if (promptIdx !== -1) {
-                const key = `${categoryIdx}:${promptIdx}`;
-                responsesMap[key] = evaluation.userResponse;
-                evaluationsMap[key] = {
-                  id: evaluation.id,
-                  biasScore: evaluation.biasScore,
-                  toxicityScore: evaluation.toxicityScore,
-                  relevancyScore: evaluation.relevancyScore,
-                  faithfulnessScore: evaluation.faithfulnessScore,
-                  overallScore: evaluation.overallScore,
-                  verdicts: evaluation.verdicts,
-                  reasoning: evaluation.reasoning,
-                  createdAt: evaluation.createdAt,
-                };
-              }
-            }
-          });
-
-          setResponses(responsesMap);
-          setEvaluations(evaluationsMap);
-        } catch (error: any) {
-          // Don't block UI on 403 - we'll show blurred content with unlock premium overlay
-          if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
-            // Still allow questions to be displayed (blurred) for non-premium users
-            console.log("Premium access required for evaluations");
-          }
-        }
       } catch (error: any) {
-        // Don't block UI on 403 - we'll show blurred content with unlock premium overlay
-        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
-          // Still allow questions to be displayed (blurred) for non-premium users
+        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {        
           console.log("Premium access required");
         }
       } finally {
@@ -148,7 +100,6 @@ export default function FairnessBiasTest() {
     fetchData();
   }, [loading, user, projectId]);
 
-  // Scroll to current question when it changes
   useEffect(() => {
     if (currentQuestionRef.current) {
       setTimeout(() => {
@@ -160,7 +111,6 @@ export default function FairnessBiasTest() {
     }
   }, [currentCategoryIndex, currentPromptIndex]);
 
-  // Auto-expand current category
   useEffect(() => {
     if (currentCategory) {
       setExpandedCategories(prev => {
@@ -171,16 +121,13 @@ export default function FairnessBiasTest() {
     }
   }, [currentCategoryIndex]);
 
-  // Show loading if user is not loaded yet
   if (loading || !user) {
     return <SimplePageSkeleton />;
   }
 
-  // Show loading while fetching questions, but still show the page structure with blur for non-premium
   if (questionsLoading) {
     return (
       <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
-        {/* Blur overlay and unlock premium modal for non-premium users */}
         {!isPremium && (
           <>
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
@@ -204,7 +151,6 @@ export default function FairnessBiasTest() {
   if (fairnessQuestions.length === 0) {
     return (
       <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
-        {/* Blur overlay and unlock premium modal for non-premium users */}
         {!isPremium && (
           <>
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
@@ -228,8 +174,8 @@ export default function FairnessBiasTest() {
   }
 
   const totalQuestions = categories.reduce((sum, cat) => sum + cat.totalPrompts, 0);
-  const answeredQuestions = Object.keys(evaluations).filter(
-    key => evaluations[key] && !evaluations[key].error
+  const answeredQuestions = Object.keys(responses).filter(
+    key => responses[key] && responses[key].trim()
   ).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
@@ -261,7 +207,6 @@ export default function FairnessBiasTest() {
   };
 
   const handleNext = () => {
-    // Navigate to next question without evaluating
     if (currentCategory && currentPromptIndex < currentCategory.prompts.length - 1) {
       setCurrentPromptIndex(currentPromptIndex + 1);
     } else if (currentCategoryIndex < categories.length - 1) {
@@ -275,48 +220,52 @@ export default function FairnessBiasTest() {
     (currentCategoryIndex === categories.length - 1 &&
       currentPromptIndex < categories[currentCategoryIndex].prompts.length - 1);
 
-  // Called when a user clicks submit for a prompt
-  async function handleSubmit() {
-    if (!currentResKey || !responses[currentResKey]?.trim()) return;
+  async function handleEvaluateAssessment() {
+    const responsesArray: Array<{ category: string; prompt: string; response: string }> = [];
+    
+    fairnessQuestions.forEach((category, catIdx) => {
+      category.prompts.forEach((prompt, promptIdx) => {
+        const key = `${catIdx}:${promptIdx}`;
+        const response = responses[key];
+        if (response && response.trim()) {
+          responsesArray.push({
+            category: category.label,
+            prompt: prompt,
+            response: response.trim(),
+          });
+        }
+      });
+    });
 
-    const category = fairnessQuestions[currentCategoryIndex];
-    const prompt = category.prompts[currentPromptIndex];
+    if (responsesArray.length === 0) {
+      alert("Please provide at least one response before evaluating.");
+      return;
+    }
 
-    setSubmitting((prev) => ({ ...prev, [currentResKey]: true }));
+    setIsEvaluating(true);
 
     try {
-      const result = await apiService.evaluateFairnessResponse({
+      const result = await apiService.evaluatePrompts({
         projectId,
-        category: category.label,
-        questionText: prompt,
-        userResponse: responses[currentResKey],
+        responses: responsesArray,
       });
 
-      setEvaluations((prev) => ({
-        ...prev,
-        [currentResKey]: result.evaluation,
-      }));
-    } catch (error) {
-      console.error("Failed to evaluate response:", error);
-      setEvaluations((prev) => ({
-        ...prev,
-        [currentResKey]: { error: "Evaluation failed. Please try again." },
-      }));
+      router.push(`/assess/${projectId}/fairness-bias/job/${result.jobId}`);
+    } catch (error: any) {
+      console.error("Failed to start evaluation:", error);
+      alert(error.message || "Failed to start evaluation. Please try again.");
     } finally {
-      setSubmitting((prev) => ({ ...prev, [currentResKey]: false }));
+      setIsEvaluating(false);
     }
   }
 
   const getQuestionStatus = (catIdx: number, promptIdx: number) => {
     const key = `${catIdx}:${promptIdx}`;
-    const evaluation = evaluations[key];
-    if (!evaluation || evaluation.error) return null;
-    return evaluation;
+    return responses[key] && responses[key].trim() ? true : false;
   };
 
   return (
     <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
-      {/* Blur overlay and unlock premium modal for non-premium users */}
       {!isPremium && showUnlockPremium && (
         <UnlockPremium
           featureName="Fairness & Bias Test"
@@ -324,7 +273,6 @@ export default function FairnessBiasTest() {
         />
       )}
 
-      {/* Left Sidebar - Tree Navigation */}
       <div className={`w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen overflow-y-auto ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         <div className="p-6">
           <div className="flex items-center gap-2 mb-6">
@@ -334,7 +282,6 @@ export default function FairnessBiasTest() {
             </h2>
           </div>
 
-          {/* Progress Summary */}
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -355,7 +302,6 @@ export default function FairnessBiasTest() {
             </div>
           </div>
 
-          {/* Categories Tree */}
           <div className="space-y-2">
             {categories.map((category, catIdx) => {
               const isCurrentCategory = currentCategoryIndex === catIdx;
@@ -363,7 +309,6 @@ export default function FairnessBiasTest() {
 
               return (
                 <div key={category.id} className="select-none">
-                  {/* Category Header */}
                   <div
                     className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${
                       isCurrentCategory
@@ -418,7 +363,6 @@ export default function FairnessBiasTest() {
                     </div>
                   </div>
 
-                  {/* Prompts */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div
@@ -448,7 +392,7 @@ export default function FairnessBiasTest() {
                               }}
                             >
                               <div className="flex items-center gap-2">
-                                {evaluation ? (
+                                {getQuestionStatus(catIdx, promptIdx) ? (
                                   <CheckCircle className="w-3 h-3 text-green-500" />
                                 ) : (
                                   <Circle className="w-3 h-3 text-gray-400" />
@@ -473,9 +417,7 @@ export default function FairnessBiasTest() {
         </div>
       </div>
 
-      {/* Right Content Area */}
       <div className={`flex-1 flex flex-col ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
-        {/* Header */}
         <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -498,19 +440,27 @@ export default function FairnessBiasTest() {
               </div>
             </div>
             <button
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/report`)}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200"
+              onClick={handleEvaluateAssessment}
+              disabled={isEvaluating || answeredQuestions === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <BarChart3 className="w-4 h-4" />
-              View Full Report
+              {isEvaluating ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Evaluating...
+                </>
+              ) : (
+                <>
+                  <BarChart3 className="w-4 h-4" />
+                  Evaluate Assessment
+                </>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
-            {/* Progress Bar */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -528,7 +478,6 @@ export default function FairnessBiasTest() {
               </div>
             </div>
 
-            {/* Question Card */}
             {currentPrompt && (
               <motion.div
                 key={currentResKey}
@@ -538,33 +487,11 @@ export default function FairnessBiasTest() {
                 className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
               >
                 <div className="mb-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed flex-1">
-                      {currentPrompt.text}
-                    </h2>
-                    {/* Evaluate/Re-evaluate Button */}
-                    {currentResKey && responses[currentResKey] && responses[currentResKey].trim() && (
-                      <button
-                        onClick={handleSubmit}
-                        disabled={submitting[currentResKey]}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                      >
-                        {submitting[currentResKey] ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            {evaluations[currentResKey] && !evaluations[currentResKey].error ? "Re-evaluating..." : "Evaluating..."}
-                          </>
-                        ) : (
-                          <>
-                            {evaluations[currentResKey] && !evaluations[currentResKey].error ? "Re-evaluate" : "Evaluate"}
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
+                    {currentPrompt.text}
+                  </h2>
                 </div>
 
-                {/* Textarea for Response */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Your Response
@@ -579,7 +506,6 @@ export default function FairnessBiasTest() {
                     }}
                     placeholder="Type or paste your response here..."
                   />
-                  {/* Security notice */}
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
                     <strong>Security:</strong> Your notes are automatically sanitized to
                     prevent malicious content. HTML tags and scripts are not allowed.
@@ -589,7 +515,6 @@ export default function FairnessBiasTest() {
               </motion.div>
             )}
 
-            {/* Navigation Buttons */}
             <div className="flex items-center justify-between">
               <button
                 onClick={handlePrevious}

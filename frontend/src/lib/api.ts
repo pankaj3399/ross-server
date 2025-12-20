@@ -443,6 +443,28 @@ class ApiService {
     });
   }
 
+  async evaluatePrompts(data: {
+    projectId: string;
+    responses: Array<{
+      category: string;
+      prompt: string;
+      response: string;
+    }>;
+  }): Promise<{
+    jobId: string;
+    totalPrompts: number;
+    message: string;
+  }> {
+    return this.request<{
+      jobId: string;
+      totalPrompts: number;
+      message: string;
+    }>("/fairness/evaluate-prompts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async getFairnessJob(jobId: string): Promise<{
     jobId: string;
     status: "queued" | "running" | "completed" | "failed";

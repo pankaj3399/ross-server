@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import express, { Request, Response } from "express";
-import { fetchNextJob, processJob } from "./services/evaluationJobQueue";
+import { fetchNextJob, processJob, checkAndFailStaleJobs } from "./services/evaluationJobQueue";
 import { initializeDatabase } from "./utils/database";
 
 dotenv.config();
@@ -9,7 +9,7 @@ const MIN_POLL_MS = Number(process.env.EVALUATION_JOB_MIN_POLL_INTERVAL_MS || 50
 const MAX_POLL_MS = Number(process.env.EVALUATION_JOB_MAX_POLL_INTERVAL_MS || 600000);
 const CONCURRENCY = Number(process.env.EVALUATION_WORKER_CONCURRENCY || 5);
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 4001);
-const STALE_JOB_CHECK_INTERVAL_MS = Number(process.env.STALE_JOB_CHECK_INTERVAL_MS || 3600000);
+const STALE_JOB_CHECK_INTERVAL_MS = Number(process.env.STALE_JOB_CHECK_INTERVAL_MS || 3600000); // Default: 1 hour
 
 let isShuttingDown = false;
 let activeJobs = 0;
@@ -69,6 +69,18 @@ async function startWorker() {
 
     app.listen(HEALTH_PORT, () => {
         console.log(`Health check server listening on port ${HEALTH_PORT}`);
+    });
+
+    // Start periodic stale job check
+    setInterval(() => {
+        checkAndFailStaleJobs().catch((err) => {
+            console.error("Error in stale job check:", err);
+        });
+    }, STALE_JOB_CHECK_INTERVAL_MS);
+
+    // Run initial stale job check
+    checkAndFailStaleJobs().catch((err) => {
+        console.error("Error in initial stale job check:", err);
     });
 
     loop();

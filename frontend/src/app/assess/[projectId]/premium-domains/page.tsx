@@ -38,9 +38,9 @@ interface Question {
 type LevelQuestionEntry =
   | string
   | {
-      question_text: string;
-      description?: string | null;
-    };
+    question_text: string;
+    description?: string | null;
+  };
 
 interface PracticeWithLevels extends ApiPractice {
   levels: {
@@ -98,14 +98,14 @@ export default function PremiumDomainsPage() {
     if (authLoading) {
       return;
     }
-    
+
     if (!isAuthenticated) {
       return;
     }
 
     if (!isPremium) {
       // Redirect to premium features page to purchase subscription
-      router.push(`/premium-features`);
+      router.push(`/assess/${projectId}/premium-features`);
       return;
     }
 
@@ -119,14 +119,14 @@ export default function PremiumDomainsPage() {
 
         if (premiumDomains.length === 0) {
           // Redirect to premium features page if no premium domains available
-          router.push(`/premium-features`);
+          router.push(`/assess/${projectId}/premium-features`);
           setLoading(false);
           return;
         }
 
         const transformedDomains = premiumDomains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
-          
+
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
             practicesWithLevels[practiceId] = {
               ...practice,
@@ -152,7 +152,7 @@ export default function PremiumDomainsPage() {
             setCurrentDomainId(firstDomain.id);
             setCurrentPracticeId(firstPracticeId);
             setCurrentQuestionIndex(0);
-            
+
             if (firstPractice.levels && Object.keys(firstPractice.levels).length > 0) {
               const questionsList: Question[] = [];
               Object.entries(firstPractice.levels).forEach(([level, streams]) => {
@@ -234,7 +234,7 @@ export default function PremiumDomainsPage() {
       const domain = domains.find(d => d.id === currentDomainId);
       if (domain && domain.practices[currentPracticeId]) {
         const practice = domain.practices[currentPracticeId];
-        
+
         if (practice.levels && Object.keys(practice.levels).length > 0) {
           const questionsList: Question[] = [];
           Object.entries(practice.levels).forEach(([level, streams]) => {
@@ -255,13 +255,13 @@ export default function PremiumDomainsPage() {
               });
             });
           });
-          
+
           setQuestions(questionsList);
           setCurrentPractice({
             title: practice.title,
             description: practice.description,
           });
-          
+
           if (questionsList.length > 0) {
             const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
             if (validIndex !== currentQuestionIndex) {
@@ -274,7 +274,7 @@ export default function PremiumDomainsPage() {
           setLoadingPractice(currentPracticeId);
           apiService.getPracticeQuestions(currentDomainId, currentPracticeId, projectId)
             .then((practiceData) => {
-              setDomains(prevDomains => 
+              setDomains(prevDomains =>
                 prevDomains.map(d => {
                   if (d.id === currentDomainId && d.practices[currentPracticeId]) {
                     return {
@@ -291,7 +291,7 @@ export default function PremiumDomainsPage() {
                   return d;
                 })
               );
-              
+
               const questionsList: Question[] = [];
               Object.entries(practiceData.levels).forEach(([level, streams]) => {
                 Object.entries(
@@ -311,13 +311,13 @@ export default function PremiumDomainsPage() {
                   });
                 });
               });
-              
+
               setQuestions(questionsList);
               setCurrentPractice({
                 title: practiceData.title,
                 description: practiceData.description,
               });
-              
+
               if (questionsList.length > 0) {
                 const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
                 if (validIndex !== currentQuestionIndex) {
@@ -346,9 +346,9 @@ export default function PremiumDomainsPage() {
   // Redirect to premium features if no domains available
   useEffect(() => {
     if (!loading && domains.length === 0 && isPremium) {
-      router.push(`/premium-features`);
+      router.push(`/assess/${projectId}/premium-features`);
     }
-  }, [loading, domains.length, isPremium, router]);
+  }, [loading, domains.length, isPremium, router, projectId]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
@@ -452,7 +452,7 @@ export default function PremiumDomainsPage() {
     const domain = domains.find(d => d.id === domainId);
     if (domain && domain.practices[practiceId]) {
       const selectedPractice = domain.practices[practiceId];
-      
+
       if (selectedPractice.levels && Object.keys(selectedPractice.levels).length > 0) {
         const questionsList: Question[] = [];
         Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
@@ -491,7 +491,7 @@ export default function PremiumDomainsPage() {
     if (next) {
       const isMovingToDifferentDomain = next.domainId !== currentDomainId;
       const isMovingToDifferentPractice = next.practiceId !== currentPracticeId;
-      
+
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
         loadQuestionsFromPractice(next.domainId, next.practiceId);
         setTimeout(() => {
@@ -512,7 +512,7 @@ export default function PremiumDomainsPage() {
     if (prev) {
       const isMovingToDifferentDomain = prev.domainId !== currentDomainId;
       const isMovingToDifferentPractice = prev.practiceId !== currentPracticeId;
-      
+
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
         loadQuestionsFromPractice(prev.domainId, prev.practiceId);
         setTimeout(() => {
@@ -597,7 +597,7 @@ export default function PremiumDomainsPage() {
 
   const validQuestionIndex = Math.min(currentQuestionIndex, questions.length - 1);
   const currentQuestion = questions[validQuestionIndex];
-  
+
   if (!currentQuestion) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -673,6 +673,7 @@ export default function PremiumDomainsPage() {
                 </div>
               )}
               <button
+                onClick={() => router.push(`/score-report-premium?projectId=${projectId}`)}
                 className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300"
               >
                 Submit Project
