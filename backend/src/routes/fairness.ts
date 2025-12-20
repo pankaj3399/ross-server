@@ -7,7 +7,6 @@ import { wakeWorker } from "../services/workerService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 import { sanitizeNote } from "../utils/sanitize";
-import { wakeWorker } from "../services/workerService";
 
 const router = Router();
 
