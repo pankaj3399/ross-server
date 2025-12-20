@@ -8,8 +8,8 @@ dotenv.config();
 const MIN_POLL_MS = Number(process.env.EVALUATION_JOB_MIN_POLL_INTERVAL_MS || 5000);
 const MAX_POLL_MS = Number(process.env.EVALUATION_JOB_MAX_POLL_INTERVAL_MS || 600000);
 const CONCURRENCY = Number(process.env.EVALUATION_WORKER_CONCURRENCY || 5);
-const HEALTH_PORT = Number(process.env.HEALTH_PORT || 4001);
-const STALE_JOB_CHECK_INTERVAL_MS = Number(process.env.STALE_JOB_CHECK_INTERVAL_MS || 3600000); // Default: 1 hour
+const HEALTH_PORT = Number(process.env.HEALTH_PORT || 0);
+const STALE_JOB_CHECK_INTERVAL_MS = Number(process.env.STALE_JOB_CHECK_INTERVAL_MS || 3600000);
 
 let isShuttingDown = false;
 let activeJobs = 0;

@@ -3,6 +3,7 @@ import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
+import { wakeWorker } from "../services/workerService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 import { sanitizeNote } from "../utils/sanitize";
@@ -798,6 +799,9 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
 
         const job = insertResult.rows[0];
 
+        // Wake up the worker to fetch the new job immediately
+        wakeWorker();
+
         res.json({
             jobId: job.job_id,
             totalPrompts: job.total_prompts,
@@ -874,9 +878,6 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
 
         const job = insertResult.rows[0];
 
-        // Wake up the worker to fetch the new job immediately
-        wakeWorker();
-        
         res.json({
             jobId: job.job_id,
             totalPrompts: job.total_prompts,
