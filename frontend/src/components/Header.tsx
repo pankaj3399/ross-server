@@ -83,7 +83,7 @@ export function Header() {
 
           <div className="flex items-center space-x-3 group">
             <img
-              src="/logo.png"
+              src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
               alt="MATUR.ai Logo"
               className="h-14 my-2"
             />
