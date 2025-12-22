@@ -23,8 +23,27 @@ const API_BASE_URL =
 const LandingPage = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
-  const logoUrl = logoImage;
+  // Detect dark mode
+  React.useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
+    };
+    
+    checkDarkMode();
+    
+    // Watch for changes
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  const logoUrl = isDarkMode ? "/logo-dark.png" : logoImage;
 
   const handleNotify = async (e) => {
     e.preventDefault();
@@ -197,7 +216,7 @@ const LandingPage = () => {
             className="space-y-6"
           >
             <img
-              src="/logo.png"
+              src={isDarkMode ? "/logo-dark.png" : "/logo.png"}
               alt="MATUR.ai Logo"
               className="h-24 mx-auto mb-4"
             />
@@ -645,7 +664,11 @@ const LandingPage = () => {
 
       <footer className="py-8 px-4 text-center text-gray-500">
         <div className="flex justify-center items-center gap-4 mb-4">
-          <img src={logoUrl} alt="MATUR.ai Logo" className="h-8" />
+          <img
+            src={logoUrl}
+            alt="MATUR.ai Logo"
+            className="h-8"
+          />
           <p>
             &copy; 2025 MATUR.ai. (Powered by{" "}
             <a
