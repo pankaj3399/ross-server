@@ -95,7 +95,6 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Project ID is required" });
     }
 
-    // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (typeof project_id !== 'string' || !uuidRegex.test(project_id)) {
       return res.status(400).json({ error: "Invalid project ID format" });
@@ -104,7 +103,6 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
     const user = req.user;
     const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
-    // Single query to get project and version info
     const projectResult = await pool.query(
       "SELECT id, version_id FROM projects WHERE id = $1",
       [project_id]
@@ -143,17 +141,8 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
         q.question_text,
         q.description as question_description
       FROM aima_domains d
-      ${projectVersionCreatedAt ? `
-        LEFT JOIN versions vd ON d.version_id = vd.id
-      ` : ''}
       LEFT JOIN aima_practices p ON d.id = p.domain_id
-      ${projectVersionCreatedAt ? `
-        LEFT JOIN versions vp ON p.version_id = vp.id
-      ` : ''}
       LEFT JOIN aima_questions q ON p.id = q.practice_id
-      ${projectVersionCreatedAt ? `
-        LEFT JOIN versions vq ON q.version_id = vq.id
-      ` : ''}
     `;
     
     const queryParams: any[] = [];
@@ -164,12 +153,22 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
       whereConditions.push("COALESCE(d.is_premium, false) = false");
     }
     
-    // Apply version filtering
-    if (projectVersionCreatedAt) {
-      queryParams.push(projectVersionCreatedAt);
-      whereConditions.push(`(d.version_id IS NULL OR vd.created_at <= $${queryParams.length})`);
-      whereConditions.push(`(p.id IS NULL OR p.version_id IS NULL OR vp.created_at <= $${queryParams.length})`);
-      whereConditions.push(`(q.id IS NULL OR q.version_id IS NULL OR vq.created_at <= $${queryParams.length})`);
+    // Apply version filtering using EXISTS subqueries 
+    if (projectVersionId) {
+      const paramIndex = queryParams.length + 1;
+      queryParams.push(projectVersionId);
+      whereConditions.push(`(d.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
+        AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+      ))`);
+      whereConditions.push(`(p.id IS NULL OR p.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v2 WHERE v2.id = p.version_id 
+        AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+      ))`);
+      whereConditions.push(`(q.id IS NULL OR q.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v3 WHERE v3.id = q.version_id 
+        AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+      ))`);
     }
     
     if (whereConditions.length > 0) {
