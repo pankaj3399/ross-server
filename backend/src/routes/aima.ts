@@ -86,37 +86,48 @@ router.get("/domains", authenticateToken, async (req, res) => {
 });
 
 // GET /aima/domains-full?project_id=uuid
-// Returns all domains with their practices in a single optimized request
+// Returns all domains with their practices and questions in a single optimized request
 router.get("/domains-full", authenticateToken, async (req, res) => {
   try {
     const { project_id } = req.query;
+
+    if(!project_id) {
+      return res.status(400).json({ error: "Project ID is required" });
+    }
+
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (typeof project_id !== 'string' || !uuidRegex.test(project_id)) {
+      return res.status(400).json({ error: "Invalid project ID format" });
+    }
+
     const user = req.user;
     const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
+    // Single query to get project and version info
+    const projectResult = await pool.query(
+      "SELECT id, version_id FROM projects WHERE id = $1",
+      [project_id]
+    );
+
+    if (projectResult.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+    
     let projectVersionCreatedAt: Date | null = null;
-    if (project_id) {
-      const projectResult = await pool.query(
-        "SELECT version_id FROM projects WHERE id = $1",
-        [project_id]
+    const projectVersionId = projectResult.rows[0].version_id;
+    
+    if (projectVersionId) {
+      const versionResult = await pool.query(
+        "SELECT created_at FROM versions WHERE id = $1",
+        [projectVersionId]
       );
-      
-      if (projectResult.rows.length === 0) {
-        return res.status(404).json({ error: "Project not found" });
-      }
-      
-      const projectVersionId = projectResult.rows[0].version_id;
-      if (projectVersionId) {
-        const versionResult = await pool.query(
-          "SELECT created_at FROM versions WHERE id = $1",
-          [projectVersionId]
-        );
-        if (versionResult.rows.length > 0) {
-          projectVersionCreatedAt = versionResult.rows[0].created_at;
-        }
+      if (versionResult.rows.length > 0) {
+        projectVersionCreatedAt = versionResult.rows[0].created_at;
       }
     }
     
-    // Single query with LEFT JOINs for better performance
+    // Single optimized query with LEFT JOINs for domains, practices, and questions
     let query = `
       SELECT 
         d.id as domain_id,
@@ -125,7 +136,12 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
         COALESCE(d.is_premium, false) as domain_is_premium,
         p.id as practice_id,
         p.title as practice_title,
-        p.description as practice_description
+        p.description as practice_description,
+        q.level as question_level,
+        q.stream as question_stream,
+        q.question_index,
+        q.question_text,
+        q.description as question_description
       FROM aima_domains d
       ${projectVersionCreatedAt ? `
         LEFT JOIN versions vd ON d.version_id = vd.id
@@ -133,6 +149,10 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
       LEFT JOIN aima_practices p ON d.id = p.domain_id
       ${projectVersionCreatedAt ? `
         LEFT JOIN versions vp ON p.version_id = vp.id
+      ` : ''}
+      LEFT JOIN aima_questions q ON p.id = q.practice_id
+      ${projectVersionCreatedAt ? `
+        LEFT JOIN versions vq ON q.version_id = vq.id
       ` : ''}
     `;
     
@@ -149,19 +169,21 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
       queryParams.push(projectVersionCreatedAt);
       whereConditions.push(`(d.version_id IS NULL OR vd.created_at <= $${queryParams.length})`);
       whereConditions.push(`(p.id IS NULL OR p.version_id IS NULL OR vp.created_at <= $${queryParams.length})`);
+      whereConditions.push(`(q.id IS NULL OR q.version_id IS NULL OR vq.created_at <= $${queryParams.length})`);
     }
     
     if (whereConditions.length > 0) {
       query += " WHERE " + whereConditions.join(" AND ");
     }
     
-    query += " ORDER BY d.id, p.id";
+    query += " ORDER BY d.id, p.id, q.level, q.stream, q.question_index";
     
     const result = await pool.query(query, queryParams);
     
     const domainsMap = new Map<string, any>();
     
     result.rows.forEach((row) => {
+      // Initialize domain if not exists
       if (!domainsMap.has(row.domain_id)) {
         domainsMap.set(row.domain_id, {
           id: row.domain_id,
@@ -172,22 +194,46 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
         });
       }
       
+      const domain = domainsMap.get(row.domain_id);
+      
+      // Initialize practice if not exists
       if (row.practice_id) {
-        const domain = domainsMap.get(row.domain_id);
-        if (domain && !domain.practices[row.practice_id]) {
+        if (!domain.practices[row.practice_id]) {
           domain.practices[row.practice_id] = {
             title: row.practice_title,
             description: row.practice_description,
+            levels: {},
           };
         }
+      }
+      
+      // Add question if exists
+      if (row.practice_id && row.question_level && row.question_stream !== null) {
+        const practice = domain.practices[row.practice_id];
+        if (!practice.levels[row.question_level]) {
+          practice.levels[row.question_level] = {};
+        }
+        if (!practice.levels[row.question_level][row.question_stream]) {
+          practice.levels[row.question_level][row.question_stream] = [];
+        }
+        // Direct assignment matching original pattern
+        practice.levels[row.question_level][row.question_stream][row.question_index] = {
+          question_text: row.question_text,
+          description: row.question_description,
+        };
       }
     });
     
     const domains = Array.from(domainsMap.values());
     
     res.json({ domains });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching domains-full:", error);
+    
+    if (error?.code === '22P02' || error?.message?.includes('invalid input syntax for type uuid')) {
+      return res.status(400).json({ error: "Invalid project ID format" });
+    }
+    
     res.status(500).json({ error: "Failed to fetch domains" });
   }
 });

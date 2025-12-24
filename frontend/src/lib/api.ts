@@ -39,6 +39,7 @@ export interface Domain {
 export interface Practice {
   title: string;
   description: string;
+  levels?: PracticeQuestionLevels;
 }
 
 export interface Question {
@@ -229,7 +230,10 @@ class ApiService {
       practices: Record<string, Practice>;
     }>;
   }> {
-    const url = projectId ? `/aima/domains-full?project_id=${projectId}` : "/aima/domains-full";
+    if (!projectId) {
+      throw new Error("Project ID is required");
+    }
+    const url = `/aima/domains-full?project_id=${projectId}`;
     return this.request<{
       domains: Array<{
         id: string;
