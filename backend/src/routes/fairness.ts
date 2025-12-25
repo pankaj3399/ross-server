@@ -3,10 +3,10 @@ import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion";
-import { wakeWorker } from "../services/workerService";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
 import { sanitizeNote } from "../utils/sanitize";
+import { inngest } from "../inngest/client";
 
 const router = Router();
 
@@ -779,6 +779,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
         };
 
         // Insert job into evaluation_status table with job_type = MANUAL_PROMPT_TEST
+        // Use status='processing' instead of 'queued' since Inngest will handle it
         const insertResult = await pool.query(
             `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent, job_type)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -788,7 +789,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
                 projectId,
                 jobId,
                 JSON.stringify(jobPayload),
-                "queued",
+                "processing",
                 totalPrompts,
                 `0/${totalPrompts}`,
                 0,
@@ -798,8 +799,18 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
 
         const job = insertResult.rows[0];
 
-        // Wake up the worker to fetch the new job immediately
-        wakeWorker();
+        // Send Inngest event to process the job
+        try {
+            await inngest.send({
+                name: "evaluation/job.created",
+                data: {
+                    jobId: job.job_id,
+                },
+            });
+        } catch (inngestError) {
+            // Log error but don't fail the request - job is already created in DB
+            console.warn("Failed to send Inngest event (job will be processed manually or retried):", inngestError);
+        }
 
         res.json({
             jobId: job.job_id,
@@ -858,6 +869,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         };
 
         // Insert job into evaluation_status table with job_type = AUTOMATED_API_TEST
+        // Use status='processing' instead of 'queued' since Inngest will handle it
         const insertResult = await pool.query(
             `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent, job_type)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -867,7 +879,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
                 projectId,
                 jobId,
                 JSON.stringify(jobPayload),
-                "queued",
+                "processing",
                 totalPrompts,
                 `0/${totalPrompts}`,
                 0,
@@ -876,6 +888,19 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         );
 
         const job = insertResult.rows[0];
+
+        // Send Inngest event to process the job
+        try {
+            await inngest.send({
+                name: "evaluation/job.created",
+                data: {
+                    jobId: job.job_id,
+                },
+            });
+        } catch (inngestError) {
+            // Log error but don't fail the request - job is already created in DB
+            console.warn("Failed to send Inngest event (job will be processed manually or retried):", inngestError);
+        }
 
         res.json({
             jobId: job.job_id,
@@ -932,7 +957,7 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
 
         res.json({
             jobId: job.job_id,
-            status: job.status as "queued" | "running" | "completed" | "failed",
+            status: job.status as "queued" | "processing" | "running" | "completed" | "failed",
             progress: job.progress || "0/0",
             percent: job.percent || 0,
             lastProcessedPrompt: job.last_processed_prompt || null,
@@ -964,7 +989,7 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
-        // Fetch all jobs (queued, running, completed) for this project and user
+        // Fetch all jobs (queued, processing, running, completed) for this project and user
         const result = await pool.query(
             `SELECT 
                 id,
@@ -979,14 +1004,14 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
                 created_at,
                 updated_at
             FROM evaluation_status
-            WHERE project_id = $1 AND user_id = $2 AND status IN ('queued', 'running', 'completed')
+            WHERE project_id = $1 AND user_id = $2 AND status IN ('queued', 'processing', 'running', 'completed')
             ORDER BY created_at DESC`,
             [projectId, userId]
         );
 
         const jobs = result.rows.map(row => ({
             jobId: row.job_id,
-            status: row.status as "queued" | "running" | "completed",
+            status: row.status as "queued" | "processing" | "running" | "completed",
             progress: row.progress || "0/0",
             percent: row.percent || 0,
             lastProcessedPrompt: row.last_processed_prompt || null,

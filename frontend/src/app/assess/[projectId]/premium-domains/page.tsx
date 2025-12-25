@@ -8,6 +8,8 @@ import {
   apiService,
   Domain as ApiDomain,
   Practice as ApiPractice,
+  PracticeQuestionLevels,
+  PracticeQuestionDetail,
 } from "../../../../lib/api";
 import { showToast } from "../../../../lib/toast";
 import { motion } from "framer-motion";
@@ -43,15 +45,11 @@ type LevelQuestionEntry =
   };
 
 interface PracticeWithLevels extends ApiPractice {
-  levels: {
-    [level: string]: {
-      [stream: string]: LevelQuestionEntry[];
-    };
-  };
+  levels: PracticeQuestionLevels;
 }
 
 const normalizeQuestionEntry = (
-  entry: LevelQuestionEntry | undefined,
+  entry: PracticeQuestionDetail | LevelQuestionEntry | undefined,
 ): { question: string; description?: string | null } | null => {
   if (!entry) return null;
   if (typeof entry === "string") {
@@ -82,7 +80,6 @@ export default function PremiumDomainsPage() {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [loadingPractice, setLoadingPractice] = useState<string | null>(null); // Track which practice is loading
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [currentDomainId, setCurrentDomainId] = useState<string>("");
@@ -124,13 +121,14 @@ export default function PremiumDomainsPage() {
           return;
         }
 
+        // Transform domains - questions are now included in the response
         const transformedDomains = premiumDomains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
 
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
             practicesWithLevels[practiceId] = {
               ...practice,
-              levels: {},
+              levels: practice.levels || {},
             };
           });
 
@@ -157,7 +155,7 @@ export default function PremiumDomainsPage() {
               const questionsList: Question[] = [];
               Object.entries(firstPractice.levels).forEach(([level, streams]) => {
                 Object.entries(
-                  streams as Record<string, LevelQuestionEntry[]>,
+                  streams as Record<string, PracticeQuestionDetail[]>,
                 ).forEach(([stream, questionEntries]) => {
                   questionEntries.forEach((questionEntry) => {
                     const normalized = normalizeQuestionEntry(questionEntry);
@@ -239,7 +237,7 @@ export default function PremiumDomainsPage() {
           const questionsList: Question[] = [];
           Object.entries(practice.levels).forEach(([level, streams]) => {
             Object.entries(
-              streams as Record<string, LevelQuestionEntry[]>,
+              streams as Record<string, PracticeQuestionDetail[]>,
             ).forEach(([stream, questionEntries]) => {
               questionEntries.forEach((questionEntry) => {
                 const normalized = normalizeQuestionEntry(questionEntry);
@@ -271,73 +269,13 @@ export default function PremiumDomainsPage() {
             setCurrentQuestionIndex(0);
           }
         } else {
-          setLoadingPractice(currentPracticeId);
-          apiService.getPracticeQuestions(currentDomainId, currentPracticeId, projectId)
-            .then((practiceData) => {
-              setDomains(prevDomains =>
-                prevDomains.map(d => {
-                  if (d.id === currentDomainId && d.practices[currentPracticeId]) {
-                    return {
-                      ...d,
-                      practices: {
-                        ...d.practices,
-                        [currentPracticeId]: {
-                          ...d.practices[currentPracticeId],
-                          levels: practiceData.levels,
-                        },
-                      },
-                    };
-                  }
-                  return d;
-                })
-              );
-
-              const questionsList: Question[] = [];
-              Object.entries(practiceData.levels).forEach(([level, streams]) => {
-                Object.entries(
-                  streams as Record<string, LevelQuestionEntry[]>,
-                ).forEach(([stream, questionEntries]) => {
-                  questionEntries.forEach((questionEntry) => {
-                    const normalized = normalizeQuestionEntry(questionEntry);
-                    if (!normalized) {
-                      return;
-                    }
-                    questionsList.push({
-                      level,
-                      stream,
-                      question: normalized.question,
-                      description: normalized.description ?? undefined,
-                    });
-                  });
-                });
-              });
-
-              setQuestions(questionsList);
-              setCurrentPractice({
-                title: practiceData.title,
-                description: practiceData.description,
-              });
-
-              if (questionsList.length > 0) {
-                const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
-                if (validIndex !== currentQuestionIndex) {
-                  setCurrentQuestionIndex(validIndex);
-                }
-              } else {
-                setCurrentQuestionIndex(0);
-              }
-            })
-            .catch((error: any) => {
-              console.error(`Failed to load practice ${currentPracticeId}:`, error);
-              setQuestions([]);
-              setCurrentPractice({
-                title: practice.title,
-                description: practice.description,
-              });
-            })
-            .finally(() => {
-              setLoadingPractice(null);
-            });
+          // No questions available
+          setQuestions([]);
+          setCurrentPractice({
+            title: practice.title,
+            description: practice.description,
+          });
+          setCurrentQuestionIndex(0);
         }
       }
     }
@@ -457,7 +395,7 @@ export default function PremiumDomainsPage() {
         const questionsList: Question[] = [];
         Object.entries(selectedPractice.levels).forEach(([level, streams]) => {
           Object.entries(
-            streams as Record<string, LevelQuestionEntry[]>,
+            streams as Record<string, PracticeQuestionDetail[]>,
           ).forEach(([stream, questionEntries]) => {
             questionEntries.forEach((questionEntry) => {
               const normalized = normalizeQuestionEntry(questionEntry);

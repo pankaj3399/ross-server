@@ -144,7 +144,7 @@ export default function AssessmentPage() {
 
   const { setProjectResults } = useAssessmentResultsStore();
 
-  const { prices, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
+  const { fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
 
   const projectState = getProjectState(projectId);
   const practice = projectState?.practice || null;
@@ -226,8 +226,19 @@ export default function AssessmentPage() {
           return;
         }
 
+        const nonPremiumDomains = domainsData.domains.filter(
+          (domain) => domain.is_premium === false
+        );
+
+        // Check if there are any non-premium domains after filtering
+        if (nonPremiumDomains.length === 0) {
+          setError("No non-premium domains available");
+          setLoading(false);
+          return;
+        }
+
         // Transform domains - questions are now included in the response
-        const transformedDomains = domainsData.domains.map((domain) => {
+        const transformedDomains = nonPremiumDomains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
           
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
@@ -252,6 +263,18 @@ export default function AssessmentPage() {
         let targetDomainId = savedState?.currentDomainId || '';
         let targetPracticeId = savedState?.currentPracticeId || '';
         let targetQuestionIndex = savedState?.currentQuestionIndex || 0;
+
+        // Check if saved domain exists in filtered non-premium domains
+        // If not, reset to first available domain (in case saved domain was premium)
+        if (targetDomainId) {
+          const savedDomainExists = orderedDomains.find(d => d.id === targetDomainId);
+          if (!savedDomainExists) {
+            // Saved domain was premium or doesn't exist, reset to first non-premium domain
+            targetDomainId = '';
+            targetPracticeId = '';
+            targetQuestionIndex = 0;
+          }
+        }
 
         if (!targetDomainId || !targetPracticeId) {
           if (orderedDomains.length > 0) {

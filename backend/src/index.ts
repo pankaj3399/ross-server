@@ -13,6 +13,9 @@ import publicRouter from "./routes/public";
 import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
+import { serve } from "inngest/express";
+import { inngest } from "./inngest/client";
+import { evaluationJobProcessor } from "./inngest/functions";
 
 
 dotenv.config();
@@ -44,6 +47,15 @@ app.use("/notes", authenticateToken, checkRouteAccess('/notes'), notesRouter);
 app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'), subscriptionsRouter);
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
+
+// Inngest endpoint
+app.use(
+  "/api/inngest",
+  serve({
+    client: inngest,
+    functions: [evaluationJobProcessor],
+  })
+);
 
 const initialize = async () => {
   try {

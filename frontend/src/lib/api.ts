@@ -471,7 +471,7 @@ class ApiService {
 
   async getFairnessJob(jobId: string): Promise<{
     jobId: string;
-    status: "queued" | "running" | "completed" | "failed";
+    status: "queued" | "processing" | "running" | "completed" | "failed";
     progress: string;
     percent: number;
     lastProcessedPrompt?: string | null;
@@ -517,7 +517,7 @@ class ApiService {
   }> {
     return this.request<{
       jobId: string;
-      status: "queued" | "running" | "completed" | "failed";
+      status: "queued" | "processing" | "running" | "completed" | "failed";
       progress: string;
       percent: number;
       lastProcessedPrompt?: string | null;

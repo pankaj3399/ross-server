@@ -20,6 +20,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.19.2",
+    "inngest": "^3.48.1",
     "jsonwebtoken": "^9.0.2",
     "node-pg-migrate": "^8.0.3",
     "nodemailer": "^7.0.9",
