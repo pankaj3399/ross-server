@@ -8,6 +8,8 @@ import {
   apiService,
   Domain as ApiDomain,
   Practice as ApiPractice,
+  PracticeQuestionLevels,
+  PracticeQuestionDetail,
 } from "../../../lib/api";
 import { showToast } from "../../../lib/toast";
 import { motion } from "framer-motion";
@@ -17,6 +19,7 @@ import {
   ArrowRight,
   ArrowLeft as ArrowLeftIcon,
   Info,
+  AlertTriangle,
 } from "lucide-react";
 import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigation";
 import { SecureTextarea } from "../../../components/SecureTextarea";
@@ -44,15 +47,11 @@ type LevelQuestionEntry =
     };
 
 interface PracticeWithLevels extends ApiPractice {
-  levels: {
-    [level: string]: {
-      [stream: string]: LevelQuestionEntry[];
-    };
-  };
+  levels: PracticeQuestionLevels;
 }
 
 const normalizeQuestionEntry = (
-  entry: LevelQuestionEntry | undefined,
+  entry: PracticeQuestionDetail | LevelQuestionEntry | undefined,
 ): { question: string; description?: string | null } | null => {
   if (!entry) return null;
   if (typeof entry === "string") {
@@ -131,6 +130,8 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [projectNotFound, setProjectNotFound] = useState(false);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
@@ -212,47 +213,28 @@ export default function AssessmentPage() {
 
     const fetchData = async () => {
       try {
+        setError(null);
+        setProjectNotFound(false);
+        setLoading(true);
+        
         const domainsData = await apiService.getDomainsFull(projectId);
 
-        const practiceRequests: Array<{ domainId: string; practiceId: string }> = [];
-        domainsData.domains.forEach((domain) => {
-          Object.keys(domain.practices).forEach((practiceId) => {
-            practiceRequests.push({ domainId: domain.id, practiceId });
-          });
-        });
+        // Check if domains array is empty or null
+        if (!domainsData.domains || domainsData.domains.length === 0) {
+          setError("No domains data available");
+          setLoading(false);
+          return;
+        }
 
-        const practiceQuestionsPromises = practiceRequests.map(({ domainId, practiceId }) =>
-          apiService.getPracticeQuestions(domainId, practiceId, projectId)
-            .then((data) => ({ domainId, practiceId, data, success: true }))
-            .catch((error) => ({ domainId, practiceId, error, success: false }))
-        );
-
-        const practiceResults = await Promise.allSettled(practiceQuestionsPromises);
-
+        // Transform domains - questions are now included in the response
         const transformedDomains = domainsData.domains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
           
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
-            const result = practiceResults.find((r) => {
-              if (r.status === 'fulfilled') {
-                const value = r.value as any;
-                return value.domainId === domain.id && value.practiceId === practiceId && value.success;
-              }
-              return false;
-            });
-
-            if (result && result.status === 'fulfilled') {
-              const value = result.value as any;
-              practicesWithLevels[practiceId] = {
-                ...practice,
-                levels: value.data.levels,
-              };
-            } else {
-              practicesWithLevels[practiceId] = {
-                ...practice,
-                levels: {},
-              };
-            }
+            practicesWithLevels[practiceId] = {
+              ...practice,
+              levels: practice.levels || {},
+            };
           });
 
           return {
@@ -291,7 +273,7 @@ export default function AssessmentPage() {
             const questionsList: Question[] = [];
             Object.entries(targetPractice.levels).forEach(([level, streams]) => {
               Object.entries(
-                streams as Record<string, LevelQuestionEntry[]>,
+                streams as Record<string, PracticeQuestionDetail[]>,
               ).forEach(([stream, questionEntries]) => {
                 questionEntries.forEach((questionEntry) => {
                   const normalized = normalizeQuestionEntry(questionEntry);
@@ -355,9 +337,18 @@ export default function AssessmentPage() {
         }).catch((error) => {
           console.error("Failed to load answers or notes:", error);
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to fetch data:", error);
-        showToast.error("Failed to load assessment data. Please refresh the page.");
+        
+        // Check if it's a 400 or 404 error (project not found or invalid project ID)
+        if (error?.status === 400 || error?.status === 404 || 
+            error?.response?.status === 400 || error?.response?.status === 404) {
+          setProjectNotFound(true);
+          setError("No domains available for this project");
+        } else {
+          setError(error?.message || "Failed to load assessment data. Please refresh the page.");
+          showToast.error("Failed to load assessment data. Please refresh the page.");
+        }
       } finally {
         setLoading(false);
       }
@@ -375,7 +366,7 @@ useEffect(() => {
       const questionsList: Question[] = [];
       Object.entries(currentPractice.levels).forEach(([level, streams]) => {
         Object.entries(
-          streams as Record<string, LevelQuestionEntry[]>,
+          streams as Record<string, PracticeQuestionDetail[]>,
         ).forEach(([stream, questionEntries]) => {
           questionEntries.forEach((questionEntry) => {
             const normalized = normalizeQuestionEntry(questionEntry);
@@ -662,11 +653,106 @@ useEffect(() => {
     }
   };
 
+  // Show loading state
   if (loading) {
     return <AssessmentSkeleton />;
   }
 
+  // Show project not found error (400/404)
+  if (projectNotFound) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Project Not Found
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            No domains available for this project.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if there's an error and no domains (generic error)
+  if (error && domains.length === 0 && !projectNotFound && !loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
+          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            Unable to Load Assessment
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                window.location.reload();
+              }}
+              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show no domains data available (empty domains array)
+  if (domains.length === 0 && !loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
+          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            No Assessment Data Available
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            No domains data available
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading skeleton if no practice or questions (but domains exist)
   if (!practice || questions.length === 0) {
+    // Only show skeleton if we have domains but no practice yet (still loading)
+    if (domains.length > 0 && currentDomainId && currentPracticeId) {
+      return <AssessmentSkeleton />;
+    }
     return <AssessmentSkeleton />;
   }
 
