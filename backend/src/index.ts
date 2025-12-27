@@ -31,7 +31,17 @@ app.post(
 
 app.use(cors());
 
-app.use(express.json());
+// Inngest endpoint - needs body parser with high limit before serve()
+app.use(
+  "/api/inngest",
+  express.json({ limit: '50mb' }),
+  serve({
+    client: inngest,
+    functions: [evaluationJobProcessor],
+  })
+);
+
+app.use(express.json({ limit: '50mb' }));
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {
@@ -47,15 +57,6 @@ app.use("/notes", authenticateToken, checkRouteAccess('/notes'), notesRouter);
 app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'), subscriptionsRouter);
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
-
-// Inngest endpoint
-app.use(
-  "/api/inngest",
-  serve({
-    client: inngest,
-    functions: [evaluationJobProcessor],
-  })
-);
 
 const initialize = async () => {
   try {
