@@ -18,6 +18,7 @@ type JobStatus = Awaited<ReturnType<typeof apiService.getFairnessJob>>;
 
 const statusColors: Record<JobStatus["status"], string> = {
   queued: "text-blue-600 bg-blue-50",
+  processing: "text-yellow-600 bg-yellow-50",
   running: "text-purple-600 bg-purple-50",
   completed: "text-green-600 bg-green-50",
   failed: "text-red-600 bg-red-50",
@@ -56,7 +57,7 @@ export default function FairnessJobPage() {
     }
   }, [authLoading, jobId]);
 
-  // Poll every 5 seconds until job finishes
+  // Poll every 20 seconds until job finishes
   useEffect(() => {
     if (!jobId) return;
     if (jobStatus?.status === "completed" || jobStatus?.status === "failed") {
@@ -64,7 +65,7 @@ export default function FairnessJobPage() {
     }
     const interval = setInterval(() => {
       fetchStatus();
-    }, 5000);
+    }, 20000);
     return () => clearInterval(interval);
   }, [jobId, jobStatus?.status]);
 
@@ -93,11 +94,13 @@ export default function FairnessJobPage() {
   const progressLabel = useMemo(() => {
     if (!jobStatus) return "Fetching job…";
     if (jobStatus.status === "queued") return "Job is queued. Waiting for a worker…";
+    if (jobStatus.status === "processing") return "Job is being processed. Starting soon…";
     if (jobStatus.status === "running") {
       return `Running: ${jobStatus.progress || "0/0"} prompts evaluated`;
     }
-    if (jobStatus.status === "completed") return "Completed. Redirecting to report…";
-    return "Job failed";
+    if (jobStatus.status === "completed") return "Completed. You can check report now.";
+    if (jobStatus.status === "failed") return "Job failed";
+    return "Unknown status";
   }, [jobStatus]);
 
   if (loading || authLoading) {
@@ -176,7 +179,7 @@ export default function FairnessJobPage() {
             </span>
             <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Auto refresh every 20s · Live poll every 5s
+              Auto refresh every 20s · Live poll every 20s
             </div>
           </div>
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mt-4">{progressLabel}</h2>
@@ -195,6 +198,8 @@ export default function FairnessJobPage() {
                     ? "bg-green-500"
                     : jobStatus.status === "failed"
                     ? "bg-red-500"
+                    : jobStatus.status === "processing"
+                    ? "bg-yellow-500"
                     : "bg-gradient-to-r from-purple-600 to-violet-600"
                 }`}
                 style={{ width: `${Math.min(jobStatus.percent, 100)}%` }}
@@ -267,7 +272,7 @@ export default function FairnessJobPage() {
 
               {jobStatus.results.length > 5 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Showing 5 of {jobStatus.results.length} results. Open the report to explore every prompt.
+                  Showing 5 of {jobStatus.results.length} results.
                 </p>
               )}
             </div>
