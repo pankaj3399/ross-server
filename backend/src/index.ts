@@ -54,6 +54,7 @@ app.use(
   serve({
     client: inngest,
     functions: [evaluationJobProcessor],
+    signingKey: process.env.INNGEST_SIGNING_KEY,
   })
 );
 
