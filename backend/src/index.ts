@@ -15,7 +15,7 @@ import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
 import { inngest } from "./inngest/client";
-import { evaluationJobProcessor } from "./inngest/functions";
+import { evaluationJobProcessor, evaluateSingleResponse, evaluationAggregator, callUserApiForPrompt, userApiCallAggregator } from "./inngest/functions";
 
 
 dotenv.config();
@@ -53,7 +53,7 @@ app.use(
   "/api/inngest",
   serve({
     client: inngest,
-    functions: [evaluationJobProcessor],
+    functions: [evaluationJobProcessor, evaluateSingleResponse, evaluationAggregator, callUserApiForPrompt, userApiCallAggregator],
     signingKey: process.env.INNGEST_SIGNING_KEY,
   })
 );

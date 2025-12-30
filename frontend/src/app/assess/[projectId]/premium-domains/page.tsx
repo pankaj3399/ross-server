@@ -86,6 +86,7 @@ export default function PremiumDomainsPage() {
   const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [currentPractice, setCurrentPractice] = useState<{ title: string; description: string } | null>(null);
+  const [noPremiumDomains, setNoPremiumDomains] = useState(false);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
@@ -115,8 +116,8 @@ export default function PremiumDomainsPage() {
         );
 
         if (premiumDomains.length === 0) {
-          // Redirect to premium features page if no premium domains available
-          router.push(`/assess/${projectId}/premium-features`);
+          // Show message if no premium domains available
+          setNoPremiumDomains(true);
           setLoading(false);
           return;
         }
@@ -281,12 +282,7 @@ export default function PremiumDomainsPage() {
     }
   }, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex]);
 
-  // Redirect to premium features if no domains available
-  useEffect(() => {
-    if (!loading && domains.length === 0 && isPremium) {
-      router.push(`/assess/${projectId}/premium-features`);
-    }
-  }, [loading, domains.length, isPremium, router, projectId]);
+  // No redirect needed - we'll show a message instead
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
@@ -473,9 +469,38 @@ export default function PremiumDomainsPage() {
     return <AssessmentSkeleton />;
   }
 
-  if (domains.length === 0) {
-    // Show loading or redirect (handled by useEffect above)
-    return <AssessmentSkeleton />;
+  if (noPremiumDomains || domains.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
+        <div className="text-center max-w-md px-4">
+          <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            No Premium Domains Available
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            There are currently no premium domains available for this project. Please check back later.
+          </p>
+          <div className="flex flex-col gap-4">
+            {projectId && (
+              <button
+                onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 font-semibold"
+              >
+                <Scale className="w-5 h-5" />
+                Fairness & Bias Test
+              </button>
+            )}
+            <button
+              onClick={() => router.push(`/assess/${projectId}`)}
+              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Assessment
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!currentPractice || questions.length === 0) {

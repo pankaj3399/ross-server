@@ -42,7 +42,6 @@ GEMINI_API_KEY=AIza...
 
 # Evaluation Job Configuration
 EVALUATION_MIN_REQUEST_INTERVAL_MS=20000
-EVALUATION_USER_API_MAX_ATTEMPTS=3
 ```
 
 ## Inngest Dev Server Setup (Local Development)
