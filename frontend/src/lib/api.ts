@@ -299,54 +299,6 @@ class ApiService {
     }>("/fairness/prompts");
   }
 
-  async evaluateFairnessResponse(data: {
-    projectId: string;
-    category: string;
-    questionText: string;
-    userResponse: string;
-  }): Promise<{
-    success: boolean;
-    evaluation: {
-      id: string;
-      biasScore: number;
-      toxicityScore: number;
-      relevancyScore: number;
-      faithfulnessScore: number;
-      overallScore: number;
-      verdicts: {
-        bias: { score: number; verdict: string };
-        toxicity: { score: number; verdict: string };
-        relevancy: { score: number; verdict: string };
-        faithfulness: { score: number; verdict: string };
-      };
-      reasoning: string;
-      createdAt: string;
-    };
-  }> {
-    return this.request<{
-      success: boolean;
-      evaluation: {
-        id: string;
-        biasScore: number;
-        toxicityScore: number;
-        relevancyScore: number;
-        faithfulnessScore: number;
-        overallScore: number;
-        verdicts: {
-          bias: { score: number; verdict: string };
-          toxicity: { score: number; verdict: string };
-          relevancy: { score: number; verdict: string };
-          faithfulness: { score: number; verdict: string };
-        };
-        reasoning: string;
-        createdAt: string;
-      };
-    }>("/fairness/evaluate", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
   async getFairnessEvaluations(projectId: string): Promise<{
     success: boolean;
     evaluations: Array<{
@@ -471,7 +423,7 @@ class ApiService {
 
   async getFairnessJob(jobId: string): Promise<{
     jobId: string;
-    status: "queued" | "processing" | "running" | "completed" | "failed";
+    status: "queued" | "processing" | "running" | "completed" | "failed" | "COLLECTING_RESPONSES" | "EVALUATING" | "SUCCESS" | "PARTIAL_SUCCESS" | "FAILED";
     progress: string;
     percent: number;
     lastProcessedPrompt?: string | null;

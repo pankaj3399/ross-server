@@ -16,12 +16,17 @@ import {
 
 type JobStatus = Awaited<ReturnType<typeof apiService.getFairnessJob>>;
 
-const statusColors: Record<JobStatus["status"], string> = {
+const statusColors: Record<string, string> = {
   queued: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
   processing: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
   running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
   completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  failed: "text-red-600 bg-red-50 dark:bg-red-50 dark:bg-red-900/20 dark:text-red-400",
+  failed: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
+  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  EVALUATING: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  SUCCESS: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
 };
 
 export default function ManualPromptJobPage() {
@@ -60,7 +65,8 @@ export default function ManualPromptJobPage() {
   // Poll every 20 seconds until job finishes
   useEffect(() => {
     if (!jobId) return;
-    if (jobStatus?.status === "completed" || jobStatus?.status === "failed") {
+    const finalStatuses = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+    if (jobStatus?.status && finalStatuses.includes(jobStatus.status)) {
       return;
     }
     const interval = setInterval(() => {
@@ -71,7 +77,8 @@ export default function ManualPromptJobPage() {
 
   // Hard refresh every 20 seconds while job is active
   useEffect(() => {
-    if (jobStatus?.status === "completed" || jobStatus?.status === "failed") {
+    const finalStatuses = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+    if (jobStatus?.status && finalStatuses.includes(jobStatus.status)) {
       return;
     }
     const refreshInterval = setInterval(() => {
@@ -82,7 +89,8 @@ export default function ManualPromptJobPage() {
 
   // Auto redirect when completed
   useEffect(() => {
-    if (jobStatus?.status === "completed" && !redirectScheduled) {
+    const completedStatuses = ["completed", "SUCCESS", "PARTIAL_SUCCESS"];
+    if (jobStatus?.status && completedStatuses.includes(jobStatus.status) && !redirectScheduled) {
       setRedirectScheduled(true);
       const timeout = setTimeout(() => {
         router.push(`/assess/${projectId}/fairness-bias/report?jobId=${jobId}`);
@@ -98,9 +106,22 @@ export default function ManualPromptJobPage() {
     if (jobStatus.status === "running") {
       return `Running: ${jobStatus.progress || "0/0"} prompts evaluated`;
     }
-    if (jobStatus.status === "completed") return "Completed. You can check report now.";
-    if (jobStatus.status === "failed") return "Job failed";
-    return "Unknown status";
+    if (jobStatus.status === "COLLECTING_RESPONSES") {
+      return `Collecting responses: ${jobStatus.progress || "0/0"}`;
+    }
+    if (jobStatus.status === "EVALUATING") {
+      return `Evaluating: ${jobStatus.progress || "0/0"} prompts evaluated`;
+    }
+    if (jobStatus.status === "completed" || jobStatus.status === "SUCCESS") {
+      return "Completed. You can check report now.";
+    }
+    if (jobStatus.status === "PARTIAL_SUCCESS") {
+      return "Completed with some failures. You can check report now.";
+    }
+    if (jobStatus.status === "failed" || jobStatus.status === "FAILED") {
+      return "Job failed";
+    }
+    return "Processing job…";
   }, [jobStatus]);
 
   if (loading || authLoading) {
@@ -194,9 +215,11 @@ export default function ManualPromptJobPage() {
             <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-3 overflow-hidden">
               <div
                 className={`h-full ${
-                  jobStatus.status === "completed"
+                  jobStatus.status === "completed" || jobStatus.status === "SUCCESS"
                     ? "bg-green-500"
-                    : jobStatus.status === "failed"
+                    : jobStatus.status === "PARTIAL_SUCCESS"
+                    ? "bg-yellow-500"
+                    : jobStatus.status === "failed" || jobStatus.status === "FAILED"
                     ? "bg-red-500"
                     : jobStatus.status === "processing"
                     ? "bg-yellow-500"
@@ -213,7 +236,7 @@ export default function ManualPromptJobPage() {
             )}
           </div>
 
-          {jobStatus.status === "failed" && jobStatus.errorMessage && (
+          {(jobStatus.status === "failed" || jobStatus.status === "FAILED") && jobStatus.errorMessage && (
             <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-300">
               {jobStatus.errorMessage}
             </div>
@@ -323,7 +346,7 @@ export default function ManualPromptJobPage() {
           </button>
           <button
             onClick={() => router.push(`/assess/${projectId}/fairness-bias/report?jobId=${jobId}`)}
-            disabled={jobStatus.status !== "completed"}
+            disabled={!["completed", "SUCCESS", "PARTIAL_SUCCESS"].includes(jobStatus.status)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             View report

@@ -91,14 +91,6 @@ export default function FairnessBiasOptions() {
       color: "from-green-600 to-emerald-600",
       hoverColor: "from-green-700 to-emerald-700",
     },
-    {
-      id: "github-repo" as TestMethod,
-      title: "GitHub Repository URL",
-      description: "Provide a GitHub repository URL and required file names for automated testing",
-      icon: Github,
-      color: "from-orange-600 to-red-600",
-      hoverColor: "from-orange-700 to-red-700",
-    },
   ];
 
   if (loading || !user) {
@@ -145,7 +137,7 @@ export default function FairnessBiasOptions() {
           </div>
 
           {/* Options Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-5xl mx-auto">
             {options.map((option, index) => {
               const Icon = option.icon;
               const isSelected = selectedMethod === option.id;

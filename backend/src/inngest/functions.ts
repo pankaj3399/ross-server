@@ -1,522 +1,89 @@
 import { inngest } from "./client";
 import pool from "../config/database";
-import jwt from "jsonwebtoken";
+import { evaluateFairnessResponse } from "../services/evaluateFairness";
+import {
+  type EvaluationStatusRow,
+  type FairnessApiJobPayload,
+  type FairnessApiJobPayloadExtended,
+  type FairnessPromptsJobPayload,
+  type FairnessPromptsJobPayloadExtended,
+  type EvaluationStatusPayload,
+  type JobResult,
+  type JobError,
+  type UserApiResponse,
+  failJob,
+  buildSummary,
+  markJobCompleted,
+  processAutomatedApiTest,
+  processManualPromptTest,
+  normalizeFairnessApiJobConfig,
+  callUserApi,
+  updateJobProgress,
+} from "./services";
 
-// Types 
-type EvaluationStatusRow = {
-  id: number;
-  user_id: string;
-  project_id: string;
-  job_id: string;
-  payload: any;
-  total_prompts: number | null;
-  status: string;
-  progress: string | null;
-  last_processed_prompt: string | null;
-  percent: number | null;
-  job_type: string;
-};
+export const evaluateSingleResponse = inngest.createFunction(
+  { 
+    id: "evaluate-single-response", 
+    name: "Evaluate Single Response",
+    onFailure: async ({ event, error }: { event: any; error: Error }) => {
+      const { jobId, responseIndex } = event.data;
+      await inngest.send({
+        name: "evaluation/single.completed",
+        data: {
+          jobId,
+          responseIndex,
+          result: null,
+          error: error.message || "Unknown error",
+        },
+      });
+    },
+  },
+  { event: "evaluation/single.requested" },
+  async ({ event, step }) => {
+    const { 
+      jobId, 
+      responseIndex, 
+      projectId, 
+      userId, 
+      category, 
+      questionText, 
+      userResponse 
+    } = event.data;
 
-type ApiKeyPlacement = "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
+    const evaluation = await step.run("evaluate-fairness", async () => {
+      try {
+        return await evaluateFairnessResponse(
+          projectId,
+          userId,
+          category,
+          questionText,
+          userResponse,
+        );
+      } catch (error: any) {
+        throw new Error(`Failed to evaluate fairness: ${error.message}`);
+      }
+    });
 
-type FairnessApiJobConfigStored = {
-  projectId: string;
-  apiUrl: string;
-  requestTemplate: string;
-  responseKey: string;
-  apiKeyPlacement?: ApiKeyPlacement;
-  apiKey?: string | null;
-  apiKeyFieldName?: string | null;
-};
+    await step.sendEvent("send-completion", {
+      name: "evaluation/single.completed",
+      data: {
+        jobId,
+        responseIndex,
+        result: evaluation,
+        error: null,
+      },
+    });
 
-type FairnessApiJobConfig = {
-  projectId: string;
-  apiUrl: string;
-  requestTemplate: string;
-  responseKey: string;
-  apiKeyPlacement: ApiKeyPlacement;
-  apiKey: string | null;
-  apiKeyFieldName: string | null;
-};
-
-type FairnessApiJobPayload = {
-  type: "FAIRNESS_API";
-  config: FairnessApiJobConfigStored;
-  summary?: JobSummary;
-  results?: JobResult[];
-  errors?: JobError[];
-  error?: string;
-};
-
-type FairnessPromptsJobPayload = {
-  type: "FAIRNESS_PROMPTS";
-  responses: Array<{
-    category: string;
-    prompt: string;
-    response: string;
-  }>;
-  summary?: JobSummary;
-  results?: JobResult[];
-  errors?: JobError[];
-  error?: string;
-};
-
-type JobSummary = {
-  total: number;
-  successful: number;
-  failed: number;
-  averageOverallScore: number;
-  averageBiasScore: number;
-  averageToxicityScore: number;
-};
-
-type JobResult = {
-  category: string;
-  prompt: string;
-  success: true;
-  evaluation: EvaluationPayload;
-  message: string;
-};
-
-type JobError = {
-  category: string;
-  prompt: string;
-  success: false;
-  error: string;
-  message: string;
-};
-
-type EvaluationPayload = {
-  id: string;
-  biasScore: number;
-  toxicityScore: number;
-  relevancyScore: number;
-  faithfulnessScore: number;
-  overallScore: number;
-  verdicts: Record<
-    "bias" | "toxicity" | "relevancy" | "faithfulness",
-    { score: number; verdict: string }
-  >;
-  reasoning: string;
-  createdAt: string;
-};
-
-// Constants
-const MIN_REQUEST_INTERVAL_MS = Number(process.env.EVALUATION_MIN_REQUEST_INTERVAL_MS || 20000);
-const USER_API_MAX_ATTEMPTS = Math.max(
-  1,
-  Number(process.env.EVALUATION_USER_API_MAX_ATTEMPTS || 3),
+    return evaluation;
+  }
 );
 
-const VALID_API_KEY_PLACEMENTS: ApiKeyPlacement[] = [
-  "none",
-  "auth_header",
-  "x_api_key",
-  "query_param",
-  "body_field",
-];
-
-const DEFAULT_API_KEY_FIELD_NAMES: Record<ApiKeyPlacement, string | null> = {
-  none: null,
-  auth_header: "Authorization",
-  x_api_key: "x-api-key",
-  query_param: "key",
-  body_field: "api_key",
-};
-
-// Helper functions 
-function normalizeFairnessApiJobConfig(config: FairnessApiJobConfigStored): FairnessApiJobConfig {
-  const placement: ApiKeyPlacement = VALID_API_KEY_PLACEMENTS.includes(
-    (config.apiKeyPlacement as ApiKeyPlacement) || "none",
-  )
-    ? ((config.apiKeyPlacement as ApiKeyPlacement) || "none")
-    : "none";
-
-  return {
-    projectId: config.projectId,
-    apiUrl: config.apiUrl,
-    requestTemplate: config.requestTemplate,
-    responseKey: config.responseKey,
-    apiKeyPlacement: placement,
-    apiKey: config.apiKey ?? null,
-    apiKeyFieldName: resolveApiKeyFieldName(placement, config.apiKeyFieldName),
-  };
-}
-
-function resolveApiKeyFieldName(placement: ApiKeyPlacement, provided?: string | null): string | null {
-  const trimmed = typeof provided === "string" ? provided.trim() : null;
-  if (trimmed && trimmed.length > 0) {
-    return trimmed;
-  }
-  return DEFAULT_API_KEY_FIELD_NAMES[placement] || null;
-}
-
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseRetryAfter(headerValue: string | null): number | null {
-  if (!headerValue) {
-    return null;
-  }
-
-  const numericSeconds = Number(headerValue);
-  if (!Number.isNaN(numericSeconds) && numericSeconds >= 0) {
-    return numericSeconds * 1000;
-  }
-
-  const dateTime = Date.parse(headerValue);
-  if (!Number.isNaN(dateTime)) {
-    const diff = dateTime - Date.now();
-    return diff > 0 ? diff : 0;
-  }
-
-  return null;
-}
-
-function computeRetryDelay(retryAfterMs?: number | null): number {
-  // Use retry-after header if provided, otherwise no delay
-  if (retryAfterMs && retryAfterMs > 0) {
-    return retryAfterMs;
-  }
-  return 0;
-}
-
-function buildSummary(total: number, results: JobResult[], errors: JobError[]): JobSummary {
-  const successCount = results.length;
-  const failureCount = errors.length;
-
-  const average = (arr: number[]) =>
-    arr.length === 0 ? 0 : arr.reduce((sum, value) => sum + value, 0) / arr.length;
-
-  const overallScores = results.map((r) => r.evaluation.overallScore);
-  const biasScores = results.map((r) => r.evaluation.biasScore);
-  const toxicityScores = results.map((r) => r.evaluation.toxicityScore);
-
-  return {
-    total,
-    successful: successCount,
-    failed: failureCount,
-    averageOverallScore: parseFloat(average(overallScores).toFixed(3)),
-    averageBiasScore: parseFloat(average(biasScores).toFixed(3)),
-    averageToxicityScore: parseFloat(average(toxicityScores).toFixed(3)),
-  };
-}
-
-async function fetchFairnessPrompts(): Promise<Array<{ category: string; prompt: string }>> {
-  const questionsResult = await pool.query(
-    `SELECT label, prompt
-     FROM fairness_questions
-     ORDER BY label, created_at`,
-  );
-
-  return questionsResult.rows.map((row: { label: string; prompt: string }) => ({
-    category: row.label,
-    prompt: row.prompt,
-  }));
-}
-
-async function callEvaluationService(
-  projectId: string,
-  userId: string,
-  category: string,
-  questionText: string,
-  userResponse: string,
-): Promise<EvaluationPayload> {
-  const serviceUrl = process.env.API_URL || "http://localhost:4000";
-  const jwtSecret = process.env.JWT_SECRET;
-
-  if (!jwtSecret) {
-    throw new Error("JWT secret is not configured on the server");
-  }
-
-  const authToken = jwt.sign({ userId }, jwtSecret, { expiresIn: "10m" });
-
-  try {
-    const response = await fetch(`${serviceUrl}/fairness/evaluate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({
-        projectId,
-        category,
-        questionText,
-        userResponse,
-      }),
-    });
-
-    const payload = await response.json().catch(async () => {
-      const fallbackText = await response.text();
-      throw new Error(fallbackText || "Evaluation service returned a non-JSON response");
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Evaluation service returned status ${response.status}: ${payload?.error || "Unknown error"}`,
-      );
-    }
-
-    if (!payload?.success || !payload?.evaluation) {
-      throw new Error("Evaluation service returned an unexpected payload");
-    }
-
-    return payload.evaluation as EvaluationPayload;
-  } catch (error: any) {
-    throw new Error(`Failed to call evaluation service: ${error.message}`);
-  }
-}
-
-const PROMPT_PLACEHOLDER_REGEX = /{{\s*prompt\s*}}/gi;
-
-function replaceTemplatePlaceholders(value: any, prompt: string): { value: any; replaced: boolean } {
-  if (typeof value === "string") {
-    const replacedValue = value.replace(PROMPT_PLACEHOLDER_REGEX, prompt);
-    const hasPlaceholder = replacedValue !== value;
-    if (!hasPlaceholder) {
-      return { value, replaced: false };
-    }
-    return { value: replacedValue, replaced: true };
-  }
-
-  if (Array.isArray(value)) {
-    let replaced = false;
-    const next = value.map((item) => {
-      const result = replaceTemplatePlaceholders(item, prompt);
-      if (result.replaced) {
-        replaced = true;
-      }
-      return result.value;
-    });
-    return { value: next, replaced };
-  }
-
-  if (value && typeof value === "object") {
-    let replaced = false;
-    const next: Record<string, any> = {};
-    for (const [key, val] of Object.entries(value)) {
-      const result = replaceTemplatePlaceholders(val, prompt);
-      if (result.replaced) {
-        replaced = true;
-      }
-      next[key] = result.value;
-    }
-    return { value: next, replaced };
-  }
-
-  return { value, replaced: false };
-}
-
-function buildRequestBodyFromTemplate(templateString: string, prompt: string) {
-  let parsed: any;
-
-  try {
-    parsed = JSON.parse(templateString);
-  } catch (error: any) {
-    throw new Error(`Request template is not valid JSON: ${error.message}`);
-  }
-
-  const { value: hydrated, replaced } = replaceTemplatePlaceholders(parsed, prompt);
-
-  if (!replaced) {
-    throw new Error('Request template must include the "{{prompt}}" placeholder at least once');
-  }
-
-  return hydrated;
-}
-
-function appendQueryParam(urlString: string, param: string, value: string): string {
-  try {
-    const parsed = new URL(urlString);
-    parsed.searchParams.set(param, value);
-    return parsed.toString();
-  } catch {
-    const separator = urlString.includes("?") ? "&" : "?";
-    return `${urlString}${separator}${encodeURIComponent(param)}=${encodeURIComponent(value)}`;
-  }
-}
-
-function getNestedValue(obj: any, path: string): any {
-  if (!path) return obj;
-
-  const normalizedPath = path.replace(/\[(\d+)\]/g, ".$1");
-  const keys = normalizedPath.split(".").filter((key) => key.length > 0);
-
-  let current = obj;
-  for (const key of keys) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-
-    const numKey = Number(key);
-    if (!Number.isNaN(numKey) && Array.isArray(current)) {
-      current = current[numKey];
-    } else if (typeof current === "object" && key in current) {
-      current = current[key];
-    } else {
-      return undefined;
-    }
-  }
-
-  return current;
-}
-
-function prepareRequestOptions(
-  config: FairnessApiJobConfig,
-  requestPayload: any,
-): { url: string; headers: Record<string, string>; body: any } {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  let url = config.apiUrl;
-  let body = requestPayload;
-
-  if (config.apiKeyPlacement !== "none" && config.apiKey) {
-    const fieldName = resolveApiKeyFieldName(config.apiKeyPlacement, config.apiKeyFieldName) || undefined;
-    const normalizedFieldName = fieldName?.toLowerCase();
-    const shouldMirrorGoogleHeader = normalizedFieldName === "x-goog-api-key";
-
-    switch (config.apiKeyPlacement) {
-      case "auth_header":
-        headers.Authorization = `Bearer ${config.apiKey}`;
-        break;
-      case "x_api_key":
-        headers[fieldName || "x-api-key"] = config.apiKey;
-        break;
-      case "query_param":
-        url = appendQueryParam(url, fieldName || "key", config.apiKey);
-        break;
-      case "body_field":
-        if (body === null || typeof body !== "object" || Array.isArray(body)) {
-          throw new Error("Request template must resolve to an object to inject the API key into the body");
-        }
-        const bodyField = fieldName || "api_key";
-        body = {
-          ...body,
-          [bodyField]: config.apiKey,
-        };
-        break;
-      default:
-        break;
-    }
-
-    if (shouldMirrorGoogleHeader) {
-      headers["x-goog-api-key"] = config.apiKey;
-    }
-  }
-
-  return { url, headers, body };
-}
-
-async function callUserApi(config: FairnessApiJobConfig, prompt: string): Promise<string> {
-  const trimmedTemplate = config.requestTemplate.trim();
-  const trimmedResponsePath = config.responseKey.trim();
-
-  if (!trimmedResponsePath) {
-    throw new Error("Response key is required to extract the model output");
-  }
-
-  if (!trimmedTemplate) {
-    throw new Error("Request template cannot be empty");
-  }
-
-  const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
-  const { url, headers, body } = prepareRequestOptions(config, requestPayload);
-
-  for (let attempt = 1; attempt <= USER_API_MAX_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        if (response.status === 429 && attempt < USER_API_MAX_ATTEMPTS) {
-          const retryAfter = parseRetryAfter(response.headers.get("retry-after"));
-          await delay(computeRetryDelay(retryAfter));
-          continue;
-        }
-
-        const errorText = await response
-          .text()
-          .catch(() => `API returned status ${response.status}`);
-        throw new Error(
-          errorText?.trim() ? errorText : `API returned status ${response.status}`,
-        );
-      }
-
-      const data = await response.json();
-      const value = getNestedValue(data, trimmedResponsePath);
-
-      if (value === undefined) {
-        throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
-      }
-
-      if (typeof value !== "string") {
-        throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
-      }
-
-      return value;
-    } catch (error: any) {
-      const isRateLimit = /429/.test(error?.message || "");
-      const shouldRetry = isRateLimit && attempt < USER_API_MAX_ATTEMPTS;
-
-      if (shouldRetry) {
-        await delay(computeRetryDelay(null));
-        continue;
-      }
-
-      throw new Error(`Failed to call user API: ${error.message}`);
-    }
-  }
-
-  throw new Error("Failed to call user API after maximum retry attempts");
-}
-
-async function markJobCompleted(
-  jobInternalId: number,
-  payload: FairnessApiJobPayload | FairnessPromptsJobPayload,
-  data: { summary: JobSummary; results: JobResult[]; errors: JobError[] },
-) {
-  await pool.query(
-    `UPDATE evaluation_status
-     SET status = 'completed',
-         progress = $1,
-         percent = 100,
-         payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
-     WHERE id = $3`,
-    [
-      `${data.summary.total}/${data.summary.total}`,
-      JSON.stringify({
-        summary: data.summary,
-        results: data.results,
-        errors: data.errors,
-      }),
-      jobInternalId,
-    ],
-  );
-}
-
-async function failJob(jobInternalId: number, message: string) {
-  await pool.query(
-    `UPDATE evaluation_status
-     SET status = 'failed',
-         payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
-     WHERE id = $2`,
-    [JSON.stringify({ error: message }), jobInternalId],
-  );
-}
-
-// Inngest function to process evaluation jobs
 export const evaluationJobProcessor = inngest.createFunction(
   { id: "evaluation-job-processor", name: "Evaluation Job Processor" },
   { event: "evaluation/job.created" },
   async ({ event, step }) => {
     const { jobId } = event.data;
 
-    // Load job from database
     const job = await step.run("load-job", async () => {
       const result = await pool.query<EvaluationStatusRow>(
         `SELECT * FROM evaluation_status WHERE job_id = $1`,
@@ -529,19 +96,21 @@ export const evaluationJobProcessor = inngest.createFunction(
 
       const jobRow = result.rows[0];
       
+      // Set initial status to COLLECTING_RESPONSES for automated API tests
+      // (MANUAL_PROMPT_TEST will override this to EVALUATING in processManualPromptTest)
       await pool.query(
-        `UPDATE evaluation_status SET status = 'running' WHERE id = $1`,
+        `UPDATE evaluation_status SET status = 'COLLECTING_RESPONSES' WHERE id = $1`,
         [jobRow.id]
       );
 
       return jobRow;
     });
 
-    const payload: any =
+    const payload: EvaluationStatusPayload | null =
       job.payload && typeof job.payload === "object"
-        ? job.payload
+        ? (job.payload as EvaluationStatusPayload)
         : job.payload
-          ? JSON.parse(job.payload)
+          ? (JSON.parse(job.payload) as EvaluationStatusPayload)
           : null;
 
     if (!payload) {
@@ -552,13 +121,16 @@ export const evaluationJobProcessor = inngest.createFunction(
     }
 
     try {
-      // Route by job_type
-      if (job.job_type === "AUTOMATED_API_TEST") {
-        await processAutomatedApiTest(job, payload, step);
-      } else if (job.job_type === "MANUAL_PROMPT_TEST") {
-        await processManualPromptTest(job, payload, step);
+      const jobType = job.job_type;
+      if (jobType === "AUTOMATED_API_TEST") {
+        // TypeScript narrows job.payload to FairnessApiJobPayloadExtended here
+        await processAutomatedApiTest(job, payload as FairnessApiJobPayloadExtended, step);
+      } else if (jobType === "MANUAL_PROMPT_TEST") {
+        // TypeScript narrows job.payload to FairnessPromptsJobPayloadExtended here
+        await processManualPromptTest(job, payload as FairnessPromptsJobPayloadExtended, step);
       } else {
-        throw new Error(`Unknown job type: ${job.job_type}`);
+        // This should never happen with our discriminated union, but handle it defensively
+        throw new Error(`Unknown job type: ${jobType}`);
       }
     } catch (error: any) {
       await step.run("fail-job-on-error", async () => {
@@ -569,368 +141,429 @@ export const evaluationJobProcessor = inngest.createFunction(
   }
 );
 
-async function processAutomatedApiTest(
-  job: EvaluationStatusRow,
-  payload: FairnessApiJobPayload,
-  step: any
-) {
-  if (payload.type !== "FAIRNESS_API") {
-    throw new Error("Invalid payload type for AUTOMATED_API_TEST job");
-  }
+/**
+ * Defensively extracts jobId and promptIndex from various Inngest event shapes.
+ * Tries canonical paths in order and logs a warning with raw event JSON if extraction fails.
+ */
+function extractJobContext(event: any): { jobId?: string; promptIndex?: number } {
+  // Try canonical paths in order of likelihood
+  const paths = [
+    () => event?.data?.event?.data,
+    () => event?.data,
+    () => event?.data?.events?.[0]?.data,
+  ];
 
-  const config = normalizeFairnessApiJobConfig(payload.config);
-  
-  // Track last request timestamp for rate limiting
-  let lastRequestTimestamp = 0;
-
-  // Verify project
-  await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [config.projectId, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
-      throw new Error("Project not found or access denied for this job");
+  for (const getPath of paths) {
+    const data = getPath();
+    if (data?.jobId && data?.promptIndex !== undefined) {
+      return {
+        jobId: data.jobId,
+        promptIndex: data.promptIndex,
+      };
     }
-  });
-
-  // Fetch prompts
-  const prompts = await step.run("fetch-prompts", async () => {
-    return await fetchFairnessPrompts();
-  });
-
-  if (prompts.length === 0) {
-    await step.run("mark-empty-completed", async () => {
-      await markJobCompleted(job.id, payload, {
-        summary: {
-          total: 0,
-          successful: 0,
-          failed: 0,
-          averageOverallScore: 0,
-          averageBiasScore: 0,
-          averageToxicityScore: 0,
-        },
-        results: [],
-        errors: [],
-      });
-    });
-    return;
   }
 
-  // Initialize job progress
-  await step.run("initialize-progress", async () => {
-    await pool.query(
-      `UPDATE evaluation_status
-       SET total_prompts = $1,
-           progress = $2,
-           percent = 0
-       WHERE id = $3`,
-      [prompts.length, `0/${prompts.length}`, job.id],
-    );
-  });
+  // If no successful extraction, log warning with raw event for debugging
+  console.warn(
+    "[callUserApiForPrompt.onFailure] Failed to extract jobId/promptIndex from event. Raw event:",
+    JSON.stringify(event, null, 2)
+  );
 
-  // Process all prompts - store results incrementally in DB to avoid payload size limits
-  await step.run("process-all-prompts", async () => {
-    const results: JobResult[] = [];
-    const errors: JobError[] = [];
-    let lastRequestTimestamp = 0;
+  return {};
+}
 
-    // Initialize results arrays in payload
-    await pool.query(
-      `UPDATE evaluation_status
-       SET payload = COALESCE(payload, '{}'::jsonb) || '{"results": [], "errors": []}'::jsonb
-       WHERE id = $1`,
-      [job.id]
-    );
+export const callUserApiForPrompt = inngest.createFunction(
+  {
+    id: "call-user-api-for-prompt",
+    name: "Call User API For Prompt",
+    onFailure: async ({ event, error }: { event: any; error: Error }) => {
+      const { jobId, promptIndex } = extractJobContext(event);
 
-    for (let i = 0; i < prompts.length; i += 1) {
-      const { category, prompt } = prompts[i];
+      if (!jobId || promptIndex === undefined) {
+        return;
+      }
+
+      await inngest.send({
+        name: "user-api/call.completed",
+        data: {
+          jobId,
+          promptIndex,
+          success: false,
+          error: error.message || "Unknown error",
+        },
+      });
+    },
+  },
+  { event: "user-api/call.requested" },
+  async ({ event, step }) => {
+    const eventData = event.data || {};
+    const {
+      jobId: originalJobId,
+      promptIndex: originalPromptIndex,
+      category,
+      prompt,
+      config,
+      includePromptConstraints,
+      promptConstraints,
+    } = eventData;
+
+    if (!originalJobId) {
+      throw new Error("Missing jobId in user-api/call.requested event");
+    }
+
+    if (originalPromptIndex === undefined || originalPromptIndex === null) {
+      throw new Error("Missing promptIndex in user-api/call.requested event");
+    }
+
+    // Store jobId/promptIndex in database to preserve them through failures
+    await step.run("store-context-in-db", async () => {
+      await pool.query(
+        `UPDATE evaluation_status
+         SET payload = jsonb_set(
+           COALESCE(payload, '{}'::jsonb),
+           '{_currentApiCall}',
+           jsonb_build_object('jobId', $1::text, 'promptIndex', $2::integer)
+         )
+         WHERE job_id = $1::text`,
+        [originalJobId, originalPromptIndex]
+      );
+      return { jobId: originalJobId, promptIndex: originalPromptIndex };
+    });
+
+    const jobId = originalJobId;
+    const promptIndex = originalPromptIndex;
+
+    // Determine if and how to modify the prompt
+    // Default behavior: includePromptConstraints is undefined/null -> use default constraint
+    // If includePromptConstraints === false -> don't append anything
+    // If promptConstraints is provided -> use that instead of default
+    const shouldIncludeConstraints = includePromptConstraints !== false;
+    const defaultConstraint = "Please provide a response that is 300-500 words in length. The response should be in simple paragraph format with no formatting, just plain text.";
+    const constraintToUse = promptConstraints !== undefined && promptConstraints !== null 
+      ? promptConstraints 
+      : defaultConstraint;
+    
+    const modifiedPrompt = shouldIncludeConstraints 
+      ? `${prompt}\n\n${constraintToUse}`
+      : prompt;
+
+    const response = await step.run("call-user-api", async () => {
+      const normalizedConfig = normalizeFairnessApiJobConfig(config);
+      return await callUserApi(normalizedConfig, modifiedPrompt);
+    });
+
+    await step.run("store-response", async () => {
+      const jobResult = await pool.query(
+        `SELECT id, payload FROM evaluation_status WHERE job_id = $1`,
+        [jobId]
+      );
+
+      if (jobResult.rows.length === 0) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+
+      const job = jobResult.rows[0];
+      const payload = (job.payload || {}) as FairnessApiJobPayloadExtended;
+      const userApiResponses: UserApiResponse[] = payload.userApiResponses || [];
+
+      const existingIndex = userApiResponses.findIndex(
+        (r) => r.promptIndex === promptIndex
+      );
+
+      const userApiResponse: UserApiResponse = {
+        promptIndex,
+        category,
+        prompt,
+        success: true,
+        response: response,
+      };
+
+      if (existingIndex >= 0) {
+        userApiResponses[existingIndex] = userApiResponse;
+      } else {
+        userApiResponses.push(userApiResponse);
+      }
+
+      await pool.query(
+        `UPDATE evaluation_status
+         SET payload = jsonb_set(
+           COALESCE(payload, '{}'::jsonb),
+           '{userApiResponses}',
+           $1::jsonb
+         )
+         WHERE job_id = $2`,
+        [JSON.stringify(userApiResponses), jobId]
+      );
+    });
+
+    await step.sendEvent("send-completion", {
+      name: "user-api/call.completed",
+      data: {
+        jobId,
+        promptIndex,
+        success: true,
+        response: response,
+      },
+    });
+
+    return { success: true, response };
+  }
+);
+
+export const userApiCallAggregator = inngest.createFunction(
+  { id: "user-api-call-aggregator", name: "User API Call Aggregator" },
+  { event: "user-api/call.completed" },
+  async ({ event, step }) => {
+    const { jobId, promptIndex, success, response, error } = event.data;
+
+    if (!jobId) {
+      throw new Error("Missing jobId in user-api/call.completed event");
+    }
+
+    if (promptIndex === undefined || promptIndex === null) {
+      throw new Error("Missing promptIndex in user-api/call.completed event");
+    }
+
+    const allComplete = await step.run("process-completion", async () => {
+      const jobResult = await pool.query(
+        `SELECT id, payload, total_prompts FROM evaluation_status WHERE job_id = $1`,
+        [jobId]
+      );
+
+      if (jobResult.rows.length === 0) {
+        console.error(`userApiCallAggregator: Job not found: ${jobId}`);
+        throw new Error(`Job ${jobId} not found`);
+      }
+
+      const job = jobResult.rows[0];
+      const payload = (job.payload || {}) as FairnessApiJobPayloadExtended;
+      const itemStatuses = payload.userApiCallStatuses || {};
+      const totalPrompts = job.total_prompts || 0;
+
+      if (totalPrompts === 0) {
+        throw new Error(`Job ${jobId} has no total_prompts set`);
+      }
+
+      if (itemStatuses[promptIndex]) {
+        const completed = Object.keys(itemStatuses).length;
+        return { allComplete: completed >= totalPrompts, total: totalPrompts, completed };
+      }
+
+      itemStatuses[promptIndex] = success ? "SUCCESS" : "FAILED";
+
+      // Update payload first
+      await pool.query(
+        `UPDATE evaluation_status
+         SET payload = jsonb_set(
+           COALESCE(payload, '{}'::jsonb),
+           '{userApiCallStatuses}',
+           $1::jsonb
+         )
+         WHERE job_id = $2`,
+        [JSON.stringify(itemStatuses), jobId]
+      );
+
+      await updateJobProgress(jobId);
+
+      const completed = Object.keys(itemStatuses).length;
+      return { allComplete: completed >= totalPrompts, total: totalPrompts, completed };
+    });
+
+    if (allComplete.allComplete) {
+      await step.run("trigger-evaluation-phase", async () => {
+        await inngest.send({
+          name: "user-api/all-completed",
+          data: {
+            jobId,
+          },
+        });
+      });
+    }
+  }
+);
+
+export const evaluationAggregator = inngest.createFunction(
+  { id: "evaluation-aggregator", name: "Evaluation Aggregator" },
+  { event: "evaluation/single.completed" },
+  async ({ event, step }) => {
+    const { jobId, responseIndex, result, error } = event.data;
+
+    const allComplete = await step.run("process-completion", async () => {
+      const jobResult = await pool.query(
+        `SELECT id, payload, total_prompts, status FROM evaluation_status WHERE job_id = $1`,
+        [jobId]
+      );
+
+      if (jobResult.rows.length === 0) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+
+      const job = jobResult.rows[0];
+      const payload = (job.payload || {}) as EvaluationStatusPayload;
+      const responses = ("responses" in payload ? payload.responses : undefined) || [];
+      const total = job.total_prompts || responses.length;
       
-      // Rate limiting: ensure minimum interval between requests
-      if (lastRequestTimestamp > 0) {
-        const now = Date.now();
-        const elapsed = now - lastRequestTimestamp;
-        if (elapsed < MIN_REQUEST_INTERVAL_MS) {
-          await delay(MIN_REQUEST_INTERVAL_MS - elapsed);
+      // Bounds check for responseIndex
+      let response: any = null;
+      if (responseIndex >= 0 && responseIndex < responses.length) {
+        response = responses[responseIndex];
+      } else {
+        // Handle out-of-bounds case with safe defaults
+        const outOfBoundsError = `Response index ${responseIndex} is out of bounds (valid range: 0-${responses.length - 1})`;
+        response = {
+          category: "unknown",
+          prompt: "unknown",
+          error: outOfBoundsError,
+        };
+        // Log the anomaly
+        console.error(`[evaluationAggregator] ${outOfBoundsError} for jobId: ${jobId}`);
+      }
+
+      // Check if already processed (read-only check for early return)
+      const itemStatuses = ("itemStatuses" in payload ? payload.itemStatuses : undefined) || {};
+      if (itemStatuses[responseIndex]) {
+        const completed = Object.keys(itemStatuses).length;
+        return { allComplete: completed >= total, total, completed };
+      }
+
+      // Build delta fragments as JSON parameters
+      const itemStatusValue = result ? "SUCCESS" : "FAILED";
+      const itemStatusEntry = JSON.stringify({ [responseIndex]: itemStatusValue });
+      
+      let resultEntry: string | null = null;
+      let errorEntry: string | null = null;
+      
+      if (result) {
+        resultEntry = JSON.stringify([{
+          category: response?.category || "unknown",
+          prompt: response?.prompt || "unknown",
+          success: true,
+          evaluation: result,
+          message: `Overall score ${(result.overallScore * 100).toFixed(1)}%`,
+        }]);
+      } else {
+        errorEntry = JSON.stringify([{
+          category: response?.category || "unknown",
+          prompt: response?.prompt || "unknown",
+          success: false,
+          error: response?.error || error || "Unknown error",
+          message: response?.error || error || "Unknown error",
+        }]);
+      }
+
+      const lastProcessedPrompt = response?.prompt || null;
+
+      // Atomic UPDATE using jsonb_set and || operator to merge changes
+      // Use CTE to build updated payload and calculate progress atomically
+      const updateResult = await pool.query(
+        `WITH updated_payload AS (
+           SELECT 
+             CASE 
+               WHEN $2::jsonb IS NOT NULL THEN
+                 jsonb_set(
+                   jsonb_set(
+                     COALESCE(payload, '{}'::jsonb),
+                     '{itemStatuses}',
+                     COALESCE(payload->'itemStatuses', '{}'::jsonb) || $1::jsonb
+                   ),
+                   '{results}',
+                   COALESCE(payload->'results', '[]'::jsonb) || $2::jsonb
+                 )
+               ELSE
+                 jsonb_set(
+                   jsonb_set(
+                     COALESCE(payload, '{}'::jsonb),
+                     '{itemStatuses}',
+                     COALESCE(payload->'itemStatuses', '{}'::jsonb) || $1::jsonb
+                   ),
+                   '{errors}',
+                   COALESCE(payload->'errors', '[]'::jsonb) || $3::jsonb
+                 )
+             END AS new_payload
+           FROM evaluation_status
+           WHERE job_id = $6
+             AND (payload->'itemStatuses'->>$7::text IS NULL)
+         ),
+         progress_calc AS (
+           SELECT 
+             new_payload,
+             CASE 
+               WHEN $5::integer = 0 THEN '0/0'
+               ELSE (
+                 SELECT COUNT(*)::text || '/' || $5::text
+                 FROM jsonb_object_keys(COALESCE(new_payload->'itemStatuses', '{}'::jsonb))
+               )
+             END AS new_progress,
+             CASE 
+               WHEN $5::integer = 0 THEN 0
+               ELSE LEAST(100, GREATEST(0, 
+                 ROUND(
+                   (SELECT COUNT(*)::numeric 
+                    FROM jsonb_object_keys(COALESCE(new_payload->'itemStatuses', '{}'::jsonb))
+                   ) / $5::numeric * 100
+                 )
+               ))
+             END AS new_percent
+           FROM updated_payload
+         )
+         UPDATE evaluation_status
+         SET payload = progress_calc.new_payload,
+             last_processed_prompt = $4,
+             progress = progress_calc.new_progress,
+             percent = progress_calc.new_percent
+         FROM progress_calc
+         WHERE job_id = $6
+           AND (payload->'itemStatuses'->>$7::text IS NULL)
+         RETURNING evaluation_status.payload, evaluation_status.progress, evaluation_status.percent`,
+        [
+          itemStatusEntry,
+          resultEntry,
+          errorEntry,
+          lastProcessedPrompt,
+          total,
+          jobId,
+          String(responseIndex),
+        ]
+      );
+
+      if (updateResult.rows.length === 0) {
+        // Another worker already processed this responseIndex, get current state
+        const currentJob = await pool.query(
+          `SELECT payload, total_prompts FROM evaluation_status WHERE job_id = $1`,
+          [jobId]
+        );
+        if (currentJob.rows.length > 0) {
+          const currentPayload = (currentJob.rows[0].payload || {}) as EvaluationStatusPayload;
+          const currentItemStatuses = ("itemStatuses" in currentPayload ? currentPayload.itemStatuses : undefined) || {};
+          const completed = Object.keys(currentItemStatuses).length;
+          const currentTotal = currentJob.rows[0].total_prompts || responses.length;
+          return { allComplete: completed >= currentTotal, total: currentTotal, completed };
         }
-      }
-      lastRequestTimestamp = Date.now();
-
-      try {
-        const userResponse = await callUserApi(config, prompt);
-        const evaluation = await callEvaluationService(
-          config.projectId,
-          job.user_id,
-          category,
-          prompt,
-          userResponse,
-        );
-        const successMessage = `Prompt processed successfully. Overall score ${(evaluation.overallScore * 100).toFixed(1)}%.`;
-
-        const result: JobResult = {
-          category,
-          prompt,
-          success: true,
-          evaluation,
-          message: successMessage,
-        };
-        results.push(result);
-
-        // Store result incrementally in database to avoid payload size limits
-        // Read current payload, append result, write back
-        const currentPayload = await pool.query(
-          `SELECT payload FROM evaluation_status WHERE id = $1`,
-          [job.id]
-        );
-        const payloadData = currentPayload.rows[0]?.payload || {};
-        const currentResults = payloadData.results || [];
-        currentResults.push(result);
-        
-        await pool.query(
-          `UPDATE evaluation_status
-           SET payload = jsonb_set(
-             COALESCE(payload, '{}'::jsonb),
-             '{results}',
-             $1::jsonb
-           )
-           WHERE id = $2`,
-          [JSON.stringify(currentResults), job.id]
-        );
-      } catch (error: any) {
-        const errorMessage = error?.message || "Unknown error";
-        const errorResult: JobError = {
-          category,
-          prompt,
-          success: false,
-          error: errorMessage,
-          message: errorMessage,
-        };
-        errors.push(errorResult);
-
-        // Store error incrementally in database
-        // Read current payload, append error, write back
-        const currentPayload = await pool.query(
-          `SELECT payload FROM evaluation_status WHERE id = $1`,
-          [job.id]
-        );
-        const payloadData = currentPayload.rows[0]?.payload || {};
-        const currentErrors = payloadData.errors || [];
-        currentErrors.push(errorResult);
-        
-        await pool.query(
-          `UPDATE evaluation_status
-           SET payload = jsonb_set(
-             COALESCE(payload, '{}'::jsonb),
-             '{errors}',
-             $1::jsonb
-           )
-           WHERE id = $2`,
-          [JSON.stringify(currentErrors), job.id]
-        );
+        throw new Error(`Job ${jobId} not found after update`);
       }
 
-      const completed = results.length + errors.length;
-      const percent = Math.round((completed / prompts.length) * 100);
-
-      await pool.query(
-        `UPDATE evaluation_status
-         SET progress = $1,
-             percent = $2,
-             last_processed_prompt = $3
-         WHERE id = $4`,
-        [`${completed}/${prompts.length}`, percent, prompt, job.id],
-      );
-    }
-    return { resultCount: results.length, errorCount: errors.length };
-  });
-
-  // Mark job as completed - read results from database
-  await step.run("mark-completed", async () => {
-    // Read results from database
-    const jobData = await pool.query(
-      `SELECT payload FROM evaluation_status WHERE id = $1`,
-      [job.id]
-    );
-    
-    const storedPayload = jobData.rows[0]?.payload || {};
-    const jobResults: JobResult[] = storedPayload.results || [];
-    const jobErrors: JobError[] = storedPayload.errors || [];
-    
-    const summary = buildSummary(prompts.length, jobResults, jobErrors);
-    await markJobCompleted(job.id, payload, { summary, results: jobResults, errors: jobErrors });
-  });
-}
-
-async function processManualPromptTest(
-  job: EvaluationStatusRow,
-  payload: FairnessPromptsJobPayload,
-  step: any
-) {
-  if (payload.type !== "FAIRNESS_PROMPTS") {
-    throw new Error("Invalid payload type for MANUAL_PROMPT_TEST job");
-  }
-
-  // Verify project
-  await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [job.project_id, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
-      throw new Error("Project not found or access denied for this job");
-    }
-  });
-
-  const responses = payload.responses || [];
-  if (responses.length === 0) {
-    await step.run("mark-empty-completed", async () => {
-      await markJobCompleted(job.id, payload, {
-        summary: {
-          total: 0,
-          successful: 0,
-          failed: 0,
-          averageOverallScore: 0,
-          averageBiasScore: 0,
-          averageToxicityScore: 0,
-        },
-        results: [],
-        errors: [],
-      });
-    });
-    return;
-  }
-
-  // Initialize job progress
-  await step.run("initialize-progress", async () => {
-    await pool.query(
-      `UPDATE evaluation_status
-       SET total_prompts = $1,
-           progress = $2,
-           percent = 0
-       WHERE id = $3`,
-      [responses.length, `0/${responses.length}`, job.id],
-    );
-  });
-
-  // Process all responses - store results incrementally in DB to avoid payload size limits
-  await step.run("process-all-responses", async () => {
-    const results: JobResult[] = [];
-    const errors: JobError[] = [];
-
-    // Initialize results arrays in payload
-    await pool.query(
-      `UPDATE evaluation_status
-       SET payload = COALESCE(payload, '{}'::jsonb) || '{"results": [], "errors": []}'::jsonb
-       WHERE id = $1`,
-      [job.id]
-    );
-
-    for (let i = 0; i < responses.length; i += 1) {
-      const { category, prompt, response: userResponse } = responses[i];
+      const updatedPayload = updateResult.rows[0].payload || {};
+      const updatedItemStatuses = updatedPayload.itemStatuses || {};
+      const completed = Object.keys(updatedItemStatuses).length;
       
-      try {
-        const evaluation = await callEvaluationService(
-          job.project_id,
-          job.user_id,
-          category,
-          prompt,
-          userResponse,
-        );
-        const successMessage = `Prompt processed successfully. Overall score ${(evaluation.overallScore * 100).toFixed(1)}%.`;
+      return { allComplete: completed >= total, total, completed };
+    });
 
-        const result: JobResult = {
-          category,
-          prompt,
-          success: true,
-          evaluation,
-          message: successMessage,
-        };
-        results.push(result);
-
-        // Store result incrementally in database to avoid payload size limits
-        // Read current payload, append result, write back
-        const currentPayload = await pool.query(
-          `SELECT payload FROM evaluation_status WHERE id = $1`,
-          [job.id]
+    if (allComplete.allComplete) {
+      await step.run("finalize-job", async () => {
+        const jobResult = await pool.query(
+          `SELECT id, payload FROM evaluation_status WHERE job_id = $1`,
+          [jobId]
         );
-        const payloadData = currentPayload.rows[0]?.payload || {};
-        const currentResults = payloadData.results || [];
-        currentResults.push(result);
-        
-        await pool.query(
-          `UPDATE evaluation_status
-           SET payload = jsonb_set(
-             COALESCE(payload, '{}'::jsonb),
-             '{results}',
-             $1::jsonb
-           )
-           WHERE id = $2`,
-          [JSON.stringify(currentResults), job.id]
-        );
-      } catch (error: any) {
-        const errorMessage = error?.message || "Unknown error";
-        const errorResult: JobError = {
-          category,
-          prompt,
-          success: false,
-          error: errorMessage,
-          message: errorMessage,
-        };
-        errors.push(errorResult);
+        const job = jobResult.rows[0];
+        const payload = (job.payload || {}) as EvaluationStatusPayload;
+        const responses = ("responses" in payload ? payload.responses : undefined) || [];
+        const results: JobResult[] = ("results" in payload ? payload.results : undefined) || [];
+        const errors: JobError[] = ("errors" in payload ? payload.errors : undefined) || [];
 
-        // Store error incrementally in database
-        // Read current payload, append error, write back
-        const currentPayload = await pool.query(
-          `SELECT payload FROM evaluation_status WHERE id = $1`,
-          [job.id]
-        );
-        const payloadData = currentPayload.rows[0]?.payload || {};
-        const currentErrors = payloadData.errors || [];
-        currentErrors.push(errorResult);
-        
-        await pool.query(
-          `UPDATE evaluation_status
-           SET payload = jsonb_set(
-             COALESCE(payload, '{}'::jsonb),
-             '{errors}',
-             $1::jsonb
-           )
-           WHERE id = $2`,
-          [JSON.stringify(currentErrors), job.id]
-        );
-      }
-
-      const completed = results.length + errors.length;
-      const percent = Math.round((completed / responses.length) * 100);
-
-      await pool.query(
-        `UPDATE evaluation_status
-         SET progress = $1,
-             percent = $2,
-             last_processed_prompt = $3
-         WHERE id = $4`,
-        [`${completed}/${responses.length}`, percent, prompt, job.id],
-      );
+        const summary = buildSummary(responses.length, results, errors);
+        await markJobCompleted(job.id, payload, { summary, results, errors });
+      });
     }
-    return { resultCount: results.length, errorCount: errors.length };
-  });
-
-  // Mark job as completed - read results from database
-  await step.run("mark-completed", async () => {
-    // Read results from database
-    const jobData = await pool.query(
-      `SELECT payload FROM evaluation_status WHERE id = $1`,
-      [job.id]
-    );
-    
-    const storedPayload = jobData.rows[0]?.payload || {};
-    const jobResults: JobResult[] = storedPayload.results || [];
-    const jobErrors: JobError[] = storedPayload.errors || [];
-    
-    const summary = buildSummary(responses.length, jobResults, jobErrors);
-    await markJobCompleted(job.id, payload, { summary, results: jobResults, errors: jobErrors });
-  });
-}
-
+  }
+);
