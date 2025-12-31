@@ -2,19 +2,59 @@ import pool from "../config/database";
 import { evaluateFairnessResponse, type EvaluationPayload } from "../services/evaluateFairness";
 
 // Types 
-export type EvaluationStatusRow = {
-  id: number;
-  user_id: string;
-  project_id: string;
-  job_id: string;
-  payload: any;
-  total_prompts: number | null;
-  status: string;
-  progress: string | null;
-  last_processed_prompt: string | null;
-  percent: number | null;
-  job_type: string;
+// Extended payload types that include runtime fields added during job processing
+export type FairnessApiJobPayloadExtended = FairnessApiJobPayload & {
+  userApiResponses?: UserApiResponse[];
+  userApiCallStatuses?: Record<string, "SUCCESS" | "FAILED">;
+  responses?: Array<{
+    category: string;
+    prompt: string;
+    response: string;
+  }>;
+  itemStatuses?: Record<string, "SUCCESS" | "FAILED">;
+  _currentApiCall?: {
+    jobId: string;
+    promptIndex: number;
+  };
 };
+
+export type FairnessPromptsJobPayloadExtended = FairnessPromptsJobPayload & {
+  itemStatuses?: Record<string, "SUCCESS" | "FAILED">;
+};
+
+// Discriminated union of all possible payload shapes
+export type EvaluationStatusPayload = 
+  | FairnessApiJobPayloadExtended
+  | FairnessPromptsJobPayloadExtended;
+
+// Discriminated union for EvaluationStatusRow, discriminated by job_type
+export type EvaluationStatusRow = 
+  | {
+      id: number;
+      user_id: string;
+      project_id: string;
+      job_id: string;
+      payload: FairnessApiJobPayloadExtended;
+      total_prompts: number | null;
+      status: string;
+      progress: string | null;
+      last_processed_prompt: string | null;
+      percent: number | null;
+      job_type: "AUTOMATED_API_TEST";
+    }
+  | {
+      id: number;
+      user_id: string;
+      project_id: string;
+      job_id: string;
+      payload: FairnessPromptsJobPayloadExtended;
+      total_prompts: number | null;
+      status: string;
+      progress: string | null;
+      last_processed_prompt: string | null;
+      percent: number | null;
+      job_type: "MANUAL_PROMPT_TEST";
+    };
 
 export type ApiKeyPlacement = "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
 
@@ -100,7 +140,7 @@ export type UserApiResponse = {
 };
 
 // Constants
-export const MIN_REQUEST_INTERVAL_MS = Number(process.env.EVALUATION_MIN_REQUEST_INTERVAL_MS || 20000);
+export const MIN_REQUEST_INTERVAL_MS = Number(process.env.EVALUATION_MIN_REQUEST_INTERVAL_MS || 45000);
 
 export const VALID_API_KEY_PLACEMENTS: ApiKeyPlacement[] = [
   "none",
@@ -184,9 +224,16 @@ export function buildSummary(total: number, results: JobResult[], errors: JobErr
   const average = (arr: number[]) =>
     arr.length === 0 ? 0 : arr.reduce((sum, value) => sum + value, 0) / arr.length;
 
-  const overallScores = results.map((r) => r.evaluation.overallScore);
-  const biasScores = results.map((r) => r.evaluation.biasScore);
-  const toxicityScores = results.map((r) => r.evaluation.toxicityScore);
+  // Filter out null scores - only include successful evaluations in averaging
+  const overallScores = results
+    .map((r) => r.evaluation.overallScore)
+    .filter((score): score is number => score !== null);
+  const biasScores = results
+    .map((r) => r.evaluation.biasScore)
+    .filter((score): score is number => score !== null);
+  const toxicityScores = results
+    .map((r) => r.evaluation.toxicityScore)
+    .filter((score): score is number => score !== null);
 
   return {
     total,
@@ -363,7 +410,7 @@ export function prepareRequestOptions(
       case "query_param":
         url = appendQueryParam(url, fieldName || "key", config.apiKey);
         break;
-      case "body_field":
+      case "body_field": {
         if (body === null || typeof body !== "object" || Array.isArray(body)) {
           throw new Error("Request template must resolve to an object to inject the API key into the body");
         }
@@ -373,6 +420,7 @@ export function prepareRequestOptions(
           [bodyField]: config.apiKey,
         };
         break;
+      }
       default:
         break;
     }
@@ -400,11 +448,28 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
   const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
   const { url, headers, body } = prepareRequestOptions(config, requestPayload);
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutMs = 10000; // 10 seconds timeout
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === "AbortError" || controller.signal.aborted) {
+      throw new Error(`Request to user API timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errorText = await response
@@ -445,11 +510,11 @@ export async function updateJobProgress(jobId: string): Promise<{
   }
 
   const job = jobResult.rows[0];
-  const payload = job.payload || {};
+  const payload = (job.payload || {}) as EvaluationStatusPayload;
   const totalCount = job.total_prompts || 0;
   
-  const userApiCallStatuses = payload.userApiCallStatuses || {};
-  const itemStatuses = payload.itemStatuses || {};
+  const userApiCallStatuses = ("userApiCallStatuses" in payload ? payload.userApiCallStatuses : undefined) || {};
+  const itemStatuses = ("itemStatuses" in payload ? payload.itemStatuses : undefined) || {};
   
   const collectedCount = Object.keys(userApiCallStatuses).length;
   const evaluatedCount = Object.keys(itemStatuses).length;
@@ -523,7 +588,7 @@ export async function updateJobProgress(jobId: string): Promise<{
 
 export async function markJobCompleted(
   jobInternalId: number,
-  payload: FairnessApiJobPayload | FairnessPromptsJobPayload,
+  payload: FairnessApiJobPayloadExtended | FairnessPromptsJobPayloadExtended,
   data: { summary: JobSummary; results: JobResult[]; errors: JobError[] },
 ) {
   const total = data.summary.total;
@@ -564,7 +629,7 @@ export async function markJobCompleted(
 export async function failJob(jobInternalId: number, message: string) {
   await pool.query(
     `UPDATE evaluation_status
-     SET status = 'failed',
+     SET status = 'FAILED',
          payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
      WHERE id = $2`,
     [JSON.stringify({ error: message }), jobInternalId],
@@ -572,8 +637,8 @@ export async function failJob(jobInternalId: number, message: string) {
 }
 
 export async function processAutomatedApiTest(
-  job: EvaluationStatusRow,
-  payload: FairnessApiJobPayload,
+  job: EvaluationStatusRow & { job_type: "AUTOMATED_API_TEST" },
+  payload: FairnessApiJobPayloadExtended,
   step: any
 ) {
   if (payload.type !== "FAIRNESS_API") {
@@ -642,7 +707,7 @@ export async function processAutomatedApiTest(
     
     if (i > 0) {
       await step.run(`delay-before-user-api-${i}`, async () => {
-        await delay(45000);
+        await delay(MIN_REQUEST_INTERVAL_MS);
       });
     }
     
@@ -777,7 +842,7 @@ export async function processAutomatedApiTest(
     
     if (i > 0) {
       await step.run(`delay-before-evaluation-${i}`, async () => {
-        await delay(45000);
+        await delay(MIN_REQUEST_INTERVAL_MS);
       });
     }
     
@@ -797,8 +862,8 @@ export async function processAutomatedApiTest(
 }
 
 export async function processManualPromptTest(
-  job: EvaluationStatusRow,
-  payload: FairnessPromptsJobPayload,
+  job: EvaluationStatusRow & { job_type: "MANUAL_PROMPT_TEST" },
+  payload: FairnessPromptsJobPayloadExtended,
   step: any
 ) {
   if (payload.type !== "FAIRNESS_PROMPTS") {
@@ -862,7 +927,7 @@ export async function processManualPromptTest(
     
     if (i > 0) {
       await step.run(`delay-before-evaluation-${i}`, async () => {
-        await delay(45000);
+        await delay(MIN_REQUEST_INTERVAL_MS);
       });
     }
     

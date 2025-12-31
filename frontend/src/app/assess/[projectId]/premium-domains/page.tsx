@@ -483,6 +483,7 @@ export default function PremiumDomainsPage() {
           <div className="flex flex-col gap-4">
             {projectId && (
               <button
+                type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 font-semibold"
               >
@@ -491,6 +492,7 @@ export default function PremiumDomainsPage() {
               </button>
             )}
             <button
+              type="button"
               onClick={() => router.push(`/assess/${projectId}`)}
               className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
             >

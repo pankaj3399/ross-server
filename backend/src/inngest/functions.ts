@@ -4,7 +4,10 @@ import { evaluateFairnessResponse } from "../services/evaluateFairness";
 import {
   type EvaluationStatusRow,
   type FairnessApiJobPayload,
+  type FairnessApiJobPayloadExtended,
   type FairnessPromptsJobPayload,
+  type FairnessPromptsJobPayloadExtended,
+  type EvaluationStatusPayload,
   type JobResult,
   type JobError,
   type UserApiResponse,
@@ -103,11 +106,11 @@ export const evaluationJobProcessor = inngest.createFunction(
       return jobRow;
     });
 
-    const payload: any =
+    const payload: EvaluationStatusPayload | null =
       job.payload && typeof job.payload === "object"
-        ? job.payload
+        ? (job.payload as EvaluationStatusPayload)
         : job.payload
-          ? JSON.parse(job.payload)
+          ? (JSON.parse(job.payload) as EvaluationStatusPayload)
           : null;
 
     if (!payload) {
@@ -118,12 +121,16 @@ export const evaluationJobProcessor = inngest.createFunction(
     }
 
     try {
-      if (job.job_type === "AUTOMATED_API_TEST") {
-        await processAutomatedApiTest(job, payload as FairnessApiJobPayload, step);
-      } else if (job.job_type === "MANUAL_PROMPT_TEST") {
-        await processManualPromptTest(job, payload as FairnessPromptsJobPayload, step);
+      const jobType = job.job_type;
+      if (jobType === "AUTOMATED_API_TEST") {
+        // TypeScript narrows job.payload to FairnessApiJobPayloadExtended here
+        await processAutomatedApiTest(job, payload as FairnessApiJobPayloadExtended, step);
+      } else if (jobType === "MANUAL_PROMPT_TEST") {
+        // TypeScript narrows job.payload to FairnessPromptsJobPayloadExtended here
+        await processManualPromptTest(job, payload as FairnessPromptsJobPayloadExtended, step);
       } else {
-        throw new Error(`Unknown job type: ${job.job_type}`);
+        // This should never happen with our discriminated union, but handle it defensively
+        throw new Error(`Unknown job type: ${jobType}`);
       }
     } catch (error: any) {
       await step.run("fail-job-on-error", async () => {
@@ -134,37 +141,48 @@ export const evaluationJobProcessor = inngest.createFunction(
   }
 );
 
+/**
+ * Defensively extracts jobId and promptIndex from various Inngest event shapes.
+ * Tries canonical paths in order and logs a warning with raw event JSON if extraction fails.
+ */
+function extractJobContext(event: any): { jobId?: string; promptIndex?: number } {
+  // Try canonical paths in order of likelihood
+  const paths = [
+    () => event?.data?.event?.data,
+    () => event?.data,
+    () => event?.data?.events?.[0]?.data,
+  ];
+
+  for (const getPath of paths) {
+    const data = getPath();
+    if (data?.jobId && data?.promptIndex !== undefined) {
+      return {
+        jobId: data.jobId,
+        promptIndex: data.promptIndex,
+      };
+    }
+  }
+
+  // If no successful extraction, log warning with raw event for debugging
+  console.warn(
+    "[callUserApiForPrompt.onFailure] Failed to extract jobId/promptIndex from event. Raw event:",
+    JSON.stringify(event, null, 2)
+  );
+
+  return {};
+}
+
 export const callUserApiForPrompt = inngest.createFunction(
   {
     id: "call-user-api-for-prompt",
     name: "Call User API For Prompt",
     onFailure: async ({ event, error }: { event: any; error: Error }) => {
-      // In Inngest's onFailure, the event structure is: event.data.event.data contains the original event
-      let jobId: string | undefined;
-      let promptIndex: number | undefined;
-      
-      if (event?.data?.event?.data) {
-        jobId = event.data.event.data.jobId;
-        promptIndex = event.data.event.data.promptIndex;
-      }
-      
-      if (!jobId && event?.data) {
-        jobId = event.data.jobId;
-        promptIndex = event.data.promptIndex;
-      }
-      
-      if (!jobId && event?.data?.events && Array.isArray(event.data.events) && event.data.events.length > 0) {
-        const originalEvent = event.data.events[0];
-        if (originalEvent?.data) {
-          jobId = originalEvent.data.jobId;
-          promptIndex = originalEvent.data.promptIndex;
-        }
-      }
-      
+      const { jobId, promptIndex } = extractJobContext(event);
+
       if (!jobId || promptIndex === undefined) {
         return;
       }
-      
+
       await inngest.send({
         name: "user-api/call.completed",
         data: {
@@ -231,7 +249,7 @@ export const callUserApiForPrompt = inngest.createFunction(
       }
 
       const job = jobResult.rows[0];
-      const payload = job.payload || {};
+      const payload = (job.payload || {}) as FairnessApiJobPayloadExtended;
       const userApiResponses: UserApiResponse[] = payload.userApiResponses || [];
 
       const existingIndex = userApiResponses.findIndex(
@@ -304,7 +322,7 @@ export const userApiCallAggregator = inngest.createFunction(
       }
 
       const job = jobResult.rows[0];
-      const payload = job.payload || {};
+      const payload = (job.payload || {}) as FairnessApiJobPayloadExtended;
       const itemStatuses = payload.userApiCallStatuses || {};
       const totalPrompts = job.total_prompts || 0;
 
@@ -358,7 +376,7 @@ export const evaluationAggregator = inngest.createFunction(
 
     const allComplete = await step.run("process-completion", async () => {
       const jobResult = await pool.query(
-        `SELECT id, payload, total_prompts FROM evaluation_status WHERE job_id = $1`,
+        `SELECT id, payload, total_prompts, status FROM evaluation_status WHERE job_id = $1`,
         [jobId]
       );
 
@@ -367,63 +385,153 @@ export const evaluationAggregator = inngest.createFunction(
       }
 
       const job = jobResult.rows[0];
-      const payload = job.payload || {};
-      const responses = payload.responses || [];
-      const itemStatuses = payload.itemStatuses || {};
-      const results: JobResult[] = payload.results || [];
-      const errors: JobError[] = payload.errors || [];
+      const payload = (job.payload || {}) as EvaluationStatusPayload;
+      const responses = ("responses" in payload ? payload.responses : undefined) || [];
+      const total = job.total_prompts || responses.length;
+      
+      // Bounds check for responseIndex
+      let response: any = null;
+      if (responseIndex >= 0 && responseIndex < responses.length) {
+        response = responses[responseIndex];
+      } else {
+        // Handle out-of-bounds case with safe defaults
+        const outOfBoundsError = `Response index ${responseIndex} is out of bounds (valid range: 0-${responses.length - 1})`;
+        response = {
+          category: "unknown",
+          prompt: "unknown",
+          error: outOfBoundsError,
+        };
+        // Log the anomaly
+        console.error(`[evaluationAggregator] ${outOfBoundsError} for jobId: ${jobId}`);
+      }
 
+      // Check if already processed (read-only check for early return)
+      const itemStatuses = ("itemStatuses" in payload ? payload.itemStatuses : undefined) || {};
       if (itemStatuses[responseIndex]) {
         const completed = Object.keys(itemStatuses).length;
-        const total = job.total_prompts || responses.length;
         return { allComplete: completed >= total, total, completed };
       }
 
-      itemStatuses[responseIndex] = result ? "SUCCESS" : "FAILED";
-
-      const response = responses[responseIndex];
+      // Build delta fragments as JSON parameters
+      const itemStatusValue = result ? "SUCCESS" : "FAILED";
+      const itemStatusEntry = JSON.stringify({ [responseIndex]: itemStatusValue });
+      
+      let resultEntry: string | null = null;
+      let errorEntry: string | null = null;
+      
       if (result) {
-        results.push({
-          category: response.category,
-          prompt: response.prompt,
+        resultEntry = JSON.stringify([{
+          category: response?.category || "unknown",
+          prompt: response?.prompt || "unknown",
           success: true,
           evaluation: result,
           message: `Overall score ${(result.overallScore * 100).toFixed(1)}%`,
-        });
+        }]);
       } else {
-        errors.push({
-          category: response.category,
-          prompt: response.prompt,
+        errorEntry = JSON.stringify([{
+          category: response?.category || "unknown",
+          prompt: response?.prompt || "unknown",
           success: false,
-          error: error || "Unknown error",
-          message: error || "Unknown error",
-        });
+          error: response?.error || error || "Unknown error",
+          message: response?.error || error || "Unknown error",
+        }]);
       }
 
-      const updatedPayload = {
-        ...payload,
-        itemStatuses,
-        results,
-        errors,
-      };
+      const lastProcessedPrompt = response?.prompt || null;
 
-      // Update payload first
-      await pool.query(
-        `UPDATE evaluation_status
-         SET payload = $1,
-             last_processed_prompt = $2
-         WHERE job_id = $3`,
+      // Atomic UPDATE using jsonb_set and || operator to merge changes
+      // Use CTE to build updated payload and calculate progress atomically
+      const updateResult = await pool.query(
+        `WITH updated_payload AS (
+           SELECT 
+             CASE 
+               WHEN $2::jsonb IS NOT NULL THEN
+                 jsonb_set(
+                   jsonb_set(
+                     COALESCE(payload, '{}'::jsonb),
+                     '{itemStatuses}',
+                     COALESCE(payload->'itemStatuses', '{}'::jsonb) || $1::jsonb
+                   ),
+                   '{results}',
+                   COALESCE(payload->'results', '[]'::jsonb) || $2::jsonb
+                 )
+               ELSE
+                 jsonb_set(
+                   jsonb_set(
+                     COALESCE(payload, '{}'::jsonb),
+                     '{itemStatuses}',
+                     COALESCE(payload->'itemStatuses', '{}'::jsonb) || $1::jsonb
+                   ),
+                   '{errors}',
+                   COALESCE(payload->'errors', '[]'::jsonb) || $3::jsonb
+                 )
+             END AS new_payload
+           FROM evaluation_status
+           WHERE job_id = $6
+             AND (payload->'itemStatuses'->>$7::text IS NULL)
+         ),
+         progress_calc AS (
+           SELECT 
+             new_payload,
+             CASE 
+               WHEN $5::integer = 0 THEN '0/0'
+               ELSE (
+                 SELECT COUNT(*)::text || '/' || $5::text
+                 FROM jsonb_object_keys(COALESCE(new_payload->'itemStatuses', '{}'::jsonb))
+               )
+             END AS new_progress,
+             CASE 
+               WHEN $5::integer = 0 THEN 0
+               ELSE LEAST(100, GREATEST(0, 
+                 ROUND(
+                   (SELECT COUNT(*)::numeric 
+                    FROM jsonb_object_keys(COALESCE(new_payload->'itemStatuses', '{}'::jsonb))
+                   ) / $5::numeric * 100
+                 )
+               ))
+             END AS new_percent
+           FROM updated_payload
+         )
+         UPDATE evaluation_status
+         SET payload = progress_calc.new_payload,
+             last_processed_prompt = $4,
+             progress = progress_calc.new_progress,
+             percent = progress_calc.new_percent
+         FROM progress_calc
+         WHERE job_id = $6
+           AND (payload->'itemStatuses'->>$7::text IS NULL)
+         RETURNING evaluation_status.payload, evaluation_status.progress, evaluation_status.percent`,
         [
-          JSON.stringify(updatedPayload),
-          response?.prompt || null,
+          itemStatusEntry,
+          resultEntry,
+          errorEntry,
+          lastProcessedPrompt,
+          total,
           jobId,
+          String(responseIndex),
         ]
       );
 
-      await updateJobProgress(jobId);
+      if (updateResult.rows.length === 0) {
+        // Another worker already processed this responseIndex, get current state
+        const currentJob = await pool.query(
+          `SELECT payload, total_prompts FROM evaluation_status WHERE job_id = $1`,
+          [jobId]
+        );
+        if (currentJob.rows.length > 0) {
+          const currentPayload = (currentJob.rows[0].payload || {}) as EvaluationStatusPayload;
+          const currentItemStatuses = ("itemStatuses" in currentPayload ? currentPayload.itemStatuses : undefined) || {};
+          const completed = Object.keys(currentItemStatuses).length;
+          const currentTotal = currentJob.rows[0].total_prompts || responses.length;
+          return { allComplete: completed >= currentTotal, total: currentTotal, completed };
+        }
+        throw new Error(`Job ${jobId} not found after update`);
+      }
 
-      const completed = Object.keys(itemStatuses).length;
-      const total = job.total_prompts || responses.length;
+      const updatedPayload = updateResult.rows[0].payload || {};
+      const updatedItemStatuses = updatedPayload.itemStatuses || {};
+      const completed = Object.keys(updatedItemStatuses).length;
+      
       return { allComplete: completed >= total, total, completed };
     });
 
@@ -434,10 +542,10 @@ export const evaluationAggregator = inngest.createFunction(
           [jobId]
         );
         const job = jobResult.rows[0];
-        const payload = job.payload || {};
-        const responses = payload.responses || [];
-        const results: JobResult[] = payload.results || [];
-        const errors: JobError[] = payload.errors || [];
+        const payload = (job.payload || {}) as EvaluationStatusPayload;
+        const responses = ("responses" in payload ? payload.responses : undefined) || [];
+        const results: JobResult[] = ("results" in payload ? payload.results : undefined) || [];
+        const errors: JobError[] = ("errors" in payload ? payload.errors : undefined) || [];
 
         const summary = buildSummary(responses.length, results, errors);
         await markJobCompleted(job.id, payload, { summary, results, errors });

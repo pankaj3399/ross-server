@@ -4,7 +4,13 @@ import gc
 import asyncio
 from typing import Dict, Any, Optional, List
 
-HAS_LLM_SUPPORT = False
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    from langchain_core.rate_limiters import InMemoryRateLimiter
+    HAS_LLM_SUPPORT = True
+except ImportError:
+    HAS_LLM_SUPPORT = False
+
 from langfair.metrics.toxicity import ToxicityMetrics
 from langfair.metrics.stereotype import StereotypeMetrics
 from langfair.generator.counterfactual import CounterfactualGenerator
@@ -33,7 +39,7 @@ class LangFairEvaluator:
         self._llm = None
         self._counterfactual_generator = None
     
-    def _get_toxicity_metrics(self):
+    def _get_toxicity_metrics(self) -> ToxicityMetrics:
         if self._toxicity_metrics is None:
             toxicity_classifiers = self._resolve_toxicity_classifiers()
             toxicity_batch_size = int(
@@ -48,23 +54,21 @@ class LangFairEvaluator:
             )
         return self._toxicity_metrics
     
-    def _get_stereotype_metrics(self):
+    def _get_stereotype_metrics(self) -> StereotypeMetrics:
         if self._stereotype_metrics is None:
             self._stereotype_metrics = StereotypeMetrics()
         return self._stereotype_metrics
     
-    def _get_counterfactual_metrics(self):
+    def _get_counterfactual_metrics(self) -> CounterfactualMetrics:
         if self._counterfactual_metrics is None:
             self._counterfactual_metrics = CounterfactualMetrics()
         return self._counterfactual_metrics
     
-    def _get_counterfactual_generator(self):
+    def _get_counterfactual_generator(self) -> Optional[CounterfactualGenerator]:
         if self._counterfactual_generator is None:
             api_key = os.getenv("GEMINI_API_KEY", "")
             if HAS_LLM_SUPPORT and api_key:
                 try:
-                    from langchain_google_genai import ChatGoogleGenerativeAI
-                    from langchain_core.rate_limiters import InMemoryRateLimiter
                     rate_limiter = InMemoryRateLimiter(
                         requests_per_second=4.5,
                         check_every_n_seconds=0.5,
@@ -157,15 +161,21 @@ class LangFairEvaluator:
                         texts1 = cf_generations['data']['male_response']
                         texts2 = cf_generations['data']['female_response']
                     else:
-                        texts1 = list(cf_generations['data'].values())[0]
-                        texts2 = list(cf_generations['data'].values())[1]
+                        vals = list(cf_generations['data'].values())
+                        if len(vals) < 2:
+                            logger.error(f"Insufficient counterfactual responses: expected 2, got {len(vals)}")
+                            counterfactual_metrics = {"error": "insufficient counterfactual responses"}
+                        else:
+                            texts1 = vals[0]
+                            texts2 = vals[1]
                     
-                    cf_result = self._get_counterfactual_metrics().evaluate(
-                        texts1=texts1,
-                        texts2=texts2,
-                        attribute=langfair_category
-                    )
-                    counterfactual_metrics = cf_result.get('metrics', {})
+                    if "error" not in counterfactual_metrics:
+                        cf_result = self._get_counterfactual_metrics().evaluate(
+                            texts1=texts1,
+                            texts2=texts2,
+                            attribute=langfair_category
+                        )
+                        counterfactual_metrics = cf_result.get('metrics', {})
                 except Exception as e:
                     error_msg = str(e)[:200]
                     logger.error(f"Counterfactual evaluation failed: {error_msg}", exc_info=False)
@@ -455,8 +465,12 @@ class LangFairEvaluator:
                 texts1 = cf_generations['data']['male_response']
                 texts2 = cf_generations['data']['female_response']
             else:
-                texts1 = list(cf_generations['data'].values())[0]
-                texts2 = list(cf_generations['data'].values())[1]
+                vals = list(cf_generations['data'].values())
+                if len(vals) < 2:
+                    logger.error(f"Insufficient counterfactual responses: expected 2, got {len(vals)}")
+                    return (index, {"error": "insufficient counterfactual responses"})
+                texts1 = vals[0]
+                texts2 = vals[1]
             
             cf_result = self._get_counterfactual_metrics().evaluate(
                 texts1=texts1,

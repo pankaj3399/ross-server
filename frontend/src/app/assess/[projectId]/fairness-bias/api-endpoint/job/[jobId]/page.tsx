@@ -17,16 +17,16 @@ import {
 type JobStatus = Awaited<ReturnType<typeof apiService.getFairnessJob>>;
 
 const statusColors: Record<string, string> = {
-  queued: "text-blue-600 bg-blue-50",
-  processing: "text-yellow-600 bg-yellow-50",
-  running: "text-purple-600 bg-purple-50",
-  completed: "text-green-600 bg-green-50",
-  failed: "text-red-600 bg-red-50",
-  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50",
-  EVALUATING: "text-purple-600 bg-purple-50",
-  SUCCESS: "text-green-600 bg-green-50",
-  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50",
-  FAILED: "text-red-600 bg-red-50",
+  queued: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  processing: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  failed: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
+  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  EVALUATING: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  SUCCESS: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
 };
 
 export default function FairnessJobPage() {

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Any
 import os
 import logging
 import sys
@@ -64,11 +64,20 @@ class BatchEvaluateItem(BaseModel):
     include_counterfactual: Optional[bool] = Field(False, description="Whether to include counterfactual fairness evaluation (slower)")
 
 class BatchEvaluateRequest(BaseModel):
-    items: List[BatchEvaluateItem] = Field(..., min_items=1, max_items=5, description="List of items to evaluate (max 5)")
+    items: list[BatchEvaluateItem] = Field(..., min_items=1, max_items=5, description="List of items to evaluate (max 5)")
+
+class BatchEvaluateItemResponse(BaseModel):
+    success: bool = Field(..., description="Whether the evaluation was successful")
+    metrics: dict[str, Any] = Field(..., description="Evaluation metrics for this item")
 
 def run_worker(payload: dict, timeout: int = 300):
     try:
         worker_path = os.path.join(os.path.dirname(__file__), "worker.py")
+        
+        # Verify worker.py exists before spawning subprocess
+        if not os.path.exists(worker_path):
+            raise FileNotFoundError(f"Worker script not found at {worker_path}")
+        
         json_input = json.dumps(payload)
         
         result = subprocess.run(
@@ -85,32 +94,52 @@ def run_worker(payload: dict, timeout: int = 300):
                 error_data = json.loads(result.stdout)
                 if not error_data.get("success", True):
                     return error_data
-            except:
-                pass
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(
+                    f"Failed to parse worker error response as JSON: {e}. "
+                    f"Worker stdout (first 500 chars): {result.stdout[:500]}. "
+                    f"Worker stderr (first 500 chars): {result.stderr[:500]}"
+                )
+                # Re-raise with context to ensure the parsing error isn't silently ignored
+                raise RuntimeError(
+                    f"Worker process failed and error response could not be parsed as JSON. "
+                    f"Worker stderr: {result.stderr[:500]}"
+                ) from e
             raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
         
         output_data = json.loads(result.stdout)
         return output_data
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as e:
         raise HTTPException(
             status_code=504,
             detail="Evaluation timeout - request took longer than 5 minutes"
-        )
+        ) from e
     except json.JSONDecodeError as e:
         raise HTTPException(
             status_code=500,
             detail=f"Invalid response from worker: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         error_msg = str(e)[:200]
-        logger.error(f"Worker execution error: {error_msg}", exc_info=False)
+        logger.exception(f"Worker execution error: {error_msg}")
         raise HTTPException(
             status_code=500,
             detail=f"Worker execution failed: {error_msg}"
-        )
+        ) from e
 
 @app.get("/health")
 async def health_check():
+    worker_path = os.path.join(os.path.dirname(__file__), "worker.py")
+    
+    if not os.path.exists(worker_path):
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unhealthy",
+                "message": f"Worker script not found at {worker_path}. Service is degraded."
+            }
+        )
+    
     return {
         "status": "healthy"
     }
@@ -137,10 +166,10 @@ async def evaluate(request: EvaluateRequest):
         
         result = worker_result.get("result", {})
         
-        if not result.get("success", False):
+        if not isinstance(result, dict):
             raise HTTPException(
                 status_code=500,
-                detail="Evaluation returned unsuccessful result"
+                detail="Evaluation returned invalid result"
             )
         
         return EvaluateResponse(
@@ -167,8 +196,8 @@ async def evaluate(request: EvaluateRequest):
             detail=error_detail
         )
 
-@app.post("/evaluate-batch")
-async def evaluate_batch(request: BatchEvaluateRequest):
+@app.post("/evaluate-batch", response_model=List[BatchEvaluateItemResponse])
+async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateItemResponse]:
     try:
         items = [
             {
@@ -198,10 +227,12 @@ async def evaluate_batch(request: BatchEvaluateRequest):
         
         response_array = []
         for result in results:
-            response_array.append({
-                "success": result.get("success", True),
-                "metrics": result.get("metrics", {})
-            })
+            response_array.append(
+                BatchEvaluateItemResponse(
+                    success=result.get("success", True),
+                    metrics=result.get("metrics", {})
+                )
+            )
         
         return response_array
     
