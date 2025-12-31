@@ -16,7 +16,7 @@ import {
 
 type PendingJob = {
   jobId: string;
-  status: "queued" | "running" | "completed";
+  status: "queued" | "running" | "completed" | "COLLECTING_RESPONSES" | "EVALUATING" | "SUCCESS" | "PARTIAL_SUCCESS" | "FAILED";
   progress: string;
   percent: number;
   lastProcessedPrompt: string | null;
@@ -25,10 +25,15 @@ type PendingJob = {
   updatedAt: string;
 };
 
-const statusColors: Record<PendingJob["status"], string> = {
+const statusColors: Record<string, string> = {
   queued: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
   running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
   completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  EVALUATING: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  SUCCESS: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
 };
 
 export default function PendingJobsPage() {
@@ -71,8 +76,9 @@ export default function PendingJobsPage() {
     return () => clearInterval(interval);
   }, [projectId]);
 
-  const activeJobs = jobs.filter((job) => job.status !== "completed");
-  const completedJobs = jobs.filter((job) => job.status === "completed");
+  const completedStatuses = ["completed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+  const activeJobs = jobs.filter((job) => !completedStatuses.includes(job.status));
+  const completedJobs = jobs.filter((job) => completedStatuses.includes(job.status));
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -212,11 +218,17 @@ export default function PendingJobsPage() {
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                         <div
-                          className={`h-full ${
-                            job.status === "running"
+                            className={`h-full ${
+                              job.status === "running" || job.status === "COLLECTING_RESPONSES" || job.status === "EVALUATING"
                               ? "bg-gradient-to-r from-purple-600 to-violet-600"
+                              : ["completed", "SUCCESS"].includes(job.status)
+                              ? "bg-green-500"
+                              : job.status === "PARTIAL_SUCCESS"
+                              ? "bg-yellow-500"
+                              : job.status === "FAILED"
+                              ? "bg-red-500"
                               : "bg-blue-500"
-                          }`}
+                            }`}
                           style={{ width: `${Math.min(job.percent, 100)}%` }}
                         />
                       </div>
@@ -254,7 +266,15 @@ export default function PendingJobsPage() {
                       </span>
                     </div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                          {job.status === "completed" ? "Completed evaluation" : job.status === "queued" ? "Waiting in queue" : "Processing evaluation"}
+                          {["completed", "SUCCESS", "PARTIAL_SUCCESS"].includes(job.status) 
+                            ? "Completed evaluation" 
+                            : job.status === "queued" 
+                            ? "Waiting in queue" 
+                            : job.status === "COLLECTING_RESPONSES"
+                            ? "Collecting responses"
+                            : job.status === "EVALUATING"
+                            ? "Evaluating responses"
+                            : "Processing evaluation"}
                         </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                     </p>
@@ -276,10 +296,14 @@ export default function PendingJobsPage() {
                       <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-full ${
-                            job.status === "running"
+                            job.status === "running" || job.status === "COLLECTING_RESPONSES" || job.status === "EVALUATING"
                               ? "bg-gradient-to-r from-purple-600 to-violet-600"
-                              : job.status === "completed"
+                              : ["completed", "SUCCESS"].includes(job.status)
                               ? "bg-green-500"
+                              : job.status === "PARTIAL_SUCCESS"
+                              ? "bg-yellow-500"
+                              : job.status === "FAILED"
+                              ? "bg-red-500"
                               : "bg-blue-500"
                           }`}
                           style={{ width: `${Math.min(job.percent, 100)}%` }}

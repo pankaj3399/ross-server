@@ -429,19 +429,127 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
   return value;
 }
 
+// Updates job progress based on weighted two-phase system or single-phase system
+export async function updateJobProgress(jobId: string): Promise<{
+  percent: number;
+  progress: string;
+  status: string;
+}> {
+  const jobResult = await pool.query(
+    `SELECT id, status, payload, total_prompts FROM evaluation_status WHERE job_id = $1`,
+    [jobId]
+  );
+
+  if (jobResult.rows.length === 0) {
+    throw new Error(`Job ${jobId} not found`);
+  }
+
+  const job = jobResult.rows[0];
+  const payload = job.payload || {};
+  const totalCount = job.total_prompts || 0;
+  
+  const userApiCallStatuses = payload.userApiCallStatuses || {};
+  const itemStatuses = payload.itemStatuses || {};
+  
+  const collectedCount = Object.keys(userApiCallStatuses).length;
+  const evaluatedCount = Object.keys(itemStatuses).length;
+  
+  let percent: number;
+  let progress: string;
+  let status: string = job.status || "COLLECTING_RESPONSES";
+  
+  const hasUserApiCallStatuses = userApiCallStatuses && Object.keys(userApiCallStatuses).length > 0;
+  const isTwoPhaseMode = status === "COLLECTING_RESPONSES" || hasUserApiCallStatuses;
+  
+  if (totalCount === 0) {
+    percent = 0;
+    progress = "0/0";
+  } else {
+    if (isTwoPhaseMode) {
+      if (status === "COLLECTING_RESPONSES") {
+        percent = Math.round((collectedCount / totalCount) * 50);
+        progress = `${collectedCount}/${totalCount}`;
+        
+        if (collectedCount >= totalCount) {
+          const allFailed = Object.values(userApiCallStatuses).every(
+            (statusValue) => statusValue === "FAILED"
+          );
+          
+          if (allFailed && collectedCount > 0) {
+            status = "FAILED";
+            percent = 50;
+            progress = `${collectedCount}/${totalCount}`;
+          } else {
+            status = "EVALUATING";
+            percent = 50;
+          }
+        }
+      }
+      else if (status === "EVALUATING") {
+        percent = Math.round(50 + (evaluatedCount / totalCount) * 50);
+        progress = `${evaluatedCount}/${totalCount}`;
+      }
+      else {
+        const currentPercent = job.percent || 0;
+        percent = currentPercent;
+        progress = job.progress || "0/0";
+      }
+    } else {
+      if (status === "EVALUATING") {
+        percent = Math.round((evaluatedCount / totalCount) * 100);
+        progress = `${evaluatedCount}/${totalCount}`;
+      }
+      else {
+        const currentPercent = job.percent || 0;
+        percent = currentPercent;
+        progress = job.progress || "0/0";
+      }
+    }
+  }
+  
+    percent = Math.max(0, Math.min(100, percent));
+  
+  await pool.query(
+    `UPDATE evaluation_status
+     SET status = $1,
+         progress = $2,
+         percent = $3
+     WHERE job_id = $4`,
+    [status, progress, percent, jobId]
+  );
+  
+  return { percent, progress, status };
+}
+
 export async function markJobCompleted(
   jobInternalId: number,
   payload: FairnessApiJobPayload | FairnessPromptsJobPayload,
   data: { summary: JobSummary; results: JobResult[]; errors: JobError[] },
 ) {
+  const total = data.summary.total;
+  const successful = data.results.length;
+  const failed = data.errors.length;
+  
+  let finalStatus: string;
+  if (total === 0) {
+    finalStatus = "SUCCESS";
+  } else if (successful === 0 && failed > 0) {
+    finalStatus = "FAILED";
+  } else if (failed === 0) {
+    finalStatus = "SUCCESS";
+  } else {
+    finalStatus = "PARTIAL_SUCCESS";
+  }
+  
   await pool.query(
     `UPDATE evaluation_status
-     SET status = 'completed',
-         progress = $1,
+     SET status = $1,
+         progress = $2,
          percent = 100,
-         payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
-     WHERE id = $3`,
+         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+     WHERE id = $4`,
     [
+      finalStatus,
       `${data.summary.total}/${data.summary.total}`,
       JSON.stringify({
         summary: data.summary,
@@ -507,11 +615,12 @@ export async function processAutomatedApiTest(
     return;
   }
 
-  // Initialize job progress
+  // Initialize job progress - start in COLLECTING_RESPONSES phase
   await step.run("initialize-progress", async () => {
     await pool.query(
       `UPDATE evaluation_status
-       SET total_prompts = $1,
+       SET status = 'COLLECTING_RESPONSES',
+           total_prompts = $1,
            progress = $2,
            percent = 0
        WHERE id = $3`,
@@ -612,15 +721,56 @@ export async function processAutomatedApiTest(
 
   if (successfulResponses.length === 0) {
     await step.run("mark-all-failed-completed", async () => {
-      const summary = buildSummary(userApiResponses.length, [], failedResponses);
-      await markJobCompleted(job.id, payload, {
-        summary,
-        results: [],
-        errors: failedResponses,
-      });
+      // Check current status - if already FAILED from updateJobProgress, just finalize
+      const jobCheck = await pool.query(
+        `SELECT status FROM evaluation_status WHERE id = $1`,
+        [job.id]
+      );
+      const currentStatus = jobCheck.rows[0]?.status;
+      
+      if (currentStatus === "FAILED") {
+        // Status already set to FAILED by updateJobProgress, just finalize with summary
+        const summary = buildSummary(userApiResponses.length, [], failedResponses);
+        await pool.query(
+          `UPDATE evaluation_status
+           SET progress = $1,
+               percent = 50,
+               payload = COALESCE(payload, '{}'::jsonb) || $2::jsonb
+           WHERE id = $3`,
+          [
+            `${userApiResponses.length}/${userApiResponses.length}`,
+            JSON.stringify({
+              summary,
+              results: [],
+              errors: failedResponses,
+            }),
+            job.id,
+          ],
+        );
+      } else {
+        // Status not yet set to FAILED, use markJobCompleted to set it properly
+        const summary = buildSummary(userApiResponses.length, [], failedResponses);
+        await markJobCompleted(job.id, payload, {
+          summary,
+          results: [],
+          errors: failedResponses,
+        });
+      }
     });
     return;
   }
+  
+  // Transition to EVALUATING phase when we have successful responses
+  await step.run("transition-to-evaluating-phase", async () => {
+    await pool.query(
+      `UPDATE evaluation_status
+       SET status = 'EVALUATING',
+           progress = $1,
+           percent = 50
+       WHERE id = $2`,
+      [`0/${successfulResponses.length}`, job.id]
+    );
+  });
 
   for (let i = 0; i < successfulResponses.length; i += 1) {
     const { category, prompt, response: userResponse } = successfulResponses[i];
@@ -685,11 +835,12 @@ export async function processManualPromptTest(
     return;
   }
 
-  // Initialize job progress
+  // Initialize job progress - MANUAL_PROMPT_TEST starts directly in EVALUATING phase
   await step.run("initialize-progress", async () => {
     await pool.query(
       `UPDATE evaluation_status
-       SET total_prompts = $1,
+       SET status = 'EVALUATING',
+           total_prompts = $1,
            progress = $2,
            percent = 0
        WHERE id = $3`,

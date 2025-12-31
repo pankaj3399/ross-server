@@ -15,6 +15,7 @@ import {
   processManualPromptTest,
   normalizeFairnessApiJobConfig,
   callUserApi,
+  updateJobProgress,
 } from "./services";
 
 export const evaluateSingleResponse = inngest.createFunction(
@@ -92,8 +93,10 @@ export const evaluationJobProcessor = inngest.createFunction(
 
       const jobRow = result.rows[0];
       
+      // Set initial status to COLLECTING_RESPONSES for automated API tests
+      // (MANUAL_PROMPT_TEST will override this to EVALUATING in processManualPromptTest)
       await pool.query(
-        `UPDATE evaluation_status SET status = 'running' WHERE id = $1`,
+        `UPDATE evaluation_status SET status = 'COLLECTING_RESPONSES' WHERE id = $1`,
         [jobRow.id]
       );
 
@@ -316,23 +319,21 @@ export const userApiCallAggregator = inngest.createFunction(
 
       itemStatuses[promptIndex] = success ? "SUCCESS" : "FAILED";
 
-      const completed = Object.keys(itemStatuses).length;
-      const progress = `${completed}/${totalPrompts}`;
-      const percent = Math.round((completed / totalPrompts) * 100);
-
+      // Update payload first
       await pool.query(
         `UPDATE evaluation_status
          SET payload = jsonb_set(
            COALESCE(payload, '{}'::jsonb),
            '{userApiCallStatuses}',
            $1::jsonb
-         ),
-         progress = $2,
-         percent = $3
-         WHERE job_id = $4`,
-        [JSON.stringify(itemStatuses), progress, percent, jobId]
+         )
+         WHERE job_id = $2`,
+        [JSON.stringify(itemStatuses), jobId]
       );
 
+      await updateJobProgress(jobId);
+
+      const completed = Object.keys(itemStatuses).length;
       return { allComplete: completed >= totalPrompts, total: totalPrompts, completed };
     });
 
@@ -406,27 +407,23 @@ export const evaluationAggregator = inngest.createFunction(
         errors,
       };
 
-      const completed = Object.keys(itemStatuses).length;
-      const total = job.total_prompts || responses.length;
-      const progress = `${completed}/${total}`;
-      const percent = Math.round((completed / total) * 100);
-
+      // Update payload first
       await pool.query(
         `UPDATE evaluation_status
          SET payload = $1,
-             progress = $2,
-             percent = $3,
-             last_processed_prompt = $4
-         WHERE job_id = $5`,
+             last_processed_prompt = $2
+         WHERE job_id = $3`,
         [
           JSON.stringify(updatedPayload),
-          progress,
-          percent,
           response?.prompt || null,
           jobId,
         ]
       );
 
+      await updateJobProgress(jobId);
+
+      const completed = Object.keys(itemStatuses).length;
+      const total = job.total_prompts || responses.length;
       return { allComplete: completed >= total, total, completed };
     });
 

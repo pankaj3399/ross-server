@@ -1,16 +1,13 @@
-"""
-FastAPI Server for LangFair Evaluation
-"""
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 import os
 import logging
 import sys
+import json
+import subprocess
 from dotenv import load_dotenv
-from evaluator import LangFairEvaluator
 
 load_dotenv()
 
@@ -47,22 +44,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-evaluator = None
-
-def get_evaluator():
-    """Get or create the evaluator instance (lazy initialization)."""
-    global evaluator
-    if evaluator is None:
-        try:
-            evaluator = LangFairEvaluator()
-            logger.info("LangFair evaluator initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize evaluator: {e}", exc_info=False)
-            raise
-    return evaluator
-
 class EvaluateRequest(BaseModel):
-    """Request body for evaluation endpoint."""
     project_id: str = Field(..., description="Unique project identifier")
     category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
     question_text: str = Field(..., description="The question/prompt that was asked")
@@ -70,45 +52,104 @@ class EvaluateRequest(BaseModel):
     include_counterfactual: Optional[bool] = Field(False, description="Whether to include counterfactual fairness evaluation (slower)")
 
 class EvaluateResponse(BaseModel):
-    """Response from evaluation endpoint."""
     success: bool
     metrics: dict
     error: Optional[str] = None
 
+class BatchEvaluateItem(BaseModel):
+    project_id: str = Field(..., description="Unique project identifier")
+    category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
+    question_text: str = Field(..., description="The question/prompt that was asked")
+    user_response: str = Field(..., description="The response to evaluate")
+    include_counterfactual: Optional[bool] = Field(False, description="Whether to include counterfactual fairness evaluation (slower)")
+
+class BatchEvaluateRequest(BaseModel):
+    items: List[BatchEvaluateItem] = Field(..., min_items=1, max_items=5, description="List of items to evaluate (max 5)")
+
+def run_worker(payload: dict, timeout: int = 300):
+    try:
+        worker_path = os.path.join(os.path.dirname(__file__), "worker.py")
+        json_input = json.dumps(payload)
+        
+        result = subprocess.run(
+            [sys.executable, worker_path],
+            input=json_input,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False
+        )
+        
+        if result.returncode != 0:
+            try:
+                error_data = json.loads(result.stdout)
+                if not error_data.get("success", True):
+                    return error_data
+            except:
+                pass
+            raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
+        
+        output_data = json.loads(result.stdout)
+        return output_data
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=504,
+            detail="Evaluation timeout - request took longer than 5 minutes"
+        )
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Invalid response from worker: {str(e)}"
+        )
+    except Exception as e:
+        error_msg = str(e)[:200]
+        logger.error(f"Worker execution error: {error_msg}", exc_info=False)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Worker execution failed: {error_msg}"
+        )
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
     return {
-        "status": "healthy",
-        "evaluator_initialized": evaluator is not None
+        "status": "healthy"
     }
 
 @app.post("/evaluate", response_model=EvaluateResponse)
 async def evaluate(request: EvaluateRequest):
-    """
-    Main evaluation endpoint.
-    
-    Args:
-        request: EvaluateRequest containing project_id, category, question_text, user_response
-    
-    Returns:
-        EvaluateResponse with metrics and success status
-    """
     try:
-        eval_instance = get_evaluator()
+        payload = {
+            "type": "single",
+            "question_text": request.question_text,
+            "user_response": request.user_response,
+            "category": request.category,
+            "include_counterfactual": request.include_counterfactual or False
+        }
         
-        result = await eval_instance.evaluate_response(
-            question_text=request.question_text,
-            user_response=request.user_response,
-            category=request.category,
-            include_counterfactual=request.include_counterfactual
-        )
+        worker_result = run_worker(payload)
+        
+        if not worker_result.get("success", False):
+            error_msg = worker_result.get("error", "Unknown error")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Evaluation failed: {error_msg}"
+            )
+        
+        result = worker_result.get("result", {})
+        
+        if not result.get("success", False):
+            raise HTTPException(
+                status_code=500,
+                detail="Evaluation returned unsuccessful result"
+            )
         
         return EvaluateResponse(
             success=True,
-            metrics=result["metrics"]
+            metrics=result.get("metrics", {})
         )
     
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.warning(f"Validation error: {e}", exc_info=False)
         raise HTTPException(
@@ -119,6 +160,63 @@ async def evaluate(request: EvaluateRequest):
         error_msg = str(e)[:200]
         logger.error(f"Error during evaluation: {error_msg}", exc_info=False)
         error_detail = f"Evaluation failed: {error_msg}"
+        if hasattr(e, '__class__'):
+            error_detail += f" (Type: {e.__class__.__name__})"
+        raise HTTPException(
+            status_code=500,
+            detail=error_detail
+        )
+
+@app.post("/evaluate-batch")
+async def evaluate_batch(request: BatchEvaluateRequest):
+    try:
+        items = [
+            {
+                'question_text': item.question_text,
+                'user_response': item.user_response,
+                'category': item.category,
+                'include_counterfactual': item.include_counterfactual or False
+            }
+            for item in request.items
+        ]
+        
+        payload = {
+            "type": "batch",
+            "items": items
+        }
+        
+        worker_result = run_worker(payload)
+        
+        if not worker_result.get("success", False):
+            error_msg = worker_result.get("error", "Unknown error")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Batch evaluation failed: {error_msg}"
+            )
+        
+        results = worker_result.get("results", [])
+        
+        response_array = []
+        for result in results:
+            response_array.append({
+                "success": result.get("success", True),
+                "metrics": result.get("metrics", {})
+            })
+        
+        return response_array
+    
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.warning(f"Validation error in batch evaluation: {e}", exc_info=False)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Validation error: {str(e)}"
+        )
+    except Exception as e:
+        error_msg = str(e)[:200]
+        logger.error(f"Error during batch evaluation: {error_msg}", exc_info=False)
+        error_detail = f"Batch evaluation failed: {error_msg}"
         if hasattr(e, '__class__'):
             error_detail += f" (Type: {e.__class__.__name__})"
         raise HTTPException(
@@ -141,4 +239,3 @@ if __name__ == "__main__":
         access_log=False,
         log_level="info"
     )
-
