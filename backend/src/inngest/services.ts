@@ -1,5 +1,5 @@
 import pool from "../config/database";
-import { evaluateFairnessResponse, type EvaluationPayload } from "../services/evaluateFairness";
+import type { EvaluationPayload } from "../services/evaluateFairness";
 
 // Types 
 // Extended payload types that include runtime fields added during job processing
@@ -189,32 +189,6 @@ export function resolveApiKeyFieldName(placement: ApiKeyPlacement, provided?: st
 
 export function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function parseRetryAfter(headerValue: string | null): number | null {
-  if (!headerValue) {
-    return null;
-  }
-
-  const numericSeconds = Number(headerValue);
-  if (!Number.isNaN(numericSeconds) && numericSeconds >= 0) {
-    return numericSeconds * 1000;
-  }
-
-  const dateTime = Date.parse(headerValue);
-  if (!Number.isNaN(dateTime)) {
-    const diff = dateTime - Date.now();
-    return diff > 0 ? diff : 0;
-  }
-
-  return null;
-}
-
-export function computeRetryDelay(retryAfterMs?: number | null): number {
-  if (retryAfterMs && retryAfterMs > 0) {
-    return retryAfterMs;
-  }
-  return 0;
 }
 
 export function buildSummary(total: number, results: JobResult[], errors: JobError[]): JobSummary {

@@ -243,7 +243,7 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
         raise HTTPException(
             status_code=400,
             detail=f"Validation error: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         error_msg = str(e)[:200]
         logger.error(f"Error during batch evaluation: {error_msg}", exc_info=False)
@@ -253,7 +253,7 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
         raise HTTPException(
             status_code=500,
             detail=error_detail
-        )
+        ) from e
 
 if __name__ == "__main__":
     import uvicorn

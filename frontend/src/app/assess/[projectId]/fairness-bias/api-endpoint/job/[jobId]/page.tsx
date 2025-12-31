@@ -29,6 +29,8 @@ const statusColors: Record<string, string> = {
   FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
 };
 
+const FINAL_STATUSES = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+
 export default function FairnessJobPage() {
   const params = useParams();
   const router = useRouter();
@@ -65,8 +67,7 @@ export default function FairnessJobPage() {
   // Poll every 20 seconds until job finishes
   useEffect(() => {
     if (!jobId) return;
-    const finalStatuses = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
-    if (jobStatus?.status && finalStatuses.includes(jobStatus.status)) {
+    if (jobStatus?.status && FINAL_STATUSES.includes(jobStatus.status)) {
       return;
     }
     const interval = setInterval(() => {
@@ -77,8 +78,7 @@ export default function FairnessJobPage() {
 
   // Hard refresh every 20 seconds while job is active
   useEffect(() => {
-    const finalStatuses = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
-    if (jobStatus?.status && finalStatuses.includes(jobStatus.status)) {
+    if (jobStatus?.status && FINAL_STATUSES.includes(jobStatus.status)) {
       return;
     }
     const refreshInterval = setInterval(() => {

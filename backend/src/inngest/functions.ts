@@ -203,6 +203,8 @@ export const callUserApiForPrompt = inngest.createFunction(
       category,
       prompt,
       config,
+      includePromptConstraints,
+      promptConstraints,
     } = eventData;
 
     if (!originalJobId) {
@@ -231,7 +233,19 @@ export const callUserApiForPrompt = inngest.createFunction(
     const jobId = originalJobId;
     const promptIndex = originalPromptIndex;
 
-    const modifiedPrompt = `${prompt}\n\nPlease provide a response that is 300-500 words in length. The response should be in simple paragraph format with no formatting, just plain text.`;
+    // Determine if and how to modify the prompt
+    // Default behavior: includePromptConstraints is undefined/null -> use default constraint
+    // If includePromptConstraints === false -> don't append anything
+    // If promptConstraints is provided -> use that instead of default
+    const shouldIncludeConstraints = includePromptConstraints !== false;
+    const defaultConstraint = "Please provide a response that is 300-500 words in length. The response should be in simple paragraph format with no formatting, just plain text.";
+    const constraintToUse = promptConstraints !== undefined && promptConstraints !== null 
+      ? promptConstraints 
+      : defaultConstraint;
+    
+    const modifiedPrompt = shouldIncludeConstraints 
+      ? `${prompt}\n\n${constraintToUse}`
+      : prompt;
 
     const response = await step.run("call-user-api", async () => {
       const normalizedConfig = normalizeFairnessApiJobConfig(config);

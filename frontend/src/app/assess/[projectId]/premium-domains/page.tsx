@@ -282,8 +282,6 @@ export default function PremiumDomainsPage() {
     }
   }, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex]);
 
-  // No redirect needed - we'll show a message instead
-
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
     if (!question) {
@@ -469,6 +467,7 @@ export default function PremiumDomainsPage() {
     return <AssessmentSkeleton />;
   }
 
+  // When no premium domains are available, render info message instead of redirecting
   if (noPremiumDomains || domains.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">

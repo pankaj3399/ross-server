@@ -672,9 +672,12 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         const errors = payload.errors || [];
         const errorMessage = payload.error || null;
 
+        // Normalize status to lowercase for consistent API responses
+        const normalizedStatus = String(job.status).toLowerCase() as "queued" | "processing" | "running" | "completed" | "failed";
+
         res.json({
             jobId: job.job_id,
-            status: job.status as "queued" | "processing" | "running" | "completed" | "FAILED",
+            status: normalizedStatus,
             progress: job.progress || "0/0",
             percent: job.percent || 0,
             lastProcessedPrompt: job.last_processed_prompt || null,
@@ -726,16 +729,20 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
             [projectId, userId]
         );
 
-        const jobs = result.rows.map(row => ({
-            jobId: row.job_id,
-            status: row.status as "queued" | "processing" | "running" | "completed",
-            progress: row.progress || "0/0",
-            percent: row.percent || 0,
-            lastProcessedPrompt: row.last_processed_prompt || null,
-            totalPrompts: row.total_prompts || 0,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-        }));
+        const jobs = result.rows.map(row => {
+            // Normalize status to lowercase for consistent API responses
+            const normalizedStatus = String(row.status).toLowerCase() as "queued" | "processing" | "running" | "completed";
+            return {
+                jobId: row.job_id,
+                status: normalizedStatus,
+                progress: row.progress || "0/0",
+                percent: row.percent || 0,
+                lastProcessedPrompt: row.last_processed_prompt || null,
+                totalPrompts: row.total_prompts || 0,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+            };
+        });
 
         res.json({
             success: true,
