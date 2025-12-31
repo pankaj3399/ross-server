@@ -87,6 +87,7 @@ export default function PremiumDomainsPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [currentPractice, setCurrentPractice] = useState<{ title: string; description: string } | null>(null);
   const [noPremiumDomains, setNoPremiumDomains] = useState(false);
+  const [fetchSucceeded, setFetchSucceeded] = useState(false);
 
   const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
@@ -110,6 +111,7 @@ export default function PremiumDomainsPage() {
     const fetchData = async () => {
       try {
         setNoPremiumDomains(false);
+        setFetchSucceeded(false);
         const domainsData = await apiService.getDomainsFull(projectId);
 
         const premiumDomains = domainsData.domains.filter(
@@ -119,6 +121,7 @@ export default function PremiumDomainsPage() {
         if (premiumDomains.length === 0) {
           // Show message if no premium domains available
           setNoPremiumDomains(true);
+          setFetchSucceeded(true);
           setLoading(false);
           return;
         }
@@ -143,6 +146,7 @@ export default function PremiumDomainsPage() {
         });
 
         setDomains(transformedDomains);
+        setFetchSucceeded(true);
 
         if (transformedDomains.length > 0) {
           const firstDomain = transformedDomains[0];
@@ -469,7 +473,8 @@ export default function PremiumDomainsPage() {
   }
 
   // When no premium domains are available, render info message instead of redirecting
-  if (noPremiumDomains || domains.length === 0) {
+  // Only show this UI when fetch succeeded and there are no premium domains
+  if (fetchSucceeded && (noPremiumDomains || domains.length === 0)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
         <div className="text-center max-w-md px-4">
