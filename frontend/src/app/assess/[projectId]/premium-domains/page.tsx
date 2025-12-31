@@ -109,6 +109,7 @@ export default function PremiumDomainsPage() {
 
     const fetchData = async () => {
       try {
+        setNoPremiumDomains(false);
         const domainsData = await apiService.getDomainsFull(projectId);
 
         const premiumDomains = domainsData.domains.filter(
@@ -490,14 +491,16 @@ export default function PremiumDomainsPage() {
                 Fairness & Bias Test
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => router.push(`/assess/${projectId}`)}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Assessment
-            </button>
+            {projectId && (
+              <button
+                type="button"
+                onClick={() => router.push(`/assess/${projectId}`)}
+                className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Assessment
+              </button>
+            )}
           </div>
         </div>
       </div>
