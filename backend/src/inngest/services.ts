@@ -5,13 +5,13 @@ import type { EvaluationPayload } from "../services/evaluateFairness";
 // Extended payload types that include runtime fields added during job processing
 export type FairnessApiJobPayloadExtended = FairnessApiJobPayload & {
   userApiResponses?: UserApiResponse[];
-  userApiCallStatuses?: Record<string, "SUCCESS" | "FAILED">;
+  userApiCallStatuses?: Record<string, "success" | "failed">;
   responses?: Array<{
     category: string;
     prompt: string;
     response: string;
   }>;
-  itemStatuses?: Record<string, "SUCCESS" | "FAILED">;
+  itemStatuses?: Record<string, "success" | "failed">;
   _currentApiCall?: {
     jobId: string;
     promptIndex: number;
@@ -19,7 +19,7 @@ export type FairnessApiJobPayloadExtended = FairnessApiJobPayload & {
 };
 
 export type FairnessPromptsJobPayloadExtended = FairnessPromptsJobPayload & {
-  itemStatuses?: Record<string, "SUCCESS" | "FAILED">;
+  itemStatuses?: Record<string, "success" | "failed">;
 };
 
 // Discriminated union of all possible payload shapes
@@ -495,36 +495,36 @@ export async function updateJobProgress(jobId: string): Promise<{
   
   let percent: number;
   let progress: string;
-  let status: string = job.status || "COLLECTING_RESPONSES";
+  let status: string = job.status || "collecting_responses";
   
   const hasUserApiCallStatuses = userApiCallStatuses && Object.keys(userApiCallStatuses).length > 0;
-  const isTwoPhaseMode = status === "COLLECTING_RESPONSES" || hasUserApiCallStatuses;
+  const isTwoPhaseMode = status === "collecting_responses" || hasUserApiCallStatuses;
   
   if (totalCount === 0) {
     percent = 0;
     progress = "0/0";
   } else {
     if (isTwoPhaseMode) {
-      if (status === "COLLECTING_RESPONSES") {
+      if (status === "collecting_responses") {
         percent = Math.round((collectedCount / totalCount) * 50);
         progress = `${collectedCount}/${totalCount}`;
         
         if (collectedCount >= totalCount) {
           const allFailed = Object.values(userApiCallStatuses).every(
-            (statusValue) => statusValue === "FAILED"
+            (statusValue) => statusValue === "failed"
           );
           
           if (allFailed && collectedCount > 0) {
-            status = "FAILED";
+            status = "failed";
             percent = 50;
             progress = `${collectedCount}/${totalCount}`;
           } else {
-            status = "EVALUATING";
+            status = "evaluating";
             percent = 50;
           }
         }
       }
-      else if (status === "EVALUATING") {
+      else if (status === "evaluating") {
         percent = Math.round(50 + (evaluatedCount / totalCount) * 50);
         progress = `${evaluatedCount}/${totalCount}`;
       }
@@ -534,7 +534,7 @@ export async function updateJobProgress(jobId: string): Promise<{
         progress = job.progress || "0/0";
       }
     } else {
-      if (status === "EVALUATING") {
+      if (status === "evaluating") {
         percent = Math.round((evaluatedCount / totalCount) * 100);
         progress = `${evaluatedCount}/${totalCount}`;
       }
@@ -571,13 +571,13 @@ export async function markJobCompleted(
   
   let finalStatus: string;
   if (total === 0) {
-    finalStatus = "SUCCESS";
+    finalStatus = "success";
   } else if (successful === 0 && failed > 0) {
-    finalStatus = "FAILED";
+    finalStatus = "failed";
   } else if (failed === 0) {
-    finalStatus = "SUCCESS";
+    finalStatus = "success";
   } else {
-    finalStatus = "PARTIAL_SUCCESS";
+    finalStatus = "partial_success";
   }
   
   await pool.query(
@@ -603,8 +603,8 @@ export async function markJobCompleted(
 export async function failJob(jobInternalId: number, message: string) {
   await pool.query(
     `UPDATE evaluation_status
-     SET status = 'FAILED',
-         payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
+     SET status = 'failed',
+     payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
      WHERE id = $2`,
     [JSON.stringify({ error: message }), jobInternalId],
   );
@@ -654,11 +654,11 @@ export async function processAutomatedApiTest(
     return;
   }
 
-  // Initialize job progress - start in COLLECTING_RESPONSES phase
+  // Initialize job progress - start in collecting_responses phase
   await step.run("initialize-progress", async () => {
     await pool.query(
       `UPDATE evaluation_status
-       SET status = 'COLLECTING_RESPONSES',
+       SET status = 'collecting_responses',
            total_prompts = $1,
            progress = $2,
            percent = 0
@@ -760,15 +760,15 @@ export async function processAutomatedApiTest(
 
   if (successfulResponses.length === 0) {
     await step.run("mark-all-failed-completed", async () => {
-      // Check current status - if already FAILED from updateJobProgress, just finalize
+      // Check current status - if already failed from updateJobProgress, just finalize
       const jobCheck = await pool.query(
         `SELECT status FROM evaluation_status WHERE id = $1`,
         [job.id]
       );
       const currentStatus = jobCheck.rows[0]?.status;
       
-      if (currentStatus === "FAILED") {
-        // Status already set to FAILED by updateJobProgress, just finalize with summary
+      if (currentStatus === "failed") {
+        // Status already set to failed by updateJobProgress, just finalize with summary
         const summary = buildSummary(userApiResponses.length, [], failedResponses);
         await pool.query(
           `UPDATE evaluation_status
@@ -787,7 +787,7 @@ export async function processAutomatedApiTest(
           ],
         );
       } else {
-        // Status not yet set to FAILED, use markJobCompleted to set it properly
+        // Status not yet set to failed, use markJobCompleted to set it properly
         const summary = buildSummary(userApiResponses.length, [], failedResponses);
         await markJobCompleted(job.id, payload, {
           summary,
@@ -799,11 +799,11 @@ export async function processAutomatedApiTest(
     return;
   }
   
-  // Transition to EVALUATING phase when we have successful responses
+  // Transition to evaluating phase when we have successful responses
   await step.run("transition-to-evaluating-phase", async () => {
     await pool.query(
       `UPDATE evaluation_status
-       SET status = 'EVALUATING',
+       SET status = 'evaluating',
            progress = $1,
            percent = 50
        WHERE id = $2`,
@@ -878,7 +878,7 @@ export async function processManualPromptTest(
   await step.run("initialize-progress", async () => {
     await pool.query(
       `UPDATE evaluation_status
-       SET status = 'EVALUATING',
+       SET status = 'evaluating',
            total_prompts = $1,
            progress = $2,
            percent = 0

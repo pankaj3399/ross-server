@@ -16,7 +16,7 @@ import {
 
 type PendingJob = {
   jobId: string;
-  status: "queued" | "running" | "completed" | "COLLECTING_RESPONSES" | "EVALUATING" | "SUCCESS" | "PARTIAL_SUCCESS" | "FAILED";
+  status: "queued" | "running" | "completed" | "collecting_responses" | "evaluating" | "success" | "partial_success" | "failed";
   progress: string;
   percent: number;
   lastProcessedPrompt: string | null;
@@ -29,11 +29,11 @@ const statusColors: Record<string, string> = {
   queued: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
   running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
   completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
-  EVALUATING: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
-  SUCCESS: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
-  FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
+  collecting_responses: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  evaluating: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  success: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  partial_success: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  failed: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
 };
 
 export default function PendingJobsPage() {
@@ -76,7 +76,7 @@ export default function PendingJobsPage() {
     return () => clearInterval(interval);
   }, [projectId]);
 
-  const completedStatuses = ["completed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+  const completedStatuses = ["completed", "success", "partial_success", "failed"];
   const activeJobs = jobs.filter((job) => !completedStatuses.includes(job.status));
   const completedJobs = jobs.filter((job) => completedStatuses.includes(job.status));
 
@@ -219,13 +219,13 @@ export default function PendingJobsPage() {
                       <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                         <div
                             className={`h-full ${
-                              job.status === "running" || job.status === "COLLECTING_RESPONSES" || job.status === "EVALUATING"
+                              job.status === "running" || job.status === "collecting_responses" || job.status === "evaluating"
                               ? "bg-gradient-to-r from-purple-600 to-violet-600"
-                              : ["completed", "SUCCESS"].includes(job.status)
+                              : ["completed", "success"].includes(job.status)
                               ? "bg-green-500"
-                              : job.status === "PARTIAL_SUCCESS"
+                              : job.status === "partial_success"
                               ? "bg-yellow-500"
-                              : job.status === "FAILED"
+                              : job.status === "failed"
                               ? "bg-red-500"
                               : "bg-blue-500"
                             }`}
@@ -266,13 +266,13 @@ export default function PendingJobsPage() {
                       </span>
                     </div>
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                          {["completed", "SUCCESS", "PARTIAL_SUCCESS"].includes(job.status) 
+                          {["completed", "success", "partial_success"].includes(job.status) 
                             ? "Completed evaluation" 
                             : job.status === "queued" 
                             ? "Waiting in queue" 
-                            : job.status === "COLLECTING_RESPONSES"
+                            : job.status === "collecting_responses"
                             ? "Collecting responses"
-                            : job.status === "EVALUATING"
+                            : job.status === "evaluating"
                             ? "Evaluating responses"
                             : "Processing evaluation"}
                         </h3>
@@ -296,13 +296,13 @@ export default function PendingJobsPage() {
                       <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2 overflow-hidden">
                         <div
                           className={`h-full ${
-                            job.status === "running" || job.status === "COLLECTING_RESPONSES" || job.status === "EVALUATING"
+                            job.status === "running" || job.status === "collecting_responses" || job.status === "evaluating"
                               ? "bg-gradient-to-r from-purple-600 to-violet-600"
-                              : ["completed", "SUCCESS"].includes(job.status)
+                              : ["completed", "success"].includes(job.status)
                               ? "bg-green-500"
-                              : job.status === "PARTIAL_SUCCESS"
+                              : job.status === "partial_success"
                               ? "bg-yellow-500"
-                              : job.status === "FAILED"
+                              : job.status === "failed"
                               ? "bg-red-500"
                               : "bg-blue-500"
                           }`}
