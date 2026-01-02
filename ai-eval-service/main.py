@@ -131,19 +131,9 @@ async def health_check():
         "status": "healthy"
     }
 
-# Maximum number of items allowed per request
-MAX_ITEMS = 20
-
 @app.post("/evaluate", response_model=List[EvaluateItemResponse])
 async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
     try:
-        # Enforce maximum items limit
-        if len(request.items) > MAX_ITEMS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Number of items ({len(request.items)}) exceeds maximum allowed ({MAX_ITEMS})"
-            )
-        
         items = [
             {
                 'question_text': item.question_text,
@@ -187,10 +177,10 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
         raise HTTPException(
             status_code=400,
             detail=f"Validation error: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         error_msg = str(e)[:200]
-        logger.error(f"Error during evaluation: {error_msg}", exc_info=False)
+        logger.exception(f"Error during evaluation: {error_msg}")
         error_detail = f"Evaluation failed: {error_msg}"
         if hasattr(e, '__class__'):
             error_detail += f" (Type: {e.__class__.__name__})"
