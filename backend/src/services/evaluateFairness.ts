@@ -188,10 +188,15 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    project_id: projectId,
-                    category: category,
-                    question_text: sanitizedQuestionText,
-                    user_response: sanitizedUserResponse
+                    batch_size: 1,
+                    items: [
+                        {
+                            project_id: projectId,
+                            category: category,
+                            question_text: sanitizedQuestionText,
+                            user_response: sanitizedUserResponse
+                        }
+                    ]
                 }),
                 signal: abortController.signal
             });
@@ -208,11 +213,18 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
 
             const data = await response.json();
             
-            if (!data.success) {
-                throw new Error(`LangFair evaluation failed: ${data.error || 'Unknown error'}`);
+            // New format returns an array of results
+            if (!Array.isArray(data) || data.length === 0) {
+                throw new Error(`LangFair evaluation failed: Invalid response format`);
             }
 
-            const metrics = data.metrics;
+            const firstResult = data[0];
+            
+            if (!firstResult.success) {
+                throw new Error(`LangFair evaluation failed: ${firstResult.error || 'Unknown error'}`);
+            }
+
+            const metrics = firstResult.metrics;
             
             const maxToxicity = metrics.toxicity?.expected_max_toxicity ?? 0;
             const toxicFraction = metrics.toxicity?.toxic_fraction ?? 0;

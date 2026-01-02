@@ -1,8 +1,7 @@
 import os
 import logging
 import gc
-import inspect
-from typing import Any
+from typing import Any, ClassVar
 
 
 from langfair.metrics.toxicity import ToxicityMetrics
@@ -14,7 +13,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-def _safe_float(value, default=0.0):
+def _safe_float(value, default=0.0) -> float:
     """Safely convert a value to float, returning default on error."""
     if value is None:
         return default
@@ -32,7 +31,7 @@ def _parse_bool_env(var_name: str, default: bool = False) -> bool:
 
 
 class LangFairEvaluator:
-    CATEGORY_MAPPING = {
+    CATEGORY_MAPPING: ClassVar[dict[str, str]] = {
         "gender": "gender",
         "race": "race",
         "ethnicity": "race",
@@ -44,6 +43,7 @@ class LangFairEvaluator:
         self.lightweight_mode = _parse_bool_env("LIGHTWEIGHT_EVAL_MODE", default=True)
         self._toxicity_metrics = None
         self._stereotype_metrics = None
+        self._seen_unrecognized = set()
     
     def _get_toxicity_metrics(self) -> ToxicityMetrics:
         if self._toxicity_metrics is None:
@@ -126,7 +126,7 @@ class LangFairEvaluator:
             "success": True,
             "metrics": {
                 "toxicity": self._format_toxicity_metrics(toxicity_metrics),
-                "stereotype": self._format_stereotype_metrics(stereotype_metrics, category),
+                "stereotype": self._format_stereotype_metrics(stereotype_metrics),
             },
         }
         
@@ -162,7 +162,7 @@ class LangFairEvaluator:
             "toxicity_probability": _safe_float(toxicity_metrics.get('Toxicity Probability'), 0.0),
         }
     
-    def _format_stereotype_metrics(self, stereotype_metrics: dict[str, Any], category: str = "gender") -> dict[str, float]:
+    def _format_stereotype_metrics(self, stereotype_metrics: dict[str, Any]) -> dict[str, float]:
         if not stereotype_metrics:
             return {
                 "stereotype_association": 0.0,
@@ -186,9 +186,6 @@ class LangFairEvaluator:
         self,
         items: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        if len(items) > 5:
-            raise ValueError("Batch evaluation supports maximum 5 items")
-        
         if len(items) == 0:
             raise ValueError("At least one item is required for batch evaluation")
         
@@ -257,17 +254,17 @@ class LangFairEvaluator:
         for item in validated_items:
             category_lower = item['category'].lower()
             if category_lower not in self.CATEGORY_MAPPING:
-                frame = inspect.currentframe()
-                context_info = ""
-                if frame:
-                    filename = frame.f_code.co_filename
-                    func_name = frame.f_code.co_name
-                    line_no = frame.f_lineno
-                    context_info = f" (file: {filename}, function: {func_name}, line: {line_no})"
-                logger.warning(
-                    f"Unrecognized category '{item['category']}' not found in CATEGORY_MAPPING, defaulting to 'gender'.{context_info}"
-                )
-            langfair_category = self.CATEGORY_MAPPING.get(category_lower, "gender")
+                if category_lower not in self._seen_unrecognized:
+                    self._seen_unrecognized.add(category_lower)
+                    context_info = f" (item index: {item.get('index', 'unknown')})"
+                    logger.warning(
+                        "Unrecognized category '%s' not found in CATEGORY_MAPPING, defaulting to 'gender'.%s",
+                        item['category'],
+                        context_info
+                    )
+                langfair_category = 'gender'
+            else:
+                langfair_category = self.CATEGORY_MAPPING[category_lower]
             if langfair_category not in category_groups:
                 category_groups[langfair_category] = []
             category_groups[langfair_category].append(item)
@@ -307,7 +304,7 @@ class LangFairEvaluator:
                 "success": True,
                 "metrics": {
                     "toxicity": self._format_toxicity_metrics(toxicity_metrics),
-                    "stereotype": self._format_stereotype_metrics(stereotype_metrics, item['category']),
+                    "stereotype": self._format_stereotype_metrics(stereotype_metrics),
                 },
             }
             results.append(result)

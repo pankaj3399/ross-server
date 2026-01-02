@@ -14,17 +14,13 @@ async def run_evaluation(payload):
     evaluator = LangFairEvaluator()
     
     try:
-        if payload.get("type") == "batch":
-            items = payload.get("items", [])
-            results = await evaluator.evaluate_batch(items)
-            return {"success": True, "results": results}
-        else:
-            result = await evaluator.evaluate_response(
-                question_text=payload.get("question_text", ""),
-                user_response=payload.get("user_response", ""),
-                category=payload.get("category", "general")
-            )
-            return {"success": True, "result": result}
+        # Always use batch evaluation (works for single items too)
+        items = payload.get("items", [])
+        if not items:
+            raise ValueError("Items list cannot be empty")
+        
+        results = await evaluator.evaluate_batch(items)
+        return {"success": True, "results": results}
     finally:
         evaluator.cleanup()
 
