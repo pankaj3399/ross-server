@@ -136,6 +136,7 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
     try:
         items = [
             {
+                'project_id': item.project_id,
                 'question_text': item.question_text,
                 'user_response': item.user_response,
                 'category': item.category

@@ -65,73 +65,6 @@ class LangFairEvaluator:
             self._stereotype_metrics = StereotypeMetrics()
         return self._stereotype_metrics
     
-    async def evaluate_response(
-        self,
-        question_text: str,
-        user_response: str,
-        category: str = "general"
-    ) -> dict[str, Any]:
-        
-        if not question_text or not isinstance(question_text, str):
-            question_text = ""
-        if not user_response or not isinstance(user_response, str):
-            user_response = ""
-        
-        if not user_response.strip():
-            raise ValueError("user_response cannot be empty")
-        
-        prompts = [question_text]
-        responses = [user_response]
-        
-        toxicity_metrics = {}
-        try:
-            toxicity_result = self._get_toxicity_metrics().evaluate(
-                prompts=prompts,
-                responses=responses,
-                return_data=True
-            )
-            toxicity_metrics = toxicity_result.get('metrics', {})
-        except Exception as e:
-            error_msg = str(e)[:200]
-            logger.error(f"Error evaluating toxicity: {error_msg}", exc_info=False)
-            toxicity_metrics = {
-                "Toxic Fraction": 0.0,
-                "Expected Maximum Toxicity": 0.0,
-                "Toxicity Probability": 0.0,
-            }
-        
-        category_lower = category.lower()
-        if category_lower not in self.CATEGORY_MAPPING:
-            valid_categories = ', '.join(sorted(self.CATEGORY_MAPPING.keys()))
-            raise ValueError(f"Unrecognized category '{category}'. Valid categories: {valid_categories}")
-        langfair_category = self.CATEGORY_MAPPING[category_lower]
-        
-        stereotype_metrics = {}
-        try:
-            stereotype_result = self._get_stereotype_metrics().evaluate(
-                responses=responses,
-                categories=[langfair_category]
-            )
-            stereotype_metrics = stereotype_result.get('metrics', {})
-        except Exception as e:
-            error_msg = str(e)[:200]
-            logger.error(f"Error evaluating stereotypes: {error_msg}", exc_info=False)
-            stereotype_metrics = {
-                "Stereotype Association": 0.0,
-                "Cooccurrence Bias": 0.0,
-                f"Stereotype Fraction - {langfair_category}": 0.0,
-            }
-        
-        result = {
-            "success": True,
-            "metrics": {
-                "toxicity": self._format_toxicity_metrics(toxicity_metrics),
-                "stereotype": self._format_stereotype_metrics(stereotype_metrics),
-            },
-        }
-        
-        return result
-
     def _resolve_toxicity_classifiers(self) -> list[str]:
         override = os.getenv("TOXICITY_CLASSIFIERS")
         if override:
@@ -194,6 +127,7 @@ class LangFairEvaluator:
             question_text = item.get('question_text', '')
             user_response = item.get('user_response', '')
             category = item.get('category', 'general')
+            project_id = item.get('project_id', '')
             
             if not isinstance(question_text, str):
                 question_text = ""
@@ -204,6 +138,7 @@ class LangFairEvaluator:
                 raise ValueError(f"Item {i}: user_response cannot be empty")
             
             validated_items.append({
+                'project_id': project_id,
                 'question_text': question_text,
                 'user_response': user_response,
                 'category': category,
@@ -241,7 +176,9 @@ class LangFairEvaluator:
                     toxicity_results.append(batch_toxicity_metrics)
         except Exception as e:
             error_msg = str(e)[:200]
-            logger.error(f"Error evaluating toxicity in batch: {error_msg}", exc_info=False)
+            project_ids = [item.get('project_id', '') for item in validated_items if item.get('project_id')]
+            project_context = f" (project_ids: {', '.join(set(project_ids))})" if project_ids else ""
+            logger.error("Error evaluating toxicity in batch: %s%s", error_msg, project_context, exc_info=False)
             default_toxicity = {
                 "Toxic Fraction": 0.0,
                 "Expected Maximum Toxicity": 0.0,
@@ -257,7 +194,9 @@ class LangFairEvaluator:
                 if category_lower not in self._seen_unrecognized:
                     self._seen_unrecognized.add(category_lower)
                     valid_categories = ', '.join(sorted(self.CATEGORY_MAPPING.keys()))
-                    context_info = f" (item index: {item.get('index', 'unknown')})"
+                    project_id = item.get('project_id', '')
+                    project_context = f", project_id: {project_id}" if project_id else ""
+                    context_info = f" (item index: {item.get('index', 'unknown')}{project_context})"
                     logger.warning(
                         "Unrecognized category '%s' not found in CATEGORY_MAPPING, defaulting to 'gender'. Valid categories: %s.%s",
                         item['category'],
@@ -286,7 +225,9 @@ class LangFairEvaluator:
                     stereotype_results.append((idx, group_stereotype_metrics, langfair_category))
             except Exception as e:
                 error_msg = str(e)[:200]
-                logger.error(f"Error evaluating stereotypes for category {langfair_category}: {error_msg}", exc_info=False)
+                project_ids = [item.get('project_id', '') for item in group_items if item.get('project_id')]
+                project_context = f" (project_ids: {', '.join(set(project_ids))})" if project_ids else ""
+                logger.error("Error evaluating stereotypes for category %s: %s%s", langfair_category, error_msg, project_context, exc_info=False)
                 default_stereotype = {
                     "Stereotype Association": 0.0,
                     "Cooccurrence Bias": 0.0,
