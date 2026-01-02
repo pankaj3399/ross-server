@@ -173,10 +173,10 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning(f"Validation error: {e}", exc_info=False)
+        logger.warning("Validation error: %s", e, exc_info=False)
         raise HTTPException(
             status_code=400,
-            detail=f"Validation error: {str(e)}"
+            detail=f"Validation error: {e!s}"
         ) from e
     except Exception as e:
         error_msg = str(e)[:200]
