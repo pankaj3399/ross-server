@@ -51,8 +51,7 @@ class EvaluateItem(BaseModel):
     user_response: str = Field(..., description="The response to evaluate")
 
 class EvaluateRequest(BaseModel):
-    batch_size: int = Field(..., ge=1, le=20, description="Maximum batch size (1-20)")
-    items: list[EvaluateItem] = Field(..., min_items=1, description="List of items to evaluate")
+    items: list[EvaluateItem] = Field(..., min_items=1, max_items=20, description="List of items to evaluate (max 20)")
 
 class EvaluateItemResponse(BaseModel):
     success: bool = Field(..., description="Whether the evaluation was successful")
@@ -132,14 +131,17 @@ async def health_check():
         "status": "healthy"
     }
 
+# Maximum number of items allowed per request
+MAX_ITEMS = 20
+
 @app.post("/evaluate", response_model=List[EvaluateItemResponse])
 async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
     try:
-        # Validate that number of items doesn't exceed batch_size
-        if len(request.items) > request.batch_size:
+        # Enforce maximum items limit
+        if len(request.items) > MAX_ITEMS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Number of items ({len(request.items)}) exceeds batch_size ({request.batch_size})"
+                detail=f"Number of items ({len(request.items)}) exceeds maximum allowed ({MAX_ITEMS})"
             )
         
         items = [

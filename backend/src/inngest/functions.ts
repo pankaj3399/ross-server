@@ -96,8 +96,8 @@ export const evaluationJobProcessor = inngest.createFunction(
 
       const jobRow = result.rows[0];
       
-      // Set initial status to COLLECTING_RESPONSES for automated API tests
-      // (MANUAL_PROMPT_TEST will override this to evaluating in processManualPromptTest)
+      // Set initial status to 'collecting_responses' for automated API tests
+      // (MANUAL_PROMPT_TEST will override this in processManualPromptTest)
       await pool.query(
         `UPDATE evaluation_status SET status = 'collecting_responses' WHERE id = $1`,
         [jobRow.id]

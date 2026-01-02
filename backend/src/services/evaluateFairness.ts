@@ -188,7 +188,6 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    batch_size: 1,
                     items: [
                         {
                             project_id: projectId,

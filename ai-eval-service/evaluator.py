@@ -256,10 +256,12 @@ class LangFairEvaluator:
             if category_lower not in self.CATEGORY_MAPPING:
                 if category_lower not in self._seen_unrecognized:
                     self._seen_unrecognized.add(category_lower)
+                    valid_categories = ', '.join(sorted(self.CATEGORY_MAPPING.keys()))
                     context_info = f" (item index: {item.get('index', 'unknown')})"
                     logger.warning(
-                        "Unrecognized category '%s' not found in CATEGORY_MAPPING, defaulting to 'gender'.%s",
+                        "Unrecognized category '%s' not found in CATEGORY_MAPPING, defaulting to 'gender'. Valid categories: %s.%s",
                         item['category'],
+                        valid_categories,
                         context_info
                     )
                 langfair_category = 'gender'
