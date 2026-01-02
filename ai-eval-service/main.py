@@ -49,7 +49,6 @@ class EvaluateRequest(BaseModel):
     category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
     question_text: str = Field(..., description="The question/prompt that was asked")
     user_response: str = Field(..., description="The response to evaluate")
-    include_counterfactual: Optional[bool] = Field(False, description="Whether to include counterfactual fairness evaluation (slower)")
 
 class EvaluateResponse(BaseModel):
     success: bool
@@ -61,7 +60,6 @@ class BatchEvaluateItem(BaseModel):
     category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
     question_text: str = Field(..., description="The question/prompt that was asked")
     user_response: str = Field(..., description="The response to evaluate")
-    include_counterfactual: Optional[bool] = Field(False, description="Whether to include counterfactual fairness evaluation (slower)")
 
 class BatchEvaluateRequest(BaseModel):
     items: list[BatchEvaluateItem] = Field(..., min_items=1, max_items=5, description="List of items to evaluate (max 5)")
@@ -151,8 +149,7 @@ async def evaluate(request: EvaluateRequest):
             "type": "single",
             "question_text": request.question_text,
             "user_response": request.user_response,
-            "category": request.category,
-            "include_counterfactual": request.include_counterfactual or False
+            "category": request.category
         }
         
         worker_result = run_worker(payload)
@@ -203,8 +200,7 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
             {
                 'question_text': item.question_text,
                 'user_response': item.user_response,
-                'category': item.category,
-                'include_counterfactual': item.include_counterfactual or False
+                'category': item.category
             }
             for item in request.items
         ]

@@ -8,7 +8,7 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
 # LangChain (required by LangFair, but we don't use it directly for LLM)
-# Note: Counterfactual evaluation is currently disabled due to version conflicts
+# Note: Counterfactual evaluation has been removed
 # Toxicity and stereotype metrics work without LLM
 
 # Environment variable management

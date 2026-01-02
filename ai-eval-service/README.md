@@ -6,7 +6,6 @@ Lightweight FastAPI service that proxies LangFair models to score AI responses f
 
 ```bash
 cd examplar/ai-eval-service
-echo "GEMINI_API_KEY=your_key" > .env
 docker build -t ai-eval-service .
 docker run -d \
   --name ai-eval-service \
@@ -27,7 +26,6 @@ docker stop ai-eval-service && docker rm ai-eval-service
 
 All environment variables used by the service:
 
-- **GEMINI_API_KEY** (required for counterfactual evaluation) - Google Gemini API key for counterfactual generation
 - **PORT** (default: 8000) - Server port
 - **HOST** (default: 0.0.0.0) - Server host address
 - **ENV** (optional) - Environment mode, set to "production" to disable auto-reload
@@ -51,7 +49,7 @@ All environment variables used by the service:
    - Dockerfile path: `ai-eval-service/Dockerfile` if needed.
 4. **Set runtime values.**
    - `PORT=8000`.
-   - Add `GEMINI_API_KEY` and any other required env variables.
+   - Add any other required env variables.
    - **Memory optimization environment variables:**
      - `MAX_CONCURRENT_REQUESTS=2` - Limit concurrent requests (default: 2)
      - `MAX_REQUESTS=1000` - Auto-restart after N requests to prevent leaks (default: 1000)
