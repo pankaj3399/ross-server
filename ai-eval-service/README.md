@@ -49,16 +49,7 @@ All environment variables used by the service:
    - Dockerfile path: `ai-eval-service/Dockerfile` if needed.
 4. **Set runtime values.**
    - `PORT=8000`.
-   - Add any other required env variables.
-   - **Memory optimization environment variables:**
-     - `MAX_CONCURRENT_REQUESTS=2` - Limit concurrent requests (default: 2)
-     - `MAX_REQUESTS=1000` - Auto-restart after N requests to prevent leaks (default: 1000)
-     - `TOXICITY_BATCH_SIZE=1` - Batch size for toxicity evaluation (default: 1 for lightweight mode)
-     - `LIGHTWEIGHT_EVAL_MODE=true` - Use lightweight models (default: true)
-     - `TOXICITY_CLASSIFIERS` - Comma-separated list of toxicity classifiers (optional, overrides default based on LIGHTWEIGHT_EVAL_MODE)
-     - `HOST=0.0.0.0` - Server host (default: 0.0.0.0)
-     - `ENV=production` - Environment mode, set to "production" to disable auto-reload (optional)
-     - `RENDER` - Automatically set by Render platform (optional, used to detect production)
+   - See the [Environment Variables](#environment-variables) section above for all supported variables.
 5. **Deploy and verify.**
    - Hit `https://<render-service>.onrender.com/health`.
    - Point clients to `LANGFAIR_SERVICE_URL=https://<render-service>.onrender.com`.

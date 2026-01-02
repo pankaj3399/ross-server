@@ -7,10 +7,10 @@ name = "ai-eval-service"
 version = "1.0.0"
 requires-python = ">=3.9"
 dependencies = [
-    "langfair>=0.7.1",
-    "fastapi~=0.104.0",
-    "uvicorn[standard]~=0.24.0",
-    "python-dotenv~=1.0.0",
-    "pydantic>=2.4.0",
+    "langfair>=0.7.1,<1.0",
+    "fastapi>=0.104.0,<0.105.0",
+    "uvicorn[standard]>=0.24.0,<0.25.0",
+    "python-dotenv>=1.0.0,<1.1.0",
+    "pydantic>=2.4.0,<3.0",
 ]
 

@@ -13,6 +13,16 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+def _safe_float(value, default=0.0):
+    """Safely convert a value to float, returning default on error."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
 def _parse_bool_env(var_name: str, default: bool = False) -> bool:
     raw_value = os.getenv(var_name)
     if raw_value is None:
@@ -21,6 +31,13 @@ def _parse_bool_env(var_name: str, default: bool = False) -> bool:
 
 
 class LangFairEvaluator:
+    CATEGORY_MAPPING = {
+        "gender": "gender",
+        "race": "race",
+        "ethnicity": "race",
+        "religion": "religion",
+        "age": "age",
+    }
     
     def __init__(self):
         self.lightweight_mode = _parse_bool_env("LIGHTWEIGHT_EVAL_MODE", default=True)
@@ -82,14 +99,11 @@ class LangFairEvaluator:
                 "Toxicity Probability": 0.0,
             }
         
-        category_mapping = {
-            "gender": "gender",
-            "race": "race",
-            "ethnicity": "race",
-            "religion": "religion",
-            "age": "age",
-        }
-        langfair_category = category_mapping.get(category.lower(), "gender")
+        category_lower = category.lower()
+        if category_lower not in self.CATEGORY_MAPPING:
+            valid_categories = ', '.join(sorted(self.CATEGORY_MAPPING.keys()))
+            raise ValueError(f"Unrecognized category '{category}'. Valid categories: {valid_categories}")
+        langfair_category = self.CATEGORY_MAPPING[category_lower]
         
         stereotype_metrics = {}
         try:
@@ -141,18 +155,10 @@ class LangFairEvaluator:
                 "toxicity_probability": 0.0,
             }
         
-        def safe_float(value, default=0.0):
-            if value is None:
-                return default
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-        
         return {
-            "toxic_fraction": safe_float(toxicity_metrics.get('Toxic Fraction'), 0.0),
-            "expected_max_toxicity": safe_float(toxicity_metrics.get('Expected Maximum Toxicity'), 0.0),
-            "toxicity_probability": safe_float(toxicity_metrics.get('Toxicity Probability'), 0.0),
+            "toxic_fraction": _safe_float(toxicity_metrics.get('Toxic Fraction'), 0.0),
+            "expected_max_toxicity": _safe_float(toxicity_metrics.get('Expected Maximum Toxicity'), 0.0),
+            "toxicity_probability": _safe_float(toxicity_metrics.get('Toxicity Probability'), 0.0),
         }
     
     def _format_stereotype_metrics(self, stereotype_metrics: dict[str, Any], category: str = "gender") -> dict[str, float]:
@@ -163,14 +169,6 @@ class LangFairEvaluator:
                 "stereotype_fraction": 0.0,
             }
         
-        def safe_float(value, default=0.0):
-            if value is None:
-                return default
-            try:
-                return float(value)
-            except (ValueError, TypeError):
-                return default
-        
         stereotype_fraction_key = None
         for key in stereotype_metrics.keys():
             if 'Stereotype Fraction' in key:
@@ -178,9 +176,9 @@ class LangFairEvaluator:
                 break
         
         return {
-            "stereotype_association": safe_float(stereotype_metrics.get('Stereotype Association'), 0.0),
-            "cooccurrence_bias": safe_float(stereotype_metrics.get('Cooccurrence Bias'), 0.0),
-            "stereotype_fraction": safe_float(stereotype_metrics.get(stereotype_fraction_key), 0.0) if stereotype_fraction_key else 0.0,
+            "stereotype_association": _safe_float(stereotype_metrics.get('Stereotype Association'), 0.0),
+            "cooccurrence_bias": _safe_float(stereotype_metrics.get('Cooccurrence Bias'), 0.0),
+            "stereotype_fraction": _safe_float(stereotype_metrics.get(stereotype_fraction_key), 0.0),
         }
     
     async def evaluate_batch(
@@ -253,18 +251,22 @@ class LangFairEvaluator:
             }
             toxicity_results = [default_toxicity] * len(validated_items)
         
-        category_mapping = {
-            "gender": "gender",
-            "race": "race",
-            "ethnicity": "race",
-            "religion": "religion",
-            "age": "age",
-        }
-        
         stereotype_results = []
         category_groups = {}
         for item in validated_items:
-            langfair_category = category_mapping.get(item['category'].lower(), "gender")
+            category_lower = item['category'].lower()
+            if category_lower not in self.CATEGORY_MAPPING:
+                frame = inspect.currentframe()
+                context_info = ""
+                if frame:
+                    filename = frame.f_code.co_filename
+                    func_name = frame.f_code.co_name
+                    line_no = frame.f_lineno
+                    context_info = f" (file: {filename}, function: {func_name}, line: {line_no})"
+                logger.warning(
+                    f"Unrecognized category '{item['category']}' not found in CATEGORY_MAPPING, defaulting to 'gender'.{context_info}"
+                )
+            langfair_category = self.CATEGORY_MAPPING.get(category_lower, "gender")
             if langfair_category not in category_groups:
                 category_groups[langfair_category] = []
             category_groups[langfair_category].append(item)
