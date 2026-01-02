@@ -15,13 +15,8 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.0 && \
     pip cache purge || true
 
-# Install only dependencies from pyproject.toml (not the package itself)
-RUN pip install --no-cache-dir \
-    "langfair>=0.7.1,<1.0" \
-    "fastapi>=0.104.0,<0.105.0" \
-    "uvicorn[standard]>=0.24.0,<0.25.0" \
-    "python-dotenv>=1.0.0,<1.1.0" \
-    "pydantic>=2.4.0,<3.0" && \
+# Install dependencies from pyproject.toml
+RUN pip install --no-cache-dir . && \
     pip cache purge || true && \
     rm -rf /tmp/* /var/tmp/*
 
