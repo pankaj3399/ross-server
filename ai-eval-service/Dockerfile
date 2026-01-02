@@ -8,12 +8,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY pyproject.toml .
 
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch && \
     pip cache purge || true
 
-RUN pip install --no-cache-dir -r requirements.txt && \
+RUN pip install --no-cache-dir . && \
     pip cache purge || true && \
     rm -rf /tmp/* /var/tmp/*
 
