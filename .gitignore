@@ -6,9 +6,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-ai-eval-service/
-
-
 # Runtime data
 pids
 *.pid

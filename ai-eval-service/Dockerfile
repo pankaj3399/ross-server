@@ -8,12 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Copy pyproject.toml for dependency installation
+COPY pyproject.toml ./
 
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch && \
+# Install torch with pinned version for reproducibility (not in pyproject.toml)
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.0 && \
     pip cache purge || true
 
-RUN pip install --no-cache-dir -r requirements.txt && \
+# Install dependencies from pyproject.toml
+RUN pip install --no-cache-dir . && \
     pip cache purge || true && \
     rm -rf /tmp/* /var/tmp/*
 
@@ -34,7 +37,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-COPY --chown=appuser:appuser main.py evaluator.py ./
+COPY --chown=appuser:appuser main.py evaluator.py worker.py ./
 
 USER appuser
 

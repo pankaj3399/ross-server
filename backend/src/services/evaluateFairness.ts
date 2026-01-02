@@ -191,8 +191,7 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
                     project_id: projectId,
                     category: category,
                     question_text: sanitizedQuestionText,
-                    user_response: sanitizedUserResponse,
-                    include_counterfactual: false
+                    user_response: sanitizedUserResponse
                 }),
                 signal: abortController.signal
             });
