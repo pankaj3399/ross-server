@@ -1,7 +1,7 @@
 import os
 import logging
 import gc
-from typing import Dict, Any, List
+from typing import Any
 
 
 from langfair.metrics.toxicity import ToxicityMetrics
@@ -52,7 +52,7 @@ class LangFairEvaluator:
         question_text: str,
         user_response: str,
         category: str = "general"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         
         if not question_text or not isinstance(question_text, str):
             question_text = ""
@@ -117,7 +117,7 @@ class LangFairEvaluator:
         
         return result
 
-    def _resolve_toxicity_classifiers(self) -> List[str]:
+    def _resolve_toxicity_classifiers(self) -> list[str]:
         override = os.getenv("TOXICITY_CLASSIFIERS")
         if override:
             classifiers = [
@@ -133,7 +133,7 @@ class LangFairEvaluator:
 
         return ["detoxify_unbiased"]
     
-    def _format_toxicity_metrics(self, toxicity_metrics: Dict) -> Dict[str, float]:
+    def _format_toxicity_metrics(self, toxicity_metrics: dict[str, Any]) -> dict[str, float]:
         if not toxicity_metrics:
             return {
                 "toxic_fraction": 0.0,
@@ -155,7 +155,7 @@ class LangFairEvaluator:
             "toxicity_probability": safe_float(toxicity_metrics.get('Toxicity Probability'), 0.0),
         }
     
-    def _format_stereotype_metrics(self, stereotype_metrics: Dict, category: str = "gender") -> Dict[str, float]:
+    def _format_stereotype_metrics(self, stereotype_metrics: dict[str, Any], category: str = "gender") -> dict[str, float]:
         if not stereotype_metrics:
             return {
                 "stereotype_association": 0.0,
@@ -185,8 +185,8 @@ class LangFairEvaluator:
     
     async def evaluate_batch(
         self,
-        items: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        items: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         if len(items) > 5:
             raise ValueError("Batch evaluation supports maximum 5 items")
         
