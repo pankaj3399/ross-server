@@ -10,10 +10,15 @@ WORKDIR /app
 
 COPY pyproject.toml .
 
-RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch && \
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.0 && \
     pip cache purge || true
 
-RUN pip install --no-cache-dir . && \
+RUN pip install --no-cache-dir \
+    "langfair>=0.7.1" \
+    "fastapi~=0.104.0" \
+    "uvicorn[standard]~=0.24.0" \
+    "python-dotenv~=1.0.0" \
+    "pydantic>=2.4.0" && \
     pip cache purge || true && \
     rm -rf /tmp/* /var/tmp/*
 
@@ -34,7 +39,7 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-COPY --chown=appuser:appuser main.py evaluator.py ./
+COPY --chown=appuser:appuser main.py evaluator.py worker.py ./
 
 USER appuser
 
