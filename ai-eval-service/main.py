@@ -180,7 +180,7 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
         ) from e
     except Exception as e:
         error_msg = str(e)[:200]
-        logger.exception(f"Error during evaluation: {error_msg}")
+        logger.exception("Error during evaluation: %s", error_msg)
         error_detail = f"Evaluation failed: {error_msg}"
         if hasattr(e, '__class__'):
             error_detail += f" (Type: {e.__class__.__name__})"
