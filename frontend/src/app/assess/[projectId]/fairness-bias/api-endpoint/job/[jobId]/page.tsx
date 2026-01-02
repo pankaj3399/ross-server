@@ -22,14 +22,13 @@ const statusColors: Record<string, string> = {
   running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
   completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
   failed: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
-  COLLECTING_RESPONSES: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
-  EVALUATING: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
-  SUCCESS: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  PARTIAL_SUCCESS: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
-  FAILED: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
+  collecting_responses: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
+  evaluating: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
+  success: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
+  partial_success: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
 };
 
-const FINAL_STATUSES = ["completed", "failed", "SUCCESS", "PARTIAL_SUCCESS", "FAILED"];
+const FINAL_STATUSES = ["completed", "failed", "success", "partial_success"];
 
 export default function FairnessJobPage() {
   const params = useParams();
@@ -89,7 +88,7 @@ export default function FairnessJobPage() {
 
   // Auto redirect when completed
   useEffect(() => {
-    const completedStatuses = ["completed", "SUCCESS", "PARTIAL_SUCCESS"];
+    const completedStatuses = ["completed", "success", "partial_success"];
     if (jobStatus?.status && completedStatuses.includes(jobStatus.status) && !redirectScheduled) {
       setRedirectScheduled(true);
       const timeout = setTimeout(() => {
@@ -106,19 +105,19 @@ export default function FairnessJobPage() {
     if (jobStatus.status === "running") {
       return `Running: ${jobStatus.progress || "0/0"} prompts evaluated`;
     }
-    if (jobStatus.status === "COLLECTING_RESPONSES") {
+    if (jobStatus.status === "collecting_responses") {
       return `Collecting responses: ${jobStatus.progress || "0/0"}`;
     }
-    if (jobStatus.status === "EVALUATING") {
+    if (jobStatus.status === "evaluating") {
       return `Evaluating: ${jobStatus.progress || "0/0"} prompts evaluated`;
     }
-    if (jobStatus.status === "completed" || jobStatus.status === "SUCCESS") {
+    if (jobStatus.status === "completed" || jobStatus.status === "success") {
       return "Completed. You can check report now.";
     }
-    if (jobStatus.status === "PARTIAL_SUCCESS") {
+    if (jobStatus.status === "partial_success") {
       return "Completed with some failures. You can check report now.";
     }
-    if (jobStatus.status === "failed" || jobStatus.status === "FAILED") {
+    if (jobStatus.status === "failed") {
       return "Job failed";
     }
     return "Processing job…";
@@ -215,11 +214,11 @@ export default function FairnessJobPage() {
             <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-3 overflow-hidden">
               <div
                 className={`h-full ${
-                  jobStatus.status === "completed" || jobStatus.status === "SUCCESS"
+                  jobStatus.status === "completed" || jobStatus.status === "success"
                     ? "bg-green-500"
-                    : jobStatus.status === "PARTIAL_SUCCESS"
+                    : jobStatus.status === "partial_success"
                     ? "bg-yellow-500"
-                    : jobStatus.status === "failed" || jobStatus.status === "FAILED"
+                    : jobStatus.status === "failed"
                     ? "bg-red-500"
                     : jobStatus.status === "processing"
                     ? "bg-yellow-500"
@@ -236,7 +235,7 @@ export default function FairnessJobPage() {
             )}
           </div>
 
-          {(jobStatus.status === "failed" || jobStatus.status === "FAILED") && jobStatus.errorMessage && (
+          {jobStatus.status === "failed" && jobStatus.errorMessage && (
             <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-300">
               {jobStatus.errorMessage}
             </div>
@@ -346,7 +345,7 @@ export default function FairnessJobPage() {
           </button>
           <button
             onClick={() => router.push(`/assess/${projectId}/fairness-bias/report`)}
-            disabled={!["completed", "SUCCESS", "PARTIAL_SUCCESS"].includes(jobStatus.status)}
+            disabled={!["completed", "success", "partial_success"].includes(jobStatus.status)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             View report

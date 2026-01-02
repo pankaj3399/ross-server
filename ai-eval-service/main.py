@@ -44,27 +44,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class EvaluateItem(BaseModel):
+    project_id: str = Field(..., description="Unique project identifier")
+    category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
+    question_text: str = Field(..., description="The question/prompt that was asked")
+    user_response: str = Field(..., description="The response to evaluate")
+
 class EvaluateRequest(BaseModel):
-    project_id: str = Field(..., description="Unique project identifier")
-    category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
-    question_text: str = Field(..., description="The question/prompt that was asked")
-    user_response: str = Field(..., description="The response to evaluate")
+    items: list[EvaluateItem] = Field(..., min_items=1, max_items=20, description="List of items to evaluate (max 20)")
 
-class EvaluateResponse(BaseModel):
-    success: bool
-    metrics: dict
-    error: Optional[str] = None
-
-class BatchEvaluateItem(BaseModel):
-    project_id: str = Field(..., description="Unique project identifier")
-    category: str = Field(..., description="Category of the question (e.g., 'gender', 'race')")
-    question_text: str = Field(..., description="The question/prompt that was asked")
-    user_response: str = Field(..., description="The response to evaluate")
-
-class BatchEvaluateRequest(BaseModel):
-    items: list[BatchEvaluateItem] = Field(..., min_items=1, max_items=5, description="List of items to evaluate (max 5)")
-
-class BatchEvaluateItemResponse(BaseModel):
+class EvaluateItemResponse(BaseModel):
     success: bool = Field(..., description="Whether the evaluation was successful")
     metrics: dict[str, Any] = Field(..., description="Evaluation metrics for this item")
 
@@ -142,62 +131,12 @@ async def health_check():
         "status": "healthy"
     }
 
-@app.post("/evaluate", response_model=EvaluateResponse)
-async def evaluate(request: EvaluateRequest):
-    try:
-        payload = {
-            "type": "single",
-            "question_text": request.question_text,
-            "user_response": request.user_response,
-            "category": request.category
-        }
-        
-        worker_result = run_worker(payload)
-        
-        if not worker_result.get("success", False):
-            error_msg = worker_result.get("error", "Unknown error")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Evaluation failed: {error_msg}"
-            )
-        
-        result = worker_result.get("result", {})
-        
-        if not isinstance(result, dict):
-            raise HTTPException(
-                status_code=500,
-                detail="Evaluation returned invalid result"
-            )
-        
-        return EvaluateResponse(
-            success=True,
-            metrics=result.get("metrics", {})
-        )
-    
-    except HTTPException:
-        raise
-    except ValueError as e:
-        logger.warning(f"Validation error: {e}", exc_info=False)
-        raise HTTPException(
-            status_code=400,
-            detail=f"Validation error: {str(e)}"
-        )
-    except Exception as e:
-        error_msg = str(e)[:200]
-        logger.error(f"Error during evaluation: {error_msg}", exc_info=False)
-        error_detail = f"Evaluation failed: {error_msg}"
-        if hasattr(e, '__class__'):
-            error_detail += f" (Type: {e.__class__.__name__})"
-        raise HTTPException(
-            status_code=500,
-            detail=error_detail
-        )
-
-@app.post("/evaluate-batch", response_model=List[BatchEvaluateItemResponse])
-async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateItemResponse]:
+@app.post("/evaluate", response_model=List[EvaluateItemResponse])
+async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
     try:
         items = [
             {
+                'project_id': item.project_id,
                 'question_text': item.question_text,
                 'user_response': item.user_response,
                 'category': item.category
@@ -216,7 +155,7 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
             error_msg = worker_result.get("error", "Unknown error")
             raise HTTPException(
                 status_code=500,
-                detail=f"Batch evaluation failed: {error_msg}"
+                detail=f"Evaluation failed: {error_msg}"
             )
         
         results = worker_result.get("results", [])
@@ -224,7 +163,7 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
         response_array = []
         for result in results:
             response_array.append(
-                BatchEvaluateItemResponse(
+                EvaluateItemResponse(
                     success=result.get("success", True),
                     metrics=result.get("metrics", {})
                 )
@@ -235,15 +174,15 @@ async def evaluate_batch(request: BatchEvaluateRequest) -> List[BatchEvaluateIte
     except HTTPException:
         raise
     except ValueError as e:
-        logger.warning(f"Validation error in batch evaluation: {e}", exc_info=False)
+        logger.warning("Validation error: %s", e, exc_info=False)
         raise HTTPException(
             status_code=400,
-            detail=f"Validation error: {str(e)}"
+            detail=f"Validation error: {e!s}"
         ) from e
     except Exception as e:
         error_msg = str(e)[:200]
-        logger.error(f"Error during batch evaluation: {error_msg}", exc_info=False)
-        error_detail = f"Batch evaluation failed: {error_msg}"
+        logger.exception("Error during evaluation: %s", error_msg)
+        error_detail = f"Evaluation failed: {error_msg}"
         if hasattr(e, '__class__'):
             error_detail += f" (Type: {e.__class__.__name__})"
         raise HTTPException(

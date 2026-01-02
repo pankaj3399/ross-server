@@ -10,21 +10,19 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stderr)]
 )
 
+ERROR_EMPTY_ITEMS = "Items list cannot be empty"
+
 async def run_evaluation(payload):
     evaluator = LangFairEvaluator()
     
     try:
-        if payload.get("type") == "batch":
-            items = payload.get("items", [])
-            results = await evaluator.evaluate_batch(items)
-            return {"success": True, "results": results}
-        else:
-            result = await evaluator.evaluate_response(
-                question_text=payload.get("question_text", ""),
-                user_response=payload.get("user_response", ""),
-                category=payload.get("category", "general")
-            )
-            return {"success": True, "result": result}
+        # Always use batch evaluation (works for single items too)
+        items = payload.get("items", [])
+        if not items:
+            raise ValueError(ERROR_EMPTY_ITEMS)
+        
+        results = await evaluator.evaluate_batch(items)
+        return {"success": True, "results": results}
     finally:
         evaluator.cleanup()
 

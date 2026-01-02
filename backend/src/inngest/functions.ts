@@ -96,10 +96,10 @@ export const evaluationJobProcessor = inngest.createFunction(
 
       const jobRow = result.rows[0];
       
-      // Set initial status to COLLECTING_RESPONSES for automated API tests
-      // (MANUAL_PROMPT_TEST will override this to EVALUATING in processManualPromptTest)
+      // Set initial status to 'collecting_responses' for automated API tests
+      // (MANUAL_PROMPT_TEST will override this in processManualPromptTest)
       await pool.query(
-        `UPDATE evaluation_status SET status = 'COLLECTING_RESPONSES' WHERE id = $1`,
+        `UPDATE evaluation_status SET status = 'collecting_responses' WHERE id = $1`,
         [jobRow.id]
       );
 
@@ -349,7 +349,7 @@ export const userApiCallAggregator = inngest.createFunction(
         return { allComplete: completed >= totalPrompts, total: totalPrompts, completed };
       }
 
-      itemStatuses[promptIndex] = success ? "SUCCESS" : "FAILED";
+      itemStatuses[promptIndex] = success ? "success" : "failed";
 
       // Update payload first
       await pool.query(
@@ -427,7 +427,7 @@ export const evaluationAggregator = inngest.createFunction(
       }
 
       // Build delta fragments as JSON parameters
-      const itemStatusValue = result ? "SUCCESS" : "FAILED";
+      const itemStatusValue = result ? "success" : "failed";
       const itemStatusEntry = JSON.stringify({ [responseIndex]: itemStatusValue });
       
       let resultEntry: string | null = null;
