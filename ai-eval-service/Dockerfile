@@ -8,17 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY pyproject.toml .
+# Copy project files needed for package installation
+COPY pyproject.toml main.py evaluator.py worker.py ./
 
+# Install torch with pinned version for reproducibility (not in pyproject.toml)
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.1.0 && \
     pip cache purge || true
 
-RUN pip install --no-cache-dir \
-    "langfair>=0.7.1" \
-    "fastapi~=0.104.0" \
-    "uvicorn[standard]~=0.24.0" \
-    "python-dotenv~=1.0.0" \
-    "pydantic>=2.4.0" && \
+# Install package and dependencies from pyproject.toml (single source of truth)
+RUN pip install --no-cache-dir . && \
     pip cache purge || true && \
     rm -rf /tmp/* /var/tmp/*
 
