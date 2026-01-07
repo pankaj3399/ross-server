@@ -93,7 +93,27 @@ export default async function subscriptionsWebhookHandler(
 
                 console.log("Subscription deleted for customer:", deletedCustomerId);
 
-                // Set status to free and clear subscription ID with logging
+                // Check if customer has any other active subscriptions before setting to free
+                // This prevents setting to FREE during upgrades when old subscription is cancelled
+                try {
+                    const activeSubscriptions = await stripe.subscriptions.list({
+                        customer: deletedCustomerId,
+                        status: "active",
+                        limit: 1,
+                    });
+
+                    if (activeSubscriptions.data.length > 0) {
+                        // Customer has another active subscription, don't set to FREE
+                        // The customer.subscription.created/updated event will handle the status update
+                        console.log(`Customer ${deletedCustomerId} has ${activeSubscriptions.data.length} active subscription(s), skipping FREE status update`);
+                        break;
+                    }
+                } catch (checkError) {
+                    console.error("Error checking for active subscriptions:", checkError);
+                    // Continue with setting to FREE if check fails
+                }
+
+                // Only set to free if no other active subscriptions exist
                 const deleteResult = await pool.query(
                     "UPDATE users SET subscription_status = $1, stripe_subscription_id = NULL WHERE stripe_customer_id = $2 RETURNING id",
                     [SubscriptionStatus.FREE, deletedCustomerId]
@@ -128,16 +148,30 @@ export default async function subscriptionsWebhookHandler(
                     const sessionCustomerId = session.customer as string;
                     const sessionSubscriptionId = session.subscription as string;
                     const userId = session.metadata?.userId;
+                    const action = session.metadata?.action;
 
                     console.log("Checkout session completed:", { 
                         customerId: sessionCustomerId, 
                         subscriptionId: sessionSubscriptionId,
-                        userId
+                        userId,
+                        action
                     });
 
                     if (!userId) {
                         console.warn("No userId in session metadata");
                         break;
+                    }
+
+                    // If this is an upgrade, cancel the old subscription
+                    if (action === "upgrade_to_pro" && session.metadata?.currentSubscriptionId) {
+                        const oldSubscriptionId = session.metadata.currentSubscriptionId;
+                        try {
+                            await stripe.subscriptions.cancel(oldSubscriptionId);
+                            console.log(`Cancelled old subscription ${oldSubscriptionId} for upgrade`);
+                        } catch (cancelError) {
+                            console.error(`Error cancelling old subscription ${oldSubscriptionId}:`, cancelError);
+                            // Continue anyway - the new subscription is already created
+                        }
                     }
 
                     // Link user with Stripe - save customer ID and subscription ID only

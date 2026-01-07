@@ -50,15 +50,16 @@ function removeDangerousPatterns(text: string): string {
 /**
  * Sanitize user input for safe storage and display
  * @param input - The user input to sanitize
+ * @param preserveWhitespace - If true, preserve leading/trailing whitespace (for typing). Default false.
  * @returns Sanitized text safe for storage and display
  */
-export function sanitizeInput(input: string): string {
+export function sanitizeInput(input: string, preserveWhitespace: boolean = false): string {
   if (!input || typeof input !== "string") {
     return "";
   }
 
-  // Trim whitespace
-  let sanitized = input.trim();
+  // Only trim whitespace if not preserving it (for final save)
+  let sanitized = preserveWhitespace ? input : input.trim();
 
   // Remove dangerous patterns first
   sanitized = removeDangerousPatterns(sanitized);
@@ -110,10 +111,11 @@ export function isInputSafe(input: string): boolean {
 /**
  * Sanitize and validate input for question notes
  * @param input - The note input
+ * @param preserveWhitespace - If true, preserve leading/trailing whitespace (for typing). Default false.
  * @returns Sanitized and validated note text
  */
-export function sanitizeNoteInput(input: string): string {
-  const sanitized = sanitizeInput(input);
+export function sanitizeNoteInput(input: string, preserveWhitespace: boolean = false): string {
+  const sanitized = sanitizeInput(input, preserveWhitespace);
 
   // Additional validation for notes
   if (!isInputSafe(sanitized)) {

@@ -11,7 +11,6 @@ import {
   ChevronsLeft,
   Menu,
   X,
-  Brain,
   Gem,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
@@ -71,8 +70,6 @@ export function Sidebar({
     setMobileOpen(false);
   }, [pathname, setMobileOpen]);
 
-  const isAssessmentPage = pathname?.startsWith("/assess/") || false;
-  const isAuthPage = pathname?.startsWith("/auth") || false;
   const isLandingPage = pathname === "/" || false;
 
   const isActive = (href: string, id: string) => {
@@ -110,21 +107,22 @@ export function Sidebar({
       {/* Logo Section */}
       <div className="p-5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Brain className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            {!collapsed && (
-              <span className="text-gray-800 dark:text-gray-200 font-semibold text-lg">MATUR.ai</span>
-            )}
-          </div>
           {!collapsed && (
-            <button
-              onClick={toggleCollapsed}
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 transition-colors"
-              aria-label="Collapse sidebar"
-            >
-              <ChevronsLeft className="w-5 h-5" />
-            </button>
+            <div className="flex items-center">
+              <img
+                src={theme === "dark" ? "/logo-dark.png" : "/logo.png"}
+                alt="MATUR.ai Logo"
+                className="h-10 w-auto"
+              />
+            </div>
           )}
+          <button
+            onClick={toggleCollapsed}
+            className={`text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 transition-colors ${collapsed ? "mx-auto" : ""}`}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ChevronsLeft className={`w-5 h-5 transition-transform ${collapsed ? "rotate-180" : ""}`} />
+          </button>
         </div>
       </div>
 
@@ -176,23 +174,10 @@ export function Sidebar({
           );
         })}
       </nav>
-
-      {/* Collapse Button (when collapsed) */}
-      {collapsed && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <button
-            onClick={toggleCollapsed}
-            className="w-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-2 transition-colors"
-            aria-label="Expand sidebar"
-          >
-            <ChevronsLeft className="w-5 h-5 rotate-180" />
-          </button>
-        </div>
-      )}
     </>
   );
 
-  if (isAssessmentPage || isAuthPage || isLandingPage) {
+  if (isLandingPage) {
     return null;
   }
 

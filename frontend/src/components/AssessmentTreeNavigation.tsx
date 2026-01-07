@@ -15,6 +15,7 @@ import {
   Scale,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
 interface Question {
@@ -87,7 +88,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   hidePremiumFeaturesButton = false,
 }) => {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const router = useRouter();
+  
+  // Determine premium status from user data or prop
+  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
+  const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
   const orderedDomains = useMemo(() => {
     const originalOrderMap = new Map<string, number>();
     domains.forEach((domain, index) => {
@@ -451,10 +458,11 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
               <div
                 className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200`}
                 onClick={() => {
-                  if (isPremium) {
-                    router.push(`/assess/${projectId}/premium-domains`);
-                  } else {
+                  console.log("premiumStatus: ", premiumStatus);
+                  if (premiumStatus) {
                     router.push(`/assess/${projectId}/premium-features`);
+                  } else {
+                    router.push(`/manage-subscription`);
                   }
                 }}
               >

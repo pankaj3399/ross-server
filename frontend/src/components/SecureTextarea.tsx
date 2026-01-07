@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Save, AlertTriangle, CheckCircle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { sanitizeNoteInput } from "../lib/sanitize";
 
 interface SecureTextareaProps {
@@ -26,10 +26,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
 }) => {
   const [isValid, setIsValid] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Validate input on change
   const handleChange = useCallback(
@@ -37,11 +34,14 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
       const newValue = e.target.value;
 
       try {
-        // Sanitize the input
-        const sanitizedValue = sanitizeNoteInput(newValue);
+        // Sanitize the input but preserve whitespace during typing
+        const sanitizedValue = sanitizeNoteInput(newValue, true);
 
         // Check if sanitization changed the input (indicates dangerous content)
-        if (sanitizedValue !== newValue) {
+        // Compare without considering whitespace differences for validation
+        const originalTrimmed = newValue.trim();
+        const sanitizedTrimmed = sanitizedValue.trim();
+        if (sanitizedTrimmed !== originalTrimmed) {
           setIsValid(false);
           setValidationMessage("Invalid characters detected and removed");
         } else {
@@ -61,52 +61,26 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
     [onChange],
   );
 
-  // Auto-save functionality
-  const handleSave = useCallback(async () => {
-    if (!isValid || disabled) return;
-
-    setIsSaving(true);
-    try {
-      await onSave();
-      setLastSaved(new Date());
-    } catch (error) {
-      console.error("Failed to save note:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [isValid, disabled, onSave]);
-
-  // Debounced auto-save
-  useEffect(() => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    if (value.trim() && isValid) {
-      saveTimeoutRef.current = setTimeout(() => {
-        handleSave();
-      }, 2000); // Auto-save after 2 seconds of inactivity
-    }
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [value, isValid, handleSave]);
-
-  // Manual save on Ctrl+S
+  // Manual save on Ctrl+S (optional, for user convenience)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        handleSave();
+        if (!isValid || disabled) return;
+        // Trim whitespace before saving
+        const trimmedValue = value.trim();
+        if (trimmedValue !== value) {
+          onChange(trimmedValue);
+        }
+        onSave().catch((error) => {
+          console.error("Failed to save note:", error);
+        });
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave]);
+  }, [isValid, disabled, onSave, value, onChange]);
 
   const characterCount = value.length;
   const isNearLimit = characterCount > maxLength * 0.9;
@@ -151,34 +125,12 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
       {/* Status bar */}
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
-          {isSaving && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-1 text-purple-600 dark:text-purple-400"
-            >
-              <Save className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
-            </motion.div>
-          )}
-
-          {lastSaved && !isSaving && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center gap-1 text-green-600 dark:text-green-400"
-            >
-              <CheckCircle className="w-4 h-4" />
-              <span>Saved {lastSaved.toLocaleTimeString()}</span>
-            </motion.div>
+          {validationMessage && (
+            <span className="text-red-500 text-xs">{validationMessage}</span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {validationMessage && (
-            <span className="text-red-500 text-xs">{validationMessage}</span>
-          )}
-
           <span
             className={`text-xs ${
               isOverLimit

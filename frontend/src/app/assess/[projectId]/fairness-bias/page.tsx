@@ -501,7 +501,7 @@ export default function FairnessBiasTest() {
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
-                      const sanitizedValue = sanitizeNoteInput(e.target.value);
+                      const sanitizedValue = sanitizeNoteInput(e.target.value, true);
                       setResponses({ ...responses, [currentResKey]: sanitizedValue });
                     }}
                     placeholder="Type or paste your response here..."

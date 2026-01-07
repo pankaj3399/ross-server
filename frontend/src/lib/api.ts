@@ -80,6 +80,39 @@ export interface QuestionNote {
   updated_at: string;
 }
 
+export interface SubscriptionInvoice {
+  id: string;
+  number: string;
+  amount_paid: number;
+  currency: string;
+  status: string;
+  created: string | null;
+  hosted_invoice_url: string | null;
+}
+
+export interface SubscriptionPlanDetails {
+  id: string | null;
+  name: string;
+  status: string | null;
+  cancel_at_period_end: boolean;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  start_date: string | null;
+  trial_end: string | null;
+  days_remaining: number | null;
+  renewal_date: string | null;
+  cancel_effective_date: string | null;
+}
+
+export interface SubscriptionDetailsResponse {
+  subscription_status: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  signup_date: string | null;
+  plan: SubscriptionPlanDetails | null;
+  invoices: SubscriptionInvoice[];
+}
+
 class ApiService {
   private getAuthToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -579,6 +612,10 @@ class ApiService {
     }>("/subscriptions/status");
   }
 
+  async getSubscriptionDetails(): Promise<SubscriptionDetailsResponse> {
+    return this.request<SubscriptionDetailsResponse>("/subscriptions/details");
+  }
+
   async createCheckoutSession(priceId: string): Promise<{
     sessionId: string;
     url: string;
@@ -610,8 +647,16 @@ class ApiService {
     );
   }
 
-  async downgradeToBasic(): Promise<{ message: string }> {
-    return this.request<{ message: string }>(
+  async downgradeToBasic(): Promise<{
+    message: string;
+    current_period_end?: string | null;
+    days_remaining?: number | null;
+  }> {
+    return this.request<{
+      message: string;
+      current_period_end?: string | null;
+      days_remaining?: number | null;
+    }>(
       "/subscriptions/downgrade-to-basic",
       {
         method: "POST",
@@ -619,8 +664,18 @@ class ApiService {
     );
   }
 
-  async cancelSubscription(): Promise<{ message: string }> {
-    return this.request<{ message: string }>(
+  async cancelSubscription(): Promise<{
+    message: string;
+    cancel_at_period_end?: boolean;
+    current_period_end?: string | null;
+    days_remaining?: number | null;
+  }> {
+    return this.request<{
+      message: string;
+      cancel_at_period_end?: boolean;
+      current_period_end?: string | null;
+      days_remaining?: number | null;
+    }>(
       "/subscriptions/cancel-subscription",
       {
         method: "POST",

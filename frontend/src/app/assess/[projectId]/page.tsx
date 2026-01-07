@@ -532,6 +532,45 @@ useEffect(() => {
     }
   };
 
+  // Save all notes silently in the background
+  const saveAllNotes = async (): Promise<void> => {
+    const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
+    
+    if (noteEntries.length === 0) {
+      return;
+    }
+
+    // Save all notes in parallel
+    const savePromises = noteEntries.map(async ([key, note]) => {
+      try {
+        const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
+        const questionIndex = parseInt(questionIndexStr, 10);
+        
+        if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
+          console.warn(`Invalid note key format: ${key}`);
+          return;
+        }
+
+        const sanitizedNote = sanitizeNoteInput(note.trim());
+        
+        await apiService.saveQuestionNote(projectId, {
+          domainId,
+          practiceId,
+          level,
+          stream,
+          questionIndex,
+          note: sanitizedNote,
+        });
+      } catch (error) {
+        // Log error but don't throw - we don't want to block submission
+        console.error(`Failed to save note for key ${key}:`, error);
+      }
+    });
+
+    // Wait for all saves to complete (or fail silently)
+    await Promise.allSettled(savePromises);
+  };
+
   const handleDomainClick = (domainId: string) => {
     const domain = domains.find((d) => d.id === domainId);
     if (domain) {
@@ -664,6 +703,9 @@ useEffect(() => {
   const handleSubmitProject = async () => {
     setSubmitting(true);
     try {
+      // Save all notes silently in the background before submitting
+      await saveAllNotes();
+      
       const response = await apiService.submitProject(projectId);
       
       setProjectResults(projectId, response.project, response.results);
