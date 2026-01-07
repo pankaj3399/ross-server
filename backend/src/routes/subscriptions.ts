@@ -5,8 +5,43 @@ import { z } from "zod";
 import stripe from "../config/stripe";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
+import { invoiceCache, default as InvoiceCache } from "../utils/invoiceCache";
 
 const router = Router();
+
+const formatPlanName = (priceId?: string | null) => {
+  if (!priceId) return "Unknown plan";
+  if (priceId === process.env.STRIPE_PRICE_ID_BASIC) return "Basic Premium";
+  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "Pro Premium";
+  return "Unknown plan";
+};
+
+const calculateDaysRemaining = (periodEnd?: number | null) => {
+  if (!periodEnd) return null;
+  const now = Date.now();
+  const end = periodEnd * 1000;
+  const diffMs = end - now;
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+};
+
+const buildDowngradePhases = (
+  currentPriceId: string,
+  basicPriceId: string,
+  currentPeriodStart: number,
+  currentPeriodEnd: number
+): Stripe.SubscriptionScheduleUpdateParams.Phase[] => {
+  return [
+    {
+      items: [{ price: currentPriceId, quantity: 1 }],
+      start_date: currentPeriodStart,
+      end_date: currentPeriodEnd,
+    },
+    {
+      items: [{ price: basicPriceId, quantity: 1 }],
+      start_date: currentPeriodEnd,
+    },
+  ];
+};
 
 // Create checkout session
 router.post("/create-checkout-session", authenticateToken, async (req, res) => {
@@ -101,6 +136,186 @@ router.get("/status", authenticateToken, async (req, res) => {
   }
 });
 
+// Detailed subscription info including billing dates and history
+router.get("/details", authenticateToken, async (req, res) => {
+  try {
+    const userResult = await pool.query(
+      "SELECT id, subscription_status, stripe_customer_id, stripe_subscription_id, created_at FROM users WHERE id = $1",
+      [req.user!.id],
+    );
+
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const baseResponse: any = {
+      subscription_status: user.subscription_status,
+      signup_date: user.created_at,
+    };
+
+    if (!user.stripe_customer_id) {
+      return res.json({ ...baseResponse, plan: null, invoices: [] });
+    }
+
+    // Load subscription if present
+    let subscription: Stripe.Subscription | null = null;
+    if (user.stripe_subscription_id) {
+      try {
+        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+      } catch (error: any) {
+        // Handle missing or deleted Stripe subscription
+        if (
+          error?.statusCode === 404 ||
+          error?.type === 'StripeInvalidRequestError'
+        ) {
+          console.warn(
+            `Stripe subscription not found or invalid: ${user.stripe_subscription_id}`,
+            error
+          );
+          subscription = null;
+        } else {
+          // Rethrow unexpected errors
+          throw error;
+        }
+      }
+    }
+
+    // Only fetch invoices if explicitly requested (lazy loading)
+    const includeInvoices = req.query.includeInvoices === 'true';
+    let invoices: any[] = [];
+    
+    if (includeInvoices) {
+      // Payment history (last 10 invoices) - only when requested
+      const invoicesResponse = await stripe.invoices.list({
+        customer: user.stripe_customer_id,
+        limit: 10,
+      });
+
+      invoices = invoicesResponse.data.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.number || invoice.id,
+        amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
+        currency: invoice.currency,
+        status: invoice.status,
+        created: invoice.created ? new Date(invoice.created * 1000).toISOString() : null,
+        hosted_invoice_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
+      }));
+    }
+
+    const currentPeriodStart = subscription?.current_period_start
+      ? new Date(subscription.current_period_start * 1000).toISOString()
+      : null;
+    const currentPeriodEnd = subscription?.current_period_end
+      ? new Date(subscription.current_period_end * 1000).toISOString()
+      : null;
+    const daysRemaining = calculateDaysRemaining(subscription?.current_period_end);
+    const cancelAtPeriodEnd = subscription?.cancel_at_period_end ?? false;
+
+    const plan = subscription
+      ? {
+          id: subscription.items.data[0]?.price?.id ?? null,
+          name: formatPlanName(subscription.items.data[0]?.price?.id),
+          status: subscription.status,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          current_period_start: currentPeriodStart,
+          current_period_end: currentPeriodEnd,
+          start_date: subscription.start_date
+            ? new Date(subscription.start_date * 1000).toISOString()
+            : null,
+          trial_end: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
+          days_remaining: daysRemaining,
+          renewal_date: cancelAtPeriodEnd ? null : currentPeriodEnd,
+          cancel_effective_date: cancelAtPeriodEnd ? currentPeriodEnd : null,
+        }
+      : null;
+
+    res.json({
+      ...baseResponse,
+      plan,
+      ...(includeInvoices && { invoices }),
+    });
+  } catch (error) {
+    console.error("Error fetching subscription details:", error);
+    res.status(500).json({ error: "Failed to fetch subscription details" });
+  }
+});
+
+// Get invoices with pagination and caching
+router.get("/invoices", authenticateToken, async (req, res) => {
+  try {
+    const userResult = await pool.query(
+      "SELECT stripe_customer_id FROM users WHERE id = $1",
+      [req.user!.id],
+    );
+
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.stripe_customer_id) {
+      return res.json({ invoices: [], has_more: false });
+    }
+
+    // Parse query parameters
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100); // Max 100, default 10
+    const startingAfter = req.query.startingAfter as string | undefined;
+
+    // Check cache first
+    const cacheKey = InvoiceCache.getKey(user.stripe_customer_id, limit, startingAfter);
+    const cached = invoiceCache.get<{
+      invoices: any[];
+      has_more: boolean;
+      last_invoice_id: string | null;
+    }>(cacheKey);
+
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // Fetch from Stripe
+    const listParams: Stripe.InvoiceListParams = {
+      customer: user.stripe_customer_id,
+      limit,
+    };
+
+    if (startingAfter) {
+      listParams.starting_after = startingAfter;
+    }
+
+    const invoicesResponse = await stripe.invoices.list(listParams);
+
+    const invoices = invoicesResponse.data.map((invoice) => ({
+      id: invoice.id,
+      number: invoice.number || invoice.id,
+      amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
+      currency: invoice.currency,
+      status: invoice.status,
+      created: invoice.created ? new Date(invoice.created * 1000).toISOString() : null,
+      hosted_invoice_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
+    }));
+
+    const response = {
+      invoices,
+      has_more: invoicesResponse.has_more,
+      last_invoice_id: invoices.length > 0 ? invoices[invoices.length - 1].id : null,
+    };
+
+    // Cache the response
+    invoiceCache.set(cacheKey, response);
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+    res.status(500).json({ error: "Failed to fetch invoices" });
+  }
+});
+
 // Fetch prices for given price IDs
 router.post("/prices", async (req, res) => {
   try {
@@ -160,29 +375,37 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       );
     }
 
-    // Cancel existing Basic subscription if it exists
+    // Fetch current subscription ID from database
     const userResult = await pool.query(
       "SELECT stripe_subscription_id FROM users WHERE id = $1",
       [userId]
     );
-    const existingSubscriptionId = userResult.rows[0]?.stripe_subscription_id;
-    if (existingSubscriptionId) {
-      await stripe.subscriptions.cancel(existingSubscriptionId);
-    }
+    const currentSubscriptionId = userResult.rows[0]?.stripe_subscription_id ?? null;
 
     const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
     if (!proPriceId) {
       return res.status(500).json({ error: "Pro price ID not configured" });
     }
 
+    // Create checkout session for upgrade
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
       line_items: [{ price: proPriceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `${process.env.FRONTEND_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}/dashboard?canceled=true`,
-      metadata: { userId },
+      success_url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro`,
+      cancel_url: `${process.env.FRONTEND_URL}/manage-subscription?canceled=true`,
+      metadata: { 
+        userId,
+        action: "upgrade_to_pro",
+        ...(currentSubscriptionId && { currentSubscriptionId }),
+      },
+      subscription_data: {
+        metadata: {
+          userId,
+          action: "upgrade_to_pro",
+        },
+      },
     });
 
     res.json({ sessionId: session.id, url: session.url });
@@ -192,7 +415,7 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
   }
 });
 
-// Downgrade to Basic - Update existing subscription
+// Downgrade to Basic - Schedule change at period end
 router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -223,28 +446,86 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Basic price ID not configured" });
     }
 
-    // Retrieve current subscription
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    // Retrieve current subscription with expanded schedule
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['schedule'],
+    });
+    
+    // Check if subscription is active
+    if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+      return res.status(400).json({ 
+        error: `Cannot downgrade subscription with status: ${subscription.status}` 
+      });
+    }
+    
     const currentItemId = subscription.items.data[0]?.id;
+    const currentPeriodEnd = subscription.current_period_end;
 
     if (!currentItemId) {
       return res.status(400).json({ error: "Invalid subscription structure" });
     }
 
-    // Update subscription to Basic price with no proration
-    await stripe.subscriptions.update(subscriptionId, {
-      items: [{
-        id: currentItemId,
-        price: basicPriceId,
-      }],
-      proration_behavior: "none",
-      billing_cycle_anchor: "unchanged",
-    });
+    // Use subscription schedules to schedule downgrade at period end
+    const currentPriceId = subscription.items.data[0].price.id;
+    
+    // Check if subscription already has a schedule or is set to cancel
+    let scheduleId: string | null = null;
+    if (subscription.schedule) {
+      scheduleId = typeof subscription.schedule === 'string' ? subscription.schedule : subscription.schedule.id;
+    }
 
-    res.json({ message: "Subscription downgraded to Basic" });
-  } catch (error) {
+    // If subscription is set to cancel, we need to cancel that first or update the schedule
+    if (subscription.cancel_at_period_end) {
+      // Remove cancel_at_period_end first
+      await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false,
+      });
+    }
+
+    // Build phases for downgrade schedule (shared for both update and create)
+    const phases = buildDowngradePhases(
+      currentPriceId,
+      basicPriceId,
+      subscription.current_period_start,
+      currentPeriodEnd
+    );
+
+    if (scheduleId) {
+      // Update existing schedule - include start_date for updates
+      await stripe.subscriptionSchedules.update(scheduleId, {
+        phases,
+      });
+    } else {
+      // Create new schedule from existing subscription first (without phases)
+      // Then update it with the phases we want
+      const newSchedule = await stripe.subscriptionSchedules.create({
+        from_subscription: subscriptionId,
+      });
+      
+      // Now update the schedule with our custom phases
+      // When updating, we need start_date in the first phase to anchor end dates
+      await stripe.subscriptionSchedules.update(newSchedule.id, {
+        phases,
+      });
+    }
+
+    const currentPeriodEndDate = currentPeriodEnd
+      ? new Date(currentPeriodEnd * 1000).toISOString()
+      : null;
+
+    res.json({
+      message: "Subscription will be downgraded to Basic Premium at period end",
+      current_period_end: currentPeriodEndDate,
+      days_remaining: calculateDaysRemaining(currentPeriodEnd),
+    });
+  } catch (error: any) {
     console.error("Error downgrading subscription:", error);
-    res.status(500).json({ error: "Failed to downgrade subscription" });
+    const errorMessage = error?.message || "Failed to downgrade subscription";
+    const errorDetails = error?.type ? ` (${error.type})` : "";
+    res.status(500).json({ 
+      error: `Failed to downgrade subscription${errorDetails}`,
+      details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+    });
   }
 });
 
@@ -274,15 +555,96 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
       });
     }
 
+    // Retrieve subscription to check its current state
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ['schedule'],
+      });
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
+        console.error(`Stripe subscription not found: ${subscriptionId}`, error);
+        return res.status(400).json({ 
+          error: "Subscription not found in Stripe. Please contact support." 
+        });
+      }
+      throw error;
+    }
+
+    // Check if subscription is already canceled or in a state that can't be canceled
+    if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+      return res.status(400).json({ 
+        error: `Subscription is already ${subscription.status}` 
+      });
+    }
+
+    // Check if subscription already has cancel_at_period_end set
+    if (subscription.cancel_at_period_end) {
+      const currentPeriodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null;
+      
+      return res.json({
+        message: "Subscription is already scheduled for cancellation",
+        cancel_at_period_end: true,
+        current_period_end: currentPeriodEnd,
+        days_remaining: calculateDaysRemaining(subscription.current_period_end),
+      });
+    }
+
+    // If subscription has a schedule, we need to handle it differently
+    if (subscription.schedule) {
+      const scheduleId = typeof subscription.schedule === 'string' 
+        ? subscription.schedule 
+        : subscription.schedule.id;
+      
+      // Cancel the schedule and set cancel_at_period_end on the subscription
+      try {
+        await stripe.subscriptionSchedules.release(scheduleId);
+      } catch (scheduleError: any) {
+        console.error(`Error releasing schedule ${scheduleId}:`, scheduleError);
+        // Continue with cancel_at_period_end update even if schedule release fails
+      }
+    }
+
     // Set subscription to cancel at period end
-    await stripe.subscriptions.update(subscriptionId, {
+    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
 
-    res.json({ message: "Subscription will be canceled at period end" });
-  } catch (error) {
+    const currentPeriodEnd = updatedSubscription.current_period_end
+      ? new Date(updatedSubscription.current_period_end * 1000).toISOString()
+      : null;
+
+    res.json({
+      message: "Subscription will be canceled at period end",
+      cancel_at_period_end: updatedSubscription.cancel_at_period_end,
+      current_period_end: currentPeriodEnd,
+      days_remaining: calculateDaysRemaining(updatedSubscription.current_period_end),
+    });
+  } catch (error: any) {
     console.error("Error canceling subscription:", error);
-    res.status(500).json({ error: "Failed to cancel subscription" });
+    const errorMessage = error?.message || "Failed to cancel subscription";
+    const errorType = error?.type || error?.code;
+    const errorDetails = errorType ? ` (${errorType})` : "";
+    
+    // Provide more specific error messages
+    if (error?.statusCode === 404) {
+      return res.status(400).json({ 
+        error: "Subscription not found. Please contact support." 
+      });
+    }
+    
+    if (error?.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({ 
+        error: `Invalid subscription: ${errorMessage}` 
+      });
+    }
+
+    res.status(500).json({ 
+      error: `Failed to cancel subscription${errorDetails}`,
+      details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+    });
   }
 });
 

@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
-import { sanitizeNoteInput } from "../../../../lib/sanitize";
+import { sanitizeNoteInput, containsDangerousContent } from "../../../../lib/sanitize";
+import { PREMIUM_STATUS } from "../../../../lib/constants";
+import { showToast } from "../../../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -44,12 +46,12 @@ export default function FairnessBiasTest() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [hasShownDangerWarning, setHasShownDangerWarning] = useState<Set<string>>(new Set());
 
   const projectId = params.projectId as string;
   const currentQuestionRef = useRef<HTMLDivElement>(null);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   useEffect(() => {
     if (!loading && user) {
@@ -501,8 +503,48 @@ export default function FairnessBiasTest() {
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
-                      const sanitizedValue = sanitizeNoteInput(e.target.value);
-                      setResponses({ ...responses, [currentResKey]: sanitizedValue });
+                      const originalValue = e.target.value;
+                      try {
+                        const sanitizedValue = sanitizeNoteInput(originalValue, true);
+                        
+                        // Reset warning state if field is cleared
+                        if (!originalValue.trim()) {
+                          setHasShownDangerWarning(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(currentResKey);
+                            return newSet;
+                          });
+                        }
+                        
+                        // Check if dangerous content was removed - only show warning once per field
+                        if (containsDangerousContent(originalValue) && !hasShownDangerWarning.has(currentResKey)) {
+                          // Dangerous content was detected and removed - show warning toast once
+                          showToast.warning(
+                            "Potentially dangerous content was removed from your input for security."
+                          );
+                          // Mark that we've shown the warning for this field
+                          setHasShownDangerWarning(prev => new Set(prev).add(currentResKey));
+                        }
+                        
+                        // Update state with the sanitized (cleaned) value
+                        setResponses({ ...responses, [currentResKey]: sanitizedValue });
+                      } catch (error) {
+                        // If sanitization fails (shouldn't happen now, but safety check)
+                        console.error("Error sanitizing note input:", error);
+                        showToast.error(
+                          "Unable to process input. Dangerous content was detected and rejected."
+                        );
+                        // Early return - don't update state
+                        return;
+                      }
+                    }}
+                    onBlur={() => {
+                      // Reset warning state when field loses focus so warning can be shown again if needed
+                      setHasShownDangerWarning(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(currentResKey);
+                        return newSet;
+                      });
                     }}
                     placeholder="Type or paste your response here..."
                   />

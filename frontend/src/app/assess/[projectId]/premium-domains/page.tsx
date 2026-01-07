@@ -29,6 +29,8 @@ import { sanitizeNoteInput } from "../../../../lib/sanitize";
 import { AssessmentSkeleton, Skeleton } from "../../../../components/Skeleton";
 import { stripHTML } from "../../../../lib/htmlUtils";
 import { safeRenderHTML } from "../../../../lib/htmlUtils";
+import { useAssessmentResultsStore } from "../../../../store/assessmentResultsStore";
+import { PREMIUM_STATUS } from "../../../../lib/constants";
 
 interface Question {
   level: string;
@@ -82,6 +84,7 @@ export default function PremiumDomainsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [currentDomainId, setCurrentDomainId] = useState<string>("");
   const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
@@ -89,8 +92,9 @@ export default function PremiumDomainsPage() {
   const [noPremiumDomains, setNoPremiumDomains] = useState(false);
   const [fetchSucceeded, setFetchSucceeded] = useState(false);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const { setProjectResults } = useAssessmentResultsStore();
+
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -329,14 +333,12 @@ export default function PremiumDomainsPage() {
     setNotes((prev) => ({ ...prev, [key]: note }));
   };
 
-  const handleNoteSave = async (questionIndex: number) => {
+  const handleNoteSave = async (questionIndex: number, note: string) => {
     const question = questions[questionIndex];
     if (!question) {
       console.error(`Question at index ${questionIndex} not found`);
       return;
     }
-    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
-    const note = notes[key] || "";
 
     if (!note.trim()) return;
 
@@ -356,6 +358,63 @@ export default function PremiumDomainsPage() {
       console.error("Failed to save note:", error);
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  // Save all notes silently in the background
+  const saveAllNotes = async (): Promise<void> => {
+    const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
+    
+    if (noteEntries.length === 0) {
+      return;
+    }
+
+    // Save all notes in parallel
+    const savePromises = noteEntries.map(async ([key, note]) => {
+      try {
+        const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
+        const questionIndex = parseInt(questionIndexStr, 10);
+        
+        if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
+          console.warn(`Invalid note key format: ${key}`);
+          return;
+        }
+
+        const sanitizedNote = sanitizeNoteInput(note.trim());
+        
+        await apiService.saveQuestionNote(projectId, {
+          domainId,
+          practiceId,
+          level,
+          stream,
+          questionIndex,
+          note: sanitizedNote,
+        });
+      } catch (error) {
+        // Log error but don't throw - we don't want to block submission
+        console.error(`Failed to save note for key ${key}:`, error);
+      }
+    });
+
+    // Wait for all saves to complete (or fail silently)
+    await Promise.allSettled(savePromises);
+  };
+
+  const handleSubmitProject = async () => {
+    setSubmitting(true);
+    try {
+      // Save all notes silently in the background before submitting
+      await saveAllNotes();
+      
+      const response = await apiService.submitProject(projectId);
+      
+      setProjectResults(projectId, response.project, response.results);
+      router.push(`/score-report-premium?projectId=${projectId}`);
+    } catch (error) {
+      console.error("Failed to submit project:", error);
+      showToast.error("Failed to submit assessment. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -644,9 +703,16 @@ export default function PremiumDomainsPage() {
                   Saving...
                 </div>
               )}
+              {submitting && (
+                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                  <Save className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </div>
+              )}
               <button
-                onClick={() => router.push(`/score-report-premium?projectId=${projectId}`)}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300"
+                onClick={handleSubmitProject}
+                disabled={submitting}
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Project
               </button>
@@ -777,7 +843,7 @@ export default function PremiumDomainsPage() {
                   onChange={(note) =>
                     handleNoteChange(validQuestionIndex, note)
                   }
-                  onSave={() => handleNoteSave(validQuestionIndex)}
+                  onSave={(value) => handleNoteSave(validQuestionIndex, value)}
                   placeholder="Add your notes, reminders, or thoughts about this question..."
                   maxLength={5000}
                   className="w-full"

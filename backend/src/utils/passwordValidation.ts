@@ -61,7 +61,7 @@ const COMMON_PASSWORDS = [
 ];
 
 // Only allow safe special characters (no quotes, semicolons, or SQL injection characters)
-export const ALLOWED_SPECIAL_CHARS = "@#$%^&*";
+export const ALLOWED_SPECIAL_CHARS = "!@#$%^&*";
 const SPECIAL_CHARS = ALLOWED_SPECIAL_CHARS;
 
 export const DEFAULT_PASSWORD_REQUIREMENTS: PasswordRequirements = {

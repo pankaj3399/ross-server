@@ -28,6 +28,7 @@ import { MFASetup } from "../../components/MFASetup";
 import { apiService } from "../../lib/api";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import Link from "next/link";
+import { ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -162,8 +163,11 @@ export default function SettingsPage() {
     if (!/\d/.test(password)) {
       errors.push("Password must contain at least one number");
     }
-    if (!/[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)) {
-      errors.push("Password must contain at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)");
+    // Escape special regex characters for use in character class
+    const escapedSpecialChars = ALLOWED_SPECIAL_CHARS.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const specialCharRegex = new RegExp(`[${escapedSpecialChars}]`);
+    if (!specialCharRegex.test(password)) {
+      errors.push(`Password must contain at least one special character (${ALLOWED_SPECIAL_CHARS})`);
     }
 
     // User info check
@@ -573,7 +577,7 @@ export default function SettingsPage() {
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2">
                                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least one special character</span>
+                                  <span>At least one special character ({ALLOWED_SPECIAL_CHARS})</span>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
