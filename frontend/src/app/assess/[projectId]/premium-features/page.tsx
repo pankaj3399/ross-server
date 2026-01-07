@@ -22,7 +22,10 @@ interface PracticeWithLevels extends Practice {
   levels: PracticeQuestionLevels;
 }
 
-interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
+interface DomainWithLevels {
+  id: string;
+  title: string;
+  description: string;
   practices: Record<string, PracticeWithLevels>;
 }
 
