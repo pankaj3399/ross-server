@@ -5,6 +5,7 @@ import { z } from "zod";
 import stripe from "../config/stripe";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
+import { invoiceCache } from "../utils/invoiceCache";
 
 const router = Router();
 
@@ -181,21 +182,27 @@ router.get("/details", authenticateToken, async (req, res) => {
       }
     }
 
-    // Payment history (last 10 invoices)
-    const invoicesResponse = await stripe.invoices.list({
-      customer: user.stripe_customer_id,
-      limit: 10,
-    });
+    // Only fetch invoices if explicitly requested (lazy loading)
+    const includeInvoices = req.query.includeInvoices === 'true';
+    let invoices: any[] = [];
+    
+    if (includeInvoices) {
+      // Payment history (last 10 invoices) - only when requested
+      const invoicesResponse = await stripe.invoices.list({
+        customer: user.stripe_customer_id,
+        limit: 10,
+      });
 
-    const invoices = invoicesResponse.data.map((invoice) => ({
-      id: invoice.id,
-      number: invoice.number || invoice.id,
-      amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
-      currency: invoice.currency,
-      status: invoice.status,
-      created: invoice.created ? new Date(invoice.created * 1000).toISOString() : null,
-      hosted_invoice_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
-    }));
+      invoices = invoicesResponse.data.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.number || invoice.id,
+        amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
+        currency: invoice.currency,
+        status: invoice.status,
+        created: invoice.created ? new Date(invoice.created * 1000).toISOString() : null,
+        hosted_invoice_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
+      }));
+    }
 
     const currentPeriodStart = subscription?.current_period_start
       ? new Date(subscription.current_period_start * 1000).toISOString()
@@ -229,11 +236,83 @@ router.get("/details", authenticateToken, async (req, res) => {
     res.json({
       ...baseResponse,
       plan,
-      invoices,
+      ...(includeInvoices && { invoices }),
     });
   } catch (error) {
     console.error("Error fetching subscription details:", error);
     res.status(500).json({ error: "Failed to fetch subscription details" });
+  }
+});
+
+// Get invoices with pagination and caching
+router.get("/invoices", authenticateToken, async (req, res) => {
+  try {
+    const userResult = await pool.query(
+      "SELECT stripe_customer_id FROM users WHERE id = $1",
+      [req.user!.id],
+    );
+
+    const user = userResult.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.stripe_customer_id) {
+      return res.json({ invoices: [], has_more: false });
+    }
+
+    // Parse query parameters
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100); // Max 100, default 10
+    const startingAfter = req.query.startingAfter as string | undefined;
+
+    // Check cache first
+    const cacheKey = `invoices:${user.stripe_customer_id}:${limit}:${startingAfter || 'none'}`;
+    const cached = invoiceCache.get<{
+      invoices: any[];
+      has_more: boolean;
+      last_invoice_id: string | null;
+    }>(cacheKey);
+
+    if (cached) {
+      return res.json(cached);
+    }
+
+    // Fetch from Stripe
+    const listParams: Stripe.InvoiceListParams = {
+      customer: user.stripe_customer_id,
+      limit,
+    };
+
+    if (startingAfter) {
+      listParams.starting_after = startingAfter;
+    }
+
+    const invoicesResponse = await stripe.invoices.list(listParams);
+
+    const invoices = invoicesResponse.data.map((invoice) => ({
+      id: invoice.id,
+      number: invoice.number || invoice.id,
+      amount_paid: invoice.amount_paid ? invoice.amount_paid / 100 : 0,
+      currency: invoice.currency,
+      status: invoice.status,
+      created: invoice.created ? new Date(invoice.created * 1000).toISOString() : null,
+      hosted_invoice_url: invoice.hosted_invoice_url || invoice.invoice_pdf || null,
+    }));
+
+    const response = {
+      invoices,
+      has_more: invoicesResponse.has_more,
+      last_invoice_id: invoices.length > 0 ? invoices[invoices.length - 1].id : null,
+    };
+
+    // Cache the response
+    invoiceCache.set(cacheKey, response);
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+    res.status(500).json({ error: "Failed to fetch invoices" });
   }
 });
 
@@ -419,7 +498,7 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
     } else {
       // Create new schedule from existing subscription first (without phases)
       // Then update it with the phases we want
-      const newSchedule = await (stripe.subscriptionSchedules as any).create({
+      const newSchedule = await stripe.subscriptionSchedules.create({
         from_subscription: subscriptionId,
       });
       
@@ -476,6 +555,58 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
       });
     }
 
+    // Retrieve subscription to check its current state
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+        expand: ['schedule'],
+      });
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
+        console.error(`Stripe subscription not found: ${subscriptionId}`, error);
+        return res.status(400).json({ 
+          error: "Subscription not found in Stripe. Please contact support." 
+        });
+      }
+      throw error;
+    }
+
+    // Check if subscription is already canceled or in a state that can't be canceled
+    if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+      return res.status(400).json({ 
+        error: `Subscription is already ${subscription.status}` 
+      });
+    }
+
+    // Check if subscription already has cancel_at_period_end set
+    if (subscription.cancel_at_period_end) {
+      const currentPeriodEnd = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null;
+      
+      return res.json({
+        message: "Subscription is already scheduled for cancellation",
+        cancel_at_period_end: true,
+        current_period_end: currentPeriodEnd,
+        days_remaining: calculateDaysRemaining(subscription.current_period_end),
+      });
+    }
+
+    // If subscription has a schedule, we need to handle it differently
+    if (subscription.schedule) {
+      const scheduleId = typeof subscription.schedule === 'string' 
+        ? subscription.schedule 
+        : subscription.schedule.id;
+      
+      // Cancel the schedule and set cancel_at_period_end on the subscription
+      try {
+        await stripe.subscriptionSchedules.release(scheduleId);
+      } catch (scheduleError: any) {
+        console.error(`Error releasing schedule ${scheduleId}:`, scheduleError);
+        // Continue with cancel_at_period_end update even if schedule release fails
+      }
+    }
+
     // Set subscription to cancel at period end
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
@@ -491,9 +622,29 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
       current_period_end: currentPeriodEnd,
       days_remaining: calculateDaysRemaining(updatedSubscription.current_period_end),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error canceling subscription:", error);
-    res.status(500).json({ error: "Failed to cancel subscription" });
+    const errorMessage = error?.message || "Failed to cancel subscription";
+    const errorType = error?.type || error?.code;
+    const errorDetails = errorType ? ` (${errorType})` : "";
+    
+    // Provide more specific error messages
+    if (error?.statusCode === 404) {
+      return res.status(400).json({ 
+        error: "Subscription not found. Please contact support." 
+      });
+    }
+    
+    if (error?.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({ 
+        error: `Invalid subscription: ${errorMessage}` 
+      });
+    }
+
+    res.status(500).json({ 
+      error: `Failed to cancel subscription${errorDetails}`,
+      details: process.env.NODE_ENV === "development" ? errorMessage : undefined
+    });
   }
 });
 

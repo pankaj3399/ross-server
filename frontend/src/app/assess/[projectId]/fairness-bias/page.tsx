@@ -6,6 +6,7 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
 import { sanitizeNoteInput } from "../../../../lib/sanitize";
 import { PREMIUM_STATUS } from "../../../../lib/constants";
+import { showToast } from "../../../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -501,13 +502,46 @@ export default function FairnessBiasTest() {
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
+                      const originalValue = e.target.value;
                       try {
-                        const sanitizedValue = sanitizeNoteInput(e.target.value, true);
+                        const sanitizedValue = sanitizeNoteInput(originalValue, true);
+                        
+                        // Check if dangerous content was removed by detecting dangerous patterns in original
+                        // Only check for actual dangerous patterns, not HTML entity escaping
+                        const dangerousPatterns = [
+                          /<script\b/i,
+                          /<iframe\b/i,
+                          /<object\b/i,
+                          /<embed\b/i,
+                          /<link\b/i,
+                          /<meta\b/i,
+                          /<style\b/i,
+                          /javascript:/i,
+                          /vbscript:/i,
+                          /data:/i,
+                          /on\w+\s*=/i, // onclick, onload, etc.
+                        ];
+                        
+                        const hasDangerousContent = dangerousPatterns.some(pattern => pattern.test(originalValue)) ||
+                          /<[^>]+>/g.test(originalValue); // Any HTML tags
+                        
+                        if (hasDangerousContent) {
+                          // Dangerous content was detected and removed - show warning toast
+                          showToast.warning(
+                            "Potentially dangerous content was removed from your input for security."
+                          );
+                        }
+                        
+                        // Update state with the sanitized (cleaned) value
                         setResponses({ ...responses, [currentResKey]: sanitizedValue });
                       } catch (error) {
+                        // If sanitization fails (shouldn't happen now, but safety check)
                         console.error("Error sanitizing note input:", error);
-                        const fallback = responses[currentResKey] || "";
-                        setResponses({ ...responses, [currentResKey]: fallback });
+                        showToast.error(
+                          "Unable to process input. Dangerous content was detected and rejected."
+                        );
+                        // Early return - don't update state
+                        return;
                       }
                     }}
                     placeholder="Type or paste your response here..."

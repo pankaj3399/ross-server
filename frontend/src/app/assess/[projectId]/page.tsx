@@ -227,8 +227,10 @@ export default function AssessmentPage() {
           return;
         }
 
+        // Filter non-premium domains: using !== true to include domains with undefined is_premium
+        // (treating undefined as non-premium, ensuring every domain appears exactly once)
         const nonPremiumDomains = domainsData.domains.filter(
-          (domain) => domain.is_premium === false
+          (domain) => domain.is_premium !== true
         );
 
         // Check if there are any non-premium domains after filtering

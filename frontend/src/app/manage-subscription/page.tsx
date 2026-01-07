@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
-import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
+import { apiService, SubscriptionDetailsResponse, SubscriptionInvoice } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CreditCard,
@@ -84,6 +84,9 @@ export default function ManageSubscriptionPage() {
     hasStripeCustomer: boolean;
   } | null>(null);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetailsResponse | null>(null);
+  const [invoices, setInvoices] = useState<SubscriptionInvoice[]>([]);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [invoicesHasMore, setInvoicesHasMore] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
@@ -126,6 +129,29 @@ export default function ManageSubscriptionPage() {
 
     loadData();
   }, [isAuthenticated, authLoading, router]);
+
+  // Lazy load invoices separately (only when subscription details are loaded)
+  useEffect(() => {
+    if (!subscriptionDetails || !subscriptionStatus?.hasStripeCustomer) {
+      return;
+    }
+
+    const loadInvoices = async () => {
+      try {
+        setLoadingInvoices(true);
+        const response = await apiService.getInvoices(10);
+        setInvoices(response.invoices);
+        setInvoicesHasMore(response.has_more);
+      } catch (err: any) {
+        console.error("Error loading invoices:", err);
+        // Don't show error to user, just log it - invoices are not critical
+      } finally {
+        setLoadingInvoices(false);
+      }
+    };
+
+    loadInvoices();
+  }, [subscriptionDetails, subscriptionStatus]);
 
   // Focus management and keyboard handlers for Cancel Confirmation Modal
   useEffect(() => {
@@ -410,7 +436,7 @@ export default function ManageSubscriptionPage() {
   const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
   const planDetails = subscriptionDetails?.plan;
   const isCanceling = !!planDetails?.cancel_at_period_end;
-  const invoices = subscriptionDetails?.invoices || [];
+  // Invoices are now loaded separately via lazy loading
 
   return (
     <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 min-h-screen py-12 px-4">
@@ -590,7 +616,12 @@ export default function ManageSubscriptionPage() {
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent charges</h3>
                 </div>
               </div>
-              {invoices.length === 0 ? (
+              {loadingInvoices ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-300" />
+                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">Loading invoices...</span>
+                </div>
+              ) : invoices.length === 0 ? (
                 <p className="text-sm text-gray-600 dark:text-gray-300">
                   No payments recorded yet.
                 </p>
@@ -870,7 +901,14 @@ export default function ManageSubscriptionPage() {
             aria-labelledby="cancel-modal-title"
             aria-describedby="cancel-modal-description"
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            tabIndex={0}
             onClick={() => !processingAction && setShowCancelConfirmation(false)}
+            onKeyDown={(e) => {
+              if (!processingAction && (e.key === "Enter" || e.key === " " || e.key === "Escape")) {
+                e.preventDefault();
+                setShowCancelConfirmation(false);
+              }
+            }}
           >
             <motion.div
               ref={cancelModalRef}

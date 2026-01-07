@@ -73,8 +73,9 @@ export default function PremiumFeaturesPage() {
         const domainsData = await apiService.getDomainsFull(projectId);
 
         // Get non-premium domains for the sidebar navigation
+        // Using !== true to include domains with undefined is_premium (treating undefined as non-premium)
         const nonPremiumDomains = domainsData.domains.filter(
-          (domain) => domain.is_premium === false
+          (domain) => domain.is_premium !== true
         );
 
         // Transform domains

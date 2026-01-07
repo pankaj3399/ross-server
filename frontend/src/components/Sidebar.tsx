@@ -70,7 +70,7 @@ export function Sidebar({
     setMobileOpen(false);
   }, [pathname, setMobileOpen]);
 
-  const shouldHideSidebar = pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/assess");
+  const shouldHideSidebar = pathname === "/";
 
   const isActive = (href: string, id: string) => {
     if (href === "#") return false;

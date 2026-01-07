@@ -112,15 +112,13 @@ export function isInputSafe(input: string): boolean {
  * Sanitize and validate input for question notes
  * @param input - The note input
  * @param preserveWhitespace - If true, preserve leading/trailing whitespace (for typing). Default false.
- * @returns Sanitized and validated note text
+ * @returns Sanitized note text (dangerous content is removed, not rejected)
  */
 export function sanitizeNoteInput(input: string, preserveWhitespace: boolean = false): string {
+  // Sanitize the input - this removes dangerous patterns and escapes HTML
   const sanitized = sanitizeInput(input, preserveWhitespace);
 
-  // Additional validation for notes
-  if (!isInputSafe(sanitized)) {
-    throw new Error("Invalid input: Contains potentially dangerous content");
-  }
-
+  // Return the cleaned string - dangerous content has already been removed by sanitizeInput
+  // This allows users to see their safe input reflected while dangerous parts are stripped
   return sanitized;
 }

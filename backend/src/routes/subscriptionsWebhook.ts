@@ -107,7 +107,7 @@ export default async function subscriptionsWebhookHandler(
         try {
             switch (event.type) {
                 case "customer.subscription.created":
-                case "customer.subscription.updated":
+                case "customer.subscription.updated": {
                     // Single source of truth for subscription status updates
                     const subscription = event.data.object as Stripe.Subscription;
                     const customerId = subscription.customer as string;
@@ -147,8 +147,9 @@ export default async function subscriptionsWebhookHandler(
                         console.warn(`No user found with stripe_customer_id ${customerId} (event: ${event.id})`);
                     }
                     break;
+                }
 
-                case "customer.subscription.deleted":
+                case "customer.subscription.deleted": {
                     const deletedSubscription = event.data.object as Stripe.Subscription;
                     const deletedCustomerId = deletedSubscription.customer as string;
 
@@ -160,22 +161,21 @@ export default async function subscriptionsWebhookHandler(
                         console.error(`[Async] Unhandled error in subscription deletion processing for customer ${deletedCustomerId} (event: ${event.id}):`, unhandledError);
                     });
                     break;
+                }
 
-                case "invoice.payment_failed":
+                case "invoice.payment_failed": {
                     const invoice = event.data.object as Stripe.Invoice;
                     const customerIdFailed = invoice.customer as string;
 
-                    console.log("Payment failed for customer:", customerIdFailed, "event ID:", event.id);
-
-                    await pool.query(
-                        "UPDATE users SET subscription_status = $1 WHERE stripe_customer_id = $2",
-                        [SubscriptionStatus.FREE, customerIdFailed]
-                    );
-
-                    console.log(`Successfully updated subscription status to free for customer ${customerIdFailed} (event: ${event.id})`);
+                    console.warn(`[Payment Failed] Invoice payment failed for customer ${customerIdFailed} (event: ${event.id})`, {
+                        invoice: invoice.id,
+                        customerId: customerIdFailed,
+                        eventId: event.id,
+                    });
                     break;
+                }
 
-                case "checkout.session.completed":
+                case "checkout.session.completed": {
                     const session = event.data.object as Stripe.Checkout.Session;
                     
                     // Only handle subscription checkouts - link user with Stripe only
@@ -240,6 +240,7 @@ export default async function subscriptionsWebhookHandler(
                         }
                     }
                     break;
+                }
 
                 default:
                     console.log(`Unhandled event type: ${event.type} (event ID: ${event.id})`);

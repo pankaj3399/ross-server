@@ -108,7 +108,7 @@ export interface SubscriptionDetailsResponse {
   subscription_status: string;
   signup_date: string | null;
   plan: SubscriptionPlanDetails | null;
-  invoices: SubscriptionInvoice[];
+  invoices?: SubscriptionInvoice[]; // Optional - only included when includeInvoices=true
 }
 
 class ApiService {
@@ -610,8 +610,28 @@ class ApiService {
     }>("/subscriptions/status");
   }
 
-  async getSubscriptionDetails(): Promise<SubscriptionDetailsResponse> {
-    return this.request<SubscriptionDetailsResponse>("/subscriptions/details");
+  async getSubscriptionDetails(includeInvoices: boolean = false): Promise<SubscriptionDetailsResponse> {
+    const url = includeInvoices 
+      ? "/subscriptions/details?includeInvoices=true"
+      : "/subscriptions/details";
+    return this.request<SubscriptionDetailsResponse>(url);
+  }
+
+  async getInvoices(limit: number = 10, startingAfter?: string): Promise<{
+    invoices: SubscriptionInvoice[];
+    has_more: boolean;
+    last_invoice_id: string | null;
+  }> {
+    const params = new URLSearchParams();
+    params.append("limit", limit.toString());
+    if (startingAfter) {
+      params.append("startingAfter", startingAfter);
+    }
+    return this.request<{
+      invoices: SubscriptionInvoice[];
+      has_more: boolean;
+      last_invoice_id: string | null;
+    }>(`/subscriptions/invoices?${params.toString()}`);
   }
 
   async createCheckoutSession(priceId: string): Promise<{
