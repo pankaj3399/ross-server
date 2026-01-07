@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../hooks/useRequireAuth";
@@ -58,11 +58,8 @@ export default function PremiumFeaturesPage() {
       return;
     }
 
-    // Calculate premium status after user is loaded
-    const userIsPremium = user.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
-
     // Redirect non-premium users to upgrade page
-    if (!userIsPremium) {
+    if (!isPremium) {
       router.push(`/manage-subscription`);
       return;
     }

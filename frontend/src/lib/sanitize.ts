@@ -89,27 +89,27 @@ export function isInputSafe(input: string): boolean {
   }
 
   // Check for dangerous patterns
-  // Reset lastIndex after each test to avoid regex state issues with global flags
+  // Reset lastIndex before each test to avoid regex state issues with global flags
   for (const pattern of DANGEROUS_PATTERNS) {
+    pattern.lastIndex = 0; // Reset lastIndex before test to prevent state issues
     const hasMatch = pattern.test(input);
-    pattern.lastIndex = 0; // Reset lastIndex to prevent state issues
     if (hasMatch) {
       return false;
     }
   }
 
-  // Check for HTML tags (reset lastIndex to prevent state issues)
+  // Check for HTML tags (reset lastIndex before test to prevent state issues)
   const htmlTagPattern = /<[^>]*>/g;
+  htmlTagPattern.lastIndex = 0; // Reset lastIndex before test
   const hasHtmlTags = htmlTagPattern.test(input);
-  htmlTagPattern.lastIndex = 0; // Reset lastIndex
   if (hasHtmlTags) {
     return false;
   }
 
-  // Check for javascript: or data: URLs (reset lastIndex to prevent state issues)
+  // Check for javascript: or data: URLs (reset lastIndex before test to prevent state issues)
   const urlPattern = /javascript:|data:/gi;
+  urlPattern.lastIndex = 0; // Reset lastIndex before test
   const hasDangerousUrl = urlPattern.test(input);
-  urlPattern.lastIndex = 0; // Reset lastIndex
   if (hasDangerousUrl) {
     return false;
   }
@@ -128,19 +128,19 @@ export function containsDangerousContent(input: string): boolean {
   }
 
   // Check for dangerous patterns using the canonical DANGEROUS_PATTERNS
-  // Reset lastIndex after each test to avoid regex state issues with global flags
+  // Reset lastIndex before each test to avoid regex state issues with global flags
   for (const pattern of DANGEROUS_PATTERNS) {
+    pattern.lastIndex = 0; // Reset lastIndex before test to prevent state issues
     const hasMatch = pattern.test(input);
-    pattern.lastIndex = 0; // Reset lastIndex to prevent state issues
     if (hasMatch) {
       return true;
     }
   }
 
-  // Check for any HTML tags (reset lastIndex to prevent state issues)
+  // Check for any HTML tags (reset lastIndex before test to prevent state issues)
   const htmlTagPattern = /<[^>]*>/g;
+  htmlTagPattern.lastIndex = 0; // Reset lastIndex before test
   const hasHtmlTags = htmlTagPattern.test(input);
-  htmlTagPattern.lastIndex = 0; // Reset lastIndex
   if (hasHtmlTags) {
     return true;
   }
