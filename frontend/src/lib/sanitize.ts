@@ -89,19 +89,28 @@ export function isInputSafe(input: string): boolean {
   }
 
   // Check for dangerous patterns
+  // Reset lastIndex after each test to avoid regex state issues with global flags
   for (const pattern of DANGEROUS_PATTERNS) {
-    if (pattern.test(input)) {
+    const hasMatch = pattern.test(input);
+    pattern.lastIndex = 0; // Reset lastIndex to prevent state issues
+    if (hasMatch) {
       return false;
     }
   }
 
-  // Check for HTML tags
-  if (/<[^>]*>/g.test(input)) {
+  // Check for HTML tags (reset lastIndex to prevent state issues)
+  const htmlTagPattern = /<[^>]*>/g;
+  const hasHtmlTags = htmlTagPattern.test(input);
+  htmlTagPattern.lastIndex = 0; // Reset lastIndex
+  if (hasHtmlTags) {
     return false;
   }
 
-  // Check for javascript: or data: URLs
-  if (/javascript:|data:/gi.test(input)) {
+  // Check for javascript: or data: URLs (reset lastIndex to prevent state issues)
+  const urlPattern = /javascript:|data:/gi;
+  const hasDangerousUrl = urlPattern.test(input);
+  urlPattern.lastIndex = 0; // Reset lastIndex
+  if (hasDangerousUrl) {
     return false;
   }
 
@@ -119,14 +128,20 @@ export function containsDangerousContent(input: string): boolean {
   }
 
   // Check for dangerous patterns using the canonical DANGEROUS_PATTERNS
+  // Reset lastIndex after each test to avoid regex state issues with global flags
   for (const pattern of DANGEROUS_PATTERNS) {
-    if (pattern.test(input)) {
+    const hasMatch = pattern.test(input);
+    pattern.lastIndex = 0; // Reset lastIndex to prevent state issues
+    if (hasMatch) {
       return true;
     }
   }
 
-  // Check for any HTML tags
-  if (/<[^>]+>/g.test(input)) {
+  // Check for any HTML tags (reset lastIndex to prevent state issues)
+  const htmlTagPattern = /<[^>]*>/g;
+  const hasHtmlTags = htmlTagPattern.test(input);
+  htmlTagPattern.lastIndex = 0; // Reset lastIndex
+  if (hasHtmlTags) {
     return true;
   }
 

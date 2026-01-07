@@ -100,20 +100,18 @@ export default function PremiumFeaturesPage() {
         setDomains(transformedDomains);
 
         // Load answers for progress calculation
-        apiService.getAnswers(projectId)
-          .catch(() => ({ answers: {} }))
-          .then((answersData) => {
-            const answersMap: Record<string, number> = {};
-            if (answersData && answersData.answers) {
-              Object.entries(answersData.answers).forEach(([key, value]) => {
-                answersMap[key] = value as number;
-              });
-            }
-            setAnswers(answersMap);
-          })
-          .catch((error) => {
-            console.error("Failed to load answers:", error);
-          });
+        try {
+          const answersData = await apiService.getAnswers(projectId);
+          const answersMap: Record<string, number> = {};
+          if (answersData && answersData.answers) {
+            Object.entries(answersData.answers).forEach(([key, value]) => {
+              answersMap[key] = value as number;
+            });
+          }
+          setAnswers(answersMap);
+        } catch (error) {
+          console.error(`Failed to load answers for project ${projectId}:`, error);
+        }
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {

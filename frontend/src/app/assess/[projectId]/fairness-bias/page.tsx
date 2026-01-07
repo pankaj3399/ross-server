@@ -46,6 +46,7 @@ export default function FairnessBiasTest() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [hasShownDangerWarning, setHasShownDangerWarning] = useState<Set<string>>(new Set());
 
   const projectId = params.projectId as string;
   const currentQuestionRef = useRef<HTMLDivElement>(null);
@@ -506,12 +507,23 @@ export default function FairnessBiasTest() {
                       try {
                         const sanitizedValue = sanitizeNoteInput(originalValue, true);
                         
-                        // Check if dangerous content was removed using the canonical utility
-                        if (containsDangerousContent(originalValue)) {
-                          // Dangerous content was detected and removed - show warning toast
+                        // Reset warning state if field is cleared
+                        if (!originalValue.trim()) {
+                          setHasShownDangerWarning(prev => {
+                            const newSet = new Set(prev);
+                            newSet.delete(currentResKey);
+                            return newSet;
+                          });
+                        }
+                        
+                        // Check if dangerous content was removed - only show warning once per field
+                        if (containsDangerousContent(originalValue) && !hasShownDangerWarning.has(currentResKey)) {
+                          // Dangerous content was detected and removed - show warning toast once
                           showToast.warning(
                             "Potentially dangerous content was removed from your input for security."
                           );
+                          // Mark that we've shown the warning for this field
+                          setHasShownDangerWarning(prev => new Set(prev).add(currentResKey));
                         }
                         
                         // Update state with the sanitized (cleaned) value
@@ -525,6 +537,14 @@ export default function FairnessBiasTest() {
                         // Early return - don't update state
                         return;
                       }
+                    }}
+                    onBlur={() => {
+                      // Reset warning state when field loses focus so warning can be shown again if needed
+                      setHasShownDangerWarning(prev => {
+                        const newSet = new Set(prev);
+                        newSet.delete(currentResKey);
+                        return newSet;
+                      });
                     }}
                     placeholder="Type or paste your response here..."
                   />
