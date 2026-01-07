@@ -12,6 +12,7 @@ interface CacheEntry<T> {
 class InvoiceCache {
   private cache: Map<string, CacheEntry<any>>;
   private defaultTTL: number;
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(defaultTTL: number = 5 * 60 * 1000) {
     // Default TTL: 5 minutes
@@ -19,7 +20,9 @@ class InvoiceCache {
     this.defaultTTL = defaultTTL;
 
     // Clean up expired entries every minute
-    setInterval(() => this.cleanup(), 60 * 1000);
+    // Using unref() so the interval won't keep the process alive
+    this.cleanupTimer = setInterval(() => this.cleanup(), 60 * 1000);
+    this.cleanupTimer.unref();
   }
 
   /**
@@ -77,6 +80,17 @@ class InvoiceCache {
    */
   clear(): void {
     this.cache.clear();
+  }
+
+  /**
+   * Stop the cleanup interval timer
+   * Call this method to clean up resources, useful for hot-reload or tests
+   */
+  dispose(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
+    }
   }
 
   /**

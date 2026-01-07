@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
-import { sanitizeNoteInput } from "../../../../lib/sanitize";
+import { sanitizeNoteInput, containsDangerousContent } from "../../../../lib/sanitize";
 import { PREMIUM_STATUS } from "../../../../lib/constants";
 import { showToast } from "../../../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -506,26 +506,8 @@ export default function FairnessBiasTest() {
                       try {
                         const sanitizedValue = sanitizeNoteInput(originalValue, true);
                         
-                        // Check if dangerous content was removed by detecting dangerous patterns in original
-                        // Only check for actual dangerous patterns, not HTML entity escaping
-                        const dangerousPatterns = [
-                          /<script\b/i,
-                          /<iframe\b/i,
-                          /<object\b/i,
-                          /<embed\b/i,
-                          /<link\b/i,
-                          /<meta\b/i,
-                          /<style\b/i,
-                          /javascript:/i,
-                          /vbscript:/i,
-                          /data:/i,
-                          /on\w+\s*=/i, // onclick, onload, etc.
-                        ];
-                        
-                        const hasDangerousContent = dangerousPatterns.some(pattern => pattern.test(originalValue)) ||
-                          /<[^>]+>/g.test(originalValue); // Any HTML tags
-                        
-                        if (hasDangerousContent) {
+                        // Check if dangerous content was removed using the canonical utility
+                        if (containsDangerousContent(originalValue)) {
                           // Dangerous content was detected and removed - show warning toast
                           showToast.warning(
                             "Potentially dangerous content was removed from your input for security."

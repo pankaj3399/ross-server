@@ -129,8 +129,8 @@ export default function PremiumFeaturesPage() {
     navigateToDomain,
     navigateToPractice,
   } = useAssessmentNavigation({
-    domains: domains as any,
-    assessmentData: answers as any,
+    domains,
+    assessmentData: answers,
     currentDomainId,
     currentPracticeId,
     currentQuestionIndex,
@@ -155,16 +155,8 @@ export default function PremiumFeaturesPage() {
     router.push(`/assess/${projectId}`);
   };
 
-  if (authLoading || userLoading || !isAuthenticated || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
-      </div>
-    );
-  }
-
-  // Don't render if user data is not loaded yet or if not premium (will redirect)
-  if (!user || !isPremium) {
+  // Combined loading check - render loading UI if any of these conditions are true
+  if (authLoading || userLoading || loading || !isAuthenticated || !user || !isPremium) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-600 dark:text-gray-400">Loading...</div>

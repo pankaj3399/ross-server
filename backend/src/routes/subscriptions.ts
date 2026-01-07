@@ -5,7 +5,7 @@ import { z } from "zod";
 import stripe from "../config/stripe";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
-import { invoiceCache } from "../utils/invoiceCache";
+import { invoiceCache, default as InvoiceCache } from "../utils/invoiceCache";
 
 const router = Router();
 
@@ -267,7 +267,7 @@ router.get("/invoices", authenticateToken, async (req, res) => {
     const startingAfter = req.query.startingAfter as string | undefined;
 
     // Check cache first
-    const cacheKey = `invoices:${user.stripe_customer_id}:${limit}:${startingAfter || 'none'}`;
+    const cacheKey = InvoiceCache.getKey(user.stripe_customer_id, limit, startingAfter);
     const cached = invoiceCache.get<{
       invoices: any[];
       has_more: boolean;

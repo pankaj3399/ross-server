@@ -109,6 +109,31 @@ export function isInputSafe(input: string): boolean {
 }
 
 /**
+ * Check if input contains dangerous content that would be removed during sanitization
+ * @param input - The input to check
+ * @returns true if dangerous content is detected, false otherwise
+ */
+export function containsDangerousContent(input: string): boolean {
+  if (!input || typeof input !== "string") {
+    return false;
+  }
+
+  // Check for dangerous patterns using the canonical DANGEROUS_PATTERNS
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(input)) {
+      return true;
+    }
+  }
+
+  // Check for any HTML tags
+  if (/<[^>]+>/g.test(input)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Sanitize and validate input for question notes
  * @param input - The note input
  * @param preserveWhitespace - If true, preserve leading/trailing whitespace (for typing). Default false.

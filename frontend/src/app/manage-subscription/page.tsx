@@ -901,14 +901,8 @@ export default function ManageSubscriptionPage() {
             aria-labelledby="cancel-modal-title"
             aria-describedby="cancel-modal-description"
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            tabIndex={0}
+            tabIndex={-1}
             onClick={() => !processingAction && setShowCancelConfirmation(false)}
-            onKeyDown={(e) => {
-              if (!processingAction && (e.key === "Enter" || e.key === " " || e.key === "Escape")) {
-                e.preventDefault();
-                setShowCancelConfirmation(false);
-              }
-            }}
           >
             <motion.div
               ref={cancelModalRef}
