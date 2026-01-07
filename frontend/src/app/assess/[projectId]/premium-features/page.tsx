@@ -58,6 +58,11 @@ export default function PremiumFeaturesPage() {
       return;
     }
 
+    // Derive premium status from user subscription status
+    const isPremium = user.subscription_status
+      ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number])
+      : false;
+
     // Redirect non-premium users to upgrade page
     if (!isPremium) {
       router.push(`/manage-subscription`);
@@ -117,7 +122,7 @@ export default function PremiumFeaturesPage() {
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, authLoading, userLoading, user, isPremium]);
+  }, [projectId, isAuthenticated, authLoading, userLoading, user]);
 
   const {
     progressData,
