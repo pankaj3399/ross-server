@@ -8,7 +8,7 @@ import { sanitizeNoteInput } from "../lib/sanitize";
 interface SecureTextareaProps {
   value: string;
   onChange: (value: string) => void;
-  onSave: () => Promise<void>;
+  onSave: (value: string) => Promise<void>;
   placeholder?: string;
   maxLength?: number;
   disabled?: boolean;
@@ -69,10 +69,11 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
         if (!isValid || disabled) return;
         // Trim whitespace before saving
         const trimmedValue = value.trim();
+        const valueToSave = trimmedValue || value;
         if (trimmedValue !== value) {
           onChange(trimmedValue);
         }
-        onSave().catch((error) => {
+        onSave(valueToSave).catch((error) => {
           console.error("Failed to save note:", error);
         });
       }

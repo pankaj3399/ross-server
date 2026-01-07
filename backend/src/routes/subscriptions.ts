@@ -23,6 +23,25 @@ const calculateDaysRemaining = (periodEnd?: number | null) => {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 };
 
+const buildDowngradePhases = (
+  currentPriceId: string,
+  basicPriceId: string,
+  currentPeriodStart: number,
+  currentPeriodEnd: number
+): Stripe.SubscriptionScheduleUpdateParams.Phase[] => {
+  return [
+    {
+      items: [{ price: currentPriceId, quantity: 1 }],
+      start_date: currentPeriodStart,
+      end_date: currentPeriodEnd,
+    },
+    {
+      items: [{ price: basicPriceId, quantity: 1 }],
+      start_date: currentPeriodEnd,
+    },
+  ];
+};
+
 // Create checkout session
 router.post("/create-checkout-session", authenticateToken, async (req, res) => {
   try {
@@ -132,8 +151,6 @@ router.get("/details", authenticateToken, async (req, res) => {
 
     const baseResponse: any = {
       subscription_status: user.subscription_status,
-      stripe_customer_id: user.stripe_customer_id,
-      stripe_subscription_id: user.stripe_subscription_id,
       signup_date: user.created_at,
     };
 
@@ -144,7 +161,24 @@ router.get("/details", authenticateToken, async (req, res) => {
     // Load subscription if present
     let subscription: Stripe.Subscription | null = null;
     if (user.stripe_subscription_id) {
-      subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+      try {
+        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+      } catch (error: any) {
+        // Handle missing or deleted Stripe subscription
+        if (
+          error?.statusCode === 404 ||
+          error?.type === 'StripeInvalidRequestError'
+        ) {
+          console.warn(
+            `Stripe subscription not found or invalid: ${user.stripe_subscription_id}`,
+            error
+          );
+          subscription = null;
+        } else {
+          // Rethrow unexpected errors
+          throw error;
+        }
+      }
     }
 
     // Payment history (last 10 invoices)
@@ -267,7 +301,7 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       "SELECT stripe_subscription_id FROM users WHERE id = $1",
       [userId]
     );
-    const currentSubscriptionId = userResult.rows[0]?.stripe_subscription_id || "";
+    const currentSubscriptionId = userResult.rows[0]?.stripe_subscription_id ?? null;
 
     const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
     if (!proPriceId) {
@@ -285,7 +319,7 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       metadata: { 
         userId,
         action: "upgrade_to_pro",
-        currentSubscriptionId: currentSubscriptionId,
+        ...(currentSubscriptionId && { currentSubscriptionId }),
       },
       subscription_data: {
         metadata: {
@@ -369,21 +403,18 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
       });
     }
 
+    // Build phases for downgrade schedule (shared for both update and create)
+    const phases = buildDowngradePhases(
+      currentPriceId,
+      basicPriceId,
+      subscription.current_period_start,
+      currentPeriodEnd
+    );
+
     if (scheduleId) {
       // Update existing schedule - include start_date for updates
-      const updatePhases = [
-        {
-          items: [{ price: currentPriceId, quantity: 1 }],
-          start_date: subscription.current_period_start,
-          end_date: currentPeriodEnd,
-        },
-        {
-          items: [{ price: basicPriceId, quantity: 1 }],
-          start_date: currentPeriodEnd,
-        },
-      ];
       await stripe.subscriptionSchedules.update(scheduleId, {
-        phases: updatePhases,
+        phases,
       });
     } else {
       // Create new schedule from existing subscription first (without phases)
@@ -394,20 +425,8 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
       
       // Now update the schedule with our custom phases
       // When updating, we need start_date in the first phase to anchor end dates
-      const createPhases = [
-        {
-          items: [{ price: currentPriceId, quantity: 1 }],
-          start_date: subscription.current_period_start,
-          end_date: currentPeriodEnd,
-        },
-        {
-          items: [{ price: basicPriceId, quantity: 1 }],
-          start_date: currentPeriodEnd,
-        },
-      ];
-      
       await stripe.subscriptionSchedules.update(newSchedule.id, {
-        phases: createPhases,
+        phases,
       });
     }
 

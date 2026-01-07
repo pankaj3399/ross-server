@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
+import { PREMIUM_STATUS } from "../../../../../lib/constants";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -30,8 +31,7 @@ export default function FairnessBiasOptions() {
   const [selectedMethod, setSelectedMethod] = useState<TestMethod>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   // Show subscription modal for non-premium users
   useEffect(() => {

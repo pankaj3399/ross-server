@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   CreditCard,
   Loader,
@@ -24,6 +24,53 @@ import {
 import Link from "next/link";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/SubscriptionModal";
+import { SubscriptionPlanDetails } from "../../lib/api";
+
+interface CancellationScheduledCardProps {
+  planDetails: SubscriptionPlanDetails | null | undefined;
+  formatDate: (value: string | null | undefined) => string;
+}
+
+function CancellationScheduledCard({ planDetails, formatDate }: CancellationScheduledCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-red-900/20 border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-6 shadow-lg"
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-full blur-2xl"></div>
+      <div className="relative flex items-start gap-4">
+        <div className="w-10 h-10 bg-amber-500 dark:bg-amber-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+          <AlertTriangle className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+            Cancellation Scheduled
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+            Your subscription will be canceled at the end of your current billing period. You&apos;ll continue to have access until then.
+          </p>
+          {planDetails?.cancel_effective_date && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Access until:</span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {formatDate(planDetails.cancel_effective_date)}
+              </span>
+              {typeof planDetails.days_remaining === "number" && (
+                <>
+                  <span className="text-gray-400">•</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"} remaining
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ManageSubscriptionPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -41,6 +88,13 @@ export default function ManageSubscriptionPage() {
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  
+  // Refs for focus management
+  const cancelModalRef = useRef<HTMLDivElement>(null);
+  const downgradeModalRef = useRef<HTMLDivElement>(null);
+  const cancelModalTitleRef = useRef<HTMLHeadingElement>(null);
+  const downgradeModalTitleRef = useRef<HTMLHeadingElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -72,6 +126,120 @@ export default function ManageSubscriptionPage() {
 
     loadData();
   }, [isAuthenticated, authLoading, router]);
+
+  // Focus management and keyboard handlers for Cancel Confirmation Modal
+  useEffect(() => {
+    if (!showCancelConfirmation) return;
+
+    // Store the previously focused element
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
+    // Focus the modal title when it opens
+    const timer = setTimeout(() => {
+      cancelModalTitleRef.current?.focus();
+    }, 100);
+
+    // Handle Escape key
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !processingAction) {
+        setShowCancelConfirmation(false);
+      }
+    };
+
+    // Trap focus within modal
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !cancelModalRef.current) return;
+
+      // Only trap focus if the active element is within the modal
+      if (!cancelModalRef.current.contains(document.activeElement)) return;
+
+      const focusableElements = cancelModalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleTab);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleTab);
+      // Return focus to the previously focused element
+      previousFocusRef.current?.focus();
+    };
+  }, [showCancelConfirmation, processingAction]);
+
+  // Focus management and keyboard handlers for Downgrade Confirmation Modal
+  useEffect(() => {
+    if (!showDowngradeConfirmation) return;
+
+    // Store the previously focused element
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
+    // Focus the modal title when it opens
+    const timer = setTimeout(() => {
+      downgradeModalTitleRef.current?.focus();
+    }, 100);
+
+    // Handle Escape key
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !processingAction) {
+        setShowDowngradeConfirmation(false);
+      }
+    };
+
+    // Trap focus within modal
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !downgradeModalRef.current) return;
+
+      // Only trap focus if the active element is within the modal
+      if (!downgradeModalRef.current.contains(document.activeElement)) return;
+
+      const focusableElements = downgradeModalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleTab);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleTab);
+      // Return focus to the previously focused element
+      previousFocusRef.current?.focus();
+    };
+  }, [showDowngradeConfirmation, processingAction]);
 
   // Helper to reload subscription status and user profile
   const reloadSubscriptionData = async () => {
@@ -106,7 +274,8 @@ export default function ManageSubscriptionPage() {
         minimumFractionDigits: 2,
       }).format(amount);
     } catch {
-      return `$${amount.toFixed(2)}`;
+      const currencyCode = currency?.toUpperCase() || "USD";
+      return `${currencyCode} ${amount.toFixed(2)}`;
     }
   };
 
@@ -563,42 +732,7 @@ export default function ManageSubscriptionPage() {
                   </motion.button>
                 )}
                 {isCanceling ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-red-900/20 border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-6 shadow-lg"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-full blur-2xl"></div>
-                    <div className="relative flex items-start gap-4">
-                      <div className="w-10 h-10 bg-amber-500 dark:bg-amber-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <AlertTriangle className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                          Cancellation Scheduled
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                          Your subscription will be canceled at the end of your current billing period. You&apos;ll continue to have access until then.
-                        </p>
-                        {planDetails?.cancel_effective_date && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">Access until:</span>
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                              {formatDate(planDetails.cancel_effective_date)}
-                            </span>
-                            {typeof planDetails.days_remaining === "number" && (
-                              <>
-                                <span className="text-gray-400">•</span>
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"} remaining
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
+                  <CancellationScheduledCard planDetails={planDetails} formatDate={formatDate} />
                 ) : (
                   <motion.button
                     whileHover={{ scale: 1.02, y: -2 }}
@@ -655,42 +789,7 @@ export default function ManageSubscriptionPage() {
                   </motion.button>
                 )}
                 {isCanceling ? (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 dark:from-amber-900/20 dark:via-orange-900/20 dark:to-red-900/20 border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-6 shadow-lg"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-full blur-2xl"></div>
-                    <div className="relative flex items-start gap-4">
-                      <div className="w-10 h-10 bg-amber-500 dark:bg-amber-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                        <AlertTriangle className="w-5 h-5 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                          Cancellation Scheduled
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                          Your subscription will be canceled at the end of your current billing period. You&apos;ll continue to have access until then.
-                        </p>
-                        {planDetails?.cancel_effective_date && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">Access until:</span>
-                            <span className="font-semibold text-gray-900 dark:text-white">
-                              {formatDate(planDetails.cancel_effective_date)}
-                            </span>
-                            {typeof planDetails.days_remaining === "number" && (
-                              <>
-                                <span className="text-gray-400">•</span>
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"} remaining
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
+                  <CancellationScheduledCard planDetails={planDetails} formatDate={formatDate} />
                 ) : (
                   <motion.button
                     whileHover={{ scale: 1.02, y: -2 }}
@@ -763,27 +862,39 @@ export default function ManageSubscriptionPage() {
       />
 
       {/* Cancel Confirmation Modal */}
-      {showCancelConfirmation && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={() => !processingAction && setShowCancelConfirmation(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
+      <AnimatePresence>
+        {showCancelConfirmation && (
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-modal-title"
+            aria-describedby="cancel-modal-description"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => !processingAction && setShowCancelConfirmation(false)}
           >
+            <motion.div
+              ref={cancelModalRef}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
+            >
             <div className="flex items-start gap-4 mb-6">
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3 
+                  id="cancel-modal-title"
+                  ref={cancelModalTitleRef}
+                  className="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                  tabIndex={-1}
+                >
                   Cancel Subscription?
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
-                  Are you sure you want to cancel? You&apos;ll keep access for the rest of this billing period and won&apos;t be charged again.
-                </p>
-                <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                <div id="cancel-modal-description">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
+                    Are you sure you want to cancel? You&apos;ll keep access for the rest of this billing period and won&apos;t be charged again.
+                  </p>
+                  <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                     <span>Access stays active until the date below</span>
@@ -822,14 +933,16 @@ export default function ManageSubscriptionPage() {
                   </div>
                 )}
 
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  After cancellation, you&apos;ll be downgraded to the Free plan and will lose access to premium features.
-                </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    After cancellation, you&apos;ll be downgraded to the Free plan and will lose access to premium features.
+                  </p>
+                </div>
               </div>
             </div>
 
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowCancelConfirmation(false)}
                 disabled={processingAction === "cancel"}
                 className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -837,6 +950,7 @@ export default function ManageSubscriptionPage() {
                 Keep
               </button>
               <button
+                type="button"
                 onClick={confirmCancelSubscription}
                 disabled={processingAction === "cancel"}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -853,30 +967,49 @@ export default function ManageSubscriptionPage() {
             </div>
           </motion.div>
         </div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Downgrade Confirmation Modal */}
-      {showDowngradeConfirmation && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={() => !processingAction && setShowDowngradeConfirmation(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
+      <AnimatePresence>
+        {showDowngradeConfirmation && (
+          <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="downgrade-modal-title"
+            aria-describedby="downgrade-modal-description"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            tabIndex={-1}
+            onClick={() => !processingAction && setShowDowngradeConfirmation(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && !processingAction) {
+                setShowDowngradeConfirmation(false);
+              }
+            }}
           >
+            <motion.div
+              ref={downgradeModalRef}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
+            >
             <div className="flex items-start gap-4 mb-6">
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3 
+                  id="downgrade-modal-title"
+                  ref={downgradeModalTitleRef}
+                  className="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                  tabIndex={-1}
+                >
                   Downgrade to Basic?
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
-                  Are you sure you want to downgrade from Pro Premium to Basic Premium? The change will take effect at the end of your current billing period.
-                </p>
-                <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                <div id="downgrade-modal-description">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
+                    Are you sure you want to downgrade from Pro Premium to Basic Premium? The change will take effect at the end of your current billing period.
+                  </p>
+                  <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                     <span>You&apos;ll keep Pro Premium features until the end of your billing period</span>
@@ -925,14 +1058,16 @@ export default function ManageSubscriptionPage() {
                   </div>
                 )}
 
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  You&apos;ll lose access to Pro Premium features after the downgrade takes effect.
-                </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    You&apos;ll lose access to Pro Premium features after the downgrade takes effect.
+                  </p>
+                </div>
               </div>
             </div>
 
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowDowngradeConfirmation(false)}
                 disabled={processingAction === "downgrade-basic"}
                 className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -940,6 +1075,7 @@ export default function ManageSubscriptionPage() {
                 Keep Pro
               </button>
               <button
+                type="button"
                 onClick={confirmDowngradeToBasic}
                 disabled={processingAction === "downgrade-basic"}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -956,7 +1092,8 @@ export default function ManageSubscriptionPage() {
             </div>
           </motion.div>
         </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -70,7 +70,7 @@ export function Sidebar({
     setMobileOpen(false);
   }, [pathname, setMobileOpen]);
 
-  const isLandingPage = pathname === "/" || false;
+  const shouldHideSidebar = pathname === "/" || pathname.startsWith("/auth") || pathname.startsWith("/assess");
 
   const isActive = (href: string, id: string) => {
     if (href === "#") return false;
@@ -117,6 +117,7 @@ export function Sidebar({
             </div>
           )}
           <button
+            type="button"
             onClick={toggleCollapsed}
             className={`text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 p-1 transition-colors ${collapsed ? "mx-auto" : ""}`}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -177,7 +178,7 @@ export function Sidebar({
     </>
   );
 
-  if (isLandingPage) {
+  if (shouldHideSidebar) {
     return null;
   }
 

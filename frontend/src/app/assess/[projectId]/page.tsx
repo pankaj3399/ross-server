@@ -12,6 +12,7 @@ import {
   PracticeQuestionDetail,
 } from "../../../lib/api";
 import { showToast } from "../../../lib/toast";
+import { PREMIUM_STATUS } from "../../../lib/constants";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -130,11 +131,11 @@ export default function AssessmentPage() {
   const [saving, setSaving] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionPhase, setSubmissionPhase] = useState<'saving-notes' | 'submitting' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [projectNotFound, setProjectNotFound] = useState(false);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   const { 
     getProjectState,
@@ -502,14 +503,12 @@ useEffect(() => {
     setNotes((prev) => ({ ...prev, [key]: note }));
   };
 
-  const handleNoteSave = async (questionIndex: number) => {
+  const handleNoteSave = async (questionIndex: number, note: string) => {
     const question = questions[questionIndex];
     if (!question) {
       console.error(`Question at index ${questionIndex} not found`);
       return;
     }
-    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
-    const note = notes[key] || "";
 
     if (!note.trim()) return;
 
@@ -532,13 +531,19 @@ useEffect(() => {
     }
   };
 
-  // Save all notes silently in the background
-  const saveAllNotes = async (): Promise<void> => {
+  // Save all notes with user feedback
+  const saveAllNotes = async (isSubmitting: boolean = false): Promise<void> => {
     const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
     
     if (noteEntries.length === 0) {
       return;
     }
+
+    // Show loading toast
+    const toastMessage = isSubmitting 
+      ? "Saving notes and submitting..." 
+      : "Saving notes...";
+    const toastId = showToast.loading(toastMessage);
 
     // Save all notes in parallel
     const savePromises = noteEntries.map(async ([key, note]) => {
@@ -548,7 +553,7 @@ useEffect(() => {
         
         if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
           console.warn(`Invalid note key format: ${key}`);
-          return;
+          return { success: false, key, error: "Invalid key format" };
         }
 
         const sanitizedNote = sanitizeNoteInput(note.trim());
@@ -561,14 +566,40 @@ useEffect(() => {
           questionIndex,
           note: sanitizedNote,
         });
+        
+        return { success: true, key };
       } catch (error) {
-        // Log error but don't throw - we don't want to block submission
         console.error(`Failed to save note for key ${key}:`, error);
+        return { success: false, key, error };
       }
     });
 
-    // Wait for all saves to complete (or fail silently)
-    await Promise.allSettled(savePromises);
+    // Wait for all saves to complete and collect results
+    const results = await Promise.allSettled(savePromises);
+    
+    // Dismiss loading toast
+    showToast.dismiss(toastId);
+
+    // Check for failures (both rejected promises and failed saves)
+    const failures = results.filter((result) => {
+      if (result.status === "rejected") return true;
+      if (result.status === "fulfilled") {
+        const value = result.value;
+        return value && !value.success;
+      }
+      return false;
+    });
+
+    if (failures.length > 0) {
+      const failureCount = failures.length;
+      const totalCount = results.length;
+      showToast.error(
+        `Failed to save ${failureCount} of ${totalCount} note${totalCount > 1 ? "s" : ""}. Please try again.`
+      );
+    }
+
+    // Ensure function resolves after all saves complete
+    return;
   };
 
   const handleDomainClick = (domainId: string) => {
@@ -703,9 +734,12 @@ useEffect(() => {
   const handleSubmitProject = async () => {
     setSubmitting(true);
     try {
-      // Save all notes silently in the background before submitting
-      await saveAllNotes();
+      // Save all notes before submitting (with user feedback)
+      setSubmissionPhase('saving-notes');
+      await saveAllNotes(true);
       
+      // Now submit the project
+      setSubmissionPhase('submitting');
       const response = await apiService.submitProject(projectId);
       
       setProjectResults(projectId, response.project, response.results);
@@ -715,6 +749,7 @@ useEffect(() => {
       showToast.error("Failed to submit assessment. Please try again.");
     } finally {
       setSubmitting(false);
+      setSubmissionPhase(null);
     }
   };
 
@@ -905,7 +940,11 @@ useEffect(() => {
                 {submitting ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Submitting...
+                    {submissionPhase === 'saving-notes' 
+                      ? 'Saving notes...' 
+                      : submissionPhase === 'submitting'
+                      ? 'Submitting assessment...'
+                      : 'Processing...'}
                   </>
                 ) : (
                   <>
@@ -1040,7 +1079,7 @@ useEffect(() => {
                   onChange={(note) =>
                     handleNoteChange(validQuestionIndex, note)
                   }
-                  onSave={() => handleNoteSave(validQuestionIndex)}
+                  onSave={(value) => handleNoteSave(validQuestionIndex, value)}
                   placeholder="Add your notes, reminders, or thoughts about this question..."
                   maxLength={5000}
                   className="w-full"

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
 import { sanitizeNoteInput } from "../../../../lib/sanitize";
+import { PREMIUM_STATUS } from "../../../../lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -48,8 +49,7 @@ export default function FairnessBiasTest() {
   const projectId = params.projectId as string;
   const currentQuestionRef = useRef<HTMLDivElement>(null);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   useEffect(() => {
     if (!loading && user) {
@@ -501,8 +501,14 @@ export default function FairnessBiasTest() {
                     className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
-                      const sanitizedValue = sanitizeNoteInput(e.target.value, true);
-                      setResponses({ ...responses, [currentResKey]: sanitizedValue });
+                      try {
+                        const sanitizedValue = sanitizeNoteInput(e.target.value, true);
+                        setResponses({ ...responses, [currentResKey]: sanitizedValue });
+                      } catch (error) {
+                        console.error("Error sanitizing note input:", error);
+                        const fallback = responses[currentResKey] || "";
+                        setResponses({ ...responses, [currentResKey]: fallback });
+                      }
                     }}
                     placeholder="Type or paste your response here..."
                   />

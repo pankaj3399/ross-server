@@ -106,8 +106,6 @@ export interface SubscriptionPlanDetails {
 
 export interface SubscriptionDetailsResponse {
   subscription_status: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
   signup_date: string | null;
   plan: SubscriptionPlanDetails | null;
   invoices: SubscriptionInvoice[];

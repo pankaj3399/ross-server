@@ -30,6 +30,7 @@ import { AssessmentSkeleton, Skeleton } from "../../../../components/Skeleton";
 import { stripHTML } from "../../../../lib/htmlUtils";
 import { safeRenderHTML } from "../../../../lib/htmlUtils";
 import { useAssessmentResultsStore } from "../../../../store/assessmentResultsStore";
+import { PREMIUM_STATUS } from "../../../../lib/constants";
 
 interface Question {
   level: string;
@@ -93,8 +94,7 @@ export default function PremiumDomainsPage() {
 
   const { setProjectResults } = useAssessmentResultsStore();
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -333,14 +333,12 @@ export default function PremiumDomainsPage() {
     setNotes((prev) => ({ ...prev, [key]: note }));
   };
 
-  const handleNoteSave = async (questionIndex: number) => {
+  const handleNoteSave = async (questionIndex: number, note: string) => {
     const question = questions[questionIndex];
     if (!question) {
       console.error(`Question at index ${questionIndex} not found`);
       return;
     }
-    const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
-    const note = notes[key] || "";
 
     if (!note.trim()) return;
 
@@ -845,7 +843,7 @@ export default function PremiumDomainsPage() {
                   onChange={(note) =>
                     handleNoteChange(validQuestionIndex, note)
                   }
-                  onSave={() => handleNoteSave(validQuestionIndex)}
+                  onSave={(value) => handleNoteSave(validQuestionIndex, value)}
                   placeholder="Add your notes, reminders, or thoughts about this question..."
                   maxLength={5000}
                   className="w-full"

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../hooks/useRequireAuth";
-import { apiService, Domain as ApiDomain } from "../../../../lib/api";
+import { apiService, Domain as ApiDomain, Practice, PracticeQuestionLevels } from "../../../../lib/api";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -16,9 +16,14 @@ import {
 } from "lucide-react";
 import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
 import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
+import { PREMIUM_STATUS } from "../../../../lib/constants";
+
+interface PracticeWithLevels extends Practice {
+  levels: PracticeQuestionLevels;
+}
 
 interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
-  practices: { [key: string]: any };
+  practices: Record<string, PracticeWithLevels>;
 }
 
 export default function PremiumFeaturesPage() {
@@ -35,9 +40,8 @@ export default function PremiumFeaturesPage() {
   const [currentPracticeId, setCurrentPracticeId] = useState<string>("");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
 
-  const PREMIUM_STATUS = ["basic_premium", "pro_premium"];
   // Calculate premium status - will be false until user loads
-  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+  const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -55,7 +59,7 @@ export default function PremiumFeaturesPage() {
     }
 
     // Calculate premium status after user is loaded
-    const userIsPremium = user.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status) : false;
+    const userIsPremium = user.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
     // Redirect non-premium users to upgrade page
     if (!userIsPremium) {
@@ -75,7 +79,7 @@ export default function PremiumFeaturesPage() {
 
         // Transform domains
         const transformedDomains = nonPremiumDomains.map((domain) => {
-          const practicesWithLevels: { [key: string]: any } = {};
+          const practicesWithLevels: Record<string, PracticeWithLevels> = {};
 
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
             practicesWithLevels[practiceId] = {
@@ -95,19 +99,20 @@ export default function PremiumFeaturesPage() {
         setDomains(transformedDomains);
 
         // Load answers for progress calculation
-        Promise.all([
-          apiService.getAnswers(projectId).catch(() => ({ answers: {} })),
-        ]).then(([answersData]) => {
-          const answersMap: Record<string, number> = {};
-          if (answersData && answersData.answers) {
-            Object.entries(answersData.answers).forEach(([key, value]) => {
-              answersMap[key] = value as number;
-            });
-          }
-          setAnswers(answersMap);
-        }).catch((error) => {
-          console.error("Failed to load answers:", error);
-        });
+        apiService.getAnswers(projectId)
+          .catch(() => ({ answers: {} }))
+          .then((answersData) => {
+            const answersMap: Record<string, number> = {};
+            if (answersData && answersData.answers) {
+              Object.entries(answersData.answers).forEach(([key, value]) => {
+                answersMap[key] = value as number;
+              });
+            }
+            setAnswers(answersMap);
+          })
+          .catch((error) => {
+            console.error("Failed to load answers:", error);
+          });
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {
@@ -192,6 +197,7 @@ export default function PremiumFeaturesPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
+                type="button"
                 onClick={() => router.push(`/assess/${projectId}`)}
                 className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
               >
