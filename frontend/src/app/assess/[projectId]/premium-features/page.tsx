@@ -117,7 +117,7 @@ export default function PremiumFeaturesPage() {
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, authLoading, userLoading, user, router]);
+  }, [projectId, isAuthenticated, authLoading, userLoading, user, isPremium]);
 
   const {
     progressData,
@@ -308,6 +308,7 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.5 }}
             >
               <motion.button
+                type="button"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => router.push("/manage-subscription")}

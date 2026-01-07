@@ -98,19 +98,10 @@ export function isInputSafe(input: string): boolean {
     }
   }
 
-  // Check for HTML tags (reset lastIndex before test to prevent state issues)
+  // Check for HTML tags
   const htmlTagPattern = /<[^>]*>/g;
-  htmlTagPattern.lastIndex = 0; // Reset lastIndex before test
   const hasHtmlTags = htmlTagPattern.test(input);
   if (hasHtmlTags) {
-    return false;
-  }
-
-  // Check for javascript: or data: URLs (reset lastIndex before test to prevent state issues)
-  const urlPattern = /javascript:|data:/gi;
-  urlPattern.lastIndex = 0; // Reset lastIndex before test
-  const hasDangerousUrl = urlPattern.test(input);
-  if (hasDangerousUrl) {
     return false;
   }
 
@@ -137,9 +128,8 @@ export function containsDangerousContent(input: string): boolean {
     }
   }
 
-  // Check for any HTML tags (reset lastIndex before test to prevent state issues)
+  // Check for any HTML tags
   const htmlTagPattern = /<[^>]*>/g;
-  htmlTagPattern.lastIndex = 0; // Reset lastIndex before test
   const hasHtmlTags = htmlTagPattern.test(input);
   if (hasHtmlTags) {
     return true;
