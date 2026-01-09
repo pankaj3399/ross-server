@@ -92,7 +92,40 @@ export default function ManageSubscriptionPage() {
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  
+  // Initialize openFaqIndex based on defaultOpen property
+  const defaultOpenIndex = useMemo(() => {
+    const faqs = [
+      {
+        question: "Can I upgrade my subscription at any time?",
+        answer: "Yes, you can upgrade your plan at any time from your dashboard. The price difference will be calculated and applied to your next billing cycle.",
+        defaultOpen: true
+      },
+      {
+        question: "What happens when I cancel my subscription?",
+        answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
+        defaultOpen: false
+      },
+      {
+        question: "Can I downgrade my subscription?",
+        answer: "Yes, you can downgrade your subscription at any time. The downgrade will take effect at the end of your current billing period, so you'll continue to have access to your current plan's features until then.",
+        defaultOpen: false
+      },
+      {
+        question: "Will I be charged immediately when I upgrade?",
+        answer: "Yes, when you upgrade, you'll be charged a prorated amount for the remainder of your current billing period. This ensures you only pay for the time you'll have access to the upgraded features. Your next full billing cycle will reflect the new plan's regular pricing.",
+        defaultOpen: false
+      },
+      {
+        question: "Do I get a refund if I downgrade or cancel?",
+        answer: "No, refunds are not issued for downgrades or cancellations. Since you've already paid for the current billing period, you'll continue to have access to your current plan's features until the period ends. This ensures you receive the full value of what you've paid for.",
+        defaultOpen: false
+      }
+    ];
+    const index = faqs.findIndex(faq => faq.defaultOpen === true);
+    return index >= 0 ? index : null;
+  }, []);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(defaultOpenIndex);
 
   // Refs for focus management
   const cancelModalRef = useRef<HTMLDivElement>(null);
@@ -274,6 +307,11 @@ export default function ManageSubscriptionPage() {
   const planDetails = subscriptionDetails?.plan;
 
   // Calculate billing cycle from period dates (must be before early returns)
+  // Note: This logic uses day-based thresholds to infer billing intervals. It handles:
+  // - Annual: ~300-400 days (accounts for leap years and slight variations)
+  // - Quarterly: ~80-100 days (approximately 3 months)
+  // - Monthly: ~25-35 days (accounts for month length variations)
+  // Custom intervals or explicit interval fields are not currently available in the planDetails type.
   const billingCycle = useMemo(() => {
     if (!planDetails?.current_period_start || !planDetails?.current_period_end) {
       return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
@@ -283,10 +321,11 @@ export default function ManageSubscriptionPage() {
     const end = new Date(planDetails.current_period_end);
     const daysDiff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
 
-    // If difference is around 365 days (or 12 months), it's annual
-    // If difference is around 30 days (or 1 month), it's monthly
+    // Day-based inference with broader thresholds
     if (daysDiff >= 300 && daysDiff <= 400) {
       return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    } else if (daysDiff >= 80 && daysDiff <= 100) {
+      return { cycle: "Quarterly Billing", savings: null };
     } else if (daysDiff >= 25 && daysDiff <= 35) {
       return { cycle: "Monthly Billing", savings: null };
     } else {
@@ -333,8 +372,11 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  // Get next payment amount from most recent invoice
-  const getNextPaymentAmount = (subscription_status: string): { amount: number | null; currency: string } => {
+  // Get next payment amount from most recent invoice (memoized to avoid UI flash)
+  const nextPaymentInfo = useMemo(() => {
+    if (loadingInvoices) {
+      return { amount: null, currency: "USD", isLoading: true };
+    }
     if (invoices.length > 0) {
       // Get the most recent paid invoice
       const paidInvoice = invoices.find(inv => inv.status === "paid") || invoices[0];
@@ -342,16 +384,25 @@ export default function ManageSubscriptionPage() {
         return {
           amount: paidInvoice.amount_paid,
           currency: paidInvoice.currency || "USD",
+          isLoading: false,
         };
       }
     }
     // Fallback: try to infer from plan name
     if (subscription_status === "pro_premium") {
-      return { amount: FALLBACK_PRICES.pro, currency: "USD" };
+      return { amount: FALLBACK_PRICES.pro, currency: "USD", isLoading: false };
     } else if (subscription_status === "basic_premium") {
-      return { amount: FALLBACK_PRICES.basic, currency: "USD" };
+      return { amount: FALLBACK_PRICES.basic, currency: "USD", isLoading: false };
     }
-    return { amount: null, currency: "USD" };
+    return { amount: null, currency: "USD", isLoading: false };
+  }, [invoices, subscription_status, loadingInvoices]);
+
+  // Get next payment amount from most recent invoice (deprecated - use nextPaymentInfo instead)
+  const getNextPaymentAmount = (subscription_status: string): { amount: number | null; currency: string } => {
+    return {
+      amount: nextPaymentInfo.amount,
+      currency: nextPaymentInfo.currency,
+    };
   };
 
   const handleUpgradeClick = () => {
@@ -516,6 +567,38 @@ export default function ManageSubscriptionPage() {
           </div>
         </motion.div>
 
+        {/* Success Message */}
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-green-500 rounded-xl p-4 mb-6 shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-white" />
+              </div>
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">{successMessage}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-l-4 border-red-500 rounded-xl p-4 mb-6 shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+            </div>
+          </motion.div>
+        )}
+
         {/* Current Plan Section */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -547,10 +630,9 @@ export default function ManageSubscriptionPage() {
                       const renewalDate = isCancelling 
                         ? (planDetails.cancel_effective_date || planDetails.current_period_end)
                         : (planDetails.renewal_date || planDetails.current_period_end);
-                      const nextPayment = getNextPaymentAmount(subscription_status);
-                      const interval = billingCycle.cycle === "Annual Billing" ? "year" : "month";
-                      const amount = nextPayment.amount !== null && nextPayment.amount !== undefined
-                        ? formatCurrency(nextPayment.amount, nextPayment.currency)
+                      const interval = billingCycle.cycle === "Annual Billing" ? "year" : billingCycle.cycle === "Quarterly Billing" ? "quarter" : "month";
+                      const amount = nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined
+                        ? formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
                         : null;
                       
                       if (renewalDate && amount && !isCancelling) {
@@ -611,12 +693,13 @@ export default function ManageSubscriptionPage() {
                   NEXT PAYMENT
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                  {(() => {
-                    const nextPayment = getNextPaymentAmount(subscription_status);
-                    return nextPayment.amount !== null && nextPayment.amount !== undefined
-                      ? formatCurrency(nextPayment.amount, nextPayment.currency)
-                      : "—";
-                  })()}
+                  {nextPaymentInfo.isLoading ? (
+                    <Loader className="w-4 h-4 animate-spin inline" />
+                  ) : nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined ? (
+                    formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
+                  ) : (
+                    "—"
+                  )}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   On {planDetails?.renewal_date ? formatDate(planDetails.renewal_date) : planDetails?.current_period_end ? formatDate(planDetails.current_period_end) : "—"}
@@ -781,7 +864,7 @@ export default function ManageSubscriptionPage() {
                       <a
                         href={invoice.hosted_invoice_url}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noreferrer noopener"
                         className="text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
                       >
                         <Download className="w-5 h-5" />
@@ -796,38 +879,6 @@ export default function ManageSubscriptionPage() {
             )}
           </motion.div>
         </div>
-
-        {/* Success Message */}
-        {successMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-green-500 rounded-xl p-4 mb-6 shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <CheckCircle className="w-5 h-5 text-white" />
-              </div>
-              <p className="text-sm font-medium text-green-800 dark:text-green-300">{successMessage}</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-l-4 border-red-500 rounded-xl p-4 mb-6 shadow-md"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="w-5 h-5 text-white" />
-              </div>
-              <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
-            </div>
-          </motion.div>
-        )}
 
         {/* Footer */}
         <div className="flex items-center justify-end pt-6">

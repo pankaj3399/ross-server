@@ -17,7 +17,6 @@ import {
   LogOut,
   ChevronDown,
   Database,
-  Sun,
   Moon,
   ChevronsUpDown,
 } from "lucide-react";
@@ -90,7 +89,7 @@ export function Sidebar({
       if (collapsed && isUserMenuOpen && userButtonRef.current) {
         const rect = userButtonRef.current.getBoundingClientRect();
         setDropdownPosition({
-          top: rect.top + rect.height / 2, // Center of button - translateY(-50%) will center dropdown
+          top: rect.top + rect.height / 2, // Center of button - translateY(-80%) positions dropdown above button
           left: rect.right + 8, // 8px to the right of button
         });
       }
@@ -265,17 +264,27 @@ export function Sidebar({
                 Theme
               </span>
             </div>
-            <motion.div
-              className="relative inline-block w-12 h-6 cursor-pointer"
+            <motion.button
+              type="button"
+              className="relative inline-block w-12 h-6 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 rounded-full"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={toggleTheme}
+              aria-pressed={theme === "dark"}
+              aria-label="Toggle theme"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleTheme();
+                }
+              }}
             >
               <input
                 type="checkbox"
                 className="sr-only"
                 checked={theme === "dark"}
                 readOnly
+                tabIndex={-1}
               />
               <div
                 className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${
@@ -295,7 +304,7 @@ export function Sidebar({
                   damping: 30,
                 }}
               ></motion.div>
-            </motion.div>
+            </motion.button>
           </div>
         )}
 
@@ -354,26 +363,10 @@ export function Sidebar({
             <AnimatePresence>
               {isUserMenuOpen && (
                 <>
-                  {collapsed && typeof window !== 'undefined' ? (
-                    createPortal(
-                      <motion.div
-                        ref={dropdownRef}
-                        initial={{ opacity: 0, x: -10, scale: 0.95 }}
-                        animate={{ 
-                          opacity: 1, 
-                          x: 0, 
-                          scale: 1 
-                        }}
-                        exit={{ opacity: 0, x: -10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        transformTemplate={({ x, scale }) => `translateX(${x}) translateY(-80%) scale(${scale})`}
-                        className="fixed w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
-                        style={{
-                          left: `${dropdownPosition.left}px`,
-                          top: `${dropdownPosition.top}px`,
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
+                  {/* Reusable dropdown content */}
+                  {(() => {
+                    const userDropdownContent = (
+                      <>
                         <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                             {user.name}
@@ -402,52 +395,50 @@ export function Sidebar({
                             <span className="font-medium">Sign out</span>
                           </button>
                         </div>
-                      </motion.div>,
-                      document.body
-                    )
-                  ) : (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ 
-                        opacity: 1, 
-                        y: 0, 
-                        scale: 1 
-                      }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute bottom-full left-0 mb-2 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                          {user.name}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {user.email}
-                        </p>
-                      </div>
+                      </>
+                    );
 
-                      <div className="py-2">
-                        <Link
-                          href="/settings"
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
+                    return collapsed && typeof window !== 'undefined' ? (
+                      createPortal(
+                        <motion.div
+                          ref={dropdownRef}
+                          initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                          animate={{ 
+                            opacity: 1, 
+                            x: 0, 
+                            scale: 1 
+                          }}
+                          exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          transformTemplate={({ x, scale }) => `translateX(${x}) translateY(-80%) scale(${scale})`}
+                          className="fixed w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
+                          style={{
+                            left: `${dropdownPosition.left}px`,
+                            top: `${dropdownPosition.top}px`,
+                          }}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                          <span className="font-medium">Settings</span>
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={handleLogout}
-                          className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
-                        >
-                          <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                          <span className="font-medium">Sign out</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
+                          {userDropdownContent}
+                        </motion.div>,
+                        document.body
+                      )
+                    ) : (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ 
+                          opacity: 1, 
+                          y: 0, 
+                          scale: 1 
+                        }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute bottom-full left-0 mb-2 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {userDropdownContent}
+                      </motion.div>
+                    );
+                  })()}
                 </>
               )}
             </AnimatePresence>

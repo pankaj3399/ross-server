@@ -36,27 +36,10 @@ import { useTheme } from "../../contexts/ThemeContext";
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 
-// Development-only warning for missing price IDs
-if (process.env.NODE_ENV !== 'production') {
-  const missingIds: string[] = [];
-  if (!BASIC_PRICE_ID) {
-    missingIds.push('BASIC_PRICE_ID');
-  }
-  if (!PRO_PRICE_ID) {
-    missingIds.push('PRO_PRICE_ID');
-  }
-  if (missingIds.length > 0) {
-    console.warn(
-      `[Development Warning] Missing Stripe Price ID configuration: ${missingIds.join(', ')}. `
-    );
-  }
-}
-
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const router = useRouter();
-  const { toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(false);
@@ -98,6 +81,24 @@ export default function SettingsPage() {
     }
     setLoading(false);
   }, [isAuthenticated, authLoading, router]);
+
+  // Development-only warning for missing price IDs (client-only)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      const missingIds: string[] = [];
+      if (!BASIC_PRICE_ID) {
+        missingIds.push('BASIC_PRICE_ID');
+      }
+      if (!PRO_PRICE_ID) {
+        missingIds.push('PRO_PRICE_ID');
+      }
+      if (missingIds.length > 0) {
+        console.warn(
+          `[Development Warning] Missing Stripe Price ID configuration: ${missingIds.join(', ')}. `
+        );
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Initialize profile form with user data
@@ -367,7 +368,10 @@ export default function SettingsPage() {
 
   const handleVerifyEmailClick = () => {
     if (user?.email) {
-      router.push(`/auth/verify-otp?email=${encodeURIComponent(user.email)}`);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('pendingVerificationEmail', user.email);
+      }
+      router.push('/auth/verify-otp');
     }
   };
 
@@ -702,7 +706,7 @@ export default function SettingsPage() {
                         Password
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {formatRelativeTime(user?.updated_at)}
+                        Manage your password
                       </p>
                     </div>
                   </div>

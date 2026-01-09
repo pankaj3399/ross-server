@@ -528,7 +528,16 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ error: "No changes to update" });
+      // Fetch current user data to return
+      const currentUserResult = await pool.query(
+        "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
+        [userId],
+      );
+      const currentUser = currentUserResult.rows[0];
+      return res.status(200).json({ 
+        message: "Profile is already up to date",
+        user: currentUser
+      });
     }
 
     // Always update updated_at

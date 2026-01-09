@@ -248,7 +248,7 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="flex justify-end items-center mb-8"
+              className="flex justify-end items-center"
             >
               <motion.button
                 whileHover={{ scale: 1.05 }}
@@ -353,22 +353,12 @@ export default function DashboardPage() {
                         href={`/assess/${project.id}`}
                         className="flex items-center gap-2 text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors text-sm font-medium"
                       >
-                        {project.status === 'completed' ? (
-                          <>
-                            <span>Completed</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        ) : project.status === 'in_progress' ? (
-                          <>
-                            <span>In Progress</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        ) : (
-                          <>
-                            <span>Start</span>
-                            <ArrowRight className="w-4 h-4" />
-                          </>
-                        )}
+                        <span>
+                          {project.status === 'completed' ? 'Completed' : 
+                           project.status === 'in_progress' ? 'In Progress' : 
+                           'Start'}
+                        </span>
+                        <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
 
