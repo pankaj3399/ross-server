@@ -6,10 +6,7 @@ import { Crown, Building, Shield, CheckCircle, Loader, Star, Award, CircleStar }
 import { apiService } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { Skeleton } from "./Skeleton";
-import { DEFAULT_FALLBACK_PRICES } from "../lib/constants";
-
-const DEFAULT_BASIC_PRICE = DEFAULT_FALLBACK_PRICES.basic;
-const DEFAULT_PRO_PRICE = DEFAULT_FALLBACK_PRICES.pro;
+import { FALLBACK_PRICES } from "../lib/constants";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
@@ -44,7 +41,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
     const fetchPrices = async () => {
       if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
         console.error("Price IDs not configured");
-        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
+        setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
         return;
       }
 
@@ -52,7 +49,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
 
       if (!token) {
         console.error("Auth token missing; cannot fetch subscription prices.");
-        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
+        setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
         return;
       }
 
@@ -80,11 +77,11 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
           });
         } else {
           console.error("Failed to fetch prices");
-          setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
+          setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
         }
       } catch (error) {
         console.error("Error fetching prices:", error);
-        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
+        setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
       } finally {
         setLoadingPrices(false);
       }
@@ -174,7 +171,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                   ) : (
                     <div className="flex items-baseline justify-center gap-1">
                       <span className="text-5xl font-bold text-purple-600 dark:text-purple-400">
-                        ${prices.basic || DEFAULT_BASIC_PRICE}
+                        ${prices.basic || FALLBACK_PRICES.basic}
                       </span>
                       <span className="text-lg text-gray-500 dark:text-gray-400">/month</span>
                     </div>
@@ -276,7 +273,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-5xl font-bold text-purple-600 dark:text-purple-400">
-                          ${prices.pro || DEFAULT_PRO_PRICE}
+                          ${prices.pro || FALLBACK_PRICES.pro}
                         </span>
                         <span className="text-lg text-gray-500 dark:text-gray-400">/month</span>
                       </div>

@@ -7,28 +7,16 @@ import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, SubscriptionDetailsResponse, SubscriptionInvoice } from "../../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  CreditCard,
   Loader,
   AlertCircle,
   CheckCircle,
-  Crown,
-  ArrowLeft,
-  TrendingUp,
-  TrendingDown,
   X,
-  Sparkles,
-  Zap,
-  Shield,
   AlertTriangle,
   ChevronDown,
-  HelpCircle,
   Calendar,
-  RefreshCw,
   Download,
   ArrowRight,
   Clock,
-  Info,
-  Camera,
   Wallet,
   Coins,
   MessageCircleQuestionMark,
@@ -37,6 +25,7 @@ import Link from "next/link";
 import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
+import { FALLBACK_PRICES } from "../../lib/constants";
 
 interface CancellationScheduledCardProps {
   planDetails: SubscriptionPlanDetails | null | undefined;
@@ -358,9 +347,9 @@ export default function ManageSubscriptionPage() {
     }
     // Fallback: try to infer from plan name
     if (subscription_status === "pro_premium") {
-      return { amount: 100, currency: "USD" };
+      return { amount: FALLBACK_PRICES.pro, currency: "USD" };
     } else if (subscription_status === "basic_premium") {
-      return { amount: 50, currency: "USD" };
+      return { amount: FALLBACK_PRICES.basic, currency: "USD" };
     }
     return { amount: null, currency: "USD" };
   };
@@ -436,6 +425,10 @@ export default function ManageSubscriptionPage() {
   };
 
   const handleCancelSubscription = () => {
+    // Prevent cancellation if user doesn't have an active subscription
+    if (!isPremium) {
+      return;
+    }
     // Show confirmation modal instead of canceling directly
     setShowCancelConfirmation(true);
   };
@@ -838,14 +831,26 @@ export default function ManageSubscriptionPage() {
 
         {/* Footer */}
         <div className="flex items-center justify-end pt-6">
-          <button
-            type="button"
-            onClick={handleCancelSubscription}
-            className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
-          >
-            <X className="w-4 h-4" />
-            Cancel Subscription
-          </button>
+          {isPremium ? (
+            <button
+              type="button"
+              onClick={handleCancelSubscription}
+              className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+            >
+              <X className="w-4 h-4" />
+              Cancel Subscription
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled
+              title="You don't have an active subscription to cancel"
+              className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
+            >
+              <X className="w-4 h-4" />
+              Cancel Subscription
+            </button>
+          )}
         </div>
       </div>
 

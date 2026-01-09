@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
@@ -23,13 +23,7 @@ import {
   Crown,
   ArrowRight,
   X,
-  Calendar,
-  TrendingUp,
-  TrendingDown,
-  ExternalLink,
   Star,
-  Plus,
-  Trash2,
   Moon,
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
@@ -41,6 +35,22 @@ import { useTheme } from "../../contexts/ThemeContext";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
+
+// Development-only warning for missing price IDs
+if (process.env.NODE_ENV !== 'production') {
+  const missingIds: string[] = [];
+  if (!BASIC_PRICE_ID) {
+    missingIds.push('BASIC_PRICE_ID');
+  }
+  if (!PRO_PRICE_ID) {
+    missingIds.push('PRO_PRICE_ID');
+  }
+  if (missingIds.length > 0) {
+    console.warn(
+      `[Development Warning] Missing Stripe Price ID configuration: ${missingIds.join(', ')}. `
+    );
+  }
+}
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -77,9 +87,6 @@ export default function SettingsPage() {
   // Subscription management state
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetailsResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
-  const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<string | null>(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -102,14 +109,7 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    // Fetch subscription details when user is available
-    if (user && isAuthenticated) {
-      fetchSubscriptionDetails();
-    }
-  }, [user, isAuthenticated]);
-
-  const fetchSubscriptionDetails = async () => {
+  const fetchSubscriptionDetails = useCallback(async () => {
     try {
       setSubscriptionLoading(true);
       const details = await apiService.getSubscriptionDetails();
@@ -120,7 +120,14 @@ export default function SettingsPage() {
     } finally {
       setSubscriptionLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Fetch subscription details when user is available
+    if (user && isAuthenticated) {
+      fetchSubscriptionDetails();
+    }
+  }, [user, isAuthenticated, fetchSubscriptionDetails]);
 
   const handleMFAToggle = async () => {
     if (user?.mfa_enabled) {
@@ -364,97 +371,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Subscription management handlers
-  const handleUpgradeToBasic = async () => {
-    if (!BASIC_PRICE_ID) {
-      showToast.error("Subscription service not configured");
-      return;
-    }
-    try {
-      setSubscriptionActionLoading("basic");
-      const { url } = await apiService.createCheckoutSession(BASIC_PRICE_ID);
-      window.location.href = url;
-    } catch (error: any) {
-      console.error("Failed to create checkout session:", error);
-      showToast.error(error.message || "Failed to start upgrade process");
-      setSubscriptionActionLoading(null);
-    }
-  };
-
-  const handleUpgradeToPro = async () => {
-    if (user?.subscription_status === "basic_premium") {
-      // Use upgrade endpoint for Basic -> Pro
-      try {
-        setSubscriptionActionLoading("pro");
-        const { url } = await apiService.upgradeToPro();
-        window.location.href = url;
-      } catch (error: any) {
-        console.error("Failed to upgrade to Pro:", error);
-        showToast.error(error.message || "Failed to upgrade to Pro");
-        setSubscriptionActionLoading(null);
-      }
-    } else {
-      // Use checkout for Free -> Pro
-      if (!PRO_PRICE_ID) {
-        showToast.error("Subscription service not configured");
-        return;
-      }
-      try {
-        setSubscriptionActionLoading("pro");
-        const { url } = await apiService.createCheckoutSession(PRO_PRICE_ID);
-        window.location.href = url;
-      } catch (error: any) {
-        console.error("Failed to create checkout session:", error);
-        showToast.error(error.message || "Failed to start upgrade process");
-        setSubscriptionActionLoading(null);
-      }
-    }
-  };
-
-  const handleDowngradeToBasic = async () => {
-    try {
-      setSubscriptionActionLoading("downgrade");
-      await apiService.downgradeToBasic();
-      showToast.success("Subscription will be downgraded to Basic Premium at the end of your billing period");
-      await fetchSubscriptionDetails();
-      await refreshUser();
-      setShowDowngradeConfirm(false);
-    } catch (error: any) {
-      console.error("Failed to downgrade:", error);
-      showToast.error(error.message || "Failed to downgrade subscription");
-    } finally {
-      setSubscriptionActionLoading(null);
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    try {
-      setSubscriptionActionLoading("cancel");
-      await apiService.cancelSubscription();
-      showToast.success("Subscription will be canceled at the end of your billing period");
-      await fetchSubscriptionDetails();
-      await refreshUser();
-      setShowCancelConfirm(false);
-    } catch (error: any) {
-      console.error("Failed to cancel subscription:", error);
-      showToast.error(error.message || "Failed to cancel subscription");
-    } finally {
-      setSubscriptionActionLoading(null);
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    try {
-      setSubscriptionActionLoading("manage");
-      const { url } = await apiService.createPortalSession();
-      window.open(url, "_blank");
-      setSubscriptionActionLoading(null);
-    } catch (error: any) {
-      console.error("Failed to create portal session:", error);
-      showToast.error(error.message || "Failed to open subscription management");
-      setSubscriptionActionLoading(null);
-    }
-  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
@@ -463,6 +379,34 @@ export default function SettingsPage() {
       month: "long",
       day: "numeric",
     });
+  };
+
+  const formatRelativeTime = (dateString: string | null | undefined): string => {
+    if (!dateString) return "Manage your password.";
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInSeconds = Math.floor(diffInMs / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+    const diffInMonths = Math.floor(diffInDays / 30);
+    const diffInYears = Math.floor(diffInDays / 365);
+
+    if (diffInSeconds < 60) {
+      return "Last changed just now";
+    } else if (diffInMinutes < 60) {
+      return `Last changed ${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
+    } else if (diffInHours < 24) {
+      return `Last changed ${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
+    } else if (diffInDays < 30) {
+      return `Last changed ${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
+    } else if (diffInMonths < 12) {
+      return `Last changed ${diffInMonths} month${diffInMonths === 1 ? "" : "s"} ago`;
+    } else {
+      return `Last changed ${diffInYears} year${diffInYears === 1 ? "" : "s"} ago`;
+    }
   };
 
   if (loading) {
@@ -482,15 +426,6 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen relative">
-      {/* Dark Mode Toggle - Fixed on right edge */}
-      <button
-        type="button"
-        onClick={toggleTheme}
-        className="fixed right-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
-        aria-label="Toggle dark mode"
-      >
-        <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-      </button>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
@@ -767,7 +702,7 @@ export default function SettingsPage() {
                         Password
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Last changed 3 months ago
+                        {formatRelativeTime(user?.updated_at)}
                       </p>
                     </div>
                   </div>

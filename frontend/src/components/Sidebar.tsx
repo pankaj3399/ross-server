@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,6 +76,7 @@ export function Sidebar({
   const { collapsed, mobileOpen, setCollapsed, setMobileOpen, toggleMobile, toggleCollapsed } = useSidebar();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userButtonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
@@ -83,15 +85,30 @@ export function Sidebar({
 
 
   // Calculate dropdown position when collapsed
-  useEffect(() => {
-    if (collapsed && isUserMenuOpen && userButtonRef.current) {
-      const rect = userButtonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.top + rect.height / 2,
-        left: rect.right + 8, // 8px = ml-2
-      });
+  useLayoutEffect(() => {
+    const updatePosition = () => {
+      if (collapsed && isUserMenuOpen && userButtonRef.current) {
+        const rect = userButtonRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.top + rect.height / 2, // Center of button - translateY(-50%) will center dropdown
+          left: rect.right + 8, // 8px to the right of button
+        });
+      }
+    };
+
+    updatePosition();
+
+    // Recalculate on scroll and resize
+    if (collapsed && isUserMenuOpen) {
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
     }
   }, [collapsed, isUserMenuOpen]);
+
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -258,7 +275,6 @@ export function Sidebar({
                 type="checkbox"
                 className="sr-only"
                 checked={theme === "dark"}
-                onChange={toggleTheme}
                 readOnly
               />
               <div
@@ -300,6 +316,7 @@ export function Sidebar({
         {isAuthenticated && user && (
           <div className="relative" data-user-menu>
             <motion.button
+              ref={userButtonRef}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -336,47 +353,102 @@ export function Sidebar({
             {/* User Dropdown */}
             <AnimatePresence>
               {isUserMenuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: collapsed ? 0 : -10, x: collapsed ? -10 : 0, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: collapsed ? 0 : -10, x: collapsed ? -10 : 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className={`${
-                    collapsed
-                      ? "fixed top-auto bottom-4 left-20 ml-2 w-64"
-                      : "absolute bottom-full left-0 mb-2 w-full"
-                  } bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                      {user.name}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {user.email}
-                    </p>
-                  </div>
+                <>
+                  {collapsed && typeof window !== 'undefined' ? (
+                    createPortal(
+                      <motion.div
+                        ref={dropdownRef}
+                        initial={{ opacity: 0, x: -10, scale: 0.95 }}
+                        animate={{ 
+                          opacity: 1, 
+                          x: 0, 
+                          scale: 1 
+                        }}
+                        exit={{ opacity: 0, x: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        transformTemplate={({ x, scale }) => `translateX(${x}) translateY(-80%) scale(${scale})`}
+                        className="fixed w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
+                        style={{
+                          left: `${dropdownPosition.left}px`,
+                          top: `${dropdownPosition.top}px`,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {user.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                            {user.email}
+                          </p>
+                        </div>
 
-                  <div className="py-2">
-                    <Link
-                      href="/settings"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
-                    >
-                      <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                      <span className="font-medium">Settings</span>
-                    </Link>
+                        <div className="py-2">
+                          <Link
+                            href="/settings"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
+                          >
+                            <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                            <span className="font-medium">Settings</span>
+                          </Link>
 
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
+                          >
+                            <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                            <span className="font-medium">Sign out</span>
+                          </button>
+                        </div>
+                      </motion.div>,
+                      document.body
+                    )
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                      animate={{ 
+                        opacity: 1, 
+                        y: 0, 
+                        scale: 1 
+                      }}
+                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute bottom-full left-0 mb-2 w-full bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 py-3 z-[100] pointer-events-auto"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                      <span className="font-medium">Sign out</span>
-                    </button>
-                  </div>
-                </motion.div>
+                      <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                          {user.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                          {user.email}
+                        </p>
+                      </div>
+
+                      <div className="py-2">
+                        <Link
+                          href="/settings"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
+                        >
+                          <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="font-medium">Settings</span>
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
+                        >
+                          <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="font-medium">Sign out</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               )}
             </AnimatePresence>
           </div>

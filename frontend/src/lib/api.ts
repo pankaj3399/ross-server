@@ -9,6 +9,7 @@ export interface User {
   organization?: string;
   email_verified?: boolean;
   mfa_enabled?: boolean;
+  updated_at?: string;
 }
 
 export interface AuthResponse {

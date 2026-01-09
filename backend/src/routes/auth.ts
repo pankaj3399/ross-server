@@ -564,8 +564,19 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
         : "Profile updated successfully",
       emailVerificationSent: emailChanged,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Update profile error:", error);
+    // Handle PostgreSQL unique constraint violation (23505)
+    if (error?.code === "23505") {
+      // Optionally check if it's the email constraint
+      const isEmailConstraint =
+        error?.constraint?.toLowerCase().includes("email") ||
+        error?.detail?.toLowerCase().includes("email");
+      
+      if (isEmailConstraint || !error?.constraint) {
+        return res.status(400).json({ error: "Email is already in use" });
+      }
+    }
     if (error instanceof z.ZodError) {
       return res
         .status(400)
@@ -720,7 +731,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 
     // Get updated user info
     const result = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
+      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled, updated_at FROM users WHERE id = $1",
       [userId],
     );
 

@@ -13,19 +13,14 @@ import {
   Plus,
   Trash2,
   ArrowRight,
-  User,
-  Building,
-  Crown,
-  Shield,
   CheckCircle,
   AlertCircle,
   Loader,
 } from "lucide-react";
 import { CardSkeleton } from "../../components/Skeleton";
 
-const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
-const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
+const SKELETON_COUNT = 5;
 const INDUSTRY_OPTIONS = [
   "Healthcare & Life Sciences",
   "Finance & Banking",
@@ -253,11 +248,8 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="flex justify-between items-center mb-8"
+              className="flex justify-end items-center mb-8"
             >
-              <div>
-                {/* Spacer to keep layout if needed, or just empty div */}
-              </div>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -317,7 +309,7 @@ export default function DashboardPage() {
             </h2>
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
                   <CardSkeleton key={i} />
                 ))}
               </div>
