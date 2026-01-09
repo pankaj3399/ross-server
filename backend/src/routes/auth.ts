@@ -190,63 +190,31 @@ router.post("/verify-email", async (req, res) => {
 // Resend verification email/OTP
 router.post("/resend-verification", authenticateToken, async (req, res) => {
   try {
-    let userId: string;
-    let email: string;
+    // Authenticated user - get current email from database (not from token, as it may be stale)
+    const userId = req.user!.id;
+    const userResult = await pool.query(
+      "SELECT email, email_verified FROM users WHERE id = $1",
+      [userId],
+    );
 
-    // Check if user is authenticated (from token) or not (from body)
-    if (req.user) {
-      // Authenticated user - get current email from database (not from token, as it may be stale)
-      userId = req.user.id;
-      const userResult = await pool.query(
-        "SELECT email, email_verified FROM users WHERE id = $1",
-        [userId],
-      );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
+    const email = userResult.rows[0].email;
 
-      email = userResult.rows[0].email;
+    if (userResult.rows[0].email_verified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
 
-      if (userResult.rows[0].email_verified) {
-        return res.status(400).json({ error: "Email already verified" });
-      }
-
-      // Check if there's already a valid OTP
-      const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
-      if (hasValidOTP) {
-        return res.status(200).json({
-          message: "Verification email already sent. Please check your email.",
-          emailSent: true,
-          alreadySent: true,
-        });
-      }
-    } else {
-      // Unauthenticated user (from OTP page)
-      const { email: requestEmail } = req.body;
-      
-      if (!requestEmail) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-
-      // Check if user exists
-      const userResult = await pool.query(
-        "SELECT id, email_verified FROM users WHERE email = $1",
-        [requestEmail],
-      );
-
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const user = userResult.rows[0];
-      
-      if (user.email_verified) {
-        return res.status(400).json({ error: "Email already verified" });
-      }
-
-      userId = user.id;
-      email = requestEmail;
+    // Check if there's already a valid OTP
+    const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
+    if (hasValidOTP) {
+      return res.status(200).json({
+        message: "Verification email already sent. Please check your email.",
+        emailSent: true,
+        alreadySent: true,
+      });
     }
 
     // Create new OTP

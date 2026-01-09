@@ -249,26 +249,27 @@ export function Sidebar({
               </span>
             </div>
             <motion.div
-              className="relative inline-block w-12 h-6"
+              className="relative inline-block w-12 h-6 cursor-pointer"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
             >
               <input
                 type="checkbox"
                 className="sr-only"
                 checked={theme === "dark"}
                 onChange={toggleTheme}
+                readOnly
               />
               <div
-                className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 cursor-pointer ${
+                className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${
                   theme === "dark"
                     ? "bg-purple-600 dark:bg-purple-600"
                     : "bg-gray-300 dark:bg-gray-600"
                 }`}
-                onClick={toggleTheme}
               ></div>
               <motion.div
-                className="absolute top-1 w-4 h-4 bg-white rounded-full shadow cursor-pointer"
+                className="absolute top-1 w-4 h-4 bg-white rounded-full shadow pointer-events-none"
                 animate={{
                   x: theme === "dark" ? 28 : 4,
                 }}
@@ -277,7 +278,6 @@ export function Sidebar({
                   stiffness: 500,
                   damping: 30,
                 }}
-                onClick={toggleTheme}
               ></motion.div>
             </motion.div>
           </div>
@@ -286,6 +286,7 @@ export function Sidebar({
         {/* Collapsed Theme Toggle */}
         {collapsed && (
           <button
+            type="button"
             onClick={toggleTheme}
             className="w-full flex items-center justify-center p-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
             title="Toggle theme"
@@ -367,6 +368,7 @@ export function Sidebar({
                     </Link>
 
                     <button
+                      type="button"
                       onClick={handleLogout}
                       className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
                     >

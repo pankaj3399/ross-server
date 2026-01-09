@@ -484,6 +484,7 @@ export default function SettingsPage() {
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen relative">
       {/* Dark Mode Toggle - Fixed on right edge */}
       <button
+        type="button"
         onClick={toggleTheme}
         className="fixed right-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
         aria-label="Toggle dark mode"
@@ -547,11 +548,12 @@ export default function SettingsPage() {
               <form onSubmit={handleProfileSubmit} className="space-y-4">
                 {/* Name Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="profile-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Name
                   </label>
                   <input
                     type="text"
+                    id="profile-name"
                     name="name"
                     value={profileForm.name}
                     onChange={handleProfileInputChange}
@@ -564,11 +566,12 @@ export default function SettingsPage() {
 
                 {/* Email Field */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="profile-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email
                   </label>
                   <input
                     type="email"
+                    id="profile-email"
                     name="email"
                     value={profileForm.email}
                     onChange={handleProfileInputChange}

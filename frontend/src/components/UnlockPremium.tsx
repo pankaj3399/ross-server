@@ -7,6 +7,7 @@ import { apiService } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { Skeleton } from "./Skeleton";
 import { usePriceStore } from "../store/priceStore";
+import { ALTERNATIVE_FALLBACK_PRICES } from "../lib/constants";
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
@@ -44,7 +45,7 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
     if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
       console.error('Price IDs not configured');
       // Fallback to hardcoded values if price IDs not configured
-      setPrices({ basic: 29, pro: 49 });
+      setPrices({ basic: ALTERNATIVE_FALLBACK_PRICES.basic, pro: ALTERNATIVE_FALLBACK_PRICES.pro });
       setFetched(true);
       return;
     }
@@ -56,7 +57,7 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
     if (!token) {
       console.error("Auth token missing; cannot fetch subscription prices.");
       // Fallback to hardcoded values if no token
-      setPrices({ basic: 29, pro: 49 });
+      setPrices({ basic: ALTERNATIVE_FALLBACK_PRICES.basic, pro: ALTERNATIVE_FALLBACK_PRICES.pro });
       setFetched(true);
       return;
     }
@@ -85,12 +86,12 @@ export default function UnlockPremium({ onClose, featureName = "this feature" }:
         } else {
           console.error('Failed to fetch prices');
           // Fallback to hardcoded values if API fails
-          setPrices({ basic: 29, pro: 49 });
+          setPrices({ basic: ALTERNATIVE_FALLBACK_PRICES.basic, pro: ALTERNATIVE_FALLBACK_PRICES.pro });
         }
       } catch (error) {
         console.error('Error fetching prices:', error);
         // Fallback to hardcoded values if API fails
-        setPrices({ basic: 29, pro: 49 });
+        setPrices({ basic: ALTERNATIVE_FALLBACK_PRICES.basic, pro: ALTERNATIVE_FALLBACK_PRICES.pro });
       } finally {
         setPriceLoading(false);
         setFetched(true);

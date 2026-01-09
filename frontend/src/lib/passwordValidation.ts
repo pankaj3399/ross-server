@@ -93,11 +93,6 @@ export function validatePassword(
     errors.push(
       `Password can only contain letters, numbers, and these special characters: ${SPECIAL_CHARS}`
     );
-    return {
-      isValid: false,
-      errors,
-      score: 0,
-    };
   }
 
   // Length validation

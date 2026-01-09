@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Crown, Building, Shield, CheckCircle, Loader, Star, MessageSquare, User, Award, CircleStar } from "lucide-react";
+import { Crown, Building, Shield, CheckCircle, Loader, Star, Award, CircleStar } from "lucide-react";
 import { apiService } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { Skeleton } from "./Skeleton";
+import { DEFAULT_FALLBACK_PRICES } from "../lib/constants";
+
+const DEFAULT_BASIC_PRICE = DEFAULT_FALLBACK_PRICES.basic;
+const DEFAULT_PRO_PRICE = DEFAULT_FALLBACK_PRICES.pro;
 
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
@@ -40,7 +44,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
     const fetchPrices = async () => {
       if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
         console.error("Price IDs not configured");
-        setPrices({ basic: 50, pro: 100 });
+        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
         return;
       }
 
@@ -48,7 +52,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
 
       if (!token) {
         console.error("Auth token missing; cannot fetch subscription prices.");
-        setPrices({ basic: 50, pro: 100 });
+        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
         return;
       }
 
@@ -76,11 +80,11 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
           });
         } else {
           console.error("Failed to fetch prices");
-          setPrices({ basic: 50, pro: 100 });
+          setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
         }
       } catch (error) {
         console.error("Error fetching prices:", error);
-        setPrices({ basic: 50, pro: 100 });
+        setPrices({ basic: DEFAULT_BASIC_PRICE, pro: DEFAULT_PRO_PRICE });
       } finally {
         setLoadingPrices(false);
       }
@@ -170,7 +174,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                   ) : (
                     <div className="flex items-baseline justify-center gap-1">
                       <span className="text-5xl font-bold text-purple-600 dark:text-purple-400">
-                        ${prices.basic || 50}
+                        ${prices.basic || DEFAULT_BASIC_PRICE}
                       </span>
                       <span className="text-lg text-gray-500 dark:text-gray-400">/month</span>
                     </div>
@@ -272,7 +276,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-5xl font-bold text-purple-600 dark:text-purple-400">
-                          ${prices.pro || 100}
+                          ${prices.pro || DEFAULT_PRO_PRICE}
                         </span>
                         <span className="text-lg text-gray-500 dark:text-gray-400">/month</span>
                       </div>

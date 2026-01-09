@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
@@ -280,6 +280,32 @@ export default function ManageSubscriptionPage() {
     };
   }, [showDowngradeConfirmation, processingAction]);
 
+  // Use subscription_status directly from backend - do not infer
+  const subscription_status = subscriptionStatus?.subscription_status || "free";
+  const planDetails = subscriptionDetails?.plan;
+
+  // Calculate billing cycle from period dates (must be before early returns)
+  const billingCycle = useMemo(() => {
+    if (!planDetails?.current_period_start || !planDetails?.current_period_end) {
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    }
+
+    const start = new Date(planDetails.current_period_start);
+    const end = new Date(planDetails.current_period_end);
+    const daysDiff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    // If difference is around 365 days (or 12 months), it's annual
+    // If difference is around 30 days (or 1 month), it's monthly
+    if (daysDiff >= 300 && daysDiff <= 400) {
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    } else if (daysDiff >= 25 && daysDiff <= 35) {
+      return { cycle: "Monthly Billing", savings: null };
+    } else {
+      // Default to annual if unclear
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    }
+  }, [planDetails]);
+
   // Helper to reload subscription status and user profile
   const reloadSubscriptionData = async () => {
     try {
@@ -318,30 +344,8 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  // Calculate billing cycle from period dates
-  const getBillingCycle = () => {
-    if (!planDetails?.current_period_start || !planDetails?.current_period_end) {
-      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
-    }
-
-    const start = new Date(planDetails.current_period_start);
-    const end = new Date(planDetails.current_period_end);
-    const daysDiff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-
-    // If difference is around 365 days (or 12 months), it's annual
-    // If difference is around 30 days (or 1 month), it's monthly
-    if (daysDiff >= 300 && daysDiff <= 400) {
-      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
-    } else if (daysDiff >= 25 && daysDiff <= 35) {
-      return { cycle: "Monthly Billing", savings: null };
-    } else {
-      // Default to annual if unclear
-      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
-    }
-  };
-
   // Get next payment amount from most recent invoice
-  const getNextPaymentAmount = (): { amount: number | null; currency: string } => {
+  const getNextPaymentAmount = (subscription_status: string): { amount: number | null; currency: string } => {
     if (invoices.length > 0) {
       // Get the most recent paid invoice
       const paidInvoice = invoices.find(inv => inv.status === "paid") || invoices[0];
@@ -354,9 +358,9 @@ export default function ManageSubscriptionPage() {
     }
     // Fallback: try to infer from plan name
     if (subscription_status === "pro_premium") {
-      return { amount: 299, currency: "USD" };
+      return { amount: 100, currency: "USD" };
     } else if (subscription_status === "basic_premium") {
-      return { amount: 99, currency: "USD" };
+      return { amount: 50, currency: "USD" };
     }
     return { amount: null, currency: "USD" };
   };
@@ -475,12 +479,15 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is loading or data is loading
+  if (authLoading || loading) {
     return <ManageSubscriptionSkeleton />;
   }
 
-  // Use subscription_status directly from backend - do not infer
-  const subscription_status = subscriptionStatus?.subscription_status || "free";
+  // Don't render if not authenticated (useRequireAuth will handle redirect)
+  if (!isAuthenticated) {
+    return <ManageSubscriptionSkeleton />;
+  }
 
   // Determine plan display name
   const getPlanDisplayName = () => {
@@ -490,7 +497,6 @@ export default function ManageSubscriptionPage() {
   };
 
   const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
-  const planDetails = subscriptionDetails?.plan;
   const isCanceling = !!planDetails?.cancel_at_period_end;
   // Invoices are now loaded separately via lazy loading
 
@@ -548,8 +554,7 @@ export default function ManageSubscriptionPage() {
                       const renewalDate = isCancelling 
                         ? (planDetails.cancel_effective_date || planDetails.current_period_end)
                         : (planDetails.renewal_date || planDetails.current_period_end);
-                      const nextPayment = getNextPaymentAmount();
-                      const billingCycle = getBillingCycle();
+                      const nextPayment = getNextPaymentAmount(subscription_status);
                       const interval = billingCycle.cycle === "Annual Billing" ? "year" : "month";
                       const amount = nextPayment.amount !== null && nextPayment.amount !== undefined
                         ? formatCurrency(nextPayment.amount, nextPayment.currency)
@@ -599,10 +604,10 @@ export default function ManageSubscriptionPage() {
                   BILLING CYCLE
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                  {getBillingCycle().cycle}
+                  {billingCycle.cycle}
                 </p>
-                {getBillingCycle().savings && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{getBillingCycle().savings}</p>
+                {billingCycle.savings && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{billingCycle.savings}</p>
                 )}
               </div>
 
@@ -614,7 +619,7 @@ export default function ManageSubscriptionPage() {
                 </p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
                   {(() => {
-                    const nextPayment = getNextPaymentAmount();
+                    const nextPayment = getNextPaymentAmount(subscription_status);
                     return nextPayment.amount !== null && nextPayment.amount !== undefined
                       ? formatCurrency(nextPayment.amount, nextPayment.currency)
                       : "—";
@@ -665,11 +670,11 @@ export default function ManageSubscriptionPage() {
               transition={{ delay: 0.4 }}
               className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
             >
-              <div className="flex items-center justify-start gap-3 mb-4">
-                <MessageCircleQuestionMark className="w-6 h-6 text-gray-800 dark:text-gray-400 mb-3" />
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-                Frequently Asked Questions
-              </h3>
+              <div className="flex items-center gap-3 mb-4">
+                <MessageCircleQuestionMark className="w-6 h-6 text-gray-800 dark:text-gray-400" />
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Frequently Asked Questions
+                </h3>
               </div>
 
               <div className="space-y-3">
@@ -710,6 +715,7 @@ export default function ManageSubscriptionPage() {
                       className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
                     >
                       <button
+                        type="button"
                         onClick={() => setOpenFaqIndex(isOpen ? null : index)}
                         className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                       >
@@ -833,6 +839,7 @@ export default function ManageSubscriptionPage() {
         {/* Footer */}
         <div className="flex items-center justify-end pt-6">
           <button
+            type="button"
             onClick={handleCancelSubscription}
             className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
           >
