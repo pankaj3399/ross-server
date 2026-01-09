@@ -10,6 +10,7 @@ import { Download } from "lucide-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
+import { ROLES } from "@/lib/constants";
 
 interface Question {
   id: string;
@@ -105,7 +106,7 @@ export default function AdminQuestions() {
       return; // useRequireAuth handles redirect to /auth
     }
 
-    if (user?.role !== "ADMIN") {
+    if (user?.role !== ROLES.ADMIN) {
       // Redirect non-admin users to dashboard (preserves history)
       router.push("/dashboard");
       return;

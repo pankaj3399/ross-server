@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
@@ -61,6 +61,7 @@ export default function SettingsPage() {
   // Subscription management state
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetailsResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -74,25 +75,44 @@ export default function SettingsPage() {
   }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
-    // Initialize profile form with user data
-    if (user) {
+    // Initialize profile form with user data only if form is empty/unmodified
+    if (user && (!profileForm.name && !profileForm.email)) {
       setProfileForm({
         name: user.name || "",
         email: user.email || "",
       });
     }
-  }, [user]);
+  }, [user, profileForm.name, profileForm.email]);
+
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const fetchSubscriptionDetails = useCallback(async () => {
     try {
-      setSubscriptionLoading(true);
+      if (isMountedRef.current) {
+        setSubscriptionLoading(true);
+        setSubscriptionError(false);
+      }
       const details = await apiService.getSubscriptionDetails();
-      setSubscriptionDetails(details);
+      if (isMountedRef.current) {
+        setSubscriptionDetails(details);
+      }
     } catch (error) {
       console.error("Failed to fetch subscription details:", error);
       showToast.error("Failed to load subscription details");
+      if (isMountedRef.current) {
+        setSubscriptionError(true);
+      }
     } finally {
-      setSubscriptionLoading(false);
+      if (isMountedRef.current) {
+        setSubscriptionLoading(false);
+      }
     }
   }, []);
 
@@ -291,10 +311,29 @@ export default function SettingsPage() {
 
     // Trim values upfront for comparison and payload
     const trimmedName = profileForm.name.trim();
-    const trimmedEmail = profileForm.email.trim();
+    const trimmedEmail = profileForm.email.trim().toLowerCase();
 
-    // Check if anything changed using trimmed values
-    if (user && trimmedName === user.name && trimmedEmail === user.email) {
+    // Normalize user values for comparison
+    const normalizedUserName = user?.name?.trim() || "";
+    const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
+
+    // Check if anything changed using normalized values
+    if (trimmedName === normalizedUserName && trimmedEmail === normalizedUserEmail) {
+      setProfileError("No changes to save");
+      return;
+    }
+
+    // Build update payload only with fields that differ
+    const updateData: { name?: string; email?: string } = {};
+    if (trimmedName !== normalizedUserName) {
+      updateData.name = trimmedName;
+    }
+    if (trimmedEmail !== normalizedUserEmail) {
+      updateData.email = trimmedEmail;
+    }
+
+    // Check if update payload is empty after building
+    if (Object.keys(updateData).length === 0) {
       setProfileError("No changes to save");
       return;
     }
@@ -303,14 +342,6 @@ export default function SettingsPage() {
     setProfileError("");
 
     try {
-      const updateData: { name?: string; email?: string } = {};
-      if (user && trimmedName !== user.name) {
-        updateData.name = trimmedName;
-      }
-      if (user && trimmedEmail !== user.email) {
-        updateData.email = trimmedEmail;
-      }
-
       const response = await apiService.updateProfile(updateData);
 
       await refreshUser();
@@ -371,11 +402,16 @@ export default function SettingsPage() {
     const date = new Date(dateString);
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
-    const diffInSeconds = Math.floor(diffInMs / 1000);
+    let diffInSeconds = Math.floor(diffInMs / 1000);
     
     // Use Intl.RelativeTimeFormat for accurate relative time formatting
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     const prefix = "Profile last updated ";
+    
+    // Handle negative diffInSeconds (future timestamps/clock skew) by clamping to zero
+    if (diffInSeconds < 0) {
+      return `${prefix}just now`;
+    }
     
     // Handle "just now" case separately
     if (diffInSeconds < 60) {
@@ -936,6 +972,34 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
                 <div className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
+              </div>
+            ) : subscriptionError ? (
+              <div className="space-y-6">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                        Failed to load subscription details
+                      </p>
+                      <p className="text-xs text-red-700 dark:text-red-300 mt-1">
+                        Please try refreshing the page or contact support if the issue persists.
+                      </p>
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setSubscriptionError(false);
+                        fetchSubscriptionDetails();
+                      }}
+                      className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                      title="Retry loading subscription details"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">

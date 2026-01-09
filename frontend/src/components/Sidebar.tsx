@@ -22,6 +22,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
+import { ROLES } from "../lib/constants";
 
 export interface SidebarItem {
   id: string;
@@ -89,13 +90,43 @@ export function Sidebar({
 
     const updatePosition = () => {
       if (collapsed && isUserMenuOpen && userButtonRef.current) {
+        // Cancel any pending frame before enqueueing a new one
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+
         // Use requestAnimationFrame to avoid layout thrashing
         rafId = requestAnimationFrame(() => {
+          rafId = null; // Clear rafId inside the callback
           if (userButtonRef.current) {
             const rect = userButtonRef.current.getBoundingClientRect();
+            
+            // Dropdown dimensions (w-64 = 256px)
+            const dropdownWidth = 256;
+            const dropdownHeight = 120; // Estimated height, adjust if needed
+            const margin = 8;
+            
+            // Calculate desired position
+            let desiredLeft = rect.right + 8;
+            let desiredTop = rect.top + rect.height / 2;
+            
+            // Account for translateY(-80%) offset when estimating vertical position
+            const verticalOffset = dropdownHeight * 0.8;
+            
+            // Clamp left to viewport
+            const minLeft = margin;
+            const maxLeft = window.innerWidth - dropdownWidth - margin;
+            desiredLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft));
+            
+            // Clamp top to viewport (accounting for translateY(-80%) offset)
+            const minTop = margin;
+            const maxTop = window.innerHeight - dropdownHeight + verticalOffset - margin;
+            desiredTop = Math.max(minTop, Math.min(desiredTop, maxTop));
+            
             setDropdownPosition({
-              top: rect.top + rect.height / 2, // Center of button - translateY(-80%) positions dropdown above button
-              left: rect.right + 8, // 8px to the right of button
+              top: desiredTop,
+              left: desiredLeft,
             });
           }
         });
@@ -125,11 +156,11 @@ export function Sidebar({
   }, [collapsed, isUserMenuOpen]);
 
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
     if (!isUserMenuOpen) return;
 
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | PointerEvent) => {
       // Use composedPath to check for portal nodes in document.body
       const path = event.composedPath ? event.composedPath() : (event as any).path || [];
       const isInsideMenu = path.some((element: any) => {
@@ -143,8 +174,20 @@ export function Sidebar({
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    // Use pointerdown instead of click to avoid click-through issues
+    document.addEventListener('pointerdown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isUserMenuOpen]);
 
   const handleLogout = () => {
@@ -164,7 +207,7 @@ export function Sidebar({
     items.forEach(item => {
       allSidebarItemsMap.set(item.id, item);
     });
-    if (user?.role === "ADMIN" && !allSidebarItemsMap.has("admin-aima")) {
+    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-aima")) {
       allSidebarItemsMap.set("admin-aima", {
         id: "admin-aima",
         label: "Manage AIMA Data",

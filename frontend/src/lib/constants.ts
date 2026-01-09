@@ -5,3 +5,10 @@ export const FALLBACK_PRICES = {
   basic: 50,
   pro: 100,
 } as const;
+
+// User roles
+export const ROLES = {
+  USER: "USER",
+  ADMIN: "ADMIN",
+  PREMIUM_USER: "PREMIUM_USER",
+} as const;
