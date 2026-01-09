@@ -385,8 +385,8 @@ export default function SettingsPage() {
     });
   };
 
-  const formatRelativeTime = (dateString: string | null | undefined): string => {
-    if (!dateString) return "Manage your password.";
+  const formatRelativeTime = (dateString: string | null | undefined): string | null => {
+    if (!dateString) return null;
     
     const date = new Date(dateString);
     const now = new Date();
@@ -397,20 +397,20 @@ export default function SettingsPage() {
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     
     if (diffInSeconds < 60) {
-      return "Last changed just now";
+      return "Profile last updated just now";
     }
     
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     if (diffInMinutes < 60) {
-      // rtf.format returns "X minutes ago", so we prepend "Last changed "
+      // rtf.format returns "X minutes ago", so we prepend "Profile last updated "
       const relativeTime = rtf.format(-diffInMinutes, 'minute');
-      return `Last changed ${relativeTime}`;
+      return `Profile last updated ${relativeTime}`;
     }
     
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) {
       const relativeTime = rtf.format(-diffInHours, 'hour');
-      return `Last changed ${relativeTime}`;
+      return `Profile last updated ${relativeTime}`;
     }
     
     const diffInDays = Math.floor(diffInHours / 24);
@@ -418,15 +418,15 @@ export default function SettingsPage() {
     const monthsDiff = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
     if (monthsDiff < 12 && monthsDiff > 0) {
       const relativeTime = rtf.format(-monthsDiff, 'month');
-      return `Last changed ${relativeTime}`;
+      return `Profile last updated ${relativeTime}`;
     } else if (diffInDays < 365) {
       const relativeTime = rtf.format(-diffInDays, 'day');
-      return `Last changed ${relativeTime}`;
+      return `Profile last updated ${relativeTime}`;
     }
     
     const yearsDiff = now.getFullYear() - date.getFullYear();
     const relativeTime = rtf.format(-yearsDiff, 'year');
-    return `Last changed ${relativeTime}`;
+    return `Profile last updated ${relativeTime}`;
   };
 
   if (loading) {
@@ -722,7 +722,7 @@ export default function SettingsPage() {
                         Password
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        {formatRelativeTime(user?.updated_at)}
+                        {formatRelativeTime(user?.updated_at) || "Manage your password."}
                       </p>
                     </div>
                   </div>

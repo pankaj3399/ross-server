@@ -163,22 +163,15 @@ export function Sidebar({
   const allSidebarItems = Array.from(allSidebarItemsMap.values());
 
   // Render function for user dropdown content
-  const renderUserDropdown = (
-    user: { name?: string | null; email?: string | null },
-    setIsUserMenuOpen: (open: boolean) => void,
-    handleLogout: () => void,
-    dropdownRef: React.RefObject<HTMLDivElement>,
-    dropdownPosition: { top: number; left: number },
-    collapsed: boolean
-  ) => {
+  const renderUserDropdown = () => {
     const userDropdownContent = (
       <>
         <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
           <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-            {user.name}
+            {user?.name}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-            {user.email}
+            {user?.email}
           </p>
         </div>
 
@@ -187,6 +180,7 @@ export function Sidebar({
             href="/settings"
             onClick={() => setIsUserMenuOpen(false)}
             className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200"
+            role="menuitem"
           >
             <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
             <span className="font-medium">Settings</span>
@@ -196,6 +190,7 @@ export function Sidebar({
             type="button"
             onClick={handleLogout}
             className="group flex items-center space-x-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 w-full text-left transition-all duration-200"
+            role="menuitem"
           >
             <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
             <span className="font-medium">Sign out</span>
@@ -208,6 +203,9 @@ export function Sidebar({
       createPortal(
         <motion.div
           ref={dropdownRef}
+          id="user-menu-dropdown"
+          role="menu"
+          aria-labelledby="user-menu-button"
           data-user-menu
           initial={{ opacity: 0, x: -10, scale: 0.95 }}
           animate={{ 
@@ -231,6 +229,10 @@ export function Sidebar({
       )
     ) : (
       <motion.div
+        ref={dropdownRef}
+        id="user-menu-dropdown"
+        role="menu"
+        aria-labelledby="user-menu-button"
         initial={{ opacity: 0, y: -10, scale: 0.95 }}
         animate={{ 
           opacity: 1, 
@@ -419,6 +421,10 @@ export function Sidebar({
           <div className="relative" data-user-menu>
             <motion.button
               ref={userButtonRef}
+              id="user-menu-button"
+              aria-haspopup="menu"
+              aria-expanded={isUserMenuOpen}
+              aria-controls="user-menu-dropdown"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -455,14 +461,7 @@ export function Sidebar({
             {/* User Dropdown */}
             <AnimatePresence>
               {isUserMenuOpen && (
-                renderUserDropdown(
-                  user,
-                  setIsUserMenuOpen,
-                  handleLogout,
-                  dropdownRef,
-                  dropdownPosition,
-                  collapsed
-                )
+                renderUserDropdown()
               )}
             </AnimatePresence>
           </div>

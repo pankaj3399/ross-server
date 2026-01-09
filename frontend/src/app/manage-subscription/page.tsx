@@ -130,9 +130,11 @@ export default function ManageSubscriptionPage() {
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   
-  // Initialize openFaqIndex based on defaultOpen property
-  const defaultOpenIndex = FAQS.findIndex(faq => faq.defaultOpen === true);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(defaultOpenIndex >= 0 ? defaultOpenIndex : null);
+  // Initialize openFaqIndex based on defaultOpen property using lazy initializer
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(() => {
+    const defaultOpenIndex = FAQS.findIndex(faq => faq.defaultOpen === true);
+    return defaultOpenIndex >= 0 ? defaultOpenIndex : null;
+  });
 
   // Refs for focus management
   const cancelModalRef = useRef<HTMLDivElement>(null);
