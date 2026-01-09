@@ -392,25 +392,41 @@ export default function SettingsPage() {
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     const diffInSeconds = Math.floor(diffInMs / 1000);
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    const diffInDays = Math.floor(diffInHours / 24);
-    const diffInMonths = Math.floor(diffInDays / 30);
-    const diffInYears = Math.floor(diffInDays / 365);
-
+    
+    // Use Intl.RelativeTimeFormat for accurate relative time formatting
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    
     if (diffInSeconds < 60) {
       return "Last changed just now";
-    } else if (diffInMinutes < 60) {
-      return `Last changed ${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
-    } else if (diffInHours < 24) {
-      return `Last changed ${diffInHours} hour${diffInHours === 1 ? "" : "s"} ago`;
-    } else if (diffInDays < 30) {
-      return `Last changed ${diffInDays} day${diffInDays === 1 ? "" : "s"} ago`;
-    } else if (diffInMonths < 12) {
-      return `Last changed ${diffInMonths} month${diffInMonths === 1 ? "" : "s"} ago`;
-    } else {
-      return `Last changed ${diffInYears} year${diffInYears === 1 ? "" : "s"} ago`;
     }
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+      // rtf.format returns "X minutes ago", so we prepend "Last changed "
+      const relativeTime = rtf.format(-diffInMinutes, 'minute');
+      return `Last changed ${relativeTime}`;
+    }
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      const relativeTime = rtf.format(-diffInHours, 'hour');
+      return `Last changed ${relativeTime}`;
+    }
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    // Use more accurate month calculation
+    const monthsDiff = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+    if (monthsDiff < 12 && monthsDiff > 0) {
+      const relativeTime = rtf.format(-monthsDiff, 'month');
+      return `Last changed ${relativeTime}`;
+    } else if (diffInDays < 365) {
+      const relativeTime = rtf.format(-diffInDays, 'day');
+      return `Last changed ${relativeTime}`;
+    }
+    
+    const yearsDiff = now.getFullYear() - date.getFullYear();
+    const relativeTime = rtf.format(-yearsDiff, 'year');
+    return `Last changed ${relativeTime}`;
   };
 
   if (loading) {

@@ -27,6 +27,44 @@ import SubscriptionModal from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
 import { FALLBACK_PRICES } from "../../lib/constants";
 
+// FAQ data shared across the component
+interface FAQItem {
+  question: string;
+  answer: string;
+  defaultOpen: boolean;
+}
+
+const FAQS: FAQItem[] = [
+  {
+    question: "Can I upgrade my subscription at any time?",
+    answer: "Yes, you can upgrade your plan at any time from your dashboard. The price difference will be calculated and applied to your next billing cycle.",
+    defaultOpen: true
+  },
+  {
+    question: "What happens when I cancel my subscription?",
+    answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
+    defaultOpen: false
+  },
+  {
+    question: "Can I downgrade my subscription?",
+    answer: "Yes, you can downgrade your subscription at any time. The downgrade will take effect at the end of your current billing period, so you'll continue to have access to your current plan's features until then.",
+    defaultOpen: false
+  },
+  {
+    question: "Will I be charged immediately when I upgrade?",
+    answer: "Yes, when you upgrade, you'll be charged a prorated amount for the remainder of your current billing period. This ensures you only pay for the time you'll have access to the upgraded features. Your next full billing cycle will reflect the new plan's regular pricing.",
+    defaultOpen: false
+  },
+  {
+    question: "Do I get a refund if I downgrade or cancel?",
+    answer: "No, refunds are not issued for downgrades or cancellations. Since you've already paid for the current billing period, you'll continue to have access to your current plan's features until the period ends. This ensures you receive the full value of what you've paid for.",
+    defaultOpen: false
+  }
+];
+
+// UI constants
+const MAX_DISPLAYED_INVOICES = 7;
+
 interface CancellationScheduledCardProps {
   planDetails: SubscriptionPlanDetails | null | undefined;
   formatDate: (value: string | null | undefined) => string;
@@ -95,34 +133,7 @@ export default function ManageSubscriptionPage() {
   
   // Initialize openFaqIndex based on defaultOpen property
   const defaultOpenIndex = useMemo(() => {
-    const faqs = [
-      {
-        question: "Can I upgrade my subscription at any time?",
-        answer: "Yes, you can upgrade your plan at any time from your dashboard. The price difference will be calculated and applied to your next billing cycle.",
-        defaultOpen: true
-      },
-      {
-        question: "What happens when I cancel my subscription?",
-        answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
-        defaultOpen: false
-      },
-      {
-        question: "Can I downgrade my subscription?",
-        answer: "Yes, you can downgrade your subscription at any time. The downgrade will take effect at the end of your current billing period, so you'll continue to have access to your current plan's features until then.",
-        defaultOpen: false
-      },
-      {
-        question: "Will I be charged immediately when I upgrade?",
-        answer: "Yes, when you upgrade, you'll be charged a prorated amount for the remainder of your current billing period. This ensures you only pay for the time you'll have access to the upgraded features. Your next full billing cycle will reflect the new plan's regular pricing.",
-        defaultOpen: false
-      },
-      {
-        question: "Do I get a refund if I downgrade or cancel?",
-        answer: "No, refunds are not issued for downgrades or cancellations. Since you've already paid for the current billing period, you'll continue to have access to your current plan's features until the period ends. This ensures you receive the full value of what you've paid for.",
-        defaultOpen: false
-      }
-    ];
-    const index = faqs.findIndex(faq => faq.defaultOpen === true);
+    const index = FAQS.findIndex(faq => faq.defaultOpen === true);
     return index >= 0 ? index : null;
   }, []);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(defaultOpenIndex);
@@ -396,14 +407,6 @@ export default function ManageSubscriptionPage() {
     }
     return { amount: null, currency: "USD", isLoading: false };
   }, [invoices, subscription_status, loadingInvoices]);
-
-  // Get next payment amount from most recent invoice (deprecated - use nextPaymentInfo instead)
-  const getNextPaymentAmount = (subscription_status: string): { amount: number | null; currency: string } => {
-    return {
-      amount: nextPaymentInfo.amount,
-      currency: nextPaymentInfo.currency,
-    };
-  };
 
   const handleUpgradeClick = () => {
     setShowUpgradeModal(true);
@@ -754,33 +757,7 @@ export default function ManageSubscriptionPage() {
               </div>
 
               <div className="space-y-3">
-                {[
-                  {
-                    question: "Can I upgrade my subscription at any time?",
-                    answer: "Yes, you can upgrade your plan at any time from your dashboard. The price difference will be calculated and applied to your next billing cycle.",
-                    defaultOpen: true
-                  },
-                  {
-                    question: "What happens when I cancel my subscription?",
-                    answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
-                    defaultOpen: false
-                  },
-                  {
-                    question: "Can I downgrade my subscription?",
-                    answer: "Yes, you can downgrade your subscription at any time. The downgrade will take effect at the end of your current billing period, so you'll continue to have access to your current plan's features until then.",
-                    defaultOpen: false
-                  },
-                  {
-                    question: "Will I be charged immediately when I upgrade?",
-                    answer: "Yes, when you upgrade, you'll be charged a prorated amount for the remainder of your current billing period. This ensures you only pay for the time you'll have access to the upgraded features. Your next full billing cycle will reflect the new plan's regular pricing.",
-                    defaultOpen: false
-                  },
-                  {
-                    question: "Do I get a refund if I downgrade or cancel?",
-                    answer: "No, refunds are not issued for downgrades or cancellations. Since you've already paid for the current billing period, you'll continue to have access to your current plan's features until the period ends. This ensures you receive the full value of what you've paid for.",
-                    defaultOpen: false
-                  }
-                ].map((faq, index) => {
+                {FAQS.map((faq, index) => {
                   const isOpen = openFaqIndex === index;
                   return (
                     <motion.div
@@ -844,7 +821,7 @@ export default function ManageSubscriptionPage() {
               <p className="text-sm text-gray-600 dark:text-gray-300">No billing history yet.</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {invoices.slice(0, 7).map((invoice) => (
+                {invoices.slice(0, MAX_DISPLAYED_INVOICES).map((invoice) => (
                   <div
                     key={invoice.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
@@ -873,7 +850,7 @@ export default function ManageSubscriptionPage() {
                   </div>
                 ))}
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 flex justify-end">
-                  Showing top 7 recent invoices
+                  Showing top {MAX_DISPLAYED_INVOICES} recent invoices
                 </p>
               </div>
             )}

@@ -481,9 +481,9 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     const { name, email } = updateProfileSchema.parse(req.body);
     const userId = req.user!.id;
 
-    // Get current user data
+    // Get current user data (widen SELECT to include all fields needed for response)
     const currentUserResult = await pool.query(
-      "SELECT email, name FROM users WHERE id = $1",
+      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
       [userId],
     );
 
@@ -528,12 +528,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     }
 
     if (updates.length === 0) {
-      // Fetch current user data to return
-      const currentUserResult = await pool.query(
-        "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
-        [userId],
-      );
-      const currentUser = currentUserResult.rows[0];
+      // Reuse the initial query result instead of querying again
       return res.status(200).json({ 
         message: "Profile is already up to date",
         user: currentUser
