@@ -14,25 +14,25 @@ import {
   Settings,
   User,
   Key,
-  Bell,
-  Lock,
   RefreshCw,
   Eye,
   EyeOff,
   CreditCard,
-  Crown,
   ArrowRight,
-  X,
   Star,
-  Moon,
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
 import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import Link from "next/link";
 import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
-import { useTheme } from "../../contexts/ThemeContext";
 
+/**
+ * Stripe price IDs for Basic and Pro plans.
+ * These are currently declared for future use in subscription logic.
+ * When implemented, they should be used to map price IDs to plan labels/status
+ * instead of hardcoded string checks.
+ */
 const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 
@@ -722,7 +722,7 @@ export default function SettingsPage() {
                         Password
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Manage your password
+                        {formatRelativeTime(user?.updated_at)}
                       </p>
                     </div>
                   </div>

@@ -21,7 +21,6 @@ import {
   Coins,
   MessageCircleQuestionMark,
 } from "lucide-react";
-import Link from "next/link";
 import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
@@ -132,11 +131,8 @@ export default function ManageSubscriptionPage() {
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   
   // Initialize openFaqIndex based on defaultOpen property
-  const defaultOpenIndex = useMemo(() => {
-    const index = FAQS.findIndex(faq => faq.defaultOpen === true);
-    return index >= 0 ? index : null;
-  }, []);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(defaultOpenIndex);
+  const defaultOpenIndex = FAQS.findIndex(faq => faq.defaultOpen === true);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(defaultOpenIndex >= 0 ? defaultOpenIndex : null);
 
   // Refs for focus management
   const cancelModalRef = useRef<HTMLDivElement>(null);
@@ -383,7 +379,44 @@ export default function ManageSubscriptionPage() {
     }
   };
 
+  // Helper function to get renewal text
+  const getRenewalText = () => {
+    if (!planDetails) {
+      return "—";
+    }
+
+    const isCancelling = planDetails.cancel_at_period_end;
+    const renewalDate = isCancelling 
+      ? (planDetails.cancel_effective_date || planDetails.current_period_end)
+      : (planDetails.renewal_date || planDetails.current_period_end);
+    
+    // Map billing cycle to interval
+    const interval = billingCycle.cycle === "Annual Billing" 
+      ? "year" 
+      : billingCycle.cycle === "Quarterly Billing" 
+        ? "quarter" 
+        : "month";
+    
+    // Format amount only when not null/undefined
+    const amount = nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined
+      ? formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
+      : null;
+    
+    if (renewalDate && amount && !isCancelling) {
+      return `Renews on ${formatDate(renewalDate)} — ${amount}/${interval}`;
+    } else if (renewalDate && isCancelling) {
+      return `Access until ${formatDate(renewalDate)}`;
+    } else if (renewalDate) {
+      return `Renews on ${formatDate(renewalDate)}`;
+    } else {
+      return "—";
+    }
+  };
+
   // Get next payment amount from most recent invoice (memoized to avoid UI flash)
+  // Note: This assumes subscription_status reflects the active plan. The fallback to FALLBACK_PRICES
+  // is only for users without payment history. TODO: Tighten subscription sync or replace with
+  // a backend-provided next_payment_amount if/when available.
   const nextPaymentInfo = useMemo(() => {
     if (loadingInvoices) {
       return { amount: null, currency: "USD", isLoading: true };
@@ -628,26 +661,7 @@ export default function ManageSubscriptionPage() {
                 <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                   <Calendar className="w-4 h-4" />
                   <span>
-                    {(() => {
-                      const isCancelling = planDetails.cancel_at_period_end;
-                      const renewalDate = isCancelling 
-                        ? (planDetails.cancel_effective_date || planDetails.current_period_end)
-                        : (planDetails.renewal_date || planDetails.current_period_end);
-                      const interval = billingCycle.cycle === "Annual Billing" ? "year" : billingCycle.cycle === "Quarterly Billing" ? "quarter" : "month";
-                      const amount = nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined
-                        ? formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
-                        : null;
-                      
-                      if (renewalDate && amount && !isCancelling) {
-                        return `Renews on ${formatDate(renewalDate)} — ${amount}/${interval}`;
-                      } else if (renewalDate && isCancelling) {
-                        return `Access until ${formatDate(renewalDate)}`;
-                      } else if (renewalDate) {
-                        return `Renews on ${formatDate(renewalDate)}`;
-                      } else {
-                        return "—";
-                      }
-                    })()}
+                    {getRenewalText()}
                   </span>
                 </div>
               )}
@@ -850,7 +864,7 @@ export default function ManageSubscriptionPage() {
                   </div>
                 ))}
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 flex justify-end">
-                  Showing top {MAX_DISPLAYED_INVOICES} recent invoices
+                  Showing top {Math.min(invoices.length, MAX_DISPLAYED_INVOICES)} recent invoices
                 </p>
               </div>
             )}

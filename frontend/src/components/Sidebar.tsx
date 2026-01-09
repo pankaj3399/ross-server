@@ -15,7 +15,6 @@ import {
   Gem,
   User,
   LogOut,
-  ChevronDown,
   Database,
   Moon,
   ChevronsUpDown,
@@ -85,12 +84,19 @@ export function Sidebar({
 
   // Calculate dropdown position when collapsed
   useLayoutEffect(() => {
+    let rafId: number | null = null;
+
     const updatePosition = () => {
       if (collapsed && isUserMenuOpen && userButtonRef.current) {
-        const rect = userButtonRef.current.getBoundingClientRect();
-        setDropdownPosition({
-          top: rect.top + rect.height / 2, // Center of button - translateY(-80%) positions dropdown above button
-          left: rect.right + 8, // 8px to the right of button
+        // Use requestAnimationFrame to avoid layout thrashing
+        rafId = requestAnimationFrame(() => {
+          if (userButtonRef.current) {
+            const rect = userButtonRef.current.getBoundingClientRect();
+            setDropdownPosition({
+              top: rect.top + rect.height / 2, // Center of button - translateY(-80%) positions dropdown above button
+              left: rect.right + 8, // 8px to the right of button
+            });
+          }
         });
       }
     };
@@ -104,6 +110,9 @@ export function Sidebar({
       return () => {
         window.removeEventListener('scroll', updatePosition, true);
         window.removeEventListener('resize', updatePosition);
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
       };
     }
   }, [collapsed, isUserMenuOpen]);
@@ -114,39 +123,44 @@ export function Sidebar({
     if (!isUserMenuOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('[data-user-menu]')) {
+      // Use composedPath to check for portal nodes in document.body
+      const path = event.composedPath ? event.composedPath() : (event as any).path || [];
+      const isInsideMenu = path.some((element: any) => 
+        element && element.hasAttribute && element.hasAttribute('data-user-menu')
+      );
+      if (!isInsideMenu) {
         setIsUserMenuOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [isUserMenuOpen]);
 
   const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
     setMobileOpen(false);
-    router.push("/");
+    router.replace("/");
   };
 
   const shouldHideSidebar = pathname === "/" || pathname?.startsWith("/auth");
 
   // Get all sidebar items including admin item if user is admin
-  const allSidebarItems = [
-    ...items,
-    ...(user?.role === "ADMIN"
-      ? [
-          {
-            id: "admin-aima",
-            label: "Manage AIMA Data",
-            href: "/admin/aima-data",
-            icon: Database,
-          } as SidebarItem,
-        ]
-      : []),
-  ];
+  // Dedupe by item.id to prevent duplicate entries
+  const allSidebarItemsMap = new Map<string, SidebarItem>();
+  items.forEach(item => {
+    allSidebarItemsMap.set(item.id, item);
+  });
+  if (user?.role === "ADMIN" && !allSidebarItemsMap.has("admin-aima")) {
+    allSidebarItemsMap.set("admin-aima", {
+      id: "admin-aima",
+      label: "Manage AIMA Data",
+      href: "/admin/aima-data",
+      icon: Database,
+    });
+  }
+  const allSidebarItems = Array.from(allSidebarItemsMap.values());
 
   // Render function for user dropdown content
   const renderUserDropdown = (
@@ -194,6 +208,7 @@ export function Sidebar({
       createPortal(
         <motion.div
           ref={dropdownRef}
+          data-user-menu
           initial={{ opacity: 0, x: -10, scale: 0.95 }}
           animate={{ 
             opacity: 1, 
@@ -356,12 +371,6 @@ export function Sidebar({
               onClick={toggleTheme}
               aria-pressed={theme === "dark"}
               aria-label="Toggle theme"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  toggleTheme();
-                }
-              }}
             >
               <input
                 type="checkbox"
