@@ -192,6 +192,24 @@ class ApiService {
     return response.user;
   }
 
+  async updateProfile(data: {
+    name?: string;
+    email?: string;
+  }): Promise<{
+    user: User;
+    message: string;
+    emailVerificationSent?: boolean;
+  }> {
+    return this.request<{
+      user: User;
+      message: string;
+      emailVerificationSent?: boolean;
+    }>("/auth/update-profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
   logout(): void {
     localStorage.removeItem("auth_token");
   }
@@ -702,8 +720,8 @@ class ApiService {
   }
 
 
-  async resendVerification(): Promise<{ message: string; emailSent: boolean }> {
-    return this.request<{ message: string; emailSent: boolean }>(
+  async resendVerification(): Promise<{ message: string; emailSent: boolean; alreadySent?: boolean }> {
+    return this.request<{ message: string; emailSent: boolean; alreadySent?: boolean }>(
       "/auth/resend-verification",
       {
         method: "POST",

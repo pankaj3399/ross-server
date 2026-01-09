@@ -23,17 +23,30 @@ import {
   Crown,
   ArrowRight,
   X,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  ExternalLink,
+  Star,
+  Plus,
+  Trash2,
+  Moon,
 } from "lucide-react";
 import { MFASetup } from "../../components/MFASetup";
-import { apiService } from "../../lib/api";
+import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import Link from "next/link";
-import { ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
+import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
+import { useTheme } from "../../contexts/ThemeContext";
+
+const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
+const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const router = useRouter();
+  const { toggleTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(false);
@@ -52,6 +65,21 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [resendingVerification, setResendingVerification] = useState(false);
+
+  // Subscription management state
+  const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetailsResponse | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionActionLoading, setSubscriptionActionLoading] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -63,6 +91,36 @@ export default function SettingsPage() {
     }
     setLoading(false);
   }, [isAuthenticated, authLoading, router]);
+
+  useEffect(() => {
+    // Initialize profile form with user data
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        email: user.email || "",
+      });
+    }
+  }, [user]);
+
+  useEffect(() => {
+    // Fetch subscription details when user is available
+    if (user && isAuthenticated) {
+      fetchSubscriptionDetails();
+    }
+  }, [user, isAuthenticated]);
+
+  const fetchSubscriptionDetails = async () => {
+    try {
+      setSubscriptionLoading(true);
+      const details = await apiService.getSubscriptionDetails();
+      setSubscriptionDetails(details);
+    } catch (error) {
+      console.error("Failed to fetch subscription details:", error);
+      showToast.error("Failed to load subscription details");
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
 
   const handleMFAToggle = async () => {
     if (user?.mfa_enabled) {
@@ -141,45 +199,14 @@ export default function SettingsPage() {
       return false;
     }
 
-    // Comprehensive password validation
-    const password = passwordForm.newPassword;
-    const errors: string[] = [];
+    // Comprehensive password validation using shared validation function
+    const passwordValidation = validatePassword(
+      passwordForm.newPassword,
+      user ? { email: user.email, name: user.name } : undefined
+    );
 
-    // Length validation
-    if (password.length < 8) {
-      errors.push("Password must be at least 8 characters long");
-    }
-    if (password.length > 128) {
-      errors.push("Password must be no more than 128 characters long");
-    }
-
-    // Character type validation
-    if (!/[A-Z]/.test(password)) {
-      errors.push("Password must contain at least one uppercase letter");
-    }
-    if (!/[a-z]/.test(password)) {
-      errors.push("Password must contain at least one lowercase letter");
-    }
-    if (!/\d/.test(password)) {
-      errors.push("Password must contain at least one number");
-    }
-    // Escape special regex characters for use in character class
-    const escapedSpecialChars = ALLOWED_SPECIAL_CHARS.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const specialCharRegex = new RegExp(`[${escapedSpecialChars}]`);
-    if (!specialCharRegex.test(password)) {
-      errors.push(`Password must contain at least one special character (${ALLOWED_SPECIAL_CHARS})`);
-    }
-
-    // User info check
-    if (user?.email && password.toLowerCase().includes(user.email.split("@")[0].toLowerCase())) {
-      errors.push("Password cannot contain your email username");
-    }
-    if (user?.name && password.toLowerCase().includes(user.name.toLowerCase())) {
-      errors.push("Password cannot contain your name");
-    }
-
-    if (errors.length > 0) {
-      setPasswordError(errors[0]); // Show first error
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.errors[0]); // Show first error
       return false;
     }
 
@@ -225,6 +252,219 @@ export default function SettingsPage() {
     // Here you could add API call to save the preference
   };
 
+  const handleEditProfileClick = () => {
+    setIsEditingProfile(true);
+    setProfileError("");
+  };
+
+  const handleProfileCancel = () => {
+    setIsEditingProfile(false);
+    setProfileError("");
+    // Reset to original values
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        email: user.email || "",
+      });
+    }
+  };
+
+  const handleProfileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setProfileForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (profileError) setProfileError("");
+  };
+
+  const validateProfileForm = () => {
+    if (!profileForm.name || profileForm.name.trim().length === 0) {
+      setProfileError("Name is required");
+      return false;
+    }
+    if (profileForm.name.length > 100) {
+      setProfileError("Name must be less than 100 characters");
+      return false;
+    }
+    if (!profileForm.email || profileForm.email.trim().length === 0) {
+      setProfileError("Email is required");
+      return false;
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(profileForm.email)) {
+      setProfileError("Invalid email format");
+      return false;
+    }
+    return true;
+  };
+
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateProfileForm()) return;
+
+    // Check if anything changed
+    if (user && profileForm.name === user.name && profileForm.email === user.email) {
+      setProfileError("No changes to save");
+      return;
+    }
+
+    setProfileLoading(true);
+    setProfileError("");
+
+    try {
+      const updateData: { name?: string; email?: string } = {};
+      if (user && profileForm.name !== user.name) {
+        updateData.name = profileForm.name.trim();
+      }
+      if (user && profileForm.email !== user.email) {
+        updateData.email = profileForm.email.trim();
+      }
+
+      const response = await apiService.updateProfile(updateData);
+
+      await refreshUser();
+      setIsEditingProfile(false);
+      showToast.success(
+        response.emailVerificationSent
+          ? "Profile updated successfully! Please verify your new email address."
+          : "Profile updated successfully!"
+      );
+    } catch (err: any) {
+      setProfileError(err.message || "Failed to update profile");
+      showToast.error(err.message || "Failed to update profile");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setResendingVerification(true);
+    try {
+      const response = await apiService.resendVerification();
+      if (response.alreadySent) {
+        showToast.info(response.message || "Verification email already sent. Please check your email.");
+      } else if (response.emailSent) {
+        showToast.success("Verification email sent! Please check your inbox.");
+      } else {
+        showToast.error("Failed to send verification email. Please try again.");
+      }
+    } catch (err: any) {
+      showToast.error(err.message || "Failed to resend verification email");
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
+  const handleVerifyEmailClick = () => {
+    if (user?.email) {
+      router.push(`/auth/verify-otp?email=${encodeURIComponent(user.email)}`);
+    }
+  };
+
+  // Subscription management handlers
+  const handleUpgradeToBasic = async () => {
+    if (!BASIC_PRICE_ID) {
+      showToast.error("Subscription service not configured");
+      return;
+    }
+    try {
+      setSubscriptionActionLoading("basic");
+      const { url } = await apiService.createCheckoutSession(BASIC_PRICE_ID);
+      window.location.href = url;
+    } catch (error: any) {
+      console.error("Failed to create checkout session:", error);
+      showToast.error(error.message || "Failed to start upgrade process");
+      setSubscriptionActionLoading(null);
+    }
+  };
+
+  const handleUpgradeToPro = async () => {
+    if (user?.subscription_status === "basic_premium") {
+      // Use upgrade endpoint for Basic -> Pro
+      try {
+        setSubscriptionActionLoading("pro");
+        const { url } = await apiService.upgradeToPro();
+        window.location.href = url;
+      } catch (error: any) {
+        console.error("Failed to upgrade to Pro:", error);
+        showToast.error(error.message || "Failed to upgrade to Pro");
+        setSubscriptionActionLoading(null);
+      }
+    } else {
+      // Use checkout for Free -> Pro
+      if (!PRO_PRICE_ID) {
+        showToast.error("Subscription service not configured");
+        return;
+      }
+      try {
+        setSubscriptionActionLoading("pro");
+        const { url } = await apiService.createCheckoutSession(PRO_PRICE_ID);
+        window.location.href = url;
+      } catch (error: any) {
+        console.error("Failed to create checkout session:", error);
+        showToast.error(error.message || "Failed to start upgrade process");
+        setSubscriptionActionLoading(null);
+      }
+    }
+  };
+
+  const handleDowngradeToBasic = async () => {
+    try {
+      setSubscriptionActionLoading("downgrade");
+      await apiService.downgradeToBasic();
+      showToast.success("Subscription will be downgraded to Basic Premium at the end of your billing period");
+      await fetchSubscriptionDetails();
+      await refreshUser();
+      setShowDowngradeConfirm(false);
+    } catch (error: any) {
+      console.error("Failed to downgrade:", error);
+      showToast.error(error.message || "Failed to downgrade subscription");
+    } finally {
+      setSubscriptionActionLoading(null);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    try {
+      setSubscriptionActionLoading("cancel");
+      await apiService.cancelSubscription();
+      showToast.success("Subscription will be canceled at the end of your billing period");
+      await fetchSubscriptionDetails();
+      await refreshUser();
+      setShowCancelConfirm(false);
+    } catch (error: any) {
+      console.error("Failed to cancel subscription:", error);
+      showToast.error(error.message || "Failed to cancel subscription");
+    } finally {
+      setSubscriptionActionLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      setSubscriptionActionLoading("manage");
+      const { url } = await apiService.createPortalSession();
+      window.open(url, "_blank");
+      setSubscriptionActionLoading(null);
+    } catch (error: any) {
+      console.error("Failed to create portal session:", error);
+      showToast.error(error.message || "Failed to open subscription management");
+      setSubscriptionActionLoading(null);
+    }
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
   if (loading) {
     return <SimplePageSkeleton />;
   }
@@ -241,7 +481,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen relative">
+      {/* Dark Mode Toggle - Fixed on right edge */}
+      <button
+        onClick={toggleTheme}
+        className="fixed right-4 top-1/2 -translate-y-1/2 z-50 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
+        aria-label="Toggle dark mode"
+      >
+        <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+      </button>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <motion.div
@@ -250,13 +499,13 @@ export default function SettingsPage() {
           className="mb-8"
         >
           <div className="flex items-center space-x-3 mb-2">
-            <Settings className="w-8 h-8 text-purple-600" />
+            <Settings className="w-8 h-8 text-purple-600 dark:text-purple-400" />
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Settings
+              Account Settings
             </h1>
           </div>
           <p className="text-gray-600 dark:text-gray-300">
-            Manage your account settings and security preferences.
+            Manage your account preferences, security settings, and subscriptions.
           </p>
         </motion.div>
 
@@ -267,116 +516,223 @@ export default function SettingsPage() {
           className="space-y-8"
         >
           {/* User Profile Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                <User className="w-6 h-6 text-purple-600" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                  <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Profile Information
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Update your personal details and how others see you.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Profile Information
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Manage your account details
-                </p>
-              </div>
+              {!isEditingProfile && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleEditProfileClick}
+                  className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-300 rounded-lg font-medium transition-all duration-300"
+                >
+                  Edit
+                </motion.button>
+              )}
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+            {isEditingProfile ? (
+              <form onSubmit={handleProfileSubmit} className="space-y-4">
+                {/* Name Field */}
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Name
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {user?.name}
-                  </p>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={profileForm.name}
+                    onChange={handleProfileInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none"
+                    placeholder="Enter your name"
+                    disabled={profileLoading}
+                    maxLength={100}
+                  />
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+                {/* Email Field */}
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Email
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {user?.email}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  {user?.email_verified ? (
-                    <div className="flex items-center space-x-1 text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Verified</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-1 text-amber-600">
-                      <AlertCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">Unverified</span>
-                    </div>
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={profileForm.email}
+                    onChange={handleProfileInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none"
+                    placeholder="Enter your email"
+                    disabled={profileLoading}
+                  />
+                  {user?.email_verified && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Note: Changing your email will require verification
+                    </p>
                   )}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={refreshUser}
-                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                    title="Refresh verification status"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                  </motion.button>
                 </div>
+
+                {/* Error Message */}
+                {profileError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center space-x-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg"
+                  >
+                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-sm">{profileError}</span>
+                  </motion.div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={profileLoading}
+                    className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {profileLoading ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </div>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleProfileCancel}
+                    disabled={profileLoading}
+                    className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                      FULL NAME
+                    </p>
+                    <p className="text-base font-medium text-gray-900 dark:text-white">
+                      {user?.name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                      EMAIL ADDRESS
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-base font-medium text-gray-900 dark:text-white">
+                        {user?.email || "N/A"}
+                      </p>
+                      {user?.email_verified ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          VERIFIED
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                          UNVERIFIED
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {!user?.email_verified && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-1">
+                          Email verification required
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                          Please verify your email address to access all features. Check your inbox for the verification code.
+                        </p>
+                        <div className="flex items-center space-x-2">
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleVerifyEmailClick}
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Verify Email
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={handleResendVerification}
+                            disabled={resendingVerification}
+                            className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {resendingVerification ? (
+                              <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 border-2 border-amber-700 dark:border-amber-300 border-t-transparent rounded-full animate-spin" />
+                                <span>Sending...</span>
+                              </div>
+                            ) : (
+                              "Resend Code"
+                            )}
+                          </motion.button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Security Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-center space-x-4 mb-6">
               <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <Shield className="w-6 h-6 text-red-600" />
+                <Shield className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Security Settings
                 </h2>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Protect your account with additional security measures
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Enhance your account security with these tools.
                 </p>
               </div>
             </div>
 
             <div className="space-y-6">
               {/* MFA Setting */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+              <div className="flex items-center justify-between p-4">
                 <div className="flex items-center space-x-4">
                   <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                    <Smartphone className="w-5 h-5 text-purple-600" />
+                    <Smartphone className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">
                       Two-Factor Authentication
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
-                      {user?.mfa_enabled
-                        ? "Add an extra layer of security to your account"
-                        : "Protect your account with a second verification step"}
+                      Protect your account with a second verification step.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    {user?.mfa_enabled ? (
-                      <div className="flex items-center space-x-1 text-green-600">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm font-medium">Enabled</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center space-x-1 text-gray-500">
-                        <Lock className="w-4 h-4" />
-                        <span className="text-sm font-medium">Disabled</span>
-                      </div>
-                    )}
-                  </div>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    {user?.mfa_enabled ? "Enabled" : "Disabled"}
+                  </span>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -384,7 +740,7 @@ export default function SettingsPage() {
                     disabled={mfaLoading}
                     className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${user?.mfa_enabled
                       ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
-                      : "bg-purple-100 hover:bg-purple-200 text-purple-700 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 dark:text-purple-300"
+                      : "bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-300"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {mfaLoading
@@ -397,18 +753,18 @@ export default function SettingsPage() {
               </div>
 
               {/* Password Setting */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                <div className="flex items-center justify-between mb-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                      <Key className="w-5 h-5 text-blue-600" />
+                      <Key className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">
                         Password
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Change your account password
+                        Last changed 3 months ago
                       </p>
                     </div>
                   </div>
@@ -416,7 +772,7 @@ export default function SettingsPage() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleChangePasswordClick}
-                    className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-300 rounded-lg font-medium transition-all duration-300"
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 rounded-lg font-medium transition-all duration-300"
                   >
                     {showChangePassword ? "Cancel" : "Change"}
                   </motion.button>
@@ -618,106 +974,99 @@ export default function SettingsPage() {
           </div>
 
           {/* Subscription Management Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-center space-x-4 mb-6">
               <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
-                <Crown className="w-6 h-6 text-yellow-600" />
+                <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   Subscription
                 </h2>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    Current Plan
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-300 capitalize">
-                      {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
-                        user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
-                          'Free'}
-                    </p>
-                    {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
-                      <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                        ⭐ PREMIUM
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Notifications Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                <Bell className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Notifications
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Manage your notification preferences
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Manage your billing cycle and subscription plan.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-3">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      Email Notifications
-                    </p>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${emailNotifications
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                      }`}>
-                      {emailNotifications ? 'Enabled' : 'Disabled'}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Receive updates about your assessments
-                  </p>
-                </div>
-                <motion.div
-                  className="relative inline-block w-12 h-6"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={emailNotifications}
-                    onChange={handleEmailNotificationsToggle}
-                  />
-                  <div
-                    className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 cursor-pointer ${emailNotifications ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                    onClick={handleEmailNotificationsToggle}
-                  ></div>
-                  <motion.div
-                    className="absolute top-1 w-4 h-4 bg-white rounded-full shadow cursor-pointer"
-                    animate={{
-                      x: emailNotifications ? 20 : 4
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 500,
-                      damping: 30
-                    }}
-                    onClick={handleEmailNotificationsToggle}
-                  ></motion.div>
-                </motion.div>
+            {subscriptionLoading ? (
+              <div className="space-y-4">
+                <div className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
+                <div className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
               </div>
-            </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Current Plan Info */}
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        CURRENT PLAN
+                      </p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white capitalize mb-3">
+                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
+                          user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
+                            'Free Plan'}
+                      </p>
+                      {subscriptionDetails?.plan && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-gray-600 dark:text-gray-300">Status</span>
+                            <span className={`font-medium flex items-center gap-1 ${subscriptionDetails.plan.status === 'active' ? 'text-green-600 dark:text-green-400' :
+                                subscriptionDetails.plan.status === 'trialing' ? 'text-blue-600 dark:text-blue-400' :
+                                  'text-gray-600 dark:text-gray-300'
+                              }`}>
+                              <span className="w-2 h-2 rounded-full bg-current"></span>
+                              {subscriptionDetails.plan.status === 'active' ? 'Active' :
+                                subscriptionDetails.plan.status === 'trialing' ? 'Trialing' :
+                                  subscriptionDetails.plan.status}
+                            </span>
+                          </div>
+                          {subscriptionDetails.plan.days_remaining !== null && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-gray-600 dark:text-gray-300">Days Remaining</span>
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {subscriptionDetails.plan.days_remaining} days
+                              </span>
+                            </div>
+                          )}
+                          {subscriptionDetails.plan.cancel_at_period_end && subscriptionDetails.plan.cancel_effective_date && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-gray-600 dark:text-gray-300">Cancellation Date</span>
+                              <span className="font-medium text-gray-900 dark:text-white">
+                                {formatDate(subscriptionDetails.plan.cancel_effective_date)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={fetchSubscriptionDetails}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                      title="Refresh subscription details"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+                </div>
+
+                {/* Manage Subscription Button */}
+                <Link href="/manage-subscription">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:via-violet-700 hover:to-purple-800 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
+                  >
+                    <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span>Manage Subscription</span>
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </motion.button>
+                </Link>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

@@ -20,9 +20,21 @@ import {
   Zap,
   Shield,
   AlertTriangle,
+  ChevronDown,
+  HelpCircle,
+  Calendar,
+  RefreshCw,
+  Download,
+  ArrowRight,
+  Clock,
+  Info,
+  Camera,
+  Wallet,
+  Coins,
+  MessageCircleQuestionMark,
 } from "lucide-react";
 import Link from "next/link";
-import { SimplePageSkeleton } from "../../components/Skeleton";
+import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
 
@@ -91,7 +103,8 @@ export default function ManageSubscriptionPage() {
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
   // Refs for focus management
   const cancelModalRef = useRef<HTMLDivElement>(null);
   const downgradeModalRef = useRef<HTMLDivElement>(null);
@@ -104,7 +117,7 @@ export default function ManageSubscriptionPage() {
     if (authLoading) {
       return;
     }
-    
+
     if (!isAuthenticated) {
       return;
     }
@@ -305,6 +318,49 @@ export default function ManageSubscriptionPage() {
     }
   };
 
+  // Calculate billing cycle from period dates
+  const getBillingCycle = () => {
+    if (!planDetails?.current_period_start || !planDetails?.current_period_end) {
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    }
+
+    const start = new Date(planDetails.current_period_start);
+    const end = new Date(planDetails.current_period_end);
+    const daysDiff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+
+    // If difference is around 365 days (or 12 months), it's annual
+    // If difference is around 30 days (or 1 month), it's monthly
+    if (daysDiff >= 300 && daysDiff <= 400) {
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    } else if (daysDiff >= 25 && daysDiff <= 35) {
+      return { cycle: "Monthly Billing", savings: null };
+    } else {
+      // Default to annual if unclear
+      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+    }
+  };
+
+  // Get next payment amount from most recent invoice
+  const getNextPaymentAmount = (): { amount: number | null; currency: string } => {
+    if (invoices.length > 0) {
+      // Get the most recent paid invoice
+      const paidInvoice = invoices.find(inv => inv.status === "paid") || invoices[0];
+      if (paidInvoice) {
+        return {
+          amount: paidInvoice.amount_paid,
+          currency: paidInvoice.currency || "USD",
+        };
+      }
+    }
+    // Fallback: try to infer from plan name
+    if (subscription_status === "pro_premium") {
+      return { amount: 299, currency: "USD" };
+    } else if (subscription_status === "basic_premium") {
+      return { amount: 99, currency: "USD" };
+    }
+    return { amount: null, currency: "USD" };
+  };
+
   const handleUpgradeClick = () => {
     setShowUpgradeModal(true);
   };
@@ -314,9 +370,9 @@ export default function ManageSubscriptionPage() {
       setProcessingAction("upgrade-pro");
       setError(null);
       setSuccessMessage(null);
-      
+
       const response = await apiService.upgradeToPro();
-      
+
       if (response.url) {
         // Redirect to Stripe checkout
         window.location.href = response.url;
@@ -342,9 +398,9 @@ export default function ManageSubscriptionPage() {
       setProcessingAction("downgrade-basic");
       setError(null);
       setSuccessMessage(null);
-      
+
       const response = await apiService.downgradeToBasic();
-      
+
       const endDateText = response.current_period_end
         ? formatDate(response.current_period_end)
         : null;
@@ -362,10 +418,10 @@ export default function ManageSubscriptionPage() {
           ? `${response.message || "Subscription downgrade scheduled successfully."} • ${detailsMessage}`
           : response.message || "Subscription downgrade scheduled successfully.",
       );
-      
+
       // Reload subscription status from backend
       await reloadSubscriptionData();
-      
+
       setProcessingAction(null);
     } catch (err: any) {
       console.error("Error downgrading to Basic:", err);
@@ -386,9 +442,9 @@ export default function ManageSubscriptionPage() {
       setProcessingAction("cancel");
       setError(null);
       setSuccessMessage(null);
-      
+
       const response = await apiService.cancelSubscription();
-      
+
       const endDateText = response.current_period_end
         ? formatDate(response.current_period_end)
         : null;
@@ -406,10 +462,10 @@ export default function ManageSubscriptionPage() {
           ? `${response.message || "Subscription cancellation scheduled successfully."} • ${detailsMessage}`
           : response.message || "Subscription cancellation scheduled successfully.",
       );
-      
+
       // Reload subscription status from backend
       await reloadSubscriptionData();
-      
+
       setProcessingAction(null);
     } catch (err: any) {
       console.error("Error canceling subscription:", err);
@@ -420,7 +476,7 @@ export default function ManageSubscriptionPage() {
   };
 
   if (loading) {
-    return <SimplePageSkeleton />;
+    return <ManageSubscriptionSkeleton />;
   }
 
   // Use subscription_status directly from backend - do not infer
@@ -439,451 +495,351 @@ export default function ManageSubscriptionPage() {
   // Invoices are now loaded separately via lazy loading
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 min-h-screen py-12 px-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Back Button */}
-        <Link href="/dashboard">
-          <motion.button
-            whileHover={{ scale: 1.05, x: -2 }}
-            whileTap={{ scale: 0.95 }}
-            className="group flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white mb-8 transition-all duration-200"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span className="font-medium">Back to Dashboard</span>
-          </motion.button>
-        </Link>
-
+    <div className="bg-white dark:bg-gray-900 min-h-screen py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8 md:p-10"
+          transition={{ delay: 0.1 }}
+          className="flex items-center gap-4 mb-8"
         >
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="flex items-center gap-4 mb-10"
-          >
-            <div className="relative">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-600 via-violet-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30">
-                <CreditCard className="w-7 h-7 text-white" />
-              </div>
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full animate-pulse"></div>
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Manage Subscription
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 mt-1.5 text-sm md:text-base">
-                View and manage your subscription plan
-              </p>
-            </div>
-          </motion.div>
+          <div className="w-16 h-16 bg-purple-600 rounded-lg flex items-center justify-center">
+            <Wallet className="w-8 h-8 text-white" strokeWidth={2}/>
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
+              Subscription & Billing
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Manage your plan, invoices, and payment methods.
+            </p>
+          </div>
+        </motion.div>
 
-          {/* Current Subscription Status Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-violet-50 to-pink-50 dark:from-purple-900/30 dark:via-violet-900/30 dark:to-pink-900/30 rounded-2xl p-8 mb-8 border border-purple-200/50 dark:border-purple-800/50 shadow-lg"
-          >
-            {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-violet-400/10 to-purple-400/10 rounded-full blur-3xl"></div>
-            
-            <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-3">
-                  Current Plan
-                </p>
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
-                    {getPlanDisplayName()}
-                  </h2>
-                  {isPremium && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ type: "spring", stiffness: 200 }}
-                      className="inline-flex items-center gap-1.5 bg-gradient-to-r from-yellow-400 via-orange-400 to-pink-400 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg shadow-orange-500/30"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      PREMIUM
-                    </motion.span>
-                  )}
-                </div>
-                {isPremium && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span>Active subscription • Manage billing and payment methods</span>
-                  </div>
-                )}
-                {subscription_status === "free" && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-yellow-500" />
-                    Upgrade to unlock premium features
-                  </p>
-                )}
-              </div>
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className="w-20 h-20 bg-gradient-to-br from-purple-600 via-violet-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-xl shadow-purple-500/40"
-              >
-                <Crown className="w-10 h-10 text-white" />
-              </motion.div>
-            </div>
-          </motion.div>
-
-          {/* Plan Details & Billing Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8"
-          >
-            <div className="lg:col-span-2 bg-white/80 dark:bg-gray-800/70 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300">
-                    Plan details
-                  </p>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Billing & renewal
-                  </h3>
-                </div>
-                <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-200">
-                  {isCanceling ? "Cancels at period end" : "Renews automatically"}
+        {/* Current Plan Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-6 mb-6"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  CURRENT PLAN
                 </span>
+                {isPremium && (
+                  <span className="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full">
+                    ACTIVE
+                  </span>
+                )}
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+                {getPlanDisplayName()}
+              </h2>
+              {isPremium && planDetails && (
+                <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <Calendar className="w-4 h-4" />
+                  <span>
+                    {(() => {
+                      const isCancelling = planDetails.cancel_at_period_end;
+                      const renewalDate = isCancelling 
+                        ? (planDetails.cancel_effective_date || planDetails.current_period_end)
+                        : (planDetails.renewal_date || planDetails.current_period_end);
+                      const nextPayment = getNextPaymentAmount();
+                      const billingCycle = getBillingCycle();
+                      const interval = billingCycle.cycle === "Annual Billing" ? "year" : "month";
+                      const amount = nextPayment.amount !== null && nextPayment.amount !== undefined
+                        ? formatCurrency(nextPayment.amount, nextPayment.currency)
+                        : null;
+                      
+                      if (renewalDate && amount && !isCancelling) {
+                        return `Renews on ${formatDate(renewalDate)} — ${amount}/${interval}`;
+                      } else if (renewalDate && isCancelling) {
+                        return `Access until ${formatDate(renewalDate)}`;
+                      } else if (renewalDate) {
+                        return `Renews on ${formatDate(renewalDate)}`;
+                      } else {
+                        return "—";
+                      }
+                    })()}
+                  </span>
+                </div>
+              )}
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleUpgradeClick}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold flex items-center gap-2 transition-colors"
+            >
+              Change Plan
+              <ArrowRight className="w-4 h-4" />
+            </motion.button>
+          </div>
+        </motion.div>
+
+        {/* Main Content Grid: Left side (Cards + FAQ), Right side (Billing History) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Left Column: Two Cards + FAQ */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Four Cards Row */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            >
+              {/* Billing Cycle Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3"/>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  BILLING CYCLE
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  {getBillingCycle().cycle}
+                </p>
+                {getBillingCycle().savings && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{getBillingCycle().savings}</p>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40">
-                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">Signed up</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {formatDate(subscriptionDetails?.signup_date)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Account creation date</p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40">
-                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">Current period</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {planDetails?.current_period_start && planDetails?.current_period_end
-                      ? `${formatDate(planDetails.current_period_start)} → ${formatDate(planDetails.current_period_end)}`
-                      : "—"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {isCanceling ? "Will end at period end" : "Renews unless canceled"}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40">
-                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">
-                    {isCanceling ? "Access until" : "Renews on"}
-                  </p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {isCanceling
-                      ? formatDate(planDetails?.cancel_effective_date || planDetails?.current_period_end)
-                      : formatDate(planDetails?.renewal_date || planDetails?.current_period_end)}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {isCanceling ? "You keep access until this date" : "Next billing date"}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/40">
-                  <p className="text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">Days remaining</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                    {typeof planDetails?.days_remaining === "number"
-                      ? `${planDetails.days_remaining} day${planDetails.days_remaining === 1 ? "" : "s"}`
-                      : "—"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Includes today&apos;s access
-                  </p>
-                </div>
+              {/* Next Payment Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <Coins className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3" />
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  NEXT PAYMENT
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  {(() => {
+                    const nextPayment = getNextPaymentAmount();
+                    return nextPayment.amount !== null && nextPayment.amount !== undefined
+                      ? formatCurrency(nextPayment.amount, nextPayment.currency)
+                      : "—";
+                  })()}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  On {planDetails?.renewal_date ? formatDate(planDetails.renewal_date) : planDetails?.current_period_end ? formatDate(planDetails.current_period_end) : "—"}
+                </p>
               </div>
+
+              {/* Days Remaining Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <Clock className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3" />
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  DAYS REMAINING
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  {typeof planDetails?.days_remaining === "number"
+                    ? `${planDetails.days_remaining} day${planDetails.days_remaining === 1 ? "" : "s"}`
+                    : "—"}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isCanceling ? "Until cancellation" : "Until renewal"}
+                </p>
+              </div>
+
+              {/* Cancellation Date Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                <AlertTriangle className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3" />
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  CANCELLATION DATE
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                  {planDetails?.cancel_effective_date
+                    ? formatDate(planDetails.cancel_effective_date)
+                    : "—"}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {isCanceling ? "Subscription ends" : "Not scheduled"}
+                </p>
+              </div>
+            </motion.div>
+
+            {/* FAQ Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700"
+            >
+              <div className="flex items-center justify-start gap-3 mb-4">
+                <MessageCircleQuestionMark className="w-6 h-6 text-gray-800 dark:text-gray-400 mb-3" />
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                Frequently Asked Questions
+              </h3>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  {
+                    question: "Can I upgrade my subscription at any time?",
+                    answer: "Yes, you can upgrade your plan at any time from your dashboard. The price difference will be calculated and applied to your next billing cycle.",
+                    defaultOpen: true
+                  },
+                  {
+                    question: "What happens when I cancel my subscription?",
+                    answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
+                    defaultOpen: false
+                  },
+                  {
+                    question: "Can I downgrade my subscription?",
+                    answer: "Yes, you can downgrade your subscription at any time. The downgrade will take effect at the end of your current billing period, so you'll continue to have access to your current plan's features until then.",
+                    defaultOpen: false
+                  },
+                  {
+                    question: "Will I be charged immediately when I upgrade?",
+                    answer: "Yes, when you upgrade, you'll be charged a prorated amount for the remainder of your current billing period. This ensures you only pay for the time you'll have access to the upgraded features. Your next full billing cycle will reflect the new plan's regular pricing.",
+                    defaultOpen: false
+                  },
+                  {
+                    question: "Do I get a refund if I downgrade or cancel?",
+                    answer: "No, refunds are not issued for downgrades or cancellations. Since you've already paid for the current billing period, you'll continue to have access to your current plan's features until the period ends. This ensures you receive the full value of what you've paid for.",
+                    defaultOpen: false
+                  }
+                ].map((faq, index) => {
+                  const isOpen = openFaqIndex === index;
+                  return (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 + index * 0.05 }}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden"
+                    >
+                      <button
+                        onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                        className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <span className="font-semibold text-gray-900 dark:text-white flex-1">
+                          {faq.question}
+                        </span>
+                        <ChevronDown
+                          className={`w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+                            }`}
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-5 pb-4 pt-0">
+                              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                                {faq.answer}
+                              </p>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right Column: Billing History */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="bg-white dark:bg-gray-800 rounded-xl px-6 py-3.5 border border-gray-200 dark:border-gray-700"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Billing History</h3>
             </div>
 
-            <div className="bg-white/80 dark:bg-gray-800/70 rounded-2xl border border-gray-100 dark:border-gray-700/60 shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-300">
-                    Payment history
-                  </p>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent charges</h3>
-                </div>
-              </div>
-              {loadingInvoices ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader className="w-5 h-5 animate-spin text-purple-600 dark:text-purple-300" />
-                  <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">Loading invoices...</span>
-                </div>
-              ) : invoices.length === 0 ? (
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  No payments recorded yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {invoices.slice(0, 5).map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-gray-700 px-4 py-3 bg-gray-50/60 dark:bg-gray-900/40"
-                    >
+            {loadingInvoices ? (
+              <BillingHistorySkeleton />
+            ) : invoices.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-300">No billing history yet.</p>
+            ) : (
+              <div className="space-y-3 mb-4">
+                {invoices.slice(0, 7).map((invoice) => (
+                  <div
+                    key={invoice.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
                           {formatCurrency(invoice.amount_paid, invoice.currency)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {formatDate(invoice.created)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-200 capitalize">
-                          {invoice.status?.replace("_", " ") || "paid"}
-                        </span>
-                        {invoice.hosted_invoice_url && (
-                          <a
-                            href={invoice.hosted_invoice_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-medium text-purple-600 dark:text-purple-300 hover:underline"
-                          >
-                            View
-                          </a>
-                        )}
-                      </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
-
-          {/* Success Message */}
-          {successMessage && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-green-500 rounded-xl p-4 mb-6 shadow-md"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-sm font-medium text-green-800 dark:text-green-300">{successMessage}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-l-4 border-red-500 rounded-xl p-4 mb-6 shadow-md"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-5 h-5 text-white" />
-                </div>
-                <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Subscription Actions */}
-          <div className="mb-8">
-            {/* Free Plan Actions */}
-            {subscription_status === "free" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="relative overflow-hidden bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 dark:from-yellow-900/20 dark:via-orange-900/20 dark:to-amber-900/20 border-2 border-yellow-300/50 dark:border-yellow-700/50 rounded-2xl p-8 shadow-lg"
-              >
-                <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-full blur-2xl"></div>
-                <div className="relative">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-yellow-500/30">
-                      <TrendingUp className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                        Upgrade to Premium
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                        Unlock advanced features, priority support, and more
-                      </p>
-                    </div>
+                    {invoice.hosted_invoice_url && (
+                      <a
+                        href={invoice.hosted_invoice_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400"
+                      >
+                        <Download className="w-5 h-5" />
+                      </a>
+                    )}
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleUpgradeClick}
-                    disabled={processingAction !== null}
-                    className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-amber-500 hover:from-yellow-600 hover:via-orange-600 hover:to-amber-600 text-white rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 flex items-center justify-center gap-2"
-                  >
-                    <span>View Plans & Upgrade</span>
-                  </motion.button>
-                </div>
-              </motion.div>
+                ))}
+                <p className="text-xs text-gray-500 dark:text-gray-400 text-center pt-2 flex justify-end">
+                  Showing top 7 recent invoices
+                </p>
+              </div>
             )}
+          </motion.div>
+        </div>
 
-            {/* Basic Premium Actions */}
-            {subscription_status === "basic_premium" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className={isCanceling ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}
-              >
-                {!isCanceling && (
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleUpgradeToPro}
-                    disabled={processingAction !== null}
-                    className="group relative overflow-hidden px-6 py-5 bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 text-white rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 flex items-center justify-center gap-3"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    {processingAction === "upgrade-pro" ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <TrendingUp className="w-5 h-5" />
-                        <span>Upgrade to Pro</span>
-                      </>
-                    )}
-                  </motion.button>
-                )}
-                {isCanceling ? (
-                  <CancellationScheduledCard planDetails={planDetails} formatDate={formatDate} />
-                ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleCancelSubscription}
-                    disabled={processingAction !== null}
-                    className="group relative overflow-hidden px-6 py-5 bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 flex items-center justify-center gap-3 border border-red-700/50"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    {processingAction === "cancel" ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-5 h-5" />
-                        <span>Cancel Subscription</span>
-                      </>
-                    )}
-                  </motion.button>
-                )}
-              </motion.div>
-            )}
-
-            {/* Pro Premium Actions */}
-            {subscription_status === "pro_premium" && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className={isCanceling ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 gap-4"}
-              >
-                {!isCanceling && (
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleDowngradeToBasic}
-                    disabled={processingAction !== null}
-                    className="group relative overflow-hidden px-6 py-5 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 flex items-center justify-center gap-3"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    {processingAction === "downgrade-basic" ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <TrendingDown className="w-5 h-5" />
-                        <span>Downgrade to Basic</span>
-                      </>
-                    )}
-                  </motion.button>
-                )}
-                {isCanceling ? (
-                  <CancellationScheduledCard planDetails={planDetails} formatDate={formatDate} />
-                ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleCancelSubscription}
-                    disabled={processingAction !== null}
-                    className="group relative overflow-hidden px-6 py-5 bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 flex items-center justify-center gap-3 border border-red-700/50"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    {processingAction === "cancel" ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        <span>Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-5 h-5" />
-                        <span>Cancel Subscription</span>
-                      </>
-                    )}
-                  </motion.button>
-                )}
-              </motion.div>
-            )}
-          </div>
-
-          {/* Info Box */}
+        {/* Success Message */}
+        {successMessage && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl p-6 border border-gray-200/50 dark:border-gray-700/50"
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-l-4 border-green-500 rounded-xl p-4 mb-6 shadow-md"
           >
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-green-500/20">
-                <Shield className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-white" />
               </div>
-              <div className="flex-1">
-                <h4 className="font-bold text-gray-900 dark:text-white mb-3 text-lg">
-                  About Subscription Management
-                </h4>
-                <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2.5">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>You can upgrade, downgrade, or cancel your subscription at any time</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Subscription changes are processed securely through Stripe</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Changes take effect at the end of your current billing period</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Canceling your subscription will downgrade you to the Free plan</span>
-                  </li>
-                </ul>
-              </div>
+              <p className="text-sm font-medium text-green-800 dark:text-green-300">{successMessage}</p>
             </div>
           </motion.div>
-        </motion.div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-l-4 border-red-500 rounded-xl p-4 mb-6 shadow-md"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-white" />
+              </div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-300">{error}</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-end pt-6">
+          <button
+            onClick={handleCancelSubscription}
+            className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+          >
+            <X className="w-4 h-4" />
+            Cancel Subscription
+          </button>
+        </div>
       </div>
 
       {/* Upgrade Modal - Only shown for free users */}
@@ -895,7 +851,7 @@ export default function ManageSubscriptionPage() {
       {/* Cancel Confirmation Modal */}
       <AnimatePresence>
         {showCancelConfirmation && (
-          <div 
+          <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="cancel-modal-title"
@@ -912,100 +868,100 @@ export default function ManageSubscriptionPage() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
             >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-1">
-                <h3 
-                  id="cancel-modal-title"
-                  ref={cancelModalTitleRef}
-                  className="text-xl font-bold text-gray-900 dark:text-white mb-2"
-                  tabIndex={-1}
-                >
-                  Cancel Subscription?
-                </h3>
-                <div id="cancel-modal-description">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
-                    Are you sure you want to cancel? You&apos;ll keep access for the rest of this billing period and won&apos;t be charged again.
-                  </p>
-                  <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>Access stays active until the date below</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>No further renewals; you can re-upgrade anytime</span>
-                  </li>
-                </ul>
-                
-                {/* Show cancellation details if available */}
-                {planDetails && (
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Plan</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {getPlanDisplayName()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Access until</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {formatDate(planDetails.cancel_effective_date || planDetails.current_period_end)}
-                        </span>
-                      </div>
-                      {typeof planDetails.days_remaining === "number" && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Days remaining</span>
-                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-1">
+                  <h3
+                    id="cancel-modal-title"
+                    ref={cancelModalTitleRef}
+                    className="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                    tabIndex={-1}
+                  >
+                    Cancel Subscription?
+                  </h3>
+                  <div id="cancel-modal-description">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
+                      Are you sure you want to cancel? You&apos;ll keep access for the rest of this billing period and won&apos;t be charged again.
+                    </p>
+                    <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>Access stays active until the date below</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>No further renewals; you can re-upgrade anytime</span>
+                      </li>
+                    </ul>
 
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    After cancellation, you&apos;ll be downgraded to the Free plan and will lose access to premium features.
-                  </p>
+                    {/* Show cancellation details if available */}
+                    {planDetails && (
+                      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Plan</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {getPlanDisplayName()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Access until</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatDate(planDetails.cancel_effective_date || planDetails.current_period_end)}
+                            </span>
+                          </div>
+                          {typeof planDetails.days_remaining === "number" && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Days remaining</span>
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      After cancellation, you&apos;ll be downgraded to the Free plan and will lose access to premium features.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCancelConfirmation(false)}
-                disabled={processingAction === "cancel"}
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Keep
-              </button>
-              <button
-                type="button"
-                onClick={confirmCancelSubscription}
-                disabled={processingAction === "cancel"}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {processingAction === "cancel" ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Canceling...
-                  </>
-                ) : (
-                  "Yes, Cancel"
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirmation(false)}
+                  disabled={processingAction === "cancel"}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCancelSubscription}
+                  disabled={processingAction === "cancel"}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {processingAction === "cancel" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Canceling...
+                    </>
+                  ) : (
+                    "Yes, Cancel"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Downgrade Confirmation Modal */}
       <AnimatePresence>
         {showDowngradeConfirmation && (
-          <div 
+          <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="downgrade-modal-title"
@@ -1027,103 +983,103 @@ export default function ManageSubscriptionPage() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700"
             >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="flex-1">
-                <h3 
-                  id="downgrade-modal-title"
-                  ref={downgradeModalTitleRef}
-                  className="text-xl font-bold text-gray-900 dark:text-white mb-2"
-                  tabIndex={-1}
-                >
-                  Downgrade to Basic?
-                </h3>
-                <div id="downgrade-modal-description">
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
-                    Are you sure you want to downgrade from Pro Premium to Basic Premium? The change will take effect at the end of your current billing period.
-                  </p>
-                  <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>You&apos;ll keep Pro Premium features until the end of your billing period</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>Your next billing will be at the Basic Premium rate</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span>You can upgrade back to Pro Premium anytime</span>
-                  </li>
-                </ul>
-                
-                {/* Show plan details if available */}
-                {planDetails && (
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700">
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Current plan</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Pro Premium
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Will change to</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          Basic Premium
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Effective date</span>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {formatDate(planDetails.current_period_end)}
-                        </span>
-                      </div>
-                      {typeof planDetails.days_remaining === "number" && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Days remaining</span>
-                          <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                            {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-1">
+                  <h3
+                    id="downgrade-modal-title"
+                    ref={downgradeModalTitleRef}
+                    className="text-xl font-bold text-gray-900 dark:text-white mb-2"
+                    tabIndex={-1}
+                  >
+                    Downgrade to Basic?
+                  </h3>
+                  <div id="downgrade-modal-description">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 leading-relaxed">
+                      Are you sure you want to downgrade from Pro Premium to Basic Premium? The change will take effect at the end of your current billing period.
+                    </p>
+                    <ul className="space-y-2 mb-4 text-sm text-gray-600 dark:text-gray-300">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>You&apos;ll keep Pro Premium features until the end of your billing period</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>Your next billing will be at the Basic Premium rate</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        <span>You can upgrade back to Pro Premium anytime</span>
+                      </li>
+                    </ul>
 
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    You&apos;ll lose access to Pro Premium features after the downgrade takes effect.
-                  </p>
+                    {/* Show plan details if available */}
+                    {planDetails && (
+                      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-200 dark:border-gray-700">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Current plan</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              Pro Premium
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Will change to</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              Basic Premium
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Effective date</span>
+                            <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {formatDate(planDetails.current_period_end)}
+                            </span>
+                          </div>
+                          {typeof planDetails.days_remaining === "number" && (
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Days remaining</span>
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                {planDetails.days_remaining} day{planDetails.days_remaining === 1 ? "" : "s"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      You&apos;ll lose access to Pro Premium features after the downgrade takes effect.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDowngradeConfirmation(false)}
-                disabled={processingAction === "downgrade-basic"}
-                className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Keep Pro
-              </button>
-              <button
-                type="button"
-                onClick={confirmDowngradeToBasic}
-                disabled={processingAction === "downgrade-basic"}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {processingAction === "downgrade-basic" ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Downgrading...
-                  </>
-                ) : (
-                  "Yes, Downgrade"
-                )}
-              </button>
-            </div>
-          </motion.div>
-        </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDowngradeConfirmation(false)}
+                  disabled={processingAction === "downgrade-basic"}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Keep Pro
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDowngradeToBasic}
+                  disabled={processingAction === "downgrade-basic"}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {processingAction === "downgrade-basic" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Downgrading...
+                    </>
+                  ) : (
+                    "Yes, Downgrade"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>
