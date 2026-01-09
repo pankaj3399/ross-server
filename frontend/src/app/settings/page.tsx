@@ -27,15 +27,6 @@ import { SimplePageSkeleton } from "../../components/Skeleton";
 import Link from "next/link";
 import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
 
-/**
- * Stripe price IDs for Basic and Pro plans.
- * These are currently declared for future use in subscription logic.
- * When implemented, they should be used to map price IDs to plan labels/status
- * instead of hardcoded string checks.
- */
-const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
-const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
-
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
   const { loading: authLoading } = useRequireAuth();
@@ -81,24 +72,6 @@ export default function SettingsPage() {
     }
     setLoading(false);
   }, [isAuthenticated, authLoading, router]);
-
-  // Development-only warning for missing price IDs (client-only)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-      const missingIds: string[] = [];
-      if (!BASIC_PRICE_ID) {
-        missingIds.push('BASIC_PRICE_ID');
-      }
-      if (!PRO_PRICE_ID) {
-        missingIds.push('PRO_PRICE_ID');
-      }
-      if (missingIds.length > 0) {
-        console.warn(
-          `[Development Warning] Missing Stripe Price ID configuration: ${missingIds.join(', ')}. `
-        );
-      }
-    }
-  }, []);
 
   useEffect(() => {
     // Initialize profile form with user data
@@ -302,8 +275,8 @@ export default function SettingsPage() {
       setProfileError("Email is required");
       return false;
     }
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Stricter email validation using RFC 5322-like pattern
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
     if (!emailRegex.test(trimmedEmail)) {
       setProfileError("Invalid email format");
       return false;
@@ -402,38 +375,43 @@ export default function SettingsPage() {
     
     // Use Intl.RelativeTimeFormat for accurate relative time formatting
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const prefix = "Profile last updated ";
     
+    // Handle "just now" case separately
     if (diffInSeconds < 60) {
-      return "Profile last updated just now";
+      return `${prefix}just now`;
     }
     
+    // Calculate time differences
     const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) {
-      // rtf.format returns "X minutes ago", so we prepend "Profile last updated "
-      const relativeTime = rtf.format(-diffInMinutes, 'minute');
-      return `Profile last updated ${relativeTime}`;
-    }
-    
     const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) {
-      const relativeTime = rtf.format(-diffInHours, 'hour');
-      return `Profile last updated ${relativeTime}`;
-    }
-    
     const diffInDays = Math.floor(diffInHours / 24);
-    // Use more accurate month calculation
     const monthsDiff = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
-    if (monthsDiff < 12 && monthsDiff > 0) {
-      const relativeTime = rtf.format(-monthsDiff, 'month');
-      return `Profile last updated ${relativeTime}`;
+    const yearsDiff = now.getFullYear() - date.getFullYear();
+    
+    // Determine the best unit and value
+    let value: number;
+    let unit: Intl.RelativeTimeFormatUnit;
+    
+    if (diffInMinutes < 60) {
+      value = diffInMinutes;
+      unit = 'minute';
+    } else if (diffInHours < 24) {
+      value = diffInHours;
+      unit = 'hour';
+    } else if (monthsDiff < 12 && monthsDiff > 0) {
+      value = monthsDiff;
+      unit = 'month';
     } else if (diffInDays < 365) {
-      const relativeTime = rtf.format(-diffInDays, 'day');
-      return `Profile last updated ${relativeTime}`;
+      value = diffInDays;
+      unit = 'day';
+    } else {
+      value = yearsDiff;
+      unit = 'year';
     }
     
-    const yearsDiff = now.getFullYear() - date.getFullYear();
-    const relativeTime = rtf.format(-yearsDiff, 'year');
-    return `Profile last updated ${relativeTime}`;
+    // Return unified format with prefix
+    return `${prefix}${rtf.format(-value, unit)}`;
   };
 
   if (loading) {
@@ -1022,7 +1000,6 @@ export default function SettingsPage() {
                 <Link
                   href="/manage-subscription"
                   className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:via-violet-700 hover:to-purple-800 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
-                  role="button"
                 >
                   <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span>Manage Subscription</span>

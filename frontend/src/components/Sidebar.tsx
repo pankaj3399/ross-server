@@ -133,10 +133,10 @@ export function Sidebar({
       // Use composedPath to check for portal nodes in document.body
       const path = event.composedPath ? event.composedPath() : (event as any).path || [];
       const isInsideMenu = path.some((element: any) => {
-        // Defensively check if element is an Element instance before calling hasAttribute
+        // Check if element is truthy and an Element instance before calling hasAttribute
         if (!element || typeof element !== 'object') return false;
-        if (element.nodeType !== 1 && !(element instanceof Element)) return false;
-        return element.hasAttribute && element.hasAttribute('data-user-menu');
+        if (!(element instanceof Element)) return false;
+        return element.hasAttribute('data-user-menu');
       });
       if (!isInsideMenu) {
         setIsUserMenuOpen(false);
@@ -387,13 +387,6 @@ export function Sidebar({
               aria-pressed={theme === "dark"}
               aria-label="Toggle theme"
             >
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={theme === "dark"}
-                readOnly
-                tabIndex={-1}
-              />
               <div
                 className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${
                   theme === "dark"
@@ -450,7 +443,7 @@ export function Sidebar({
                 <div className={`w-10 h-10 bg-gradient-to-br from-purple-500 to-violet-600 rounded-full flex items-center justify-center shadow-sm ${!collapsed ? "border-2 border-purple-200 dark:border-purple-400/50" : ""}`}>
                   <User className="w-5 h-5 text-white" />
                 </div>
-                {/* Green Status Indicator */}
+                {/* Decorative green indicator - purely visual, does not reflect actual user presence/status */}
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
               </div>
 
