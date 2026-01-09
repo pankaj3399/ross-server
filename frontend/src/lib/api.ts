@@ -103,6 +103,7 @@ export interface SubscriptionPlanDetails {
   days_remaining: number | null;
   renewal_date: string | null;
   cancel_effective_date: string | null;
+  next_payment_amount: number | null;
 }
 
 export interface SubscriptionDetailsResponse {

@@ -287,21 +287,24 @@ export default function SettingsPage() {
   };
 
   const validateProfileForm = () => {
-    if (!profileForm.name || profileForm.name.trim().length === 0) {
+    const trimmedName = profileForm.name.trim();
+    const trimmedEmail = profileForm.email.trim();
+    
+    if (!trimmedName || trimmedName.length === 0) {
       setProfileError("Name is required");
       return false;
     }
-    if (profileForm.name.length > 100) {
+    if (trimmedName.length > 100) {
       setProfileError("Name must be less than 100 characters");
       return false;
     }
-    if (!profileForm.email || profileForm.email.trim().length === 0) {
+    if (!trimmedEmail || trimmedEmail.length === 0) {
       setProfileError("Email is required");
       return false;
     }
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(profileForm.email)) {
+    if (!emailRegex.test(trimmedEmail)) {
       setProfileError("Invalid email format");
       return false;
     }
@@ -313,8 +316,12 @@ export default function SettingsPage() {
 
     if (!validateProfileForm()) return;
 
-    // Check if anything changed
-    if (user && profileForm.name === user.name && profileForm.email === user.email) {
+    // Trim values upfront for comparison and payload
+    const trimmedName = profileForm.name.trim();
+    const trimmedEmail = profileForm.email.trim();
+
+    // Check if anything changed using trimmed values
+    if (user && trimmedName === user.name && trimmedEmail === user.email) {
       setProfileError("No changes to save");
       return;
     }
@@ -324,11 +331,11 @@ export default function SettingsPage() {
 
     try {
       const updateData: { name?: string; email?: string } = {};
-      if (user && profileForm.name !== user.name) {
-        updateData.name = profileForm.name.trim();
+      if (user && trimmedName !== user.name) {
+        updateData.name = trimmedName;
       }
-      if (user && profileForm.email !== user.email) {
-        updateData.email = profileForm.email.trim();
+      if (user && trimmedEmail !== user.email) {
+        updateData.email = trimmedEmail;
       }
 
       const response = await apiService.updateProfile(updateData);
@@ -1012,16 +1019,14 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Manage Subscription Button */}
-                <Link href="/manage-subscription">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:via-violet-700 hover:to-purple-800 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
-                  >
-                    <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    <span>Manage Subscription</span>
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </motion.button>
+                <Link
+                  href="/manage-subscription"
+                  className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:via-violet-700 hover:to-purple-800 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
+                  role="button"
+                >
+                  <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span>Manage Subscription</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
             )}

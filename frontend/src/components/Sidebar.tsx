@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -85,6 +85,7 @@ export function Sidebar({
   // Calculate dropdown position when collapsed
   useLayoutEffect(() => {
     let rafId: number | null = null;
+    let listenersAttached = false;
 
     const updatePosition = () => {
       if (collapsed && isUserMenuOpen && userButtonRef.current) {
@@ -107,14 +108,20 @@ export function Sidebar({
     if (collapsed && isUserMenuOpen) {
       window.addEventListener('scroll', updatePosition, true);
       window.addEventListener('resize', updatePosition);
-      return () => {
+      listenersAttached = true;
+    }
+
+    // Always return cleanup function
+    return () => {
+      if (listenersAttached) {
         window.removeEventListener('scroll', updatePosition, true);
         window.removeEventListener('resize', updatePosition);
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
-        }
-      };
-    }
+      }
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    };
   }, [collapsed, isUserMenuOpen]);
 
 
@@ -125,9 +132,12 @@ export function Sidebar({
     const handleClickOutside = (event: MouseEvent) => {
       // Use composedPath to check for portal nodes in document.body
       const path = event.composedPath ? event.composedPath() : (event as any).path || [];
-      const isInsideMenu = path.some((element: any) => 
-        element && element.hasAttribute && element.hasAttribute('data-user-menu')
-      );
+      const isInsideMenu = path.some((element: any) => {
+        // Defensively check if element is an Element instance before calling hasAttribute
+        if (!element || typeof element !== 'object') return false;
+        if (element.nodeType !== 1 && !(element instanceof Element)) return false;
+        return element.hasAttribute && element.hasAttribute('data-user-menu');
+      });
       if (!isInsideMenu) {
         setIsUserMenuOpen(false);
       }
@@ -148,19 +158,22 @@ export function Sidebar({
 
   // Get all sidebar items including admin item if user is admin
   // Dedupe by item.id to prevent duplicate entries
-  const allSidebarItemsMap = new Map<string, SidebarItem>();
-  items.forEach(item => {
-    allSidebarItemsMap.set(item.id, item);
-  });
-  if (user?.role === "ADMIN" && !allSidebarItemsMap.has("admin-aima")) {
-    allSidebarItemsMap.set("admin-aima", {
-      id: "admin-aima",
-      label: "Manage AIMA Data",
-      href: "/admin/aima-data",
-      icon: Database,
+  // Memoized to avoid recomputing on every render
+  const allSidebarItems = useMemo(() => {
+    const allSidebarItemsMap = new Map<string, SidebarItem>();
+    items.forEach(item => {
+      allSidebarItemsMap.set(item.id, item);
     });
-  }
-  const allSidebarItems = Array.from(allSidebarItemsMap.values());
+    if (user?.role === "ADMIN" && !allSidebarItemsMap.has("admin-aima")) {
+      allSidebarItemsMap.set("admin-aima", {
+        id: "admin-aima",
+        label: "Manage AIMA Data",
+        href: "/admin/aima-data",
+        icon: Database,
+      });
+    }
+    return Array.from(allSidebarItemsMap.values());
+  }, [items, user?.role]);
 
   // Render function for user dropdown content
   const renderUserDropdown = () => {
@@ -448,9 +461,7 @@ export function Sidebar({
                       {user.name || "User"}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 block truncate">
-                      {user.email && user.email.length > 20
-                        ? `${user.email.substring(0, 20)}...`
-                        : user.email || ""}
+                      {user.email || ""}
                     </span>
                   </div>
                   <ChevronsUpDown className="w-4 h-4 text-gray-500 dark:text-gray-400 flex-shrink-0" />

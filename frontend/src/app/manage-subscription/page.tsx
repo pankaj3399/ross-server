@@ -323,7 +323,7 @@ export default function ManageSubscriptionPage() {
   // Custom intervals or explicit interval fields are not currently available in the planDetails type.
   const billingCycle = useMemo(() => {
     if (!planDetails?.current_period_start || !planDetails?.current_period_end) {
-      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+      return { cycle: "Billing cycle unknown", savings: null };
     }
 
     const start = new Date(planDetails.current_period_start);
@@ -338,8 +338,8 @@ export default function ManageSubscriptionPage() {
     } else if (daysDiff >= 25 && daysDiff <= 35) {
       return { cycle: "Monthly Billing", savings: null };
     } else {
-      // Default to annual if unclear
-      return { cycle: "Annual Billing", savings: "Save 20% vs Monthly" };
+      // Return neutral response for unclear intervals
+      return { cycle: "Custom Billing", savings: null };
     }
   }, [planDetails]);
 
@@ -381,6 +381,17 @@ export default function ManageSubscriptionPage() {
     }
   };
 
+  // Helper function to format next payment date
+  const getNextPaymentDateText = (planDetails: SubscriptionPlanDetails | null | undefined): string => {
+    if (planDetails?.renewal_date) {
+      return formatDate(planDetails.renewal_date);
+    }
+    if (planDetails?.current_period_end) {
+      return formatDate(planDetails.current_period_end);
+    }
+    return "—";
+  };
+
   // Helper function to get renewal text
   const getRenewalText = () => {
     if (!planDetails) {
@@ -415,14 +426,21 @@ export default function ManageSubscriptionPage() {
     }
   };
 
-  // Get next payment amount from most recent invoice (memoized to avoid UI flash)
-  // Note: This assumes subscription_status reflects the active plan. The fallback to FALLBACK_PRICES
-  // is only for users without payment history. TODO: Tighten subscription sync or replace with
-  // a backend-provided next_payment_amount if/when available.
+  // Get next payment amount from backend-provided field, then invoices, then fallback
+  // Note: See TECHNICAL_DEBT.md for tracking issue on removing FALLBACK_PRICES once backend field is fully implemented
   const nextPaymentInfo = useMemo(() => {
     if (loadingInvoices) {
       return { amount: null, currency: "USD", isLoading: true };
     }
+    // Prefer backend-provided next_payment_amount if available
+    if (planDetails?.next_payment_amount !== null && planDetails?.next_payment_amount !== undefined) {
+      return {
+        amount: planDetails.next_payment_amount,
+        currency: "USD", // Backend should provide currency if needed
+        isLoading: false,
+      };
+    }
+    // Fallback to most recent invoice
     if (invoices.length > 0) {
       // Get the most recent paid invoice
       const paidInvoice = invoices.find(inv => inv.status === "paid") || invoices[0];
@@ -434,14 +452,14 @@ export default function ManageSubscriptionPage() {
         };
       }
     }
-    // Fallback: try to infer from plan name
+    // Final fallback: try to infer from plan name (technical debt - see TECHNICAL_DEBT.md)
     if (subscription_status === "pro_premium") {
       return { amount: FALLBACK_PRICES.pro, currency: "USD", isLoading: false };
     } else if (subscription_status === "basic_premium") {
       return { amount: FALLBACK_PRICES.basic, currency: "USD", isLoading: false };
     }
     return { amount: null, currency: "USD", isLoading: false };
-  }, [invoices, subscription_status, loadingInvoices]);
+  }, [invoices, subscription_status, loadingInvoices, planDetails]);
 
   const handleUpgradeClick = () => {
     setShowUpgradeModal(true);
@@ -721,7 +739,7 @@ export default function ManageSubscriptionPage() {
                   )}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  On {planDetails?.renewal_date ? formatDate(planDetails.renewal_date) : planDetails?.current_period_end ? formatDate(planDetails.current_period_end) : "—"}
+                  On {getNextPaymentDateText(planDetails)}
                 </p>
               </div>
 
