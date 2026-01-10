@@ -13,19 +13,14 @@ import {
   Plus,
   Trash2,
   ArrowRight,
-  User,
-  Building,
-  Crown,
-  Shield,
   CheckCircle,
   AlertCircle,
   Loader,
 } from "lucide-react";
 import { CardSkeleton } from "../../components/Skeleton";
 
-const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
-const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
+const SKELETON_COUNT = 5;
 const INDUSTRY_OPTIONS = [
   "Healthcare & Life Sciences",
   "Finance & Banking",
@@ -248,7 +243,23 @@ export default function DashboardPage() {
                 </p>
               </div>
             </motion.div>
-
+            {/* Action Buttons */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="flex justify-end items-center"
+            >
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowCreateForm(true)}
+                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 pulse-glow"
+              >
+                <Plus className="w-5 h-5" />
+                New Project
+              </motion.button>
+            </motion.div>
           </div>
 
           {/* Success Message */}
@@ -287,111 +298,6 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
-          {/* User Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="glass-effect rounded-2xl p-6 mb-8"
-          >
-            <h2 className="text-xl font-semibold mb-6 text-gray-900 dark:text-white">
-              Account Information
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-purple-400" />
-                <div>
-                  <label className="text-sm font-medium text-gray-400">
-                    Name
-                  </label>
-                  <p className="text-gray-900 dark:text-white">{user?.name}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Building className="w-5 h-5 text-purple-400" />
-                <div>
-                  <label className="text-sm font-medium text-gray-400">
-                    Email
-                  </label>
-                  <p className="text-gray-900 dark:text-white">{user?.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Building className="w-5 h-5 text-purple-400" />
-                <div>
-                  <label className="text-sm font-medium text-gray-400">
-                    Organization
-                  </label>
-                  <p className="text-gray-900 dark:text-white">
-                    {user?.organization || "Not specified"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Crown className="w-5 h-5 text-purple-400" />
-                <div>
-                  <label className="text-sm font-medium text-gray-400">
-                    Subscription
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <p className="text-gray-900 dark:text-white capitalize">
-                      {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
-                        user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
-                          user?.subscription_status}
-                    </p>
-                    {(user?.subscription_status === 'basic_premium' || user?.subscription_status === 'pro_premium') && (
-                      <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                        ⭐ PREMIUM
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Shield className="w-5 h-5 text-purple-400" />
-                <div>
-                  <label className="text-sm font-medium text-gray-400">
-                    Two-Factor Authentication
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {user?.mfa_enabled ? (
-                      <div className="flex items-center gap-1 text-green-600">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm font-medium">Enabled</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 text-amber-600">
-                        <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm font-medium">Disabled</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="flex justify-between items-center mb-8"
-          >
-            <div>
-              {/* Spacer to keep layout if needed, or just empty div */}
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 pulse-glow"
-            >
-              <Plus className="w-5 h-5" />
-              New Project
-            </motion.button>
-          </motion.div>
-
           {/* Projects */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -403,7 +309,7 @@ export default function DashboardPage() {
             </h2>
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
+                {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
                   <CardSkeleton key={i} />
                 ))}
               </div>
@@ -436,43 +342,58 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ y: -5 }}
-                    className="glass-effect rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
+                    className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {/* Title and Status */}
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                         {project.name}
                       </h3>
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleEditProject(project)}
-                          className="flex items-center gap-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProject(project.id)}
-                          className="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete
-                        </button>
-                      </div>
-
-                    </div>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm">
-                      {project.description || "No description provided"}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">
-                        {project.ai_system_type || "General AI System"}
-                      </span>
                       <Link
                         href={`/assess/${project.id}`}
-                        className="flex items-center gap-2 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors text-sm font-medium"
+                        className="flex items-center gap-2 text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors text-sm font-medium"
                       >
-                        {project.status === 'in_progress' ? 'Continue Assessment' : project.status === 'completed' ? 'Completed' : 'Start Assessment'}
+                        <span>
+                          {project.status === 'completed' ? 'Completed' : 
+                           project.status === 'in_progress' ? 'In Progress' : 
+                           'Start'}
+                        </span>
                         <ArrowRight className="w-4 h-4" />
                       </Link>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
+                      {project.description || "No description provided"}
+                    </p>
+
+                    {/* Tag */}
+                    <div className="mb-4">
+                      <span className="inline-block text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md">
+                        {project.ai_system_type || "General AI System"}
+                      </span>
+                    </div>
+
+                    {/* Separator */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditProject(project)}
+                        className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProject(project.id)}
+                        className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
                     </div>
                   </motion.div>
                 ))}

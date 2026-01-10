@@ -9,6 +9,7 @@ export interface User {
   organization?: string;
   email_verified?: boolean;
   mfa_enabled?: boolean;
+  updated_at?: string;
 }
 
 export interface AuthResponse {
@@ -102,6 +103,7 @@ export interface SubscriptionPlanDetails {
   days_remaining: number | null;
   renewal_date: string | null;
   cancel_effective_date: string | null;
+  next_payment_amount: number | null;
 }
 
 export interface SubscriptionDetailsResponse {
@@ -190,6 +192,24 @@ class ApiService {
   async getCurrentUser(): Promise<User> {
     const response = await this.request<{ user: User }>("/auth/me");
     return response.user;
+  }
+
+  async updateProfile(data: {
+    name?: string;
+    email?: string;
+  }): Promise<{
+    user: User;
+    message: string;
+    emailVerificationSent?: boolean;
+  }> {
+    return this.request<{
+      user: User;
+      message: string;
+      emailVerificationSent?: boolean;
+    }>("/auth/update-profile", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
   logout(): void {
@@ -702,8 +722,8 @@ class ApiService {
   }
 
 
-  async resendVerification(): Promise<{ message: string; emailSent: boolean }> {
-    return this.request<{ message: string; emailSent: boolean }>(
+  async resendVerification(): Promise<{ message: string; emailSent: boolean; alreadySent?: boolean }> {
+    return this.request<{ message: string; emailSent: boolean; alreadySent?: boolean }>(
       "/auth/resend-verification",
       {
         method: "POST",

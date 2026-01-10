@@ -66,12 +66,6 @@ export default function PremiumFeaturesPage() {
       ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number])
       : false;
 
-    // Redirect non-premium users to upgrade page
-    if (!isPremium) {
-      router.push(`/manage-subscription`);
-      return;
-    }
-
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -307,23 +301,6 @@ export default function PremiumFeaturesPage() {
               >
                 Go to Premium Domains
               </button>
-            </motion.div>
-
-            {/* Manage Subscription Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-            >
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => router.push("/manage-subscription")}
-                className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg"
-              >
-                Manage Subscription
-              </motion.button>
             </motion.div>
           </div>
         </div>

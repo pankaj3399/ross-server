@@ -87,6 +87,14 @@ export function validatePassword(
   const errors: string[] = [];
   let score = 0;
 
+  // First, check if password contains only allowed characters
+  const allowedPattern = new RegExp(`^[A-Za-z0-9${SPECIAL_CHARS.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}]+$`);
+  if (!allowedPattern.test(password)) {
+    errors.push(
+      `Password can only contain letters, numbers, and these special characters: ${SPECIAL_CHARS}`
+    );
+  }
+
   // Length validation
   if (password.length < requirements.minLength) {
     errors.push(

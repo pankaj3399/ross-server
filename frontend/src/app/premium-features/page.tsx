@@ -17,15 +17,6 @@ export default function PremiumFeaturesPage() {
   const { isAuthenticated, user } = useAuth();
   const { loading: authLoading } = useRequireAuth();
 
-  useEffect(() => {
-    // Auth check is handled by useRequireAuth hook
-    // This effect only needs to handle the loading state
-  }, [isAuthenticated, authLoading, router]);
-
-  const handleUpgrade = () => {
-    router.push("/manage-subscription");
-  };
-
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
   if (authLoading || !isAuthenticated) {
@@ -108,17 +99,6 @@ export default function PremiumFeaturesPage() {
               </p>
             </motion.div>
           </div>
-
-          {/* Upgrade/Manage Subscription Button */}
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            onClick={handleUpgrade}
-            className="w-full bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-semibold py-4 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg"
-          >
-            {isPremium ? "Manage Subscription" : "Upgrade to Premium"}
-          </motion.button>
         </div>
       </div>
     </div>

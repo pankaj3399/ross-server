@@ -3,9 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { SidebarProvider } from "../contexts/SidebarContext";
-import { Header } from "../components/Header";
-import { Footer } from "../components/Footer";
-import { Sidebar } from "../components/Sidebar";
+import { ConditionalLayout } from "../components/ConditionalLayout";
 import StripeProvider from "@/components/StripeProvider";
 import ToastComponent from "../components/Toast";
 
@@ -31,14 +29,7 @@ export default function RootLayout({
           <ThemeProvider>
             <AuthProvider>
               <SidebarProvider>
-                <div className="min-h-screen flex">
-                  <Sidebar />
-                  <div className="flex-1 flex flex-col min-w-0">
-                    <Header />
-                    <main className="flex-1">{children}</main>
-                    <Footer />
-                  </div>
-                </div>
+                <ConditionalLayout>{children}</ConditionalLayout>
                 <ToastComponent />
               </SidebarProvider>
             </AuthProvider>

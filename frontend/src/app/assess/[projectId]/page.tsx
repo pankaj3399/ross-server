@@ -12,7 +12,7 @@ import {
   PracticeQuestionDetail,
 } from "../../../lib/api";
 import { showToast } from "../../../lib/toast";
-import { PREMIUM_STATUS } from "../../../lib/constants";
+import { PREMIUM_STATUS, FALLBACK_PRICES } from "../../../lib/constants";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -191,12 +191,12 @@ export default function AssessmentPage() {
           });
           setFetched(true);
         } else {
-          setPrices({ basic: 29, pro: 49 });
+          setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
           setFetched(true);
         }
       } catch (error) {
         console.error('Error fetching prices:', error);
-        setPrices({ basic: 29, pro: 49 });
+        setPrices({ basic: FALLBACK_PRICES.basic, pro: FALLBACK_PRICES.pro });
         setFetched(true);
       } finally {
         setPriceLoading(false);

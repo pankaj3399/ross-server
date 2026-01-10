@@ -46,6 +46,13 @@ const mfaSetupSchema = z.object({
   mfaCode: z.string().min(6, "MFA code must be 6 digits"),
 });
 
+const updateProfileSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100, "Name is too long").optional(),
+  email: z.string().email("Invalid email format").optional(),
+}).refine((data) => data.name !== undefined || data.email !== undefined, {
+  message: "At least one field (name or email) must be provided",
+});
+
 // Register
 router.post("/register", async (req, res) => {
   try {
@@ -181,66 +188,33 @@ router.post("/verify-email", async (req, res) => {
 });
 
 // Resend verification email/OTP
-router.post("/resend-verification", async (req, res) => {
+router.post("/resend-verification", authenticateToken, async (req, res) => {
   try {
-    let userId: string;
-    let email: string;
+    // Authenticated user - get current email from database (not from token, as it may be stale)
+    const userId = req.user!.id;
+    const userResult = await pool.query(
+      "SELECT email, email_verified FROM users WHERE id = $1",
+      [userId],
+    );
 
-    // Check if user is authenticated (from token) or not (from body)
-    if (req.user) {
-      // Authenticated user
-      userId = req.user.id;
-      email = req.user.email;
-    } else {
-      // Unauthenticated user (from OTP page)
-      const { email: requestEmail } = req.body;
-      
-      if (!requestEmail) {
-        return res.status(400).json({ error: "Email is required" });
-      }
-
-      // Check if user exists
-      const userResult = await pool.query(
-        "SELECT id, email_verified FROM users WHERE email = $1",
-        [requestEmail],
-      );
-
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      const user = userResult.rows[0];
-      
-      if (user.email_verified) {
-        return res.status(400).json({ error: "Email already verified" });
-      }
-
-      userId = user.id;
-      email = requestEmail;
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if already verified (for authenticated users)
-    if (req.user) {
-      const userResult = await pool.query(
-        "SELECT email_verified FROM users WHERE id = $1",
-        [userId],
-      );
+    const email = userResult.rows[0].email;
 
-      if (userResult.rows.length === 0) {
-        return res.status(404).json({ error: "User not found" });
-      }
+    if (userResult.rows[0].email_verified) {
+      return res.status(400).json({ error: "Email already verified" });
+    }
 
-      if (userResult.rows[0].email_verified) {
-        return res.status(400).json({ error: "Email already verified" });
-      }
-
-      // Check if there's already a valid OTP
-      const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
-      if (hasValidOTP) {
-        return res.status(400).json({
-          error: "Verification email already sent. Please check your email.",
-        });
-      }
+    // Check if there's already a valid OTP
+    const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
+    if (hasValidOTP) {
+      return res.status(200).json({
+        message: "Verification email already sent. Please check your email.",
+        emailSent: true,
+        alreadySent: true,
+      });
     }
 
     // Create new OTP
@@ -501,6 +475,121 @@ router.post("/change-password", authenticateToken, async (req, res) => {
   }
 });
 
+// Update profile (name and/or email)
+router.put("/update-profile", authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = updateProfileSchema.parse(req.body);
+    const userId = req.user!.id;
+
+    // Get current user data (widen SELECT to include all fields needed for response)
+    const currentUserResult = await pool.query(
+      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
+      [userId],
+    );
+
+    if (currentUserResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const currentUser = currentUserResult.rows[0];
+    let emailChanged = false;
+
+    // Check if email is being changed and if it's already taken
+    if (email && email !== currentUser.email) {
+      const existingUser = await pool.query(
+        "SELECT id FROM users WHERE email = $1 AND id != $2",
+        [email, userId],
+      );
+
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ error: "Email is already in use" });
+      }
+
+      emailChanged = true;
+    }
+
+    // Build update query dynamically
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (name !== undefined && name !== currentUser.name) {
+      updates.push(`name = $${paramIndex}`);
+      values.push(name);
+      paramIndex++;
+    }
+
+    if (email !== undefined && email !== currentUser.email) {
+      updates.push(`email = $${paramIndex}`);
+      values.push(email);
+      paramIndex++;
+      // Reset email verification if email changed
+      updates.push(`email_verified = FALSE`);
+    }
+
+    if (updates.length === 0) {
+      // Reuse the initial query result instead of querying again
+      return res.status(200).json({ 
+        message: "Profile is already up to date",
+        user: currentUser
+      });
+    }
+
+    // Always update updated_at
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    // Execute update
+    values.push(userId);
+    const updateQuery = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, email, name, role, subscription_status, email_verified, mfa_enabled`;
+
+    const result = await pool.query(updateQuery, values);
+
+    const updatedUser = result.rows[0];
+
+    // If email changed, send verification email
+    if (emailChanged) {
+      // Create email verification OTP
+      const otp = await tokenService.createEmailVerificationOTP(userId);
+
+      // Send verification email with OTP
+      const emailSent = await emailService.sendEmailVerification(
+        email!,
+        otp,
+      );
+      if (!emailSent) {
+        console.error("Failed to send verification email for user:", userId);
+      }
+    }
+
+    res.json({
+      user: updatedUser,
+      message: emailChanged
+        ? "Profile updated successfully. Please verify your new email address."
+        : "Profile updated successfully",
+      emailVerificationSent: emailChanged,
+    });
+  } catch (error: any) {
+    console.error("Update profile error:", error);
+    // Handle PostgreSQL unique constraint violation (23505)
+    if (error?.code === "23505") {
+      // Optionally check if it's the email constraint
+      const isEmailConstraint =
+        error?.constraint?.toLowerCase().includes("email") ||
+        error?.detail?.toLowerCase().includes("email");
+      
+      if (isEmailConstraint || !error?.constraint) {
+        return res.status(400).json({ error: "Email is already in use" });
+      }
+    }
+    if (error instanceof z.ZodError) {
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: error.errors });
+    }
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
 // Setup MFA
 router.post("/setup-mfa", authenticateToken, async (req, res) => {
   try {
@@ -646,7 +735,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 
     // Get updated user info
     const result = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
+      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled, updated_at FROM users WHERE id = $1",
       [userId],
     );
 

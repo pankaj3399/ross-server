@@ -26,9 +26,19 @@ export default function VerifyOTPPage() {
   const [success, setSuccess] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setIsResending] = useState(false);
+  const [email, setEmail] = useState("");
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const email = searchParams.get("email") || "";
+
+  // Get email from sessionStorage or fallback to query param
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedEmail = sessionStorage.getItem('pendingVerificationEmail');
+      const queryEmail = searchParams.get("email");
+      const emailValue = storedEmail || queryEmail || "";
+      setEmail(emailValue);
+    }
+  }, [searchParams]);
 
   // Auto-focus first input on mount
   useEffect(() => {
@@ -108,6 +118,10 @@ export default function VerifyOTPPage() {
       const data = await response.json();
 
       if (response.ok) {
+        // Clear sessionStorage after successful verification
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('pendingVerificationEmail');
+        }
         setSuccess(true);
         showToast.success("Email verified successfully!");
         // Redirect to dashboard after a short delay
