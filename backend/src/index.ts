@@ -29,9 +29,16 @@ app.post(
   subscriptionsWebhookHandler
 );
 
-app.use(cors());
+// Configure CORS with proper options for production
+app.use(cors({
+  origin: process.env.FRONTEND_URL || true, // Allow configured frontend or all origins
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
 
-app.use(express.json());
+// Increase body size limit for CSV uploads (10MB)
+app.use(express.json({ limit: '10mb' }));
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {

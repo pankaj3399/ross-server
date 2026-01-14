@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
-import { authenticateToken } from "../middleware/auth";
+import { authenticateToken, checkRouteAccess } from "../middleware/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
+import { evaluateDatasetFairness, parseCSV, FairnessAssessment } from "../utils/datasetFairness";
 import { inngest } from "../inngest/client";
 import { sanitizeForPrompt } from "../utils/sanitize";
 
@@ -83,6 +83,14 @@ router.get("/prompts", authenticateToken, async (req, res) => {
 // POST /fairness/dataset-evaluate - Evaluate dataset fairness from CSV
 router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     try {
+        // Check if Gemini is configured - required for explanations
+        if (!genAI) {
+            return res.status(503).json({ 
+                error: "AI service is not configured. Please contact support.",
+                details: "GEMINI_API_KEY is missing from server configuration."
+            });
+        }
+
         const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
         const userId = req.user!.id;
 
@@ -192,9 +200,21 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Do not
                 }
             }
 
+            // Clean up error message to avoid showing raw JSON or technical details to users
+            let errorReason = "Unable to evaluate content at this time.";
+            if (lastError?.message) {
+                if (lastError.message.includes("429") || lastError.message.includes("quota") || lastError.message.includes("rate")) {
+                    errorReason = "AI service temporarily unavailable due to rate limiting. Please try again later.";
+                } else if (lastError.message.includes("JSON") || lastError.message.includes("parse")) {
+                    errorReason = "Unable to parse AI response. Please try again.";
+                } else if (lastError.message.includes("timeout")) {
+                    errorReason = "Request timed out. Please try with a smaller dataset.";
+                }
+            }
+            
             return { 
                 score: 0, 
-                reason: `Evaluation failed: ${lastError?.message || 'Unknown error'}` 
+                reason: errorReason
             };
         }
 
@@ -298,9 +318,9 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
         };
 
         // Extract text content from CSV for evaluation
-        // Combine all text fields from rows (sample up to 20 rows to avoid too much data)
-        const sampleRows = rows.slice(0, Math.min(20, rows.length));
-        const textContent = sampleRows
+        // Sample only 10 rows to avoid hitting Gemini rate limits
+        const sampleRows = rows.slice(0, Math.min(10, rows.length));
+        let textContent = sampleRows
             .map(row => 
                 Object.values(row)
                     .filter(val => val && val.trim().length > 0)
@@ -308,6 +328,11 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             )
             .filter(text => text.length > 0)
             .join("\n");
+        
+        // Limit text content to 2000 characters to avoid token limits
+        if (textContent.length > 2000) {
+            textContent = textContent.substring(0, 2000) + "...";
+        }
 
         // Evaluate toxicity from actual CSV data using only Gemini
         let toxicityScore = 0;
@@ -319,18 +344,28 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             const geminiToxicityResult = await evaluateMetricWithGemini("Toxicity", textContent, toxicityPrompt);
             toxicityScore = geminiToxicityResult.score;
             
-            const toxicityLabel = getLabelFromScore(toxicityScore);
-            const toxicityContext = `Toxicity evaluation of dataset content resulted in a score of ${toxicityScore.toFixed(3)}. ` +
-                `The dataset contains ${sampleRows.length} sampled rows with text content. ` +
-                `${geminiToxicityResult.reason}`;
+            // Check if the evaluation actually succeeded (not an error message)
+            const isEvalError = geminiToxicityResult.reason.includes("unavailable") || 
+                                geminiToxicityResult.reason.includes("Unable to") ||
+                                geminiToxicityResult.reason.includes("timed out");
             
-            toxicityExplanation = await generateExplanationWithGemini(
-                "Toxicity",
-                toxicityScore,
-                toxicityLabel,
-                toxicityContext,
-                datasetSummary
-            );
+            if (isEvalError) {
+                // Use a simple fallback explanation without calling Gemini again
+                toxicityExplanation = geminiToxicityResult.reason;
+            } else {
+                const toxicityLabel = getLabelFromScore(toxicityScore);
+                // Generate explanation without including the raw reason from Gemini
+                const toxicityContext = `Toxicity evaluation of dataset content resulted in a score of ${toxicityScore.toFixed(3)}. ` +
+                    `The dataset sample of ${sampleRows.length} rows was analyzed for harmful content.`;
+                
+                toxicityExplanation = await generateExplanationWithGemini(
+                    "Toxicity",
+                    toxicityScore,
+                    toxicityLabel,
+                    toxicityContext,
+                    datasetSummary
+                );
+            }
         }
 
         const toxicity = {
@@ -448,6 +483,10 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             fairness: {
                 overallVerdict: fairnessAssessment.overallVerdict,
                 sensitiveColumns: fairnessAssessment.sensitiveColumns,
+                outcomeColumn: fairnessAssessment.outcomeColumn,
+                positiveOutcome: fairnessAssessment.positiveOutcome,
+                datasetStats: fairnessAssessment.datasetStats,
+                metricDefinitions: fairnessAssessment.metricDefinitions,
             },
             fairnessResult,
             biasness,
@@ -455,12 +494,24 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             relevance,
             faithfulness,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error evaluating dataset fairness:", error);
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: "Validation failed", details: error.errors });
         }
-        res.status(500).json({ error: "Failed to evaluate dataset fairness" });
+        // Provide more helpful error messages
+        const errorMessage = error?.message || "Failed to evaluate dataset fairness";
+        const statusCode = error?.status || 500;
+        
+        // Check for specific error types
+        if (errorMessage.includes("CSV") || errorMessage.includes("parse")) {
+            return res.status(400).json({ error: "Invalid CSV format. Please check your file and try again." });
+        }
+        if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT")) {
+            return res.status(504).json({ error: "Request timed out. Please try with a smaller file." });
+        }
+        
+        res.status(statusCode).json({ error: errorMessage });
     }
 });
 
