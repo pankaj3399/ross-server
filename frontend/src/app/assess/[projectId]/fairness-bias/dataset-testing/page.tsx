@@ -126,13 +126,25 @@ const DatasetTestingPage = () => {
 
   const [testType, setTestType] = useState("userData");
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
-  const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'premium'>('unknown');
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'trial' | 'premium'>('unknown');
 
   useEffect(() => {
     const checkAccess = async () => {
       try {
         const user = await apiService.getCurrentUser();
-        setSubscriptionStatus(user.subscription_status !== 'free' ? 'premium' : 'free');
+        const status = user.subscription_status;
+        // Explicitly map recognized subscription values
+        if (status === 'basic_premium' || status === 'pro_premium') {
+          setSubscriptionStatus('premium');
+        } else if (status === 'trial') {
+          setSubscriptionStatus('trial');
+        } else if (status === 'free') {
+          setSubscriptionStatus('free');
+        } else {
+          // Unknown subscription value - treat as free for safety
+          console.warn(`Unknown subscription status: ${status}, defaulting to free`);
+          setSubscriptionStatus('free');
+        }
       } catch (error) {
         console.error("Failed to check subscription status", error);
         setSubscriptionStatus('unknown');
