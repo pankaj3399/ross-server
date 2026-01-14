@@ -29,9 +29,15 @@ app.post(
   subscriptionsWebhookHandler
 );
 
+// Validate CORS configuration in production
+const FRONTEND_URL = process.env.FRONTEND_URL;
+if (process.env.NODE_ENV === 'production' && !FRONTEND_URL) {
+  throw new Error('FRONTEND_URL environment variable is required in production for CORS configuration');
+}
+
 // Configure CORS with proper options for production
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000", // Allow configured frontend or default to localhost
+  origin: FRONTEND_URL || "http://localhost:3000", // Only allow configured frontend, default to localhost in development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

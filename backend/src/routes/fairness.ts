@@ -85,9 +85,9 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     try {
         // Check if Gemini is configured - required for explanations
         if (!genAI) {
+            console.error("[Fairness API] GEMINI_API_KEY is not configured. Dataset evaluation cannot proceed.");
             return res.status(503).json({ 
-                error: "AI service is not configured. Please contact support.",
-                // details: "GEMINI_API_KEY is missing from server configuration." // Hidden for security
+                error: "AI service is not configured. Please contact support."
             });
         }
 
@@ -345,13 +345,8 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             const geminiToxicityResult = await evaluateMetricWithGemini("Toxicity", textContent, toxicityPrompt);
             toxicityScore = geminiToxicityResult.score;
             
-            // Check if the evaluation actually succeeded using flag
-            const isEvalError = geminiToxicityResult.isError || 
-                                geminiToxicityResult.reason.includes("unavailable") || 
-                                geminiToxicityResult.reason.includes("Unable to") ||
-                                geminiToxicityResult.reason.includes("timed out");
-            
-            if (isEvalError) {
+            // Check if the evaluation actually succeeded using the isError flag
+            if (geminiToxicityResult.isError) {
                 // Use a simple fallback explanation without calling Gemini again
                 toxicityExplanation = geminiToxicityResult.reason;
             } else {
@@ -503,10 +498,14 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
         }
         // Provide more helpful error messages
         const errorMessage = error?.message || "Failed to evaluate dataset fairness";
-        // Validating status code to be a valid HTTP error code (4xx, 5xx)
+        // Validating status code to be a valid HTTP error code (100-599)
         let statusCode = 500;
-        if (error?.status && typeof error.status === 'number' && error.status >= 400 && error.status < 600) {
-            statusCode = error.status;
+        const rawStatus = error?.status;
+        if (rawStatus !== undefined && rawStatus !== null) {
+            const parsedStatus = typeof rawStatus === 'number' ? rawStatus : parseInt(String(rawStatus), 10);
+            if (Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus < 600) {
+                statusCode = parsedStatus;
+            }
         }
         
         // Check for specific error types

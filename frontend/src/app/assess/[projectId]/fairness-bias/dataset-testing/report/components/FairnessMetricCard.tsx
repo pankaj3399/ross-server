@@ -10,9 +10,13 @@ interface FairnessMetricCardProps {
 
 export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => {
     const isError = !data || data.score === undefined || data.score === null;
-    const style = !isError ? metricStyles[data.label] : null;
+    // Defensively resolve style by checking that data.label is a valid key in metricStyles
+    const style = !isError && data && typeof data.label === 'string' &&
+        Object.prototype.hasOwnProperty.call(metricStyles, data.label)
+        ? metricStyles[data.label]
+        : null;
 
-    if (isError) {
+    if (isError || !style) {
         return (
             <div className="rounded-2xl border border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/50 p-4">
                 <div className="flex items-center justify-between mb-2">
@@ -28,10 +32,10 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
     }
 
     return (
-        <div className={`rounded-2xl border ${style!.border} ${style!.bg} p-4 page-break-avoid`}>
+        <div className={`rounded-2xl border ${style.border} ${style.bg} p-4 page-break-avoid`}>
             <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-200">{title}</p>
-                <span className={`text-xs font-semibold uppercase tracking-wide ${style!.color}`}>{style!.label}</span>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${style.color}`}>{style.label}</span>
             </div>
             <div className="text-2xl font-semibold text-slate-900 dark:text-white">{data.score.toFixed(2)}</div>
             <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{data.explanation}</p>

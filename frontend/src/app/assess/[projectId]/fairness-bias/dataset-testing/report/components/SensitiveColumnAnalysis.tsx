@@ -1,5 +1,4 @@
-import { useState, useMemo } from "react";
-import { Shield, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 import { FairnessColumn } from "../../types";
 import { verdictStyles } from "../../constants";
 

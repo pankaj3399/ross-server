@@ -104,9 +104,8 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
 
         for (const modelName of modelsToTry) {
             let attempt = 0;
-            let success = false;
             
-            while (attempt <= MAX_RETRIES && !success) {
+            while (attempt <= MAX_RETRIES) {
                 try {
                     const model = genAI!.getGenerativeModel({ model: modelName });
 
@@ -155,14 +154,25 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
                 } catch (error: any) {
                     lastError = error;
                     
-                    // Specific handling for 429 Too Many Requests
-                    // Check if error message contains "429" or "quota" or "Too Many Requests"
                     const errorMessage = error?.message || "";
-                    if (errorMessage.includes("429") || errorMessage.includes("Quota") || errorMessage.includes("Too Many Requests")) {
+                    const errorCode = error?.code || "";
+                    const responseStatus = error?.response?.status;
+                    
+                    // Check for retryable errors:
+                    // 1. Rate limiting (429/Quota/Too Many Requests)
+                    // 2. Network errors (ECONNRESET, ETIMEDOUT, ENOTFOUND)
+                    // 3. Server errors (5xx responses)
+                    const isQuotaError = errorMessage.includes("429") || errorMessage.includes("Quota") || errorMessage.includes("Too Many Requests");
+                    const isNetworkError = ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND"].includes(errorCode);
+                    const isServerError = typeof responseStatus === 'number' && responseStatus >= 500 && responseStatus < 600;
+                    const isRetryable = isQuotaError || isNetworkError || isServerError;
+                    
+                    if (isRetryable) {
                         attempt++;
                         if (attempt <= MAX_RETRIES) {
                             const delayTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s
-                            console.warn(`[Gemini] Quota limit hit for ${modelName}. Retrying in ${delayTime}ms (Attempt ${attempt}/${MAX_RETRIES})...`);
+                            const errorType = isQuotaError ? "Quota limit" : isNetworkError ? "Network error" : "Server error";
+                            console.warn(`[Gemini] ${errorType} for ${modelName}. Retrying in ${delayTime}ms (Attempt ${attempt}/${MAX_RETRIES})...`);
                             await new Promise(resolve => setTimeout(resolve, delayTime));
                             continue; // Retry logic
                         }

@@ -117,6 +117,9 @@ export type FairnessColumnAssessment = {
     explanation: string;
 };
 
+// Type alias for frontend compatibility
+export type FairnessColumn = FairnessColumnAssessment;
+
 export type MetricDefinition = {
     name: string;
     formula: string;
@@ -222,6 +225,24 @@ const METRIC_DEFINITIONS: FairnessAssessment["metricDefinitions"] = {
 };
 
 const sanitizeValue = (value: string | null | undefined) => (value ?? "").toString().trim();
+
+/**
+ * Helper function to determine if a target value represents a positive outcome.
+ * This logic is used in both computeGroupMetrics and evaluateDatasetFairnessFromParsed.
+ */
+const isPositiveOutcome = (
+    targetValueRaw: string,
+    normalizedPositive: string,
+    positiveIsNumeric: boolean,
+    positiveValue: string
+): boolean => {
+    const targetValue = targetValueRaw.toLowerCase();
+    return (
+        targetValue === normalizedPositive ||
+        (positiveIsNumeric && targetValueRaw === positiveValue) ||
+        (normalizedPositive === "1" && Number(targetValueRaw) === 1)
+    );
+};
 
 const ensureUniqueHeaders = (headers: string[]) => {
     const counts: Record<string, number> = {};
@@ -481,12 +502,7 @@ const computeGroupMetrics = (
     let totalDatasetPositives = 0;
     rows.forEach((row) => {
         const targetValueRaw = sanitizeValue(row[targetColumn]);
-        const targetValue = targetValueRaw.toLowerCase();
-        const isPositive =
-            targetValue === normalizedPositive ||
-            (positiveIsNumeric && targetValueRaw === positiveValue) ||
-            (normalizedPositive === "1" && Number(targetValueRaw) === 1);
-        if (isPositive) {
+        if (isPositiveOutcome(targetValueRaw, normalizedPositive, positiveIsNumeric, positiveValue)) {
             totalDatasetPositives++;
         }
     });
@@ -503,13 +519,13 @@ const computeGroupMetrics = (
             const isHighCardinality = uniqueValues.size > 12;
             
             // Check if mostly numeric
-            const numericCount = values.filter(v => !isNaN(Number(v))).length;
+            const numericCount = values.filter(v => !Number.isNaN(Number(v))).length;
             const isNumeric = values.length > 0 && (numericCount / values.length > 0.9);
 
             let binner: ((val: string) => string) | null = null;
 
             if (isHighCardinality && isNumeric) {
-                const numbers = Array.from(uniqueValues).map(Number).filter(n => !isNaN(n));
+                const numbers = Array.from(uniqueValues).map(Number).filter(n => !Number.isNaN(n));
                 if (numbers.length > 0) {
                     const min = Math.min(...numbers);
                     const max = Math.max(...numbers);
@@ -521,13 +537,13 @@ const computeGroupMetrics = (
                     if (range === 0 || step === 0 || numBins <= 0) {
                         binner = (val: string) => {
                             const num = Number(val);
-                            if (isNaN(num)) return "Unknown";
+                            if (Number.isNaN(num)) return "Unknown";
                             return `${Math.floor(min)}-${Math.ceil(max)}`;
                         };
                     } else {
                         binner = (val: string) => {
                             const num = Number(val);
-                            if (isNaN(num)) return "Unknown";
+                            if (Number.isNaN(num)) return "Unknown";
                             // Find bin
                             const binIndex = Math.min(numBins - 1, Math.floor((num - min) / step));
                             const binStart = Math.floor(min + (binIndex * step));
@@ -571,10 +587,7 @@ const computeGroupMetrics = (
                 const stats = groupMap.get(groupValue)!;
                 stats.rows += 1;
 
-                const isPositive =
-                    targetValue === normalizedPositive ||
-                    (positiveIsNumeric && targetValueRaw === positiveValue) ||
-                    (normalizedPositive === "1" && Number(targetValueRaw) === 1);
+                const isPositive = isPositiveOutcome(targetValueRaw, normalizedPositive, positiveIsNumeric, positiveValue);
 
                 if (isPositive) {
                     stats.positive += 1;
@@ -601,25 +614,25 @@ const computeGroupMetrics = (
                 }));
 
             // Calculate fairness metrics
-            const rates = groups.map((group) => group.positiveRate).filter(r => !isNaN(r));
-            const validRates = rates.filter(r => r >= 0);
+            // Filter out NaN values (positiveRate is already non-negative)
+            const rates = groups.map((group) => group.positiveRate).filter(r => !Number.isNaN(r));
             
-            const maxRate = validRates.length > 0 ? Math.max(...validRates) : 0;
-            const minRate = validRates.length > 0 ? Math.min(...validRates) : 0;
+            const maxRate = rates.length > 0 ? Math.max(...rates) : 0;
+            const minRate = rates.length > 0 ? Math.min(...rates) : 0;
             
             // Demographic Parity Difference
-            const disparity = validRates.length > 1 ? maxRate - minRate : 0;
+            const disparity = rates.length > 1 ? maxRate - minRate : 0;
             
             // Disparate Impact Ratio (80% rule)
             // Protect against division by zero
-            const disparateImpactRatio = (validRates.length > 1 && maxRate > 0) 
+            const disparateImpactRatio = (rates.length > 1 && maxRate > 0) 
                 ? minRate / maxRate 
                 : 1; // If there's no disparity or only one group, consider it equal
 
             // Determine verdict based on both metrics
             let verdict: VerdictStatus = "insufficient";
 
-            if (groups.length >= 2 && validRates.length >= 2) {
+            if (groups.length >= 2 && rates.length >= 2) {
                 // Fail if DPD >= 0.2 OR DIR < 0.6
                 if (disparity >= 0.2 || disparateImpactRatio < 0.6) {
                     verdict = "fail";
@@ -766,12 +779,7 @@ export const evaluateDatasetFairnessFromParsed = (parsed: { headers: string[]; r
     let totalPositives = 0;
     parsed.rows.forEach((row) => {
         const targetValueRaw = sanitizeValue(row[outcomeConfig.column]);
-        const targetValue = targetValueRaw.toLowerCase();
-        const isPositive =
-            targetValue === normalizedPositive ||
-            (positiveIsNumeric && targetValueRaw === outcomeConfig.positiveValue) ||
-            (normalizedPositive === "1" && Number(targetValueRaw) === 1);
-        if (isPositive) {
+        if (isPositiveOutcome(targetValueRaw, normalizedPositive, positiveIsNumeric, outcomeConfig.positiveValue)) {
             totalPositives++;
         }
     });

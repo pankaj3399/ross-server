@@ -18,7 +18,14 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const parsePreview = (text: string): PreviewData => {
+/**
+ * Shared CSV parsing helper with optional row/column limits
+ */
+const parseCsv = (
+  text: string,
+  options?: { maxRows?: number; maxCols?: number }
+): PreviewData => {
+  const { maxRows, maxCols } = options || {};
   const rows: string[][] = [];
   let current = "";
   let inQuotes = false;
@@ -63,7 +70,8 @@ const parsePreview = (text: string): PreviewData => {
       while (text[i + 1] === "\n" || text[i + 1] === "\r") {
         i++;
       }
-      if (rows.length >= MAX_PREVIEW_ROWS) break;
+      // Apply row limit if specified (add 1 for header row)
+      if (maxRows !== undefined && rows.length >= maxRows + 1) break;
       continue;
     }
 
@@ -79,76 +87,21 @@ const parsePreview = (text: string): PreviewData => {
     return { headers: [], rows: [] };
   }
 
-  const headers = rows[0].slice(0, MAX_PREVIEW_COLUMNS);
-  const dataRows = rows.slice(1).map((cols) => cols.slice(0, MAX_PREVIEW_COLUMNS));
+  // Apply column limit if specified
+  const headers = maxCols !== undefined ? rows[0].slice(0, maxCols) : rows[0];
+  const dataRows = rows.slice(1).map((cols) =>
+    maxCols !== undefined ? cols.slice(0, maxCols) : cols
+  );
 
   return { headers, rows: dataRows };
 };
 
+const parsePreview = (text: string): PreviewData => {
+  return parseCsv(text, { maxRows: MAX_PREVIEW_ROWS, maxCols: MAX_PREVIEW_COLUMNS });
+};
+
 const parseFullCsv = (text: string): PreviewData => {
-  const rows: string[][] = [];
-  let current = "";
-  let inQuotes = false;
-  let row: string[] = [];
-
-  const pushValue = () => {
-    row.push(current.trim());
-    current = "";
-  };
-
-  const pushRow = () => {
-    rows.push(row);
-    row = [];
-  };
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      pushValue();
-      continue;
-    }
-
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (current.length || row.length) {
-        pushValue();
-        if (row.length) {
-          pushRow();
-        }
-      }
-      while (text[i + 1] === "\n" || text[i + 1] === "\r") {
-        i++;
-      }
-      continue;
-    }
-
-    current += char;
-  }
-
-  if (current.length || row.length) {
-    pushValue();
-    pushRow();
-  }
-
-  if (!rows.length) {
-    return { headers: [], rows: [] };
-  }
-
-  const headers = rows[0];
-  const dataRows = rows.slice(1);
-
-  return { headers, rows: dataRows };
+  return parseCsv(text);
 };
 
 const DatasetTestingPage = () => {
@@ -356,6 +309,7 @@ const DatasetTestingPage = () => {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => router.push("/subscriptions")}
                 className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white hover:bg-purple-700 transition"
               >
@@ -450,6 +404,7 @@ const DatasetTestingPage = () => {
                       <div className="flex gap-3">
                         {hasFile && (
                           <button
+                            type="button"
                             onClick={handleReset}
                             className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-gray-800"
                           >
@@ -458,6 +413,7 @@ const DatasetTestingPage = () => {
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={handleEvaluate}
                           disabled={!hasFile || isEvaluating}
                           className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"

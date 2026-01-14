@@ -21,8 +21,8 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                 <table className="min-w-full text-sm">
                     <thead>
                         <tr>
-                            {preview.headers.map((header) => (
-                                <th key={header} className="text-left px-4 py-3 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
+                            {preview.headers.map((header, headerIndex) => (
+                                <th key={`${headerIndex}-${header}`} className="text-left px-4 py-3 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
                                     {header}
                                 </th>
                             ))}
@@ -35,7 +35,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                                 <tr key={rowIndex} className="border-t border-slate-100 dark:border-gray-800">
                                     {row.map((value, colIndex) => (
                                         <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-slate-800 dark:text-slate-100 whitespace-nowrap">
-                                            {(value === null || value === undefined) ? <span className="text-slate-400 italic">—</span> : value}
+                                            {(value === null || value === undefined || value === '') ? <span className="text-slate-400 italic">—</span> : value}
                                         </td>
                                     ))}
                                 </tr>
@@ -50,6 +50,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                     </p>
                     <div className="flex items-center gap-2">
                         <button
+                            type="button"
                             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                             disabled={currentPage === 1}
                             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -60,6 +61,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                             Page {currentPage} of {Math.ceil(preview.rows.length / PAGE_SIZE)}
                         </span>
                         <button
+                            type="button"
                             onClick={() => setCurrentPage(p => Math.min(Math.ceil(preview.rows.length / PAGE_SIZE), p + 1))}
                             disabled={currentPage >= Math.ceil(preview.rows.length / PAGE_SIZE)}
                             className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
