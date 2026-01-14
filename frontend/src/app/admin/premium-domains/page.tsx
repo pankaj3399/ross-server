@@ -195,7 +195,28 @@ export default function PremiumDomainsAdmin() {
             });
 
             if (response.ok) {
-                window.location.reload();
+                // Remove domain from list since we're toggling off premium
+                setAimaData((prev) => {
+                    if (!prev) return prev;
+                    const updatedDomains = prev.data.domains.filter(d => d.id !== domainId);
+                    const practicesCount = updatedDomains.reduce((acc, d) => acc + d.practices.length, 0);
+                    const questionsCount = updatedDomains.reduce(
+                        (acc, d) => acc + d.practices.reduce((pAcc, p) => pAcc + p.questions.length, 0),
+                        0
+                    );
+                    return {
+                        ...prev,
+                        data: {
+                            ...prev.data,
+                            domains: updatedDomains,
+                            summary: {
+                                total_domains: updatedDomains.length,
+                                total_practices: practicesCount,
+                                total_questions: questionsCount,
+                            },
+                        },
+                    };
+                });
             } else {
                 const error = await response.json();
                 console.error(`Error: ${error.error}`);
@@ -220,8 +241,34 @@ export default function PremiumDomainsAdmin() {
             });
 
             if (response.ok) {
+                const data = await response.json();
+                const newPractice = data?.data?.practice?.id ? data.data.practice : {
+                    id: crypto.randomUUID(),
+                    domain_id: selectedDomainId,
+                    title: practiceForm.title,
+                    description: practiceForm.description,
+                    created_at: new Date().toISOString(),
+                    questions: [],
+                };
+                setAimaData((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        data: {
+                            ...prev.data,
+                            domains: prev.data.domains.map((domain) =>
+                                domain.id === selectedDomainId
+                                    ? { ...domain, practices: [...domain.practices, newPractice] }
+                                    : domain
+                            ),
+                            summary: {
+                                ...prev.data.summary,
+                                total_practices: prev.data.summary.total_practices + 1,
+                            },
+                        },
+                    };
+                });
                 closeModals();
-                window.location.reload();
             } else {
                 const error = await response.json();
                 console.error(`Error: ${error.error}`);
@@ -247,8 +294,45 @@ export default function PremiumDomainsAdmin() {
             });
 
             if (response.ok) {
+                const data = await response.json();
+                const newQuestion = data?.data?.question?.id ? data.data.question : {
+                    id: crypto.randomUUID(),
+                    level: questionForm.level,
+                    stream: questionForm.stream,
+                    question_index: 0,
+                    question_text: questionForm.question_text,
+                    description: questionForm.description || null,
+                    created_at: new Date().toISOString(),
+                };
+                setAimaData((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        data: {
+                            ...prev.data,
+                            domains: prev.data.domains.map((domain) => ({
+                                ...domain,
+                                practices: domain.practices.map((practice) =>
+                                    practice.id === selectedPracticeId
+                                        ? {
+                                            ...practice,
+                                            questions: [...practice.questions, newQuestion].sort((a, b) => {
+                                                if (a.level !== b.level) return a.level.localeCompare(b.level);
+                                                if (a.stream !== b.stream) return a.stream.localeCompare(b.stream);
+                                                return a.question_index - b.question_index;
+                                            }),
+                                        }
+                                        : practice
+                                ),
+                            })),
+                            summary: {
+                                ...prev.data.summary,
+                                total_questions: prev.data.summary.total_questions + 1,
+                            },
+                        },
+                    };
+                });
                 closeModals();
-                window.location.reload();
             } else {
                 const error = await response.json();
                 console.error(`Error: ${error.error}`);
@@ -666,6 +750,10 @@ export default function PremiumDomainsAdmin() {
                             <div
                                 className="p-6 cursor-pointer hover:bg-yellow-50/50 dark:hover:bg-gray-700/50 transition-all duration-200 rounded-2xl"
                                 onClick={() => toggleDomain(domain.id)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
+                                role="button"
+                                tabIndex={0}
+                                aria-expanded={expandedDomains.has(domain.id)}
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex-1">
@@ -718,6 +806,7 @@ export default function PremiumDomainsAdmin() {
                                     </div>
                                     <div className="flex items-center space-x-3">
                                         <button
+                                            type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 toggleDomainPremium(domain.id, domain.is_premium);
@@ -751,6 +840,10 @@ export default function PremiumDomainsAdmin() {
                                                     <div
                                                         className="flex items-center justify-between cursor-pointer"
                                                         onClick={() => togglePractice(practice.id)}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePractice(practice.id); } }}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        aria-expanded={expandedPractices.has(practice.id)}
                                                     >
                                                         <div className="flex items-center space-x-2">
                                                             <div className="flex-shrink-0">
@@ -868,6 +961,7 @@ export default function PremiumDomainsAdmin() {
                                                                                         </div>
                                                                                         <div className="flex gap-2">
                                                                                             <button
+                                                                                                type="button"
                                                                                                 onClick={() => handleQuestionUpdate(question)}
                                                                                                 disabled={savingQuestionUpdates[question.id]}
                                                                                                 className="px-3 py-1 text-xs font-medium rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"
@@ -875,6 +969,7 @@ export default function PremiumDomainsAdmin() {
                                                                                                 {savingQuestionUpdates[question.id] ? "Saving..." : "Save"}
                                                                                             </button>
                                                                                             <button
+                                                                                                type="button"
                                                                                                 onClick={() => cancelEditingQuestion(question.id)}
                                                                                                 className="px-3 py-1 text-xs font-medium rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
                                                                                             >
@@ -917,6 +1012,7 @@ export default function PremiumDomainsAdmin() {
                                                                             />
                                                                             <div className="flex items-center gap-2 mt-2">
                                                                                 <button
+                                                                                    type="button"
                                                                                     onClick={() => handleQuestionDescriptionSave(question)}
                                                                                     disabled={savingDescriptions[question.id]}
                                                                                     className="px-3 py-1 text-xs font-medium rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"
@@ -972,10 +1068,11 @@ export default function PremiumDomainsAdmin() {
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="practice-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Title
                                 </label>
                                 <input
+                                    id="practice-title"
                                     type="text"
                                     value={practiceForm.title}
                                     onChange={(e) => setPracticeForm({ ...practiceForm, title: e.target.value })}
@@ -984,10 +1081,11 @@ export default function PremiumDomainsAdmin() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="practice-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Description
                                 </label>
                                 <textarea
+                                    id="practice-description"
                                     value={practiceForm.description}
                                     onChange={(e) => setPracticeForm({ ...practiceForm, description: e.target.value })}
                                     rows={3}
@@ -998,12 +1096,14 @@ export default function PremiumDomainsAdmin() {
                         </div>
                         <div className="flex justify-end gap-3 mt-6">
                             <button
+                                type="button"
                                 onClick={closeModals}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={submitPractice}
                                 className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors"
                             >
@@ -1024,10 +1124,11 @@ export default function PremiumDomainsAdmin() {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="question-level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Level
                                     </label>
                                     <select
+                                        id="question-level"
                                         value={questionForm.level}
                                         onChange={(e) => setQuestionForm({ ...questionForm, level: e.target.value })}
                                         className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -1038,10 +1139,11 @@ export default function PremiumDomainsAdmin() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="question-stream" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Stream
                                     </label>
                                     <select
+                                        id="question-stream"
                                         value={questionForm.stream}
                                         onChange={(e) => setQuestionForm({ ...questionForm, stream: e.target.value })}
                                         className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -1052,10 +1154,11 @@ export default function PremiumDomainsAdmin() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="question-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Question Text
                                 </label>
                                 <textarea
+                                    id="question-text"
                                     value={questionForm.question_text}
                                     onChange={(e) => setQuestionForm({ ...questionForm, question_text: e.target.value })}
                                     rows={4}
@@ -1064,10 +1167,11 @@ export default function PremiumDomainsAdmin() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="question-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Description (Optional)
                                 </label>
                                 <textarea
+                                    id="question-description"
                                     value={questionForm.description}
                                     onChange={(e) => setQuestionForm({ ...questionForm, description: e.target.value })}
                                     rows={2}
@@ -1078,12 +1182,14 @@ export default function PremiumDomainsAdmin() {
                         </div>
                         <div className="flex justify-end gap-3 mt-6">
                             <button
+                                type="button"
                                 onClick={closeModals}
                                 className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={submitQuestion}
                                 className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors"
                             >

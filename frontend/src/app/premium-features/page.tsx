@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "../../contexts/AuthContext";
@@ -61,6 +61,7 @@ export default function PremiumFeaturesPage() {
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithAccess[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(false);
+  const modalOverlayRef = useRef<HTMLDivElement>(null);
 
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
@@ -83,6 +84,13 @@ export default function PremiumFeaturesPage() {
       }
     }
   }, [selectedFeature, projects]);
+
+  // Focus modal when opened
+  useEffect(() => {
+    if (selectedFeature) {
+      modalOverlayRef.current?.focus();
+    }
+  }, [selectedFeature]);
 
   const loadProjectsWithAccess = async () => {
     try {
@@ -245,12 +253,25 @@ export default function PremiumFeaturesPage() {
       {/* Project Selection Modal */}
       <AnimatePresence>
         {selectedFeature && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div
+            ref={modalOverlayRef}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 focus:outline-none"
+            onClick={closeModal}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                closeModal();
+              }
+            }}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -263,6 +284,7 @@ export default function PremiumFeaturesPage() {
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={closeModal}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                 >
