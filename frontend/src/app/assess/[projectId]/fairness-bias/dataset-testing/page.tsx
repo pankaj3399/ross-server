@@ -126,16 +126,16 @@ const DatasetTestingPage = () => {
 
   const [testType, setTestType] = useState("userData");
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
-  const [isPremium, setIsPremium] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'premium'>('unknown');
 
   useEffect(() => {
     const checkAccess = async () => {
       try {
         const user = await apiService.getCurrentUser();
-        setIsPremium(user.subscription_status !== 'free');
+        setSubscriptionStatus(user.subscription_status !== 'free' ? 'premium' : 'free');
       } catch (error) {
-        console.error("Failed to check subscription", error);
-        setIsPremium(false);
+        console.error("Failed to check subscription status", error);
+        setSubscriptionStatus('unknown');
       } finally {
         setIsCheckingSubscription(false);
       }
@@ -295,8 +295,34 @@ const DatasetTestingPage = () => {
       </div>
 
 
+      {/* Error state - subscription check failed */}
+      {!isCheckingSubscription && subscriptionStatus === 'unknown' && (
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-12 text-center space-y-6">
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto">
+              <RefreshCw className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Unable to Verify Subscription</h2>
+              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                We encountered a temporary error while checking your subscription status. Please try again.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-700 transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Free tier - locked feature */}
       {
-        !isCheckingSubscription && !isPremium && (
+        !isCheckingSubscription && subscriptionStatus === 'free' && (
           <div className="max-w-7xl mx-auto px-6 py-12">
             <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-12 text-center space-y-6">
               <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto">
@@ -320,8 +346,9 @@ const DatasetTestingPage = () => {
         )
       }
 
+      {/* Premium tier - full access */}
       {
-        !isCheckingSubscription && isPremium && (
+        !isCheckingSubscription && subscriptionStatus === 'premium' && (
           <>
             <section className="bg-gradient-to-br from-indigo-50 via-sky-50 to-white dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
               <div className="max-w-7xl mx-auto px-6 py-12 grid gap-8 lg:grid-cols-[minmax(0,1fr),380px]">
@@ -442,8 +469,8 @@ const DatasetTestingPage = () => {
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr>
-                          {preview.headers.map((header) => (
-                            <th key={header} className="text-left px-4 py-3 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-slate-300 font-medium">
+                          {preview.headers.map((header, headerIndex) => (
+                            <th key={`${headerIndex}-${header}`} className="text-left px-4 py-3 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-slate-300 font-medium">
                               {header}
                             </th>
                           ))}
@@ -472,7 +499,7 @@ const DatasetTestingPage = () => {
           </>
         )
       }
-    </div >
+    </div>
   );
 };
 

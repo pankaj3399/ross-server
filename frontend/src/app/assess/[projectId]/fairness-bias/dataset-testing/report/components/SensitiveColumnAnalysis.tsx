@@ -23,7 +23,10 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
     const hiddenCount = column.groups.length - MAX_VISIBLE_GROUPS;
     const hasMore = column.groups.length > MAX_VISIBLE_GROUPS;
 
-    const style = verdictStyles[column.verdict];
+    // Defensive check: fallback to 'caution' style if verdict is unexpected
+    const style = column.verdict in verdictStyles
+        ? verdictStyles[column.verdict]
+        : verdictStyles.caution;
 
     return (
         <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-4 space-y-4 page-break-avoid w-full">
