@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Shield, 
-  CheckCircle, 
-  XCircle, 
-  Loader2, 
+import {
+  Shield,
+  CheckCircle,
+  XCircle,
+  Loader2,
   ArrowLeft,
   RefreshCw,
   Clock
@@ -27,7 +27,7 @@ export default function VerifyOTPPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setIsResending] = useState(false);
   const [email, setEmail] = useState("");
-  
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Get email from sessionStorage or fallback to query param
@@ -59,7 +59,7 @@ export default function VerifyOTPPage() {
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return; // Prevent multiple characters
-    
+
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
@@ -83,12 +83,12 @@ export default function VerifyOTPPage() {
     const newOtp = Array(6).fill("").map((_, i) => pastedData[i] || "");
     setOtp(newOtp);
     setError("");
-    
+
     // Focus the last filled input or the first empty one
     const lastFilledIndex = newOtp.findIndex(digit => digit === "");
     const focusIndex = lastFilledIndex === -1 ? 5 : lastFilledIndex;
     inputRefs.current[focusIndex]?.focus();
-    
+
     // Auto-submit if all fields are filled
     if (pastedData.length === 6) {
       handleVerifyOTP(pastedData);
@@ -109,9 +109,9 @@ export default function VerifyOTPPage() {
       const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email, 
-          otp: code 
+        body: JSON.stringify({
+          email,
+          otp: code
         }),
       });
 
@@ -122,11 +122,20 @@ export default function VerifyOTPPage() {
         if (typeof window !== 'undefined') {
           sessionStorage.removeItem('pendingVerificationEmail');
         }
+
+        // Store the token and refresh user context
+        if (data.token) {
+          localStorage.setItem("auth_token", data.token);
+          // We need to reload the page or trigger a context refresh to update the user state
+          // For simplicity, a page reload or redirect to dashboard (where AuthContext will re-initialize) works
+        }
+
         setSuccess(true);
         showToast.success("Email verified successfully!");
+
         // Redirect to dashboard after a short delay
         setTimeout(() => {
-          router.push("/dashboard");
+          window.location.href = "/dashboard"; // Using window.location to ensure full state reset/refresh
         }, 2000);
       } else {
         setError(data.error || "Invalid or expired OTP code");
@@ -201,7 +210,7 @@ export default function VerifyOTPPage() {
               <Shield className="w-10 h-10 text-white" />
             </motion.div>
           </div>
-          
+
           <h2 className="text-4xl font-bold mb-2">
             <span className="gradient-text">Verify Your Identity</span>
           </h2>
@@ -253,7 +262,7 @@ export default function VerifyOTPPage() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 text-center">
                     Enter verification code
                   </label>
-                  
+
                   <div className="flex justify-center space-x-3">
                     {otp.map((digit, index) => (
                       <motion.input
@@ -272,15 +281,15 @@ export default function VerifyOTPPage() {
                         className={`
                           w-12 h-12 text-center text-2xl font-bold rounded-xl border-2 transition-all duration-300
                           focus:outline-none focus:ring-4 focus:ring-purple-500/30
-                          ${digit 
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' 
+                          ${digit
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                             : 'border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-white/5 text-gray-900 dark:text-white'
                           }
                           ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:border-purple-400'}
                         `}
                         style={{
-                          boxShadow: digit 
-                            ? '0 0 20px rgba(139, 92, 246, 0.3)' 
+                          boxShadow: digit
+                            ? '0 0 20px rgba(139, 92, 246, 0.3)'
                             : 'none'
                         }}
                       />
@@ -360,7 +369,7 @@ export default function VerifyOTPPage() {
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Login</span>
               </Link>
-              
+
               <Link
                 href="/"
                 className="text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"

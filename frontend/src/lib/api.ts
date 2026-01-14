@@ -162,10 +162,6 @@ class ApiService {
       body: JSON.stringify(data),
     });
 
-    if (response.token) {
-      localStorage.setItem("auth_token", response.token);
-    }
-
     return response;
   }
 

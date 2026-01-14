@@ -91,8 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     organization?: string;
   }) => {
     const response = await apiService.register(data);
-    setUser(response.user);
-    return response
+    return response;
   };
 
   const logout = () => {
