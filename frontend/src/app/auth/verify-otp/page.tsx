@@ -16,6 +16,7 @@ import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 import { Skeleton } from "@/components/Skeleton";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function VerifyOTPPage() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function VerifyOTPPage() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isResending, setIsResending] = useState(false);
   const [email, setEmail] = useState("");
+  const { refreshUser } = useAuth();
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -126,8 +128,7 @@ export default function VerifyOTPPage() {
         // Store the token and refresh user context
         if (data.token) {
           localStorage.setItem("auth_token", data.token);
-          // We need to reload the page or trigger a context refresh to update the user state
-          // For simplicity, a page reload or redirect to dashboard (where AuthContext will re-initialize) works
+          await refreshUser();
         }
 
         setSuccess(true);
