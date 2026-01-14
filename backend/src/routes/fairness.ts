@@ -3,7 +3,7 @@ import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { evaluateDatasetFairness, parseCSV } from "../utils/datasetFairness";
+import { evaluateDatasetFairness, parseCSV, FairnessAssessment } from "../utils/datasetFairness";
 import { inngest } from "../inngest/client";
 import { sanitizeForPrompt } from "../utils/sanitize";
 
@@ -83,6 +83,14 @@ router.get("/prompts", authenticateToken, async (req, res) => {
 // POST /fairness/dataset-evaluate - Evaluate dataset fairness from CSV
 router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     try {
+        // Check if Gemini is configured - required for explanations
+        if (!genAI) {
+            console.error("[Fairness API] GEMINI_API_KEY is not configured. Dataset evaluation cannot proceed.");
+            return res.status(503).json({ 
+                error: "AI service is not configured. Please contact support."
+            });
+        }
+
         const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
         const userId = req.user!.id;
 
@@ -135,7 +143,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             metricName: string,
             text: string,
             evaluationPrompt: string
-        ): Promise<{ score: number; reason: string }> {
+        ): Promise<{ score: number; reason: string; isError?: boolean }> {
             if (!genAI) {
                 return { score: 0, reason: "Gemini is not configured" };
             }
@@ -192,9 +200,22 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Do not
                 }
             }
 
+            // Clean up error message to avoid showing raw JSON or technical details to users
+            let errorReason = "Unable to evaluate content at this time.";
+            if (lastError?.message) {
+                if (lastError.message.includes("429") || lastError.message.includes("quota") || lastError.message.includes("rate")) {
+                    errorReason = "AI service temporarily unavailable due to rate limiting. Please try again later.";
+                } else if (lastError.message.includes("JSON") || lastError.message.includes("parse")) {
+                    errorReason = "Unable to parse AI response. Please try again.";
+                } else if (lastError.message.includes("timeout")) {
+                    errorReason = "Request timed out. Please try with a smaller dataset.";
+                }
+            }
+            
             return { 
                 score: 0, 
-                reason: `Evaluation failed: ${lastError?.message || 'Unknown error'}` 
+                reason: errorReason,
+                isError: true
             };
         }
 
@@ -298,9 +319,9 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
         };
 
         // Extract text content from CSV for evaluation
-        // Combine all text fields from rows (sample up to 20 rows to avoid too much data)
-        const sampleRows = rows.slice(0, Math.min(20, rows.length));
-        const textContent = sampleRows
+        // Sample only 10 rows to avoid hitting Gemini rate limits
+        const sampleRows = rows.slice(0, Math.min(10, rows.length));
+        let textContent = sampleRows
             .map(row => 
                 Object.values(row)
                     .filter(val => val && val.trim().length > 0)
@@ -308,6 +329,11 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             )
             .filter(text => text.length > 0)
             .join("\n");
+        
+        // Limit text content to 2000 characters to avoid token limits
+        if (textContent.length > 2000) {
+            textContent = textContent.substring(0, 2000) + "...";
+        }
 
         // Evaluate toxicity from actual CSV data using only Gemini
         let toxicityScore = 0;
@@ -319,18 +345,24 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             const geminiToxicityResult = await evaluateMetricWithGemini("Toxicity", textContent, toxicityPrompt);
             toxicityScore = geminiToxicityResult.score;
             
-            const toxicityLabel = getLabelFromScore(toxicityScore);
-            const toxicityContext = `Toxicity evaluation of dataset content resulted in a score of ${toxicityScore.toFixed(3)}. ` +
-                `The dataset contains ${sampleRows.length} sampled rows with text content. ` +
-                `${geminiToxicityResult.reason}`;
-            
-            toxicityExplanation = await generateExplanationWithGemini(
-                "Toxicity",
-                toxicityScore,
-                toxicityLabel,
-                toxicityContext,
-                datasetSummary
-            );
+            // Check if the evaluation actually succeeded using the isError flag
+            if (geminiToxicityResult.isError) {
+                // Use a simple fallback explanation without calling Gemini again
+                toxicityExplanation = geminiToxicityResult.reason;
+            } else {
+                const toxicityLabel = getLabelFromScore(toxicityScore);
+                // Generate explanation without including the raw reason from Gemini
+                const toxicityContext = `Toxicity evaluation of dataset content resulted in a score of ${toxicityScore.toFixed(3)}. ` +
+                    `The dataset sample of ${sampleRows.length} rows was analyzed for harmful content.`;
+                
+                toxicityExplanation = await generateExplanationWithGemini(
+                    "Toxicity",
+                    toxicityScore,
+                    toxicityLabel,
+                    toxicityContext,
+                    datasetSummary
+                );
+            }
         }
 
         const toxicity = {
@@ -448,6 +480,10 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             fairness: {
                 overallVerdict: fairnessAssessment.overallVerdict,
                 sensitiveColumns: fairnessAssessment.sensitiveColumns,
+                outcomeColumn: fairnessAssessment.outcomeColumn,
+                positiveOutcome: fairnessAssessment.positiveOutcome,
+                datasetStats: fairnessAssessment.datasetStats,
+                metricDefinitions: fairnessAssessment.metricDefinitions,
             },
             fairnessResult,
             biasness,
@@ -455,12 +491,32 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             relevance,
             faithfulness,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error evaluating dataset fairness:", error);
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: "Validation failed", details: error.errors });
         }
-        res.status(500).json({ error: "Failed to evaluate dataset fairness" });
+        // Provide more helpful error messages
+        const errorMessage = error?.message || "Failed to evaluate dataset fairness";
+        // Validating status code to be a valid HTTP error code (100-599)
+        let statusCode = 500;
+        const rawStatus = error?.status;
+        if (rawStatus !== undefined && rawStatus !== null) {
+            const parsedStatus = typeof rawStatus === 'number' ? rawStatus : parseInt(String(rawStatus), 10);
+            if (Number.isInteger(parsedStatus) && parsedStatus >= 100 && parsedStatus < 600) {
+                statusCode = parsedStatus;
+            }
+        }
+        
+        // Check for specific error types
+        if (errorMessage.includes("CSV") || errorMessage.includes("parse")) {
+            return res.status(400).json({ error: "Invalid CSV format. Please check your file and try again." });
+        }
+        if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT")) {
+            return res.status(504).json({ error: "Request timed out. Please try with a smaller file." });
+        }
+        
+        res.status(statusCode).json({ error: errorMessage });
     }
 });
 

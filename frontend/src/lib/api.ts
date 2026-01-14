@@ -403,13 +403,32 @@ class ApiService {
         column: string;
         verdict: "pass" | "caution" | "fail" | "insufficient";
         disparity: number;
+        disparateImpactRatio: number;
+        totalRows: number;
+        totalPositives: number;
+        explanation: string;
         groups: Array<{
           value: string;
           rows: number;
           positive: number;
           positiveRate: number;
+          distribution: number;
+          outcomeShare: number;
         }>;
       }>;
+      outcomeColumn: string | null;
+      positiveOutcome: string | null;
+      datasetStats: {
+        totalRows: number;
+        totalPositives: number;
+        overallPositiveRate: number;
+      };
+      metricDefinitions: {
+        selectionRate: { name: string; formula: string; description: string; interpretation: string; threshold: string };
+        demographicParityDifference: { name: string; formula: string; description: string; interpretation: string; threshold: string };
+        disparateImpactRatio: { name: string; formula: string; description: string; interpretation: string; threshold: string };
+        groupDistribution: { name: string; formula: string; description: string; interpretation: string; threshold: string };
+      };
     };
     fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string };
     biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string };

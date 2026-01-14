@@ -99,56 +99,88 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
   "faithfulness": {"score": 0.7, "reason": "explanation here"}
 }`;
 
+        const MAX_RETRIES = 3;
+        const INITIAL_BACKOFF_MS = 2000;
+
         for (const modelName of modelsToTry) {
-            try {
-                const model = genAI!.getGenerativeModel({ model: modelName });
+            let attempt = 0;
+            
+            while (attempt <= MAX_RETRIES) {
+                try {
+                    const model = genAI!.getGenerativeModel({ model: modelName });
 
-                const result = await model.generateContent(combinedPrompt);
-                const response = await result.response;
-                const content = response.text();
+                    const result = await model.generateContent(combinedPrompt);
+                    const response = await result.response;
+                    const content = response.text();
 
-                if (!content) {
-                    throw new Error("No response from Gemini");
+                    if (!content) {
+                        throw new Error("No response from Gemini");
+                    }
+
+                    // Clean up the response - remove markdown code blocks if present
+                    let cleanedContent = content.trim();
+                    if (cleanedContent.startsWith("```json")) {
+                        cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+                    } else if (cleanedContent.startsWith("```")) {
+                        cleanedContent = cleanedContent.replace(/```\n?/g, "").trim();
+                    }
+
+                    const resultObj = JSON.parse(cleanedContent);
+                    
+                    // Validate and normalize all scores
+                    const biasScore = Math.max(0, Math.min(1, parseFloat(resultObj.bias?.score) || 0));
+                    const toxicityScore = Math.max(0, Math.min(1, parseFloat(resultObj.toxicity?.score) || 0));
+                    const relevancyScore = Math.max(0, Math.min(1, parseFloat(resultObj.relevancy?.score) || 0));
+                    const faithfulnessScore = Math.max(0, Math.min(1, parseFloat(resultObj.faithfulness?.score) || 0));
+                    
+                    return {
+                        bias: {
+                            score: biasScore,
+                            reason: resultObj.bias?.reason || "No reasoning provided",
+                        },
+                        toxicity: {
+                            score: toxicityScore,
+                            reason: resultObj.toxicity?.reason || "No reasoning provided",
+                        },
+                        relevancy: {
+                            score: relevancyScore,
+                            reason: resultObj.relevancy?.reason || "No reasoning provided",
+                        },
+                        faithfulness: {
+                            score: faithfulnessScore,
+                            reason: resultObj.faithfulness?.reason || "No reasoning provided",
+                        },
+                    };
+                } catch (error: any) {
+                    lastError = error;
+                    
+                    const errorMessage = error?.message || "";
+                    const errorCode = error?.code || "";
+                    const responseStatus = error?.response?.status;
+                    
+                    // Check for retryable errors:
+                    // 1. Rate limiting (429/Quota/Too Many Requests)
+                    // 2. Network errors (ECONNRESET, ETIMEDOUT, ENOTFOUND)
+                    // 3. Server errors (5xx responses)
+                    const isQuotaError = errorMessage.includes("429") || errorMessage.includes("Quota") || errorMessage.includes("Too Many Requests");
+                    const isNetworkError = ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND"].includes(errorCode);
+                    const isServerError = typeof responseStatus === 'number' && responseStatus >= 500 && responseStatus < 600;
+                    const isRetryable = isQuotaError || isNetworkError || isServerError;
+                    
+                    if (isRetryable) {
+                        attempt++;
+                        if (attempt <= MAX_RETRIES) {
+                            const delayTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s
+                            const errorType = isQuotaError ? "Quota limit" : isNetworkError ? "Network error" : "Server error";
+                            console.warn(`[Gemini] ${errorType} for ${modelName}. Retrying in ${delayTime}ms (Attempt ${attempt}/${MAX_RETRIES})...`);
+                            await new Promise(resolve => setTimeout(resolve, delayTime));
+                            continue; // Retry logic
+                        }
+                    }
+                    
+                    // For other errors or if retries exhausted, break inner loop to try next model
+                    break;
                 }
-
-                // Clean up the response - remove markdown code blocks if present
-                let cleanedContent = content.trim();
-                if (cleanedContent.startsWith("```json")) {
-                    cleanedContent = cleanedContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-                } else if (cleanedContent.startsWith("```")) {
-                    cleanedContent = cleanedContent.replace(/```\n?/g, "").trim();
-                }
-
-                const resultObj = JSON.parse(cleanedContent);
-                
-                // Validate and normalize all scores
-                const biasScore = Math.max(0, Math.min(1, parseFloat(resultObj.bias?.score) || 0));
-                const toxicityScore = Math.max(0, Math.min(1, parseFloat(resultObj.toxicity?.score) || 0));
-                const relevancyScore = Math.max(0, Math.min(1, parseFloat(resultObj.relevancy?.score) || 0));
-                const faithfulnessScore = Math.max(0, Math.min(1, parseFloat(resultObj.faithfulness?.score) || 0));
-                
-                return {
-                    bias: {
-                        score: biasScore,
-                        reason: resultObj.bias?.reason || "No reasoning provided",
-                    },
-                    toxicity: {
-                        score: toxicityScore,
-                        reason: resultObj.toxicity?.reason || "No reasoning provided",
-                    },
-                    relevancy: {
-                        score: relevancyScore,
-                        reason: resultObj.relevancy?.reason || "No reasoning provided",
-                    },
-                    faithfulness: {
-                        score: faithfulnessScore,
-                        reason: resultObj.faithfulness?.reason || "No reasoning provided",
-                    },
-                };
-            } catch (error: any) {
-                lastError = error;
-                // Try next model
-                continue;
             }
         }
 
