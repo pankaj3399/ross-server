@@ -79,13 +79,16 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                                     <p className="text-right text-slate-500">{formatPercent(group.outcomeShare ?? 0)}</p>
                                     <p className="text-right text-xs text-slate-400">{group.rows.toLocaleString()}</p>
                                 </div>
-                                <div className="h-2.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden ring-1 ring-slate-100 dark:ring-gray-800/50">
+                                <div
+                                    role="progressbar"
+                                    aria-valuenow={Math.round(Math.min(group.positiveRate * 100, 100))}
+                                    aria-valuemin={0}
+                                    aria-valuemax={100}
+                                    aria-label={`${column.column} ${group.value} selection rate: ${Math.round(group.positiveRate * 100)}%`}
+                                    className="h-2.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden ring-1 ring-slate-100 dark:ring-gray-800/50"
+                                >
                                     <div
-                                        role="progressbar"
-                                        aria-valuenow={Math.round(Math.min(group.positiveRate * 100, 100))}
-                                        aria-valuemin={0}
-                                        aria-valuemax={100}
-                                        aria-label={`${column.column} ${group.value} selection rate: ${Math.round(group.positiveRate * 100)}%`}
+                                        aria-hidden="true"
                                         className={`h-full rounded-full transition-all duration-500 ease-out ${group.positiveRate < threshold
                                             ? "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]"
                                             : "bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]"
