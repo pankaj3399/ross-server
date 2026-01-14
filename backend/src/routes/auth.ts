@@ -103,13 +103,6 @@ router.post("/register", async (req, res) => {
       console.error("Failed to send verification email for user:", user.id);
     }
 
-    // Generate JWT token (but user needs to verify email)
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, emailVerified: false },
-      process.env.JWT_SECRET!,
-      { expiresIn: "7d" },
-    );
-
     res.status(201).json({
       user: {
         id: user.id,
@@ -119,10 +112,8 @@ router.post("/register", async (req, res) => {
         subscription_status: user.subscription_status,
         email_verified: user.email_verified,
       },
-      token,
       message:
         "Registration successful. Please check your email for the verification code.",
-      // emailSent,
     });
   } catch (error) {
     console.error("Registration error:", error);
