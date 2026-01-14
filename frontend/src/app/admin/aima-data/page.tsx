@@ -480,11 +480,11 @@ export default function AdminQuestions() {
                   .map((q) =>
                     q.id === question.id
                       ? {
-                          ...q,
-                          question_text: updatedText,
-                          level: updatedLevel,
-                          stream: updatedStream,
-                        }
+                        ...q,
+                        question_text: updatedText,
+                        level: updatedLevel,
+                        stream: updatedStream,
+                      }
                       : q,
                   )
                   .sort((a, b) => {
@@ -608,11 +608,30 @@ export default function AdminQuestions() {
         const data: AIMAResponse = await response.json();
 
         if (data.success) {
+          // Filter to only show basic (non-premium) domains
+          const basicDomains = data.data.domains.filter(domain => !domain.is_premium);
+
+          // Calculate summary for basic domains only
+          const basicPracticesCount = basicDomains.reduce(
+            (acc, domain) => acc + domain.practices.length,
+            0
+          );
+          const basicQuestionsCount = basicDomains.reduce(
+            (acc, domain) =>
+              acc + domain.practices.reduce((pAcc, practice) => pAcc + practice.questions.length, 0),
+            0
+          );
+
           setAimaData({
             ...data,
             data: {
               ...data.data,
-              domains: sortDomainsByOrder(data.data.domains),
+              domains: sortDomainsByOrder(basicDomains),
+              summary: {
+                total_domains: basicDomains.length,
+                total_practices: basicPracticesCount,
+                total_questions: basicQuestionsCount,
+              },
             },
           });
         } else {
@@ -930,11 +949,10 @@ export default function AdminQuestions() {
                       e.stopPropagation();
                       toggleDomainPremium(domain.id, domain.is_premium);
                     }}
-                    className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      domain.is_premium
+                    className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${domain.is_premium
                         ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
+                      }`}
                     title={domain.is_premium ? "Click to remove premium status" : "Click to mark as premium"}
                   >
                     {domain.is_premium ? "⭐ Premium" : "Mark as Premium"}
@@ -1156,15 +1174,14 @@ export default function AdminQuestions() {
                                               (questionTextChanged && !questionTextValue.trim()) ||
                                               isSavingQuestionUpdate)
                                           }
-                                          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                                            isEditingQuestion
+                                          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${isEditingQuestion
                                               ? !hasQuestionChanges ||
                                                 (questionTextChanged && !questionTextValue.trim()) ||
                                                 isSavingQuestionUpdate
                                                 ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                                 : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700"
                                               : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800"
-                                          }`}
+                                            }`}
                                         >
                                           {isEditingQuestion
                                             ? isSavingQuestionUpdate
@@ -1270,11 +1287,10 @@ export default function AdminQuestions() {
                                               handleQuestionDescriptionSave(question);
                                             }}
                                             disabled={!descriptionChanged || isSaving}
-                                            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                                              !descriptionChanged || isSaving
+                                            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${!descriptionChanged || isSaving
                                                 ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                                 : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-sm"
-                                            }`}
+                                              }`}
                                           >
                                             {isSaving ? "Saving..." : "Save Description"}
                                           </button>
@@ -1283,7 +1299,7 @@ export default function AdminQuestions() {
 
                                       <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm">
                                         {descriptionValue ? (
-                                          <div 
+                                          <div
                                             className="rich-text-preview text-gray-600 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0"
                                             dangerouslySetInnerHTML={{ __html: safeRenderHTML(descriptionValue) }}
                                           />
@@ -1367,11 +1383,10 @@ export default function AdminQuestions() {
                       });
                     }
                   }}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 ${
-                    showDomainModal
+                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 ${showDomainModal
                       ? "focus:ring-blue-500"
                       : "focus:ring-green-500"
-                  }`}
+                    }`}
                   placeholder={
                     showDomainModal ? "Domain title" : "Practice title"
                   }
@@ -1401,11 +1416,10 @@ export default function AdminQuestions() {
                       });
                     }
                   }}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none ${
-                    showDomainModal
+                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none ${showDomainModal
                       ? "focus:ring-blue-500"
                       : "focus:ring-green-500"
-                  }`}
+                    }`}
                   rows={3}
                   placeholder={
                     showDomainModal
@@ -1451,11 +1465,10 @@ export default function AdminQuestions() {
               </button>
               <button
                 onClick={showDomainModal ? submitDomain : submitPractice}
-                className={`px-6 py-3 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                  showDomainModal
+                className={`px-6 py-3 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${showDomainModal
                     ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-blue-500/25"
                     : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 hover:shadow-green-500/25"
-                }`}
+                  }`}
               >
                 {showDomainModal ? "Add Domain" : "Add Practice"}
               </button>

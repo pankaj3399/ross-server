@@ -18,6 +18,7 @@ import {
   Database,
   Moon,
   ChevronsUpDown,
+  Crown,
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -101,29 +102,29 @@ export function Sidebar({
           rafId = null; // Clear rafId inside the callback
           if (userButtonRef.current) {
             const rect = userButtonRef.current.getBoundingClientRect();
-            
+
             // Dropdown dimensions (w-64 = 256px)
             const dropdownWidth = 256;
             const dropdownHeight = 120; // Estimated height, adjust if needed
             const margin = 8;
-            
+
             // Calculate desired position
             let desiredLeft = rect.right + 8;
             let desiredTop = rect.top + rect.height / 2;
-            
+
             // Account for translateY(-80%) offset when estimating vertical position
             const verticalOffset = dropdownHeight * 0.8;
-            
+
             // Clamp left to viewport
             const minLeft = margin;
             const maxLeft = window.innerWidth - dropdownWidth - margin;
             desiredLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft));
-            
+
             // Clamp top to viewport (accounting for translateY(-80%) offset)
             const minTop = margin;
             const maxTop = window.innerHeight - dropdownHeight + verticalOffset - margin;
             desiredTop = Math.max(minTop, Math.min(desiredTop, maxTop));
-            
+
             setDropdownPosition({
               top: desiredTop,
               left: desiredLeft,
@@ -183,7 +184,7 @@ export function Sidebar({
     // Use pointerdown instead of click to avoid click-through issues
     document.addEventListener('pointerdown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
-    
+
     return () => {
       document.removeEventListener('pointerdown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
@@ -194,7 +195,7 @@ export function Sidebar({
     logout();
     setIsUserMenuOpen(false);
     setMobileOpen(false);
-    router.replace("/");
+    router.replace("/auth?isLogin=true");
   };
 
   const shouldHideSidebar = pathname === "/" || pathname?.startsWith("/auth");
@@ -213,6 +214,14 @@ export function Sidebar({
         label: "Manage AIMA Data",
         href: "/admin/aima-data",
         icon: Database,
+      });
+    }
+    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-premium-domains")) {
+      allSidebarItemsMap.set("admin-premium-domains", {
+        id: "admin-premium-domains",
+        label: "Premium Domains",
+        href: "/admin/premium-domains",
+        icon: Crown,
       });
     }
     return Array.from(allSidebarItemsMap.values());
@@ -264,10 +273,10 @@ export function Sidebar({
           aria-labelledby="user-menu-button"
           data-user-menu
           initial={{ opacity: 0, x: -10, scale: 0.95 }}
-          animate={{ 
-            opacity: 1, 
-            x: 0, 
-            scale: 1 
+          animate={{
+            opacity: 1,
+            x: 0,
+            scale: 1
           }}
           exit={{ opacity: 0, x: -10, scale: 0.95 }}
           transition={{ duration: 0.2 }}
@@ -290,10 +299,10 @@ export function Sidebar({
         role="menu"
         aria-labelledby="user-menu-button"
         initial={{ opacity: 0, y: -10, scale: 0.95 }}
-        animate={{ 
-          opacity: 1, 
-          y: 0, 
-          scale: 1 
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: 1
         }}
         exit={{ opacity: 0, y: -10, scale: 0.95 }}
         transition={{ duration: 0.2 }}
@@ -307,32 +316,33 @@ export function Sidebar({
 
   const isActive = (href: string, id: string) => {
     if (href === "#") return false;
-    
+
     const currentPath = pathname || "";
-    
+
     const itemMatchesPath = (itemHref: string, itemId: string) => {
       if (itemHref === "#") return false;
       if (itemId === "premium" && currentPath.includes("/premium-features")) return true;
       if (itemId === "settings" && (currentPath.includes("/settings") || currentPath.includes("/manage-subscription"))) return true;
       if (itemId === "admin-aima" && currentPath.includes("/admin/aima-data")) return true;
+      if (itemId === "admin-premium-domains" && currentPath.includes("/admin/premium-domains")) return true;
       return currentPath === itemHref || (itemHref !== "/" && currentPath.startsWith(itemHref));
     };
-    
+
     if (id === "dashboard") {
       if (currentPath === "/dashboard" || currentPath === "/") {
         return true;
       }
-      
+
       const otherItemMatches = allSidebarItems.some((item) => {
         if (item.id === "dashboard" || item.disabled) {
           return false;
         }
         return itemMatchesPath(item.href, item.id);
       });
-      
+
       return !otherItemMatches;
     }
-    
+
     return itemMatchesPath(href, id);
   };
 
@@ -371,9 +381,8 @@ export function Sidebar({
             return (
               <div
                 key={item.id}
-                className={`flex items-center ${
-                  collapsed ? "justify-center" : "space-x-3"
-                } px-4 py-3 rounded-lg text-gray-400 dark:text-gray-500 cursor-not-allowed transition-colors`}
+                className={`flex items-center ${collapsed ? "justify-center" : "space-x-3"
+                  } px-4 py-3 rounded-lg text-gray-400 dark:text-gray-500 cursor-not-allowed transition-colors`}
                 title={collapsed ? item.label : undefined}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
@@ -388,19 +397,16 @@ export function Sidebar({
             <Link
               key={item.id}
               href={item.href}
-              className={`flex items-center ${
-                collapsed ? "justify-center" : "space-x-3"
-              } px-4 py-3 rounded-lg transition-all duration-200 ${
-                active
+              className={`flex items-center ${collapsed ? "justify-center" : "space-x-3"
+                } px-4 py-3 rounded-lg transition-all duration-200 ${active
                   ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold shadow-sm"
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
-              }`}
+                }`}
               title={collapsed ? item.label : undefined}
             >
               <Icon
-                className={`w-5 h-5 flex-shrink-0 transition-transform ${
-                  active ? "scale-110" : ""
-                }`}
+                className={`w-5 h-5 flex-shrink-0 transition-transform ${active ? "scale-110" : ""
+                  }`}
               />
               {!collapsed && (
                 <span className="font-medium">{item.label}</span>
@@ -431,11 +437,10 @@ export function Sidebar({
               aria-label="Toggle theme"
             >
               <div
-                className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${
-                  theme === "dark"
-                    ? "bg-purple-600 dark:bg-purple-600"
-                    : "bg-gray-300 dark:bg-gray-600"
-                }`}
+                className={`w-12 h-6 rounded-full shadow-inner transition-colors duration-300 ${theme === "dark"
+                  ? "bg-purple-600 dark:bg-purple-600"
+                  : "bg-gray-300 dark:bg-gray-600"
+                  }`}
               ></div>
               <motion.div
                 className="absolute top-1 w-4 h-4 bg-white rounded-full shadow pointer-events-none"
@@ -477,9 +482,8 @@ export function Sidebar({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className={`group w-full flex items-center ${
-                collapsed ? "justify-center" : "space-x-3"
-              } px-4 py-3 rounded-xl bg-white dark:bg-gray-800 transition-all duration-300 ${!collapsed ? "border border-gray-200 dark:border-gray-700 hover:shadow-md" : ""}` }
+              className={`group w-full flex items-center ${collapsed ? "justify-center" : "space-x-3"
+                } px-4 py-3 rounded-xl bg-white dark:bg-gray-800 transition-all duration-300 ${!collapsed ? "border border-gray-200 dark:border-gray-700 hover:shadow-md" : ""}`}
             >
               {/* Profile Picture with Status Indicator */}
               <div className="relative flex-shrink-0">
@@ -565,9 +569,8 @@ export function Sidebar({
       {/* Desktop Sidebar - Only show when authenticated */}
       {isAuthenticated && (
         <aside
-          className={`hidden lg:flex flex-col h-screen sticky top-0 bg-gray-50/5 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${
-            collapsed ? "w-20" : "w-64"
-          }`}
+          className={`hidden lg:flex flex-col h-screen sticky top-0 bg-gray-50/5 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ${collapsed ? "w-20" : "w-64"
+            }`}
         >
           {sidebarContent}
         </aside>
