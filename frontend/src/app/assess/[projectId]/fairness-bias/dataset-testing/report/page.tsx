@@ -75,7 +75,7 @@ const DatasetTestingReportPage = () => {
             setIsExporting(true);
 
             // Wait for React to re-render with isExporting=true (which expands all rows)
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             const [jsPDFModule, html2canvasModule] = await Promise.all([import("jspdf"), import("html2canvas")]);
             const jsPDFConstructor = jsPDFModule.default;
@@ -98,9 +98,8 @@ const DatasetTestingReportPage = () => {
             clone.style.color = "#1e293b";
             clone.style.padding = "16px";
 
-            // Helper to apply PDF-friendly styles to an element tree
-            const applyPdfStyles = (root: HTMLElement) => {
-                // Remove all grid layouts and make everything stack vertically
+            // Helper functions for PDF styling
+            const fixGridStyles = (root: HTMLElement) => {
                 root.querySelectorAll("[class*='grid']").forEach((el) => {
                     const elem = el as HTMLElement;
                     const classes = Array.from(elem.classList);
@@ -112,7 +111,9 @@ const DatasetTestingReportPage = () => {
                     elem.style.display = "block";
                     elem.style.width = "100%";
                 });
+            };
 
+            const fixVisibility = (root: HTMLElement) => {
                 // Make all sections full width and visible
                 root.querySelectorAll("section, div").forEach((el) => {
                     const elem = el as HTMLElement;
@@ -124,22 +125,23 @@ const DatasetTestingReportPage = () => {
                 root.querySelectorAll(".hide-in-pdf").forEach((el) => {
                     (el as HTMLElement).style.display = "none";
                 });
+            };
 
-                // Fix progress bars
+            const fixProgressBars = (root: HTMLElement) => {
                 root.querySelectorAll(".rounded-full.overflow-hidden").forEach((container) => {
                     const containerEl = container as HTMLElement;
-                    if (containerEl.classList.contains("h-2") || containerEl.classList.contains("h-2.5") || 
-                        containerEl.className.includes("h-2")) {
+                    // Simplified check
+                    if (containerEl.className.includes("h-2")) {
                         containerEl.style.backgroundColor = "#e2e8f0";
                         containerEl.style.height = "10px";
                         containerEl.style.overflow = "visible";
-                        
+
                         const innerBar = containerEl.querySelector("div") as HTMLElement;
                         if (innerBar && innerBar.style.width) {
                             innerBar.style.height = "10px";
                             innerBar.style.borderRadius = "9999px";
                             innerBar.style.minWidth = "4px";
-                            
+
                             const classes = innerBar.className;
                             if (classes.includes("amber") || classes.includes("orange")) {
                                 innerBar.style.background = "#f59e0b";
@@ -166,20 +168,22 @@ const DatasetTestingReportPage = () => {
                         elem.style.backgroundColor = "#10b981";
                     }
                 });
+            };
 
+            const fixColors = (root: HTMLElement) => {
                 // Fix ALL text colors for PDF visibility - apply dark text on light background
                 root.querySelectorAll("*").forEach((el) => {
                     const elem = el as HTMLElement;
                     const computed = window.getComputedStyle(elem);
-                    
+
                     // Fix dark backgrounds to light
                     const bg = computed.backgroundColor;
-                    if (bg.includes("rgb(17,") || bg.includes("rgb(31,") || bg.includes("rgb(15,") || 
+                    if (bg.includes("rgb(17,") || bg.includes("rgb(31,") || bg.includes("rgb(15,") ||
                         bg.includes("rgb(3,") || bg.includes("rgb(9,") || bg.includes("rgba(0,") ||
                         bg.includes("rgb(30,") || bg.includes("rgb(24,") || bg.includes("rgb(39,")) {
                         elem.style.backgroundColor = "#ffffff";
                     }
-                    
+
                     // Fix borders
                     if (computed.borderColor.includes("rgb(55,") || computed.borderColor.includes("rgb(31,") ||
                         computed.borderColor.includes("rgb(63,") || computed.borderColor.includes("rgb(75,")) {
@@ -190,16 +194,16 @@ const DatasetTestingReportPage = () => {
                 // Second pass: Fix text colors based on Tailwind class names
                 root.querySelectorAll("*").forEach((el) => {
                     const elem = el as HTMLElement;
-                    // Handle both regular elements and SVG elements (className can be SVGAnimatedString)
+                    // Handle both regular elements and SVG elements
                     let classes = "";
                     try {
-                        classes = typeof elem.className === "string" ? elem.className : 
-                                  (elem.className && typeof (elem.className as unknown as SVGAnimatedString).baseVal === "string" 
-                                   ? (elem.className as unknown as SVGAnimatedString).baseVal : "");
+                        classes = typeof elem.className === "string" ? elem.className :
+                            (elem.className && typeof (elem.className as unknown as SVGAnimatedString).baseVal === "string"
+                                ? (elem.className as unknown as SVGAnimatedString).baseVal : "");
                     } catch {
                         classes = "";
                     }
-                    
+
                     if (!classes) return;
                     // Force dark text for common dark-mode text classes
                     if (classes.includes("text-white") || classes.includes("dark:text-white")) {
@@ -232,7 +236,7 @@ const DatasetTestingReportPage = () => {
                     const elem = el as HTMLElement;
                     const computed = window.getComputedStyle(elem);
                     const color = computed.color;
-                    
+
                     // If text is too light (RGB values > 180), make it darker
                     const match = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
                     if (match) {
@@ -259,123 +263,133 @@ const DatasetTestingReportPage = () => {
                 });
             };
 
+            const applyPdfStyles = (root: HTMLElement) => {
+                fixGridStyles(root);
+                fixVisibility(root);
+                fixProgressBars(root);
+                fixColors(root);
+            };
+
             applyPdfStyles(clone);
             document.body.appendChild(clone);
 
             try {
-            // Find all capturable sections - cards and major sections that should not be split
-            // Use rounded-2xl and rounded-3xl as markers for cards
-            const sections: HTMLElement[] = [];
-            
-            // Add header
-            const header = clone.querySelector("header");
-            if (header) sections.push(header as HTMLElement);
-            
-            // Add all major cards (rounded-3xl are main cards, rounded-2xl are sub-cards)
-            clone.querySelectorAll("section > .rounded-3xl, section > .rounded-2xl, .space-y-6 > .rounded-2xl, .space-y-6 > .rounded-3xl, .space-y-4 > .rounded-2xl").forEach((el) => {
-                // Skip if already captured as child of another section
-                if (!sections.some(s => s.contains(el))) {
-                    sections.push(el as HTMLElement);
-                }
-            });
+                // Find all capturable sections - cards and major sections that should not be split
+                // Use rounded-2xl and rounded-3xl as markers for cards
+                const sections: HTMLElement[] = [];
 
-            // If no sections found, fall back to capturing main element
-            if (sections.length === 0) {
-                const mainEl = clone.querySelector("main");
-                if (mainEl) sections.push(mainEl as HTMLElement);
-            }
+                // Add header
+                const header = clone.querySelector("header");
+                if (header) sections.push(header as HTMLElement);
 
-            let currentY = margin;
-            let isFirstPage = true;
-
-            for (const section of sections) {
-                // Skip hidden elements
-                if (section.style.display === "none" || section.offsetHeight === 0) continue;
-
-                const canvas = await html2canvas(section, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    windowWidth: 850,
+                // Add all major cards (rounded-3xl are main cards, rounded-2xl are sub-cards)
+                clone.querySelectorAll("section > .rounded-3xl, section > .rounded-2xl, .space-y-6 > .rounded-2xl, .space-y-6 > .rounded-3xl, .space-y-4 > .rounded-2xl").forEach((el) => {
+                    // Skip if already captured as child of another section
+                    if (!sections.some(s => s.contains(el))) {
+                        sections.push(el as HTMLElement);
+                    }
                 });
 
-                const imgWidth = usableWidth;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                // If no sections found, fall back to capturing main element
+                if (sections.length === 0) {
+                    const mainEl = clone.querySelector("main");
+                    if (mainEl) sections.push(mainEl as HTMLElement);
+                }
 
-                // Check if this section fits on the current page
-                if (currentY + imgHeight > pageHeight - margin) {
-                    // Section doesn't fit, check if it's too tall for any single page
-                    if (imgHeight > usableHeight) {
-                        // Section is too tall - we need to split it across pages
-                        // First, move to a new page if we're not at the top
-                        if (currentY > margin + 5) {
-                            pdf.addPage();
-                            currentY = margin;
-                            isFirstPage = false;
-                        }
+                let currentY = margin;
+                // Removed unused isFirstPage variable
 
-                        // Split the large section across multiple pages
-                        let remainingHeight = canvas.height;
-                        let sourceY = 0;
-                        const pixelsPerMm = canvas.width / imgWidth;
+                for (const section of sections) {
+                    // Skip hidden elements
+                    if (section.style.display === "none" || section.offsetHeight === 0) continue;
 
-                        while (remainingHeight > 0) {
-                            const availableHeight = usableHeight;
-                            const availablePixels = availableHeight * pixelsPerMm;
-                            const slicePixels = Math.min(remainingHeight, availablePixels);
-                            
-                            const sliceCanvas = document.createElement("canvas");
-                            sliceCanvas.width = canvas.width;
-                            sliceCanvas.height = slicePixels;
-                            
-                            const ctx = sliceCanvas.getContext("2d");
-                            if (ctx) {
-                                ctx.fillStyle = "#ffffff";
-                                ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-                                ctx.drawImage(
-                                    canvas,
-                                    0, sourceY, canvas.width, slicePixels,
-                                    0, 0, canvas.width, slicePixels
-                                );
-                                
-                                const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-                                const sliceHeightMm = slicePixels / pixelsPerMm;
-                                pdf.addImage(sliceData, "JPEG", margin, currentY, imgWidth, sliceHeightMm);
-                                
-                                currentY += sliceHeightMm;
-                            }
+                    try {
+                        const canvas = await html2canvas(section, {
+                            scale: 2,
+                            useCORS: true,
+                            backgroundColor: "#ffffff",
+                            logging: false,
+                            windowWidth: 850,
+                        });
 
-                            sourceY += slicePixels;
-                            remainingHeight -= slicePixels;
+                        const imgWidth = usableWidth;
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                            if (remainingHeight > 0) {
+                        // Check if this section fits on the current page
+                        if (currentY + imgHeight > pageHeight - margin) {
+                            // Section doesn't fit, check if it's too tall for any single page
+                            if (imgHeight > usableHeight) {
+                                // Section is too tall - we need to split it across pages
+                                // First, move to a new page if we're not at the top
+                                if (currentY > margin + 5) {
+                                    pdf.addPage();
+                                    currentY = margin;
+                                }
+
+                                // Split the large section across multiple pages
+                                let remainingHeight = canvas.height;
+                                let sourceY = 0;
+                                const pixelsPerMm = canvas.width / imgWidth;
+
+                                while (remainingHeight > 0) {
+                                    const availableHeight = usableHeight;
+                                    const availablePixels = availableHeight * pixelsPerMm;
+                                    const slicePixels = Math.min(remainingHeight, availablePixels);
+
+                                    const sliceCanvas = document.createElement("canvas");
+                                    sliceCanvas.width = canvas.width;
+                                    sliceCanvas.height = slicePixels;
+
+                                    const ctx = sliceCanvas.getContext("2d");
+                                    if (ctx) {
+                                        ctx.fillStyle = "#ffffff";
+                                        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                                        ctx.drawImage(
+                                            canvas,
+                                            0, sourceY, canvas.width, slicePixels,
+                                            0, 0, canvas.width, slicePixels
+                                        );
+
+                                        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+                                        const sliceHeightMm = slicePixels / pixelsPerMm;
+                                        pdf.addImage(sliceData, "JPEG", margin, currentY, imgWidth, sliceHeightMm);
+
+                                        currentY += sliceHeightMm;
+                                    }
+
+                                    sourceY += slicePixels;
+                                    remainingHeight -= slicePixels;
+
+                                    if (remainingHeight > 0) {
+                                        pdf.addPage();
+                                        currentY = margin;
+                                    }
+                                }
+                                currentY += 3; // Small gap after section
+                            } else {
+                                // Section fits on a new page
                                 pdf.addPage();
                                 currentY = margin;
-                            }
-                        }
-                        currentY += 3; // Small gap after section
-                    } else {
-                        // Section fits on a new page
-                        pdf.addPage();
-                        currentY = margin;
-                        isFirstPage = false;
-                        
-                        const imgData = canvas.toDataURL("image/jpeg", 0.92);
-                        pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                        currentY += imgHeight + 3;
-                    }
-                } else {
-                    // Section fits on current page
-                    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-                    pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                    currentY += imgHeight + 3;
-                }
-            }
 
-            const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";
-            const dateSuffix = new Date(payload.generatedAt).toISOString().split("T")[0];
-            pdf.save(`${baseName}-fairness-report-${dateSuffix}.pdf`);
+                                const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                                pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                                currentY += imgHeight + 3;
+                            }
+                        } else {
+                            // Section fits on current page
+                            const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                            currentY += imgHeight + 3;
+                        }
+                    } catch (sectionError) {
+                        console.error("Error capturing section:", sectionError);
+                        // Continue to next section instead of failing entire PDF
+                    }
+                }
+
+                const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";
+                const dateSuffix = new Date(payload.generatedAt).toISOString().split("T")[0];
+                pdf.save(`${baseName}-fairness-report-${dateSuffix}.pdf`);
             } finally {
                 if (clone && document.body.contains(clone)) {
                     document.body.removeChild(clone);

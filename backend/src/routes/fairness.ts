@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
-import { authenticateToken, checkRouteAccess } from "../middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { evaluateDatasetFairness, parseCSV, FairnessAssessment } from "../utils/datasetFairness";
 import { inngest } from "../inngest/client";
@@ -87,7 +87,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         if (!genAI) {
             return res.status(503).json({ 
                 error: "AI service is not configured. Please contact support.",
-                details: "GEMINI_API_KEY is missing from server configuration."
+                // details: "GEMINI_API_KEY is missing from server configuration." // Hidden for security
             });
         }
 
@@ -143,7 +143,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             metricName: string,
             text: string,
             evaluationPrompt: string
-        ): Promise<{ score: number; reason: string }> {
+        ): Promise<{ score: number; reason: string; isError?: boolean }> {
             if (!genAI) {
                 return { score: 0, reason: "Gemini is not configured" };
             }
@@ -214,7 +214,8 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Do not
             
             return { 
                 score: 0, 
-                reason: errorReason
+                reason: errorReason,
+                isError: true
             };
         }
 
@@ -344,8 +345,9 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
             const geminiToxicityResult = await evaluateMetricWithGemini("Toxicity", textContent, toxicityPrompt);
             toxicityScore = geminiToxicityResult.score;
             
-            // Check if the evaluation actually succeeded (not an error message)
-            const isEvalError = geminiToxicityResult.reason.includes("unavailable") || 
+            // Check if the evaluation actually succeeded using flag
+            const isEvalError = geminiToxicityResult.isError || 
+                                geminiToxicityResult.reason.includes("unavailable") || 
                                 geminiToxicityResult.reason.includes("Unable to") ||
                                 geminiToxicityResult.reason.includes("timed out");
             
@@ -501,7 +503,11 @@ IMPORTANT: Respond ONLY with the explanation text, no JSON, no markdown formatti
         }
         // Provide more helpful error messages
         const errorMessage = error?.message || "Failed to evaluate dataset fairness";
-        const statusCode = error?.status || 500;
+        // Validating status code to be a valid HTTP error code (4xx, 5xx)
+        let statusCode = 500;
+        if (error?.status && typeof error.status === 'number' && error.status >= 400 && error.status < 600) {
+            statusCode = error.status;
+        }
         
         // Check for specific error types
         if (errorMessage.includes("CSV") || errorMessage.includes("parse")) {

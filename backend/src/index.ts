@@ -31,7 +31,7 @@ app.post(
 
 // Configure CORS with proper options for production
 app.use(cors({
-  origin: process.env.FRONTEND_URL || true, // Allow configured frontend or all origins
+  origin: process.env.FRONTEND_URL || "http://localhost:3000", // Allow configured frontend or default to localhost
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
