@@ -195,7 +195,7 @@ export function Sidebar({
     logout();
     setIsUserMenuOpen(false);
     setMobileOpen(false);
-    router.replace("/signin");
+    router.replace("/auth?isLogin=true");
   };
 
   const shouldHideSidebar = pathname === "/" || pathname?.startsWith("/auth");

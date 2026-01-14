@@ -135,7 +135,7 @@ export default function VerifyOTPPage() {
 
         // Redirect to dashboard after a short delay
         setTimeout(() => {
-          window.location.href = "/dashboard"; // Using window.location to ensure full state reset/refresh
+          router.push("/dashboard");
         }, 2000);
       } else {
         setError(data.error || "Invalid or expired OTP code");
