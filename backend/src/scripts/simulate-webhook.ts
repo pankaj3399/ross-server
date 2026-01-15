@@ -172,13 +172,17 @@ async function main() {
         });
     } catch (e) {
          console.error('\n❌ FAILURE: Status did not update as expected within timeout.');
+         await pool.end().catch((err) => console.error('Error closing pool:', err));
          process.exit(1);
     }
 
-    process.exit();
+    // Clean up DB pool before exiting
+    await pool.end().catch((err) => console.error('Error closing pool:', err));
+    process.exit(0);
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
     console.error(error);
+    await pool.end().catch((err) => console.error('Error closing pool:', err));
     process.exit(1);
 });

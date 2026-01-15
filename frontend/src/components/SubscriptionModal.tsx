@@ -238,6 +238,9 @@ export default function SubscriptionModal({
                       try {
                         await onDowngradeToBasic();
                         onClose();
+                      } catch (error) {
+                        console.error("Downgrade failed:", error);
+                        showToast.error("Failed to downgrade plan. Please try again.");
                       } finally {
                         setDowngrading(false);
                       }
