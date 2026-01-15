@@ -74,10 +74,22 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                             <div key={group.value} className="space-y-2 page-break-avoid">
                                 <div className="grid grid-cols-[2fr,1fr,1fr,1fr,0.8fr] gap-2 text-sm text-slate-600 dark:text-slate-300 items-center">
                                     <p className="font-medium break-words leading-tight" title={group.value}>{group.value}</p>
-                                    <p className="text-right text-slate-500">{formatPercent(group.distribution ?? 0)}</p>
-                                    <p className="text-right font-bold text-slate-700 dark:text-slate-200">{formatPercent(group.positiveRate)}</p>
-                                    <p className="text-right text-slate-500">{formatPercent(group.outcomeShare ?? 0)}</p>
-                                    <p className="text-right text-xs text-slate-400">{group.rows.toLocaleString()}</p>
+                                    <p className="text-right text-slate-500">
+                                        <span className="text-xs text-slate-400 mr-1">Dist:</span>
+                                        {formatPercent(group.distribution ?? 0)}
+                                    </p>
+                                    <p className="text-right font-bold text-slate-700 dark:text-slate-200">
+                                        <span className="text-xs font-normal text-slate-400 mr-1">Rate:</span>
+                                        {formatPercent(group.positiveRate)}
+                                    </p>
+                                    <p className="text-right text-slate-500">
+                                        <span className="text-xs text-slate-400 mr-1">Share:</span>
+                                        {formatPercent(group.outcomeShare ?? 0)}
+                                    </p>
+                                    <p className="text-right text-xs text-slate-400">
+                                        <span className="text-slate-400 mr-1">n=</span>
+                                        {group.rows.toLocaleString()}
+                                    </p>
                                 </div>
                                 <div
                                     role="progressbar"

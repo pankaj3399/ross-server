@@ -23,7 +23,7 @@ import {
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useSidebar } from "../contexts/SidebarContext";
-import { ROLES } from "../lib/constants";
+import { AUTH_LOGIN_URL, ROLES } from "../lib/constants";
 
 export interface SidebarItem {
   id: string;
@@ -195,7 +195,7 @@ export function Sidebar({
     logout();
     setIsUserMenuOpen(false);
     setMobileOpen(false);
-    router.replace("/auth?isLogin=true");
+    router.replace(AUTH_LOGIN_URL);
   };
 
   const shouldHideSidebar = pathname === "/" || pathname?.startsWith("/auth");

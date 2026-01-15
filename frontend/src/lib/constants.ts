@@ -12,3 +12,6 @@ export const ROLES = {
   ADMIN: "ADMIN",
   PREMIUM_USER: "PREMIUM_USER",
 } as const;
+
+// Auth routes
+export const AUTH_LOGIN_URL = "/auth?isLogin=true";
