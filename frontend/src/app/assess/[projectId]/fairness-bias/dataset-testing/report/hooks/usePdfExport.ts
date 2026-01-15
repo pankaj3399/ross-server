@@ -271,8 +271,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     if (section.style.display === "none" || section.offsetHeight === 0) continue;
 
                     try {
-                        const canvas = await html2canvas(section, {
-                            scale: 2,
+                        let scale = 2;
+                        let canvas = await html2canvas(section, {
+                            scale: scale,
                             useCORS: true,
                             backgroundColor: "#ffffff",
                             logging: false,
@@ -283,6 +284,32 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                 if (el) el.remove();
                             }
                         });
+
+                        // Check limits (e.g. 15000px height or ~50MP total)
+                        const MAX_DIMENSION = 15000;
+                        const MAX_PIXELS = 50000000;
+
+                        if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
+                            console.warn(`Canvas too large (${canvas.width}x${canvas.height}), retrying with scale 1`);
+                            scale = 1;
+                            canvas = await html2canvas(section, {
+                                scale: scale,
+                                useCORS: true,
+                                backgroundColor: "#ffffff",
+                                logging: false,
+                                windowWidth: 850,
+                                onclone: (clonedDoc) => {
+                                    const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
+                                    if (el) el.remove();
+                                }
+                            });
+
+                            // If still too large, skip to avoid OOM
+                            if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
+                                console.error("Section still too large to export, skipping", section);
+                                continue;
+                            }
+                        }
 
                         const imgWidth = usableWidth;
                         const imgHeight = (canvas.height * imgWidth) / canvas.width;

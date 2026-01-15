@@ -208,4 +208,3 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
         </div>
     );
 };
-                           

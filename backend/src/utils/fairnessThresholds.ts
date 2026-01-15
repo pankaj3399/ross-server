@@ -22,6 +22,12 @@ export const THRESHOLDS = {
 
 /**
  * Convert verdict to numerical score
+ * 
+ * Mappings Rationale:
+ * - pass -> 0.9: Represents a high confidence pass, well above the 0.8 high threshold.
+ * - caution -> 0.5: Represents a borderline case, sitting at the threshold between low and moderate.
+ * - fail -> 0.1: Represents a clear failure, well below the moderate range.
+ * - insufficient -> 0.5: Treated same as caution because lack of evidence shouldn't penalize as heavily as a fail, but isn't a pass.
  */
 export const getScoreFromVerdict = (verdict: string): number => {
     switch (verdict) {

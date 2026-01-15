@@ -70,26 +70,7 @@ const DEFAULT_THRESHOLDS = {
     POSITIVE: { HIGH: 0.7, MODERATE: 0.4 }
 };
 
-let currentThresholds = deepMerge({}, DEFAULT_THRESHOLDS);
-
-export const getThresholds = () => deepMerge({}, currentThresholds);
-
-export const loadThresholds = async (fetcher: () => Promise<any>): Promise<boolean> => {
-    try {
-        const remoteThresholds = await fetcher();
-        if (remoteThresholds) {
-            currentThresholds = deepMerge(currentThresholds, remoteThresholds);
-            return true;
-        }
-        return false;
-    } catch (e) {
-        console.warn("Failed to load thresholds from backend, using defaults", e);
-        return false;
-    }
-};
-
-/** List of metrics where lower scores are better */
-export const NEGATIVE_METRICS = ['Biasness', 'Toxicity'] as const;
+export type Thresholds = typeof DEFAULT_THRESHOLDS;
 
 /**
  * Simple recursive deep merge utility
@@ -112,4 +93,25 @@ function deepMerge(target: any, source: any) {
         }
     });
     return output;
+}
+
+let currentThresholds: Thresholds = deepMerge({}, DEFAULT_THRESHOLDS);
+
+export const getThresholds = () => deepMerge({}, currentThresholds);
+
+export const loadThresholds = async (fetcher: () => Promise<Thresholds | null | undefined>): Promise<boolean> => {
+    try {
+        const remoteThresholds = await fetcher();
+        if (remoteThresholds) {
+            currentThresholds = deepMerge(currentThresholds, remoteThresholds);
+            return true;
+        }
+        return false;
+    } catch (e) {
+        console.warn("Failed to load thresholds from backend, using defaults", e);
+        return false;
+    }
 };
+
+/** List of metrics where lower scores are better */
+export const NEGATIVE_METRICS = ['Biasness', 'Toxicity'] as const;

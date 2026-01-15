@@ -170,9 +170,6 @@ export async function generateExplanationWithGemini(
         return [`Gemini is not configured.`, context];
     }
 
-    // Default fallback
-    const defaultFallback = [context];
-
     for (const modelName of MODELS_TO_TRY) {
         try {
             const model = genAI.getGenerativeModel({ 
