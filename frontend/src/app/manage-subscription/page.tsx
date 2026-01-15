@@ -22,7 +22,7 @@ import {
   MessageCircleQuestionMark,
 } from "lucide-react";
 import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
-import SubscriptionModal from "../../components/SubscriptionModal";
+import SubscriptionModal, { SubscriptionStatus } from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
 import { FALLBACK_PRICES } from "../../lib/constants";
 
@@ -920,7 +920,7 @@ export default function ManageSubscriptionPage() {
       <SubscriptionModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
-        currentPlan={subscription_status as 'free' | 'basic_premium' | 'pro_premium'}
+        currentPlan={subscription_status as SubscriptionStatus}
         onUpgradeToPro={handleUpgradeToPro}
         onDowngradeToBasic={handleDowngradeToBasic}
       />

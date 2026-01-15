@@ -24,7 +24,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 // Helper to generate signature
 const generateSignature = (payload: string, secret: string) => {
-    const timestamp = Math.floor(Date.now() / 1000);
     const signature = stripe.webhooks.generateTestHeaderString({
         payload,
         secret,
@@ -144,7 +143,7 @@ async function main() {
             console.log('🎉 SUCCESS: User status was automatically updated to basic_premium!');
         } else {
             console.error('❌ FAILURE: Status did not update as expected.');
-            process.exitCode = 1;
+            process.exit(1);
         }
     } finally {
         checkClient.release();
@@ -153,4 +152,7 @@ async function main() {
     process.exit();
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

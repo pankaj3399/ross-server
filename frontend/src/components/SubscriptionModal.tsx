@@ -12,10 +12,12 @@ const BASIC_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_BASIC || "";
 const PRO_PRICE_ID = process.env.NEXT_PUBLIC_PRICE_ID_PRO || "";
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 
+export type SubscriptionStatus = 'free' | 'basic_premium' | 'pro_premium';
+
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentPlan?: 'free' | 'basic_premium' | 'pro_premium';
+  currentPlan?: SubscriptionStatus;
   onUpgradeToPro?: () => void;
   onDowngradeToBasic?: () => void;
 }
@@ -33,6 +35,7 @@ export default function SubscriptionModal({
   });
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const [downgrading, setDowngrading] = useState(false);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -229,16 +232,23 @@ export default function SubscriptionModal({
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => {
+                  onClick={async () => {
                     if (onDowngradeToBasic) {
-                      onDowngradeToBasic();
-                      onClose();
+                      setDowngrading(true);
+                      try {
+                        await onDowngradeToBasic();
+                        onClose();
+                      } finally {
+                        setDowngrading(false);
+                      }
+                    } else {
+                      handleSelectPlan(BASIC_PRICE_ID, "basic");
                     }
                   }}
-                  disabled={upgradingPlan === "basic" || loadingPrices}
+                  disabled={upgradingPlan === "basic" || loadingPrices || downgrading}
                   className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
                 >
-                  {upgradingPlan === "basic" ? (
+                  {upgradingPlan === "basic" || downgrading ? (
                     <>
                       <Loader className="w-4 h-4 animate-spin" />
                       Processing...
@@ -360,53 +370,19 @@ export default function SubscriptionModal({
                     <CheckCircle className="w-4 h-4" />
                     Current Plan
                   </div>
-                ) : currentPlan === 'basic_premium' ? (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      if (onUpgradeToPro) {
+                ) : (
+                  <ProUpgradeButton
+                    upgradingPlan={upgradingPlan}
+                    loadingPrices={loadingPrices}
+                    onUpgrade={() => {
+                      if (currentPlan === 'basic_premium' && onUpgradeToPro) {
                         onUpgradeToPro();
                         onClose();
                       } else {
                         handleSelectPlan(PRO_PRICE_ID, "pro");
                       }
                     }}
-                    disabled={upgradingPlan === "pro" || loadingPrices}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
-                  >
-                    {upgradingPlan === "pro" ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Award className="w-5 h-5" />
-                        Upgrade to Pro
-                      </>
-                    )}
-                  </motion.button>
-                ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
-                    disabled={upgradingPlan === "pro" || loadingPrices}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
-                  >
-                    {upgradingPlan === "pro" ? (
-                      <>
-                        <Loader className="w-4 h-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Award className="w-5 h-5" />
-                        Upgrade to Pro
-                      </>
-                    )}
-                  </motion.button>
+                  />
                 )}
               </div>
             </div>
@@ -429,6 +405,38 @@ export default function SubscriptionModal({
         </motion.div>
       </motion.div>
     </div>
+  );
+}
+
+function ProUpgradeButton({
+  upgradingPlan,
+  loadingPrices,
+  onUpgrade
+}: {
+  upgradingPlan: string | null;
+  loadingPrices: boolean;
+  onUpgrade: () => void;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onUpgrade}
+      disabled={upgradingPlan === "pro" || loadingPrices}
+      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+    >
+      {upgradingPlan === "pro" ? (
+        <>
+          <Loader className="w-4 h-4 animate-spin" />
+          Processing...
+        </>
+      ) : (
+        <>
+          <Award className="w-5 h-5" />
+          Upgrade to Pro
+        </>
+      )}
+    </motion.button>
   );
 }
 
