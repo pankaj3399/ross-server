@@ -19,7 +19,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2023-10-16',
+    apiVersion: '2025-12-15' as any,
 });
 
 // Helper to generate signature
@@ -30,6 +30,26 @@ const generateSignature = (payload: string, secret: string) => {
     });
     return signature;
 };
+
+// Helper: Polling for condition
+async function waitForCondition(
+    description: string,
+    predicate: () => Promise<boolean>,
+    intervalMs: number = 500,
+    timeoutMs: number = 10000
+): Promise<void> {
+    console.log(`Waiting for: ${description}...`);
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+        if (await predicate()) {
+            return;
+        }
+        await new Promise(r => setTimeout(r, intervalMs));
+    }
+    
+    throw new Error(`Timeout exceeded waiting for: ${description}`);
+}
 
 async function main() {
     console.log('🚀 Starting Webhook Simulation...');
@@ -97,14 +117,20 @@ async function main() {
 
     // 3. Send Webhook
     try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const response = await fetch(`${API_URL}/webhook`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'stripe-signature': signature
             },
-            body: payloadString
+            body: payloadString,
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
 
         if (response.ok) {
             console.log('✅ Webhook sent successfully!');
@@ -114,39 +140,38 @@ async function main() {
             console.error(text);
             process.exit(1);
         }
-    } catch (error) {
-        console.error('❌ Failed to send request:', error);
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+             console.error('❌ Request timed out after 10s');
+        } else {
+             console.error('❌ Failed to send request:', error);
+        }
         process.exit(1);
     }
 
     // 4. Verification
-    console.log('Waiting 2 seconds for DB update...');
-    await new Promise(r => setTimeout(r, 2000));
-
-    const checkClient = await pool.connect();
     try {
-        const result = await checkClient.query(
-            "SELECT subscription_status FROM users WHERE id = $1",
-            [testUser.id]
-        );
-
-        if (!result.rows || result.rows.length === 0) {
-            console.error(`❌ User ${testUser.id} not found when verifying status.`);
-            process.exitCode = 1;
-            return;
-        }
-
-        const newStatus = result.rows[0].subscription_status;
-        console.log(`Current DB Status: ${newStatus}`);
-        
-        if (newStatus === 'basic_premium') {
-            console.log('🎉 SUCCESS: User status was automatically updated to basic_premium!');
-        } else {
-            console.error('❌ FAILURE: Status did not update as expected.');
-            process.exit(1);
-        }
-    } finally {
-        checkClient.release();
+        await waitForCondition('DB update to basic_premium', async () => {
+            const checkClient = await pool.connect();
+            try {
+                 const result = await checkClient.query(
+                    "SELECT subscription_status FROM users WHERE id = $1",
+                    [testUser.id]
+                );
+                const newStatus = result.rows[0]?.subscription_status;
+                if (newStatus === 'basic_premium') {
+                    console.log('🎉 SUCCESS: User status was automatically updated to basic_premium!');
+                    return true;
+                }
+                process.stdout.write('.'); // progress indicator
+                return false;
+            } finally {
+                checkClient.release();
+            }
+        });
+    } catch (e) {
+         console.error('\n❌ FAILURE: Status did not update as expected within timeout.');
+         process.exit(1);
     }
 
     process.exit();

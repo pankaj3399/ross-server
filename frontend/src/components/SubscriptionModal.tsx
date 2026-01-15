@@ -374,10 +374,15 @@ export default function SubscriptionModal({
                   <ProUpgradeButton
                     upgradingPlan={upgradingPlan}
                     loadingPrices={loadingPrices}
-                    onUpgrade={() => {
+                    onUpgrade={async () => {
                       if (currentPlan === 'basic_premium' && onUpgradeToPro) {
-                        onUpgradeToPro();
-                        onClose();
+                        try {
+                          await onUpgradeToPro();
+                          onClose();
+                        } catch (error) {
+                          // Error handled by onUpgradeToPro or parent, keep modal open
+                          console.error("Upgrade failed:", error);
+                        }
                       } else {
                         handleSelectPlan(PRO_PRICE_ID, "pro");
                       }
@@ -415,7 +420,7 @@ function ProUpgradeButton({
 }: {
   upgradingPlan: string | null;
   loadingPrices: boolean;
-  onUpgrade: () => void;
+  onUpgrade: () => void | Promise<void>;
 }) {
   return (
     <motion.button
