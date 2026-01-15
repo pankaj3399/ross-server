@@ -30,6 +30,12 @@ const getStatusConfig = (verdict: string) => {
             color: "text-rose-600 dark:text-rose-400",
             bgColor: "bg-rose-50 dark:bg-rose-500/10",
             label: "Fail"
+        },
+        insufficient: {
+            icon: Info,
+            color: "text-slate-500",
+            bgColor: "bg-slate-50 dark:bg-slate-800/70",
+            label: "Insufficient"
         }
     };
     return configs[verdict] || configs.caution;
@@ -39,6 +45,7 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
     const [isExpanded, setIsExpanded] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const MAX_VISIBLE_GROUPS = 5;
+    const MIN_PROGRESS_BAR_WIDTH = 5;
 
     const showAll = isExporting || isExpanded;
     const visibleGroups = showAll ? column.groups : column.groups.slice(0, MAX_VISIBLE_GROUPS);
@@ -52,6 +59,11 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
     const fairnessScore = (column.disparateImpactRatio === null || column.disparateImpactRatio === undefined)
         ? null
         : column.disparateImpactRatio * 100;
+
+    const thresholdPercent = threshold * 100;
+    // Derive caution threshold (Amber) based on the Pass threshold.
+    // Standard 4/5ths rule checks 0.8 (Pass) vs 0.6 (Caution starts). Ratio is 0.75.
+    const cautionPercent = thresholdPercent * 0.75;
 
     return (
         <div className={`rounded-2xl border ${column.verdict === 'fail' ? 'border-rose-200 dark:border-rose-500/30' : 'border-slate-100 dark:border-gray-800'} p-5 space-y-5 page-break-avoid w-full bg-white dark:bg-gray-900`}>
@@ -81,7 +93,7 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                     <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fairness Score</span>
                         <div className="flex items-center gap-2">
-                            <span className={`text-2xl font-bold ${fairnessScore >= 80 ? 'text-emerald-600' : fairnessScore >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+                            <span className={`text-2xl font-bold ${fairnessScore >= thresholdPercent ? 'text-emerald-600' : fairnessScore >= cautionPercent ? 'text-amber-600' : 'text-rose-600'}`}>
                                 {fairnessScore.toFixed(0)}%
                             </span>
                             <button
@@ -100,32 +112,32 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                         NOTE: Checked by usePdfExport.ts for PDF styling. 
                         Do not change structure without verifying export.
                     */}
-                    <div className="relative h-3 rounded-full bg-slate-200 dark:bg-gray-700 overflow-hidden">
+                    <div className="relative h-3 rounded-full bg-slate-200 dark:bg-gray-700 overflow-hidden pdf-progress-bar">
                         <div
-                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${fairnessScore >= 80 ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
-                                fairnessScore >= 60 ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
+                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${fairnessScore >= thresholdPercent ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
+                                fairnessScore >= cautionPercent ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
                                     'bg-gradient-to-r from-rose-500 to-rose-400'
                                 }`}
-                            style={{ width: `${Math.min(fairnessScore, 100)}%` }}
+                            style={{ width: `${Math.min(Math.max(fairnessScore, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
                         />
-                        {/* Threshold marker at 80% */}
+                        {/* Threshold marker */}
                         <div
                             className="absolute top-0 bottom-0 w-0.5 bg-slate-600 dark:bg-slate-400"
-                            style={{ left: '80%' }}
-                            title="80% threshold (four-fifths rule)"
+                            style={{ left: `${thresholdPercent}%` }}
+                            title={`${thresholdPercent.toFixed(0)}% threshold`}
                         />
                     </div>
 
                     <div className="flex justify-between text-xs text-slate-400">
                         <span>0%</span>
-                        <span className="font-medium">80% threshold</span>
+                        <span className="font-medium">{thresholdPercent.toFixed(0)}% threshold</span>
                         <span>100%</span>
                     </div>
                     {/* Expandable details */}
                     {showDetails && (
                         <div className="mt-3 pt-3 border-t border-slate-200 dark:border-gray-700 text-xs text-slate-500 dark:text-slate-400 space-y-1 animate-fadeIn">
                             <p><strong>Fairness Score</strong> measures how equally outcomes are distributed across groups.</p>
-                            <p>Scores ≥80% meet the "four-fifths rule" for fair treatment.</p>
+                            <p>Scores ≥{thresholdPercent.toFixed(0)}% meet the required fairness threshold.</p>
                             <p className="text-slate-400 text-[10px] mt-2">
                                 Technical: DIR = {formatPercent(column.disparateImpactRatio ?? 0)} | DPD = {formatPercent(column.disparity)}
                             </p>
@@ -203,6 +215,8 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                     <div className="relative">
                         <button
                             type="button"
+                            // Use stopPropagation to prevent bubbling to parent container handlers (if any)
+                            // while maintaining hover-only tooltip behavior.
                             onClick={(e) => {
                                 e.stopPropagation();
                             }}

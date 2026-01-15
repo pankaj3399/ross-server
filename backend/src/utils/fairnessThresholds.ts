@@ -31,6 +31,8 @@ export const getScoreFromVerdict = (verdict: string): number => {
             return 0.5;
         case "fail":
             return 0.1;
+        case "insufficient":
+            return 0.5;
         default:
             return 0.5;
     }

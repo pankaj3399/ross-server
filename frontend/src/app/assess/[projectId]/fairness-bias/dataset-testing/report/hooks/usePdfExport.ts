@@ -1,9 +1,9 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, RefObject } from "react";
 import type { DatasetReportPayload } from "../../types";
 
 interface UsePdfExportProps {
-    reportRef: React.RefObject<HTMLDivElement>;
+    reportRef: RefObject<HTMLDivElement>;
     payload: DatasetReportPayload | null;
 }
 
@@ -31,7 +31,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 10;
             const usableWidth = pageWidth - 2 * margin;
-            // const usableHeight = pageHeight - 2 * margin;
+
 
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
@@ -64,25 +64,39 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 // 1. Reset backgrounds to white/light
                 root.querySelectorAll("*").forEach((el) => {
                     const elem = el as HTMLElement;
+                    
+                    // Safe class check handling (SVG elements have SVGAnimatedString as className)
+                    const safeClass = typeof elem.className === 'string' 
+                        ? elem.className 
+                        : (elem.getAttribute('class') || '');
+
                     const computed = window.getComputedStyle(elem);
+                    if (!computed) return;
 
                     // If it has a dark background class or computed dark color
-                    if (elem.className.includes && (typeof elem.className === 'string') &&
-                        (elem.className.includes("dark:bg-gray") || elem.className.includes("dark:bg-slate"))) {
+                    if (safeClass.includes("dark:bg-gray") || safeClass.includes("dark:bg-slate")) {
 
                         // Check if it's a card or main container
-                        if (elem.className.includes("bg-white")) {
+                        if (safeClass.includes("bg-white")) {
                             elem.style.backgroundColor = "#ffffff";
-                        } else if (elem.className.includes("bg-slate-50")) {
+                        } else if (safeClass.includes("bg-slate-50")) {
                             elem.style.backgroundColor = "#f8fafc";
                         } else {
                             // Default to checking if it's really dark
                             const bg = computed.backgroundColor;
-                            const bgMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-                            if (bgMatch) {
-                                const [r, g, b] = [parseInt(bgMatch[1]), parseInt(bgMatch[2]), parseInt(bgMatch[3])];
-                                if (r < 100 && g < 100 && b < 100) {
-                                    elem.style.backgroundColor = "#ffffff";
+                            if (bg) {
+                                const bgMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                                
+                                if (bgMatch && bgMatch.length >= 4) {
+                                    const r = parseInt(bgMatch[1], 10);
+                                    const g = parseInt(bgMatch[2], 10);
+                                    const b = parseInt(bgMatch[3], 10);
+                                    
+                                    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                                        if (r < 100 && g < 100 && b < 100) {
+                                            elem.style.backgroundColor = "#ffffff";
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -90,19 +104,17 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                     // 2. Reset text to dark
                     // Force standard text colors
-                    if (elem.className.includes && (typeof elem.className === 'string')) {
-                        if (elem.className.includes("text-white") || elem.className.includes("dark:text-white")) {
-                            // Only force to black if it's not on a dark badge/button (which we might want to keep, but buttons are hidden)
-                            // For report text, usually we want dark text
-                            elem.style.color = "#0f172a";
-                        }
-                        if (elem.className.includes("dark:text-slate-300") || elem.className.includes("dark:text-slate-400")) {
-                            elem.style.color = "#475569";
-                        }
+                    if (safeClass.includes("text-white") || safeClass.includes("dark:text-white")) {
+                        // Only force to black if it's not on a dark badge/button (which we might want to keep, but buttons are hidden)
+                        // For report text, usually we want dark text
+                        elem.style.color = "#0f172a";
+                    }
+                    if (safeClass.includes("dark:text-slate-300") || safeClass.includes("dark:text-slate-400")) {
+                        elem.style.color = "#475569";
                     }
 
                     // 3. Reset borders
-                    if (elem.className.includes && (typeof elem.className === 'string') && elem.className.includes("dark:border")) {
+                    if (safeClass.includes("dark:border")) {
                         elem.style.borderColor = "#e2e8f0";
                     }
                 });
@@ -139,44 +151,37 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             };
 
             const fixProgressBars = (root: HTMLElement) => {
-                // Find all progress bar containers by their role or class patterns
-                root.querySelectorAll("[role='progressbar'], .rounded-full.overflow-hidden, .h-2, .h-2\\.5, .h-1\\.5, .h-3").forEach((container) => {
+                // Find all progress bar containers by their dedicated class or role
+                root.querySelectorAll(".pdf-progress-bar, [role='progressbar']").forEach((container) => {
                     const containerEl = container as HTMLElement;
                     
-                    // Skip SVG elements (which have object className) to avoid crash and not style icons as progress bars
-                    if (typeof containerEl.className !== "string") return;
+                    containerEl.style.backgroundColor = "#e2e8f0";
+                    containerEl.style.borderRadius = "9999px";
+                    containerEl.style.overflow = "visible";
+                    containerEl.style.border = "1px solid #cbd5e1";
 
+                    // Ensure height is respected but standardized for PDF visibility
                     const classes = containerEl.className || "";
+                    if (classes.includes("h-1.5")) containerEl.style.height = "6px";
+                    else if (classes.includes("h-3")) containerEl.style.height = "12px";
+                    else containerEl.style.height = "10px";
 
-                    // Only process progress bar containers
-                    if (classes.includes("h-2") || classes.includes("h-3") || classes.includes("h-1.5") || classes.includes("overflow-hidden") || containerEl.getAttribute("role") === "progressbar") {
-                        containerEl.style.backgroundColor = "#e2e8f0";
-                        containerEl.style.borderRadius = "9999px";
-                        containerEl.style.overflow = "visible";
-                        containerEl.style.border = "1px solid #cbd5e1";
+                    const innerBar = containerEl.querySelector("div") as HTMLElement;
+                    if (innerBar) {
+                        innerBar.style.height = "100%";
+                        innerBar.style.borderRadius = "9999px";
+                        innerBar.style.minWidth = "4px";
+                        innerBar.style.backgroundImage = "none";
 
-                        // Ensure height is respected but standardized for PDF visibility
-                        if (classes.includes("h-1.5")) containerEl.style.height = "6px";
-                        else if (classes.includes("h-3")) containerEl.style.height = "12px";
-                        else containerEl.style.height = "10px";
-
-                        const innerBar = containerEl.querySelector("div") as HTMLElement;
-                        if (innerBar) {
-                            innerBar.style.height = "100%";
-                            innerBar.style.borderRadius = "9999px";
-                            innerBar.style.minWidth = "4px";
-                            innerBar.style.backgroundImage = "none";
-
-                            const innerClasses = innerBar.className || "";
-                            if (innerClasses.includes("amber") || innerClasses.includes("orange")) {
-                                innerBar.style.background = "linear-gradient(90deg, #f59e0b, #fb923c)";
-                            } else if (innerClasses.includes("emerald") || innerClasses.includes("teal")) {
-                                innerBar.style.background = "linear-gradient(90deg, #10b981, #14b8a6)";
-                            } else if (innerClasses.includes("rose") || innerClasses.includes("red")) {
-                                innerBar.style.background = "linear-gradient(90deg, #f43f5e, #fb7185)";
-                            } else {
-                                innerBar.style.background = "linear-gradient(90deg, #6366f1, #8b5cf6)";
-                            }
+                        const innerClasses = innerBar.className || "";
+                        if (innerClasses.includes("amber") || innerClasses.includes("orange")) {
+                            innerBar.style.background = "linear-gradient(90deg, #f59e0b, #fb923c)";
+                        } else if (innerClasses.includes("emerald") || innerClasses.includes("teal")) {
+                            innerBar.style.background = "linear-gradient(90deg, #10b981, #14b8a6)";
+                        } else if (innerClasses.includes("rose") || innerClasses.includes("red")) {
+                            innerBar.style.background = "linear-gradient(90deg, #f43f5e, #fb7185)";
+                        } else {
+                            innerBar.style.background = "linear-gradient(90deg, #6366f1, #8b5cf6)";
                         }
                     }
                 });
@@ -254,9 +259,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     }
                 });
 
-                // Sort sections by document position to maintain order
+                // Sort sections by offsetTop
                 sections.sort((a, b) => {
-                    return (a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                    return a.offsetTop - b.offsetTop;
                 });
 
                 let currentY = margin;

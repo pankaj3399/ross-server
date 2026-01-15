@@ -1,11 +1,10 @@
-
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { sanitizeForPrompt } from "../utils/sanitize";
 import { getToxicityLabel, getPositiveMetricLabel } from "../utils/fairnessThresholds";
 
 // Constants for AI configuration
-// Using verified available models as of Jan 2026
-const MODELS_TO_TRY = ["gemini-2.5-flash", "gemini-2.0-flash"];
+// Using verified available models as of Jan 2026. gemini-1.5-flash shut down; gemini-2.0-flash deprecated (Feb 2026).
+const MODELS_TO_TRY = ["gemini-2.5-flash"];
 const MAX_RETRIES = 2;
 const INITIAL_BACKOFF_MS = 2000;
 const MAX_DELAY_MS = 30000; // Cap exponential backoff at 30 seconds
@@ -52,7 +51,7 @@ export async function evaluateMetricWithGemini(
     evaluationPrompt: string
 ): Promise<{ score: number; reason: string; isError?: boolean }> {
     if (!genAI) {
-        return { score: 0, reason: "Gemini is not configured", isError: true };
+        return { score: FALLBACK_SCORE_NEUTRAL, reason: "Gemini is not configured", isError: true };
     }
 
     let lastError: any = null;
@@ -176,7 +175,16 @@ export async function generateExplanationWithGemini(
 
     for (const modelName of MODELS_TO_TRY) {
         try {
-            const model = genAI.getGenerativeModel({ model: modelName });
+            const model = genAI.getGenerativeModel({ 
+                model: modelName,
+                // Critical: Disable safety settings for the evaluator itself so it can process potentially toxic user content without blocking
+                safetySettings: [
+                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                ]
+            });
             const prompt = `You are an expert evaluator providing explanations for dataset fairness metrics.
 
 Metric: ${metricName}
@@ -204,6 +212,13 @@ IMPORTANT: Respond ONLY as a valid JSON array of short strings. Example: ["Low b
                     const parsed = JSON.parse(cleaned);
                     if (Array.isArray(parsed)) {
                         return parsed.map(String);
+                    } else if (typeof parsed === 'object' && parsed !== null) {
+                        // Handle common object wrappings
+                        const possibleArrays = [parsed.explanations, parsed.items, parsed.choices, parsed.data, parsed.result];
+                        const foundArray = possibleArrays.find(arr => Array.isArray(arr));
+                        if (foundArray) {
+                            return foundArray.map(String);
+                        }
                     }
                 } catch (e) {
                     // If JSON parse fails, try to split by newlines if it looks like a list
@@ -509,13 +524,27 @@ SCORING:
     return { score: combinedScore, label, explanation };
 }
 
+export interface SensitiveGroup {
+    value: string;
+    rows: number;
+}
+
+export interface SensitiveColumn {
+    groups: SensitiveGroup[];
+}
+
+export interface FairnessAssessment {
+    sensitiveColumns: SensitiveColumn[];
+    overallVerdict: string;
+}
+
 /**
  * Calculates heuristic score for Relevancy based on dataset structure
  */
 export function calculateRelevancyHeuristics(
     rows: any[], 
     headers: string[], 
-    fairnessAssessment: any
+    fairnessAssessment: FairnessAssessment
 ): { score: number; factors: string[] } {
     let score = 0.5;
     const factors: string[] = [];
@@ -525,7 +554,7 @@ export function calculateRelevancyHeuristics(
         const hasSensitiveColumns = fairnessAssessment.sensitiveColumns.length > 0;
         const hasOutcomeColumn = fairnessAssessment.overallVerdict !== "insufficient";
         const hasEnoughData = rows.length >= 10;
-        const hasMultipleGroups = fairnessAssessment.sensitiveColumns.some((col: any) => col.groups.length >= 2);
+        const hasMultipleGroups = fairnessAssessment.sensitiveColumns.some((col) => col.groups.length >= 2);
         
         let relevancyFactors = 0;
         if (hasSensitiveColumns) relevancyFactors += 0.3;
@@ -563,34 +592,46 @@ export function calculateFaithfulnessHeuristics(
         // Check data consistency
         const totalCells = rows.length * headers.length;
         const emptyCells = rows.reduce((count, row) => {
-            return count + headers.filter(header => !row[header] || row[header].trim() === "").length;
+            return count + headers.filter(header => {
+                const val = row[header];
+                return val === null || val === undefined || String(val).trim() === "";
+            }).length;
         }, 0);
         
         const completeness = 1 - (emptyCells / totalCells);
         metrics.completeness = completeness;
         
         // Check for consistent data types per column
-        let typeConsistency = 1;
+        const consistencyScores: number[] = [];
         headers.forEach(header => {
-            const values = rows.map(row => row[header]).filter(v => v && v.trim());
+            const values = rows.map(row => row[header]).filter(v => v !== null && v !== undefined && String(v).trim() !== "");
             if (values.length > 0) {
                 const numericCount = values.filter(v => !isNaN(Number(v))).length;
                 const numericRatio = numericCount / values.length;
                 // If column is mostly numeric or mostly text, it's consistent
-                typeConsistency *= Math.max(numericRatio, 1 - numericRatio);
+                consistencyScores.push(Math.max(numericRatio, 1 - numericRatio));
+            } else {
+                // Empty column is considered consistent (or should it be strict? Let's say consistent for type check purposes)
+                consistencyScores.push(1);
             }
         });
-        metrics.typeConsistency = typeConsistency;
+        // Average the consistency scores instead of multiplying them to prevent aggressive degradation
+        metrics.typeConsistency = consistencyScores.length > 0 
+            ? consistencyScores.reduce((sum, score) => sum + score, 0) / consistencyScores.length
+            : 1;
         
         // Check for duplicate rows (may indicate data quality issues)
+        // Optimization Note: This uses JSON.stringify which is O(N*M) where N=rows, M=columns/size.
+        // For very large datasets (>10k rows or huge text fields), this should be replaced with a content-hash.
+        // Current usage assumes sampled rows (N <= 100) or moderate full-dataset sizes.
         const uniqueRows = new Set(rows.map(row => JSON.stringify(row)));
         const uniqueness = uniqueRows.size / rows.length;
         metrics.uniqueness = uniqueness;
         
-        score = (completeness * 0.4) + (typeConsistency * 0.3) + (uniqueness * 0.3);
+        score = (completeness * 0.4) + (metrics.typeConsistency * 0.3) + (uniqueness * 0.3);
         
         if (completeness < 0.8) issues.push(`${((1 - completeness) * 100).toFixed(1)}% missing values`);
-        if (typeConsistency < 0.7) issues.push("inconsistent data types");
+        if (metrics.typeConsistency < 0.7) issues.push("inconsistent data types");
         if (uniqueness < 0.9) issues.push(`${((1 - uniqueness) * 100).toFixed(1)}% duplicate rows`);
     }
 

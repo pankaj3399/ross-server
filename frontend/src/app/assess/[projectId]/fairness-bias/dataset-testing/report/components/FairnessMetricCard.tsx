@@ -80,6 +80,20 @@ const getVisualStatus = (
 };
 
 /**
+ * Normalizes explanation text into a clean array of bullet points.
+ * Handles array inputs and cleans up bullets.
+ */
+const normalizeExplanation = (explanation: string[] | undefined): string[] => {
+    if (!explanation) return [];
+    
+    // Clean and filter
+    return explanation
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .map(line => line.replace(/^[•\-\*]\s*/, '').trim());
+};
+
+/**
  * Safely format a score for display.
  * - Always expects scores in 0.0-1.0 range from backend
  * - Handles edge cases: NaN, null, undefined, negative, > 1
@@ -182,23 +196,16 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                         Analysis
                     </p>
                     <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 leading-relaxed">
-                        {(Array.isArray(data.explanation)
-                            ? data.explanation
-                            : typeof data.explanation === 'string'
-                                ? data.explanation.split(/(?:•|\n-|\n\*|\n(?=\s*\d+\.))/)
-                                : []
-                        )
-                            .map(line => typeof line === 'string' ? line.trim() : '')
-                            .filter(line => line.length > 0)
-                            .map((line, i) => (
-                                <div key={i} className="flex items-start gap-2">
-                                    <span className="text-slate-400 mt-0.5">•</span>
-                                    <span>{line.replace(/^[•\-\*]\s*/, '').trim()}</span>
-                                </div>
-                            ))}
+                        {normalizeExplanation(data.explanation).map((line, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                                <span className="text-slate-400 mt-0.5">•</span>
+                                <span>{line}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
         </div>
     );
 };
+                           

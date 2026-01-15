@@ -17,7 +17,8 @@ import {
     getScoreFromVerdict, 
     getFairnessLabel, 
     getBiasLabel, 
-    getPositiveMetricLabel 
+    getPositiveMetricLabel,
+    THRESHOLDS
 } from "../utils/fairnessThresholds";
 
 const router = Router();
@@ -51,6 +52,12 @@ const evaluatePromptsSchema = z.object({
 });
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
+
+// GET /fairness/thresholds - Get shared threshold constants
+router.get("/thresholds", authenticateToken, (req, res) => {
+    // Return statically imported thresholds
+    res.json(THRESHOLDS);
+});
 
 // GET /fairness-prompts
 router.get("/prompts", authenticateToken, async (req, res) => {
@@ -130,7 +137,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         
         // Calculate biasness score from sensitive columns
         const maxDisparity = fairnessAssessment.sensitiveColumns.length > 0
-            ? Math.max(...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
+            ? Math.max(0, ...fairnessAssessment.sensitiveColumns.map(col => col.disparity)) // Ensure non-negative and handle empty case implicitly via length check
             : 0;
         const biasnessScore = Math.min(1, maxDisparity * 2); // Scale disparity to 0-1
         const biasnessLabel = getBiasLabel(biasnessScore);

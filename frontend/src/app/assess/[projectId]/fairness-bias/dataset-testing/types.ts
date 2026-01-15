@@ -8,7 +8,7 @@ export type DatasetMetric = {
   /** Label classification based on metric-specific thresholds */
   label: MetricLabel;
   /** AI-generated explanation points */
-  explanation: string | string[];
+  explanation: string[];
   /** True if score is an estimate due to AI service unavailability */
   isEstimated?: boolean;
 };
@@ -52,7 +52,7 @@ export type FairnessColumn = {
   /** Group-level metrics */
   groups: FairnessGroup[];
   /** Human-readable explanation of the metrics */
-  explanation: string | string[];
+  explanation: string[];
 };
 
 export type DatasetEvaluationResponse = {

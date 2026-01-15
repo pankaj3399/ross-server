@@ -10,7 +10,7 @@ import {
 import type { DatasetMetric, DatasetReportPayload, FairnessColumn } from "../types";
 import { getDatasetTestingReportKey } from "../storage";
 import { Skeleton } from "@/components/Skeleton";
-import { verdictStyles, THRESHOLDS } from "../constants";
+import { verdictStyles, getThresholds } from "../constants";
 import { FairnessMetricCard } from "./components/FairnessMetricCard";
 import { SensitiveColumnAnalysis } from "./components/SensitiveColumnAnalysis";
 import { DatasetSnapshot } from "./components/DatasetSnapshot";
@@ -34,6 +34,9 @@ const DatasetTestingReportPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const reportRef = useRef<HTMLDivElement | null>(null);
 
+    const THRESHOLDS = useMemo(() => getThresholds(), []);
+
+    // eslint-disable-next-line no-unused-vars
     const { exportPdf: handleExportPdf, isExporting } = usePdfExport({ reportRef, payload });
 
     useEffect(() => {
@@ -129,7 +132,14 @@ const DatasetTestingReportPage = () => {
                             <FileText className="w-4 h-4" />
                             Upload New CSV
                         </button>
-                        {/* TODO: Re-enable PDF export once progress bar rendering issues are resolved */}
+                        {/* 
+                            TODO: [ISSUE-FAIR-102] Re-enable PDF export once progress bar rendering issues are resolved.
+                            Owner: @frontend-team
+                            Follow-up: 
+                            1. Verify PDF canvas rendering of gradient progress bars in usePdfExport.
+                            2. Remove eslint-disable on line 40.
+                            3. Uncomment export button and wire to handleExportPdf.
+                        */}
                     </div>
                 </div>
             </header>
