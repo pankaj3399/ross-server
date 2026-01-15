@@ -430,11 +430,11 @@ class ApiService {
         groupDistribution: { name: string; formula: string; description: string; interpretation: string; threshold: string };
       };
     };
-    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
   }> {
     return this.request("/fairness/dataset-evaluate", {
       method: "POST",

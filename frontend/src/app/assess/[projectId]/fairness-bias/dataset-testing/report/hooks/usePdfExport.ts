@@ -7,6 +7,9 @@ interface UsePdfExportProps {
     payload: DatasetReportPayload | null;
 }
 
+/** Time to wait for React re-render and chart rendering before PDF capture */
+const PDF_RENDERING_DELAY_MS = 1000;
+
 export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
     const [isExporting, setIsExporting] = useState(false);
 
@@ -17,7 +20,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
             // Wait for React to re-render with isExporting=true (which expands all rows)
             // Increased timeout to ensure all components (especially charts) have fully successfully rendered
-            await new Promise(resolve => setTimeout(resolve, 800));
+            await new Promise(resolve => setTimeout(resolve, PDF_RENDERING_DELAY_MS));
 
             const [jsPDFModule, html2canvasModule] = await Promise.all([import("jspdf"), import("html2canvas")]);
             const jsPDFConstructor = jsPDFModule.default;
@@ -150,7 +153,6 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                         containerEl.style.backgroundColor = "#e2e8f0";
                         containerEl.style.borderRadius = "9999px";
                         containerEl.style.overflow = "visible";
-                        containerEl.style.border = "1px solid #cbd5e1";
                         containerEl.style.border = "1px solid #cbd5e1";
 
                         // Ensure height is respected but standardized for PDF visibility

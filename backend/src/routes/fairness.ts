@@ -4,7 +4,21 @@ import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { evaluateDatasetFairness, parseCSV, FairnessAssessment } from "../utils/datasetFairness";
 import { inngest } from "../inngest/client";
-import { isGeminiConfigured, generateExplanationWithGemini, evaluateToxicity } from "../services/fairnessAI";
+import { 
+    isGeminiConfigured, 
+    generateExplanationWithGemini, 
+    evaluateToxicity, 
+    evaluateRelevancyWithAI, 
+    evaluateFaithfulnessWithAI,
+    calculateRelevancyHeuristics,
+    calculateFaithfulnessHeuristics
+} from "../services/fairnessAI";
+import { 
+    getScoreFromVerdict, 
+    getFairnessLabel, 
+    getBiasLabel, 
+    getPositiveMetricLabel 
+} from "../utils/fairnessThresholds";
 
 const router = Router();
 
@@ -102,33 +116,6 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         // Evaluate dataset fairness
         const fairnessAssessment = evaluateDatasetFairness(csvText);
 
-        // Calculate overall fairness score based on verdict
-        const getScoreFromVerdict = (verdict: string): number => {
-            switch (verdict) {
-                case "pass":
-                    return 0.9; 
-                case "caution":
-                    return 0.5; 
-                case "fail":
-                    return 0.1; 
-                default:
-                    return 0.5; 
-            }
-        };
-
-        const getLabelFromScore = (score: number): "low" | "moderate" | "high" => {
-            if (score < 0.4) return "low";
-            if (score < 0.7) return "moderate";
-            return "high";
-        };
-
-        const getLabelFromPositiveScore = (score: number): "low" | "moderate" | "high" => {
-            // For positive metrics, higher is better
-            if (score < 0.4) return "low";
-            if (score < 0.7) return "moderate";
-            return "high";
-        };
-
         // Prepare dataset summary for Gemini explanations
         const datasetSummary = `Dataset contains ${rows.length} rows and ${headers.length} columns. ` +
             `Sensitive columns detected: ${fairnessAssessment.sensitiveColumns.length}. ` +
@@ -137,7 +124,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
 
         // Calculate scores based on fairness assessment
         const overallScore = getScoreFromVerdict(fairnessAssessment.overallVerdict);
-        const fairnessLabel = getLabelFromScore(overallScore);
+        const fairnessLabel = getFairnessLabel(overallScore);
         const fairnessContext = `The dataset fairness assessment resulted in a "${fairnessAssessment.overallVerdict}" verdict with a score of ${overallScore.toFixed(3)}. ` +
             `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`;
         
@@ -146,7 +133,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             ? Math.max(...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
             : 0;
         const biasnessScore = Math.min(1, maxDisparity * 2); // Scale disparity to 0-1
-        const biasnessLabel = getLabelFromScore(biasnessScore);
+        const biasnessLabel = getBiasLabel(biasnessScore);
         const biasnessContext = maxDisparity > 0
             ? `Maximum disparity of ${(maxDisparity * 100).toFixed(1)}% detected across sensitive groups. ` +
               `Sensitive columns analyzed: ${fairnessAssessment.sensitiveColumns.map(col => col.column).join(", ")}.`
@@ -154,8 +141,8 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         
         // Prepare toxicity sample
         // Extract text content from CSV for evaluation
-        // Sample only 10 rows to avoid hitting Gemini rate limits
-        const sampleRows = rows.slice(0, Math.min(10, rows.length));
+        // Sample 50 rows for better coverage (increased from 10)
+        const sampleRows = rows.slice(0, Math.min(50, rows.length));
         let textContent = sampleRows
             .map(row => 
                 Object.values(row)
@@ -165,38 +152,19 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             .filter(text => text.length > 0)
             .join("\n");
         
-        // Limit text content to 2000 characters to avoid token limits
-        if (textContent.length > 2000) {
-            textContent = textContent.substring(0, 2000) + "...";
+        // Limit text content to 5000 characters (increased from 2000)
+        if (textContent.length > 5000) {
+            textContent = textContent.substring(0, 5000) + "...";
         }
 
         // Prepare Relevancy data
-        let relevancyScore = 0.5;
+        const { score: relevancyScore, factors } = calculateRelevancyHeuristics(rows, headers, fairnessAssessment);
+        
         let relevancyContext = "";
-        let relevancyLabel: "low" | "moderate" | "high" = "moderate"; // Default
+        let relevancyLabel: "low" | "moderate" | "high" = "moderate";
         
         if (rows.length > 0 && headers.length > 0) {
-            // Check if dataset has relevant structure for fairness evaluation
-            const hasSensitiveColumns = fairnessAssessment.sensitiveColumns.length > 0;
-            const hasOutcomeColumn = fairnessAssessment.overallVerdict !== "insufficient";
-            const hasEnoughData = rows.length >= 10;
-            const hasMultipleGroups = fairnessAssessment.sensitiveColumns.some(col => col.groups.length >= 2);
-            
-            let relevancyFactors = 0;
-            if (hasSensitiveColumns) relevancyFactors += 0.3;
-            if (hasOutcomeColumn) relevancyFactors += 0.3;
-            if (hasEnoughData) relevancyFactors += 0.2;
-            if (hasMultipleGroups) relevancyFactors += 0.2;
-            
-            relevancyScore = relevancyFactors;
-            
-            const factors = [];
-            if (hasSensitiveColumns) factors.push("contains sensitive demographic columns");
-            if (hasOutcomeColumn) factors.push("has identifiable outcome column");
-            if (hasEnoughData) factors.push("has sufficient data points");
-            if (hasMultipleGroups) factors.push("has multiple groups for comparison");
-            
-            relevancyLabel = getLabelFromPositiveScore(relevancyScore);
+            relevancyLabel = getPositiveMetricLabel(relevancyScore);
             relevancyContext = `Relevancy assessment for fairness evaluation. ` +
                 `Score: ${relevancyScore.toFixed(3)}. ` +
                 (factors.length > 0
@@ -207,48 +175,18 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         }
 
         // Prepare Faithfulness data
-        let faithfulnessScore = 0.5;
+        const { score: faithfulnessScore, issues, metrics } = calculateFaithfulnessHeuristics(rows, headers);
+        
         let faithfulnessContext = "";
-        let faithfulnessLabel: "low" | "moderate" | "high" = "moderate"; // Default
+        let faithfulnessLabel: "low" | "moderate" | "high" = "moderate";
 
         if (rows.length > 0 && headers.length > 0) {
-            // Check data consistency
-            const totalCells = rows.length * headers.length;
-            const emptyCells = rows.reduce((count, row) => {
-                return count + headers.filter(header => !row[header] || row[header].trim() === "").length;
-            }, 0);
-            
-            const completeness = 1 - (emptyCells / totalCells);
-            
-            // Check for consistent data types per column
-            let typeConsistency = 1;
-            headers.forEach(header => {
-                const values = rows.map(row => row[header]).filter(v => v && v.trim());
-                if (values.length > 0) {
-                    const numericCount = values.filter(v => !isNaN(Number(v))).length;
-                    const numericRatio = numericCount / values.length;
-                    // If column is mostly numeric or mostly text, it's consistent
-                    typeConsistency *= Math.max(numericRatio, 1 - numericRatio);
-                }
-            });
-            
-            // Check for duplicate rows (may indicate data quality issues)
-            const uniqueRows = new Set(rows.map(row => JSON.stringify(row)));
-            const uniqueness = uniqueRows.size / rows.length;
-            
-            faithfulnessScore = (completeness * 0.4) + (typeConsistency * 0.3) + (uniqueness * 0.3);
-            
-            const issues = [];
-            if (completeness < 0.8) issues.push(`${((1 - completeness) * 100).toFixed(1)}% missing values`);
-            if (typeConsistency < 0.7) issues.push("inconsistent data types");
-            if (uniqueness < 0.9) issues.push(`${((1 - uniqueness) * 100).toFixed(1)}% duplicate rows`);
-            
-            faithfulnessLabel = getLabelFromPositiveScore(faithfulnessScore);
+            faithfulnessLabel = getPositiveMetricLabel(faithfulnessScore);
             faithfulnessContext = `Faithfulness assessment based on data quality metrics. ` +
                 `Score: ${faithfulnessScore.toFixed(3)}. ` +
                 (issues.length > 0
                     ? `Data quality concerns: ${issues.join(", ")}.`
-                    : `Data appears consistent: ${(completeness * 100).toFixed(1)}% complete, ${(typeConsistency * 100).toFixed(1)}% type consistency, ${(uniqueness * 100).toFixed(1)}% unique rows.`);
+                    : `Data appears consistent: ${(metrics.completeness * 100).toFixed(1)}% complete, ${(metrics.typeConsistency * 100).toFixed(1)}% type consistency, ${(metrics.uniqueness * 100).toFixed(1)}% unique rows.`);
         } else {
             faithfulnessContext = "Insufficient data to assess faithfulness";
         }
@@ -258,16 +196,25 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const fairnessPromise = generateExplanationWithGemini("Fairness", overallScore, fairnessLabel, fairnessContext, datasetSummary);
         const biasnessPromise = generateExplanationWithGemini("Biasness", biasnessScore, biasnessLabel, biasnessContext, datasetSummary);
         const toxicityPromise = evaluateToxicity(textContent, sampleRows.length, datasetSummary);
-        const relevancyPromise = generateExplanationWithGemini("Relevancy", relevancyScore, relevancyLabel, relevancyContext, datasetSummary);
-        const faithfulnessPromise = generateExplanationWithGemini("Faithfulness", faithfulnessScore, faithfulnessLabel, faithfulnessContext, datasetSummary);
+        // Use AI-based Relevancy evaluation (combines structural score with AI content analysis)
+        const relevancyPromise = evaluateRelevancyWithAI(textContent, relevancyScore, headers, datasetSummary);
+        // Use AI-based Faithfulness evaluation (combines data quality metrics with AI analysis)
+        const faithfulnessPromise = evaluateFaithfulnessWithAI(
+            textContent, 
+            faithfulnessScore, 
+            metrics.completeness,
+            metrics.typeConsistency,
+            metrics.uniqueness,
+            datasetSummary
+        );
 
         // Await all promises
         const [
             fairnessExplanation,
             biasnessExplanation,
             toxicityResult,
-            relevancyExplanation,
-            faithfulnessExplanation
+            relevancyResult,
+            faithfulnessResult
         ] = await Promise.all([
             fairnessPromise,
             biasnessPromise,
@@ -290,17 +237,9 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
 
         const toxicity = toxicityResult;
 
-        const relevance = {
-            score: Math.max(0, Math.min(1, relevancyScore)),
-            label: relevancyLabel,
-            explanation: relevancyExplanation,
-        };
-
-        const faithfulness = {
-            score: Math.max(0, Math.min(1, faithfulnessScore)),
-            label: faithfulnessLabel,
-            explanation: faithfulnessExplanation,
-        };
+        // relevancyResult and faithfulnessResult are now full objects from AI evaluation
+        const relevance = relevancyResult;
+        const faithfulness = faithfulnessResult;
 
         res.json({
             fairness: {

@@ -5,14 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import {
     AlertTriangle,
     ArrowLeft,
-    Download,
     FileText,
-    RefreshCw,
 } from "lucide-react";
 import type { DatasetMetric, DatasetReportPayload, FairnessColumn } from "../types";
 import { getDatasetTestingReportKey } from "../storage";
 import { Skeleton } from "@/components/Skeleton";
-import { verdictStyles } from "../constants";
+import { verdictStyles, THRESHOLDS } from "../constants";
 import { FairnessMetricCard } from "./components/FairnessMetricCard";
 import { SensitiveColumnAnalysis } from "./components/SensitiveColumnAnalysis";
 import { DatasetSnapshot } from "./components/DatasetSnapshot";
@@ -131,23 +129,7 @@ const DatasetTestingReportPage = () => {
                             <FileText className="w-4 h-4" />
                             Upload New CSV
                         </button>
-                        <button
-                            onClick={handleExportPdf}
-                            disabled={isExporting}
-                            className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition disabled:cursor-not-allowed disabled:bg-indigo-300 hide-in-pdf"
-                        >
-                            {isExporting ? (
-                                <>
-                                    <RefreshCw className="w-4 h-4 animate-spin" />
-                                    Exporting...
-                                </>
-                            ) : (
-                                <>
-                                    <Download className="w-4 h-4" />
-                                    Export PDF
-                                </>
-                            )}
-                        </button>
+                        {/* TODO: Re-enable PDF export once progress bar rendering issues are resolved */}
                     </div>
                 </div>
             </header>
@@ -198,7 +180,7 @@ const DatasetTestingReportPage = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">Fairness Threshold</p>
-                                <p className="font-bold text-slate-900 dark:text-white text-lg">{formatPercent(selections?.threshold ?? 0.8)}</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-lg">{formatPercent(selections?.threshold ?? THRESHOLDS.FAIRNESS.HIGH)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">Evaluation Method</p>
@@ -247,7 +229,7 @@ const DatasetTestingReportPage = () => {
                                 <SensitiveColumnAnalysis
                                     key={column.column}
                                     column={column}
-                                    threshold={selections.threshold}
+                                    threshold={selections?.threshold ?? THRESHOLDS.FAIRNESS.HIGH}
                                     isExporting={isExporting}
                                 />
                             ))}
