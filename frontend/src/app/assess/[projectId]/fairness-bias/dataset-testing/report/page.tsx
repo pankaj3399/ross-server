@@ -523,6 +523,32 @@ const DatasetTestingReportPage = () => {
                         )}
                         <p className="text-xs text-slate-500">Generated {new Date(generatedAt).toLocaleString()}</p>
                     </div>
+
+                    {/* Analysis Parameters Section */}
+                    <div className="rounded-2xl border border-indigo-100 dark:border-indigo-500/30 p-5 space-y-3 bg-indigo-50/50 dark:bg-indigo-500/5 page-break-avoid">
+                        <p className="text-xs uppercase tracking-wide text-indigo-600 dark:text-indigo-400 font-semibold">Analysis Parameters</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Fairness Threshold</p>
+                                <p className="font-bold text-slate-900 dark:text-white text-lg">{formatPercent(selections?.threshold ?? 0.8)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Evaluation Method</p>
+                                <p className="font-medium text-slate-900 dark:text-white">
+                                    {selections?.method === "selectionRate" ? "Selection Rate" : "Impact Ratio"}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Test Type</p>
+                                <p className="font-medium text-slate-900 dark:text-white capitalize">{selections?.testType || "Standard"}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Sensitive Attribute</p>
+                                <p className="font-medium text-slate-900 dark:text-white">{selections?.group || "All"}</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="space-y-6">
                         <div className={`rounded-2xl px-4 py-3 flex items-center gap-3 ${verdictStyle.bg} page-break-avoid`}>
                             <verdictStyle.icon className={`w-6 h-6 ${verdictStyle.color}`} />

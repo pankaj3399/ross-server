@@ -6,17 +6,11 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../hooks/useRequireAuth";
 import { apiService, Domain as ApiDomain, Practice, PracticeQuestionLevels } from "../../../../lib/api";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Shield,
-  Scale,
-  ClipboardCheck,
-  Bug,
-  Crown,
-} from "lucide-react";
 import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
 import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
 import { PREMIUM_STATUS } from "../../../../lib/constants";
+import { FeatureCard } from "./components/FeatureCard";
+import { ArrowLeft, Shield, Bug, Scale, ClipboardCheck, Crown } from "lucide-react";
 
 interface PracticeWithLevels extends Practice {
   levels: PracticeQuestionLevels;
@@ -224,59 +218,36 @@ export default function PremiumFeaturesPage() {
             {/* Premium Feature Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-8">
               {/* Card 1: AI Vulnerability Assessment */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
-              >
-                <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto relative">
-                  <Shield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
-                  <Bug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                  AI Vulnerability Assessment
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                  Automated scanning for security risks in models.
-                </p>
-              </motion.div>
+              <FeatureCard
+                icon={
+                  <>
+                    <Shield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
+                    <Bug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
+                  </>
+                }
+                title="AI Vulnerability Assessment"
+                description="Automated scanning for security risks in models."
+                href={`/assess/${projectId}/premium-domains`}
+                delay={0.1}
+              />
 
               {/* Card 2: Automated Bias & Fairness Testing */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
-              >
-                <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                  <Scale className="w-28 h-28 text-purple-600 dark:text-purple-400" />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                  Automated Bias & Fairness Testing
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                  Detect and mitigate algorithmic bias across datasets.
-                </p>
-              </motion.div>
+              <FeatureCard
+                icon={<Scale className="w-28 h-28 text-purple-600 dark:text-purple-400" />}
+                title="Automated Bias & Fairness Testing"
+                description="Detect and mitigate algorithmic bias across datasets."
+                href={`/assess/${projectId}/fairness-bias/options`}
+                delay={0.2}
+              />
 
               {/* Card 3: Actionable Governance Controls */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700"
-              >
-                <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                  <ClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                  Actionable Governance Controls
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                  Get concrete steps to improve maturity scores.
-                </p>
-              </motion.div>
+              <FeatureCard
+                icon={<ClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />}
+                title="Actionable Governance Controls"
+                description="Get concrete steps to improve maturity scores."
+                href={`/assess/${projectId}/premium-domains`}
+                delay={0.3}
+              />
             </div>
 
             {/* Premium Domains Card */}

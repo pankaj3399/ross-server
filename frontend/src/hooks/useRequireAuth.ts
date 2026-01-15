@@ -3,8 +3,9 @@
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "../contexts/AuthContext";
+import { AUTH_LOGIN_URL } from "../lib/constants";
 
-export function useRequireAuth(redirectTo: string = "/auth") {
+export function useRequireAuth(redirectTo: string = AUTH_LOGIN_URL) {
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, loading } = useAuth();
