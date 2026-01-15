@@ -22,7 +22,7 @@ import {
   MessageCircleQuestionMark,
 } from "lucide-react";
 import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
-import SubscriptionModal from "../../components/SubscriptionModal";
+import SubscriptionModal, { SubscriptionStatus } from "../../components/SubscriptionModal";
 import { SubscriptionPlanDetails } from "../../lib/api";
 import { FALLBACK_PRICES } from "../../lib/constants";
 
@@ -129,7 +129,7 @@ export default function ManageSubscriptionPage() {
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  
+
   // Initialize openFaqIndex based on defaultOpen property using lazy initializer
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(() => {
     const defaultOpenIndex = FAQS.findIndex(faq => faq.defaultOpen === true);
@@ -399,22 +399,22 @@ export default function ManageSubscriptionPage() {
     }
 
     const isCancelling = planDetails.cancel_at_period_end;
-    const renewalDate = isCancelling 
+    const renewalDate = isCancelling
       ? (planDetails.cancel_effective_date || planDetails.current_period_end)
       : (planDetails.renewal_date || planDetails.current_period_end);
-    
+
     // Map billing cycle to interval
-    const interval = billingCycle.cycle === "Annual Billing" 
-      ? "year" 
-      : billingCycle.cycle === "Quarterly Billing" 
-        ? "quarter" 
+    const interval = billingCycle.cycle === "Annual Billing"
+      ? "year"
+      : billingCycle.cycle === "Quarterly Billing"
+        ? "quarter"
         : "month";
-    
+
     // Format amount only when not null/undefined
     const amount = nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined
       ? formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
       : null;
-    
+
     if (renewalDate && amount && !isCancelling) {
       return `Renews on ${formatDate(renewalDate)} — ${amount}/${interval}`;
     } else if (renewalDate && isCancelling) {
@@ -611,7 +611,7 @@ export default function ManageSubscriptionPage() {
           className="flex items-center gap-4 mb-8"
         >
           <div className="w-16 h-16 bg-purple-600 rounded-lg flex items-center justify-center">
-            <Wallet className="w-8 h-8 text-white" strokeWidth={2}/>
+            <Wallet className="w-8 h-8 text-white" strokeWidth={2} />
           </div>
           <div>
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
@@ -711,7 +711,7 @@ export default function ManageSubscriptionPage() {
             >
               {/* Billing Cycle Card */}
               <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3"/>
+                <Calendar className="w-6 h-6 text-gray-600 dark:text-gray-400 mb-3" />
                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
                   BILLING CYCLE
                 </p>
@@ -920,6 +920,9 @@ export default function ManageSubscriptionPage() {
       <SubscriptionModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
+        currentPlan={subscription_status as SubscriptionStatus}
+        onUpgradeToPro={handleUpgradeToPro}
+        onDowngradeToBasic={handleDowngradeToBasic}
       />
 
       {/* Cancel Confirmation Modal */}
