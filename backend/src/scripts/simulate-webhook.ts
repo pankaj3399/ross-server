@@ -133,6 +133,7 @@ async function main() {
 
         if (!result.rows || result.rows.length === 0) {
             console.error(`❌ User ${testUser.id} not found when verifying status.`);
+            process.exitCode = 1;
             return;
         }
 
