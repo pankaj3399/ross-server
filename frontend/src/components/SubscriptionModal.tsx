@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Crown, Building, Shield, CheckCircle, Loader, Star, Award, CircleStar } from "lucide-react";
+import { Building, CheckCircle, Loader, Star, Award, CircleStar } from "lucide-react";
 import { apiService } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { Skeleton } from "./Skeleton";
@@ -18,8 +18,8 @@ interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentPlan?: SubscriptionStatus;
-  onUpgradeToPro?: () => void;
-  onDowngradeToBasic?: () => void;
+  onUpgradeToPro?: () => void | Promise<void>;
+  onDowngradeToBasic?: () => void | Promise<void>;
 }
 
 export default function SubscriptionModal({
@@ -376,12 +376,15 @@ export default function SubscriptionModal({
                     loadingPrices={loadingPrices}
                     onUpgrade={async () => {
                       if (currentPlan === 'basic_premium' && onUpgradeToPro) {
+                        setUpgradingPlan("pro");
                         try {
                           await onUpgradeToPro();
                           onClose();
                         } catch (error) {
-                          // Error handled by onUpgradeToPro or parent, keep modal open
                           console.error("Upgrade failed:", error);
+                          showToast.error("Failed to upgrade plan. Please try again.");
+                        } finally {
+                          setUpgradingPlan(null);
                         }
                       } else {
                         handleSelectPlan(PRO_PRICE_ID, "pro");

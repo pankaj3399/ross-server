@@ -12,6 +12,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const API_URL = process.env.API_URL || 'http://localhost:4000';
+const STRIPE_API_VERSION = '2025-12-15';
 
 if (!process.env.STRIPE_SECRET_KEY) {
     console.error('❌ Missing env var: STRIPE_SECRET_KEY');
@@ -19,7 +20,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-12-15' as any,
+    apiVersion: STRIPE_API_VERSION as any,
 });
 
 // Helper to generate signature
@@ -87,7 +88,7 @@ async function main() {
     const payload = {
         id: 'evt_test_webhook_' + Date.now(),
         object: 'event',
-        api_version: '2023-10-16',
+        api_version: STRIPE_API_VERSION,
         created: Math.floor(Date.now() / 1000),
         type: 'customer.subscription.updated',
         data: {
