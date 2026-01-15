@@ -5,7 +5,7 @@ export type MetricLabel = "low" | "moderate" | "high";
 export type DatasetMetric = {
   score: number;
   label: MetricLabel;
-  explanation: string;
+  explanation: string[];
 };
 
 export type FairnessGroup = {
