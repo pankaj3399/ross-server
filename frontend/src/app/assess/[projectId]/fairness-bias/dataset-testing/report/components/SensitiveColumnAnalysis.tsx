@@ -1,7 +1,6 @@
 import { useState } from "react";
+import { Info, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { FairnessColumn } from "../../types";
-import { verdictStyles } from "../../constants";
-
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -11,130 +10,237 @@ interface SensitiveColumnAnalysisProps {
     isExporting: boolean;
 }
 
+// Visual status configuration
+const getStatusConfig = (verdict: string) => {
+    const configs: Record<string, { icon: typeof CheckCircle2; color: string; bgColor: string; label: string }> = {
+        pass: {
+            icon: CheckCircle2,
+            color: "text-emerald-600 dark:text-emerald-400",
+            bgColor: "bg-emerald-50 dark:bg-emerald-500/10",
+            label: "Pass"
+        },
+        caution: {
+            icon: AlertTriangle,
+            color: "text-amber-600 dark:text-amber-400",
+            bgColor: "bg-amber-50 dark:bg-amber-500/10",
+            label: "Needs Review"
+        },
+        fail: {
+            icon: XCircle,
+            color: "text-rose-600 dark:text-rose-400",
+            bgColor: "bg-rose-50 dark:bg-rose-500/10",
+            label: "Fail"
+        },
+        insufficient: {
+            icon: Info,
+            color: "text-slate-500",
+            bgColor: "bg-slate-50 dark:bg-slate-800/70",
+            label: "Insufficient"
+        }
+    };
+    return configs[verdict] || configs.caution;
+};
+
 export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: SensitiveColumnAnalysisProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
     const MAX_VISIBLE_GROUPS = 5;
+    const MIN_PROGRESS_BAR_WIDTH = 5;
 
-    // In export mode, force show all groups
     const showAll = isExporting || isExpanded;
-
-    // Logic for visible groups
     const visibleGroups = showAll ? column.groups : column.groups.slice(0, MAX_VISIBLE_GROUPS);
     const hiddenCount = column.groups.length - MAX_VISIBLE_GROUPS;
     const hasMore = column.groups.length > MAX_VISIBLE_GROUPS;
 
-    // Defensive check: fallback to 'caution' style if verdict is unexpected
-    const style = column.verdict in verdictStyles
-        ? verdictStyles[column.verdict]
-        : verdictStyles.caution;
+    const status = getStatusConfig(column.verdict);
+    const StatusIcon = status.icon;
+
+    // Calculate the fairness score for visual display (DIR value as percentage)
+    const fairnessScore = (column.disparateImpactRatio === null || column.disparateImpactRatio === undefined)
+        ? null
+        : column.disparateImpactRatio * 100;
+
+    const thresholdPercent = threshold * 100;
+    // Derive caution threshold (Amber) based on the Pass threshold.
+    // Standard 4/5ths rule checks 0.8 (Pass) vs 0.6 (Caution starts). Ratio is 0.75.
+    const cautionPercent = thresholdPercent * 0.75;
 
     return (
-        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-4 space-y-4 page-break-avoid w-full">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className={`rounded-2xl border ${column.verdict === 'fail' ? 'border-rose-200 dark:border-rose-500/30' : 'border-slate-100 dark:border-gray-800'} p-5 space-y-5 page-break-avoid w-full bg-white dark:bg-gray-900`}>
+            {/* Header with Status */}
+            <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <style.icon className={`w-5 h-5 ${style.color}`} />
+                    <div className={`p-2 rounded-xl ${status.bgColor}`}>
+                        <StatusIcon className={`w-5 h-5 ${status.color}`} />
+                    </div>
                     <div>
-                        <p className="text-base font-semibold text-slate-900 dark:text-white">{column.column}</p>
-                        <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
-                            <span title="Demographic Parity Difference: max - min selection rate">
-                                DPD: {formatPercent(column.disparity)}
-                            </span>
-                            <span title="Disparate Impact Ratio (80% Rule): min/max selection rate">
-                                DIR: {formatPercent(column.disparateImpactRatio ?? 0)} {(column.disparateImpactRatio ?? 0) >= 0.8 ? '✓' : '⚠'}
-                            </span>
-                        </div>
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white capitalize">
+                            {column.column}
+                        </h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                            {column.groups.length} groups analyzed
+                        </p>
                     </div>
                 </div>
-                <span className={`text-sm font-medium px-3 py-1 rounded-full w-fit ${style.bg} ${style.color}`}>
-                    {style.label}
+                <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${status.bgColor} ${status.color}`}>
+                    {status.label}
                 </span>
             </div>
 
-            {/* Column explanation */}
-            {column.explanation && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-gray-800 rounded-lg p-2">
-                    {column.explanation}
-                </p>
+            {/* Visual Fairness Score */}
+            {fairnessScore !== null && (
+                <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fairness Score</span>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-2xl font-bold ${fairnessScore >= thresholdPercent ? 'text-emerald-600' : fairnessScore >= cautionPercent ? 'text-amber-600' : 'text-rose-600'}`}>
+                                {fairnessScore.toFixed(0)}%
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowDetails(!showDetails)}
+                                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors hide-in-pdf"
+                                title="What does this mean?"
+                            >
+                                <Info className="w-4 h-4 text-slate-400" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 
+                        Progress bar 
+                        NOTE: Checked by usePdfExport.ts for PDF styling. 
+                        Do not change structure without verifying export.
+                    */}
+                    <div className="relative h-3 rounded-full bg-slate-200 dark:bg-gray-700 overflow-hidden pdf-progress-bar">
+                        <div
+                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${fairnessScore >= thresholdPercent ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
+                                fairnessScore >= cautionPercent ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
+                                    'bg-gradient-to-r from-rose-500 to-rose-400'
+                                }`}
+                            style={{ width: `${Math.min(Math.max(fairnessScore, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
+                        />
+                        {/* Threshold marker */}
+                        <div
+                            className="absolute top-0 bottom-0 w-0.5 bg-slate-600 dark:bg-slate-400"
+                            style={{ left: `${thresholdPercent}%` }}
+                            title={`${thresholdPercent.toFixed(0)}% threshold`}
+                        />
+                    </div>
+
+                    <div className="flex justify-between text-xs text-slate-400">
+                        <span>0%</span>
+                        <span className="font-medium">{thresholdPercent.toFixed(0)}% threshold</span>
+                        <span>100%</span>
+                    </div>
+                    {/* Expandable details */}
+                    {showDetails && (
+                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-gray-700 text-xs text-slate-500 dark:text-slate-400 space-y-1 animate-fadeIn">
+                            <p><strong>Fairness Score</strong> measures how equally outcomes are distributed across groups.</p>
+                            <p>Scores ≥{thresholdPercent.toFixed(0)}% meet the required fairness threshold.</p>
+                            <p className="text-slate-400 text-[10px] mt-2">
+                                Technical: DIR = {formatPercent(column.disparateImpactRatio ?? 0)} | DPD = {formatPercent(column.disparity)}
+                            </p>
+                        </div>
+                    )}
+                </div>
             )}
 
-            {/* Table wrapper for horizontal scroll */}
-            <div className="overflow-x-auto w-full">
-                <div className="min-w-[600px] space-y-3">
-                    {/* Header row for metrics */}
-                    <div className="grid grid-cols-[2fr,1fr,1fr,1fr,0.8fr] gap-2 text-xs font-medium text-slate-500 border-b border-slate-100 dark:border-gray-700 pb-2">
-                        <span>Group</span>
-                        <span className="text-right" title="Percentage of dataset represented by this group (sums to 100%)">Distribution</span>
-                        <span className="text-right" title="Percentage of group receiving positive outcome">Selection Rate</span>
-                        <span className="text-right" title="Share of all positive outcomes going to this group (sums to 100%)">Outcome Share</span>
-                        <span className="text-right">Count</span>
-                    </div>
+            {/* Groups - Visual Bar Chart */}
+            <div className="space-y-3">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Selection Rate by Group</p>
 
-                    <div className="space-y-3">
-                        {visibleGroups.map((group) => (
-                            <div key={group.value} className="space-y-2 page-break-avoid">
-                                <div className="grid grid-cols-[2fr,1fr,1fr,1fr,0.8fr] gap-2 text-sm text-slate-600 dark:text-slate-300 items-center">
-                                    <p className="font-medium break-words leading-tight" title={group.value}>{group.value}</p>
-                                    <p className="text-right text-slate-500">
-                                        <span className="text-xs text-slate-400 mr-1">Dist:</span>
-                                        {formatPercent(group.distribution ?? 0)}
-                                    </p>
-                                    <p className="text-right font-bold text-slate-700 dark:text-slate-200">
-                                        <span className="text-xs font-normal text-slate-400 mr-1">Rate:</span>
-                                        {formatPercent(group.positiveRate)}
-                                    </p>
-                                    <p className="text-right text-slate-500">
-                                        <span className="text-xs text-slate-400 mr-1">Share:</span>
-                                        {formatPercent(group.outcomeShare ?? 0)}
-                                    </p>
-                                    <p className="text-right text-xs text-slate-400">
-                                        <span className="text-slate-400 mr-1">n=</span>
-                                        {group.rows.toLocaleString()}
-                                    </p>
+                <div className="space-y-2">
+                    {visibleGroups.map((group) => {
+                        const rate = group.positiveRate * 100;
+                        const isBelowThreshold = rate < (threshold * 100);
+
+                        return (
+                            <div key={group.value} className="grid grid-cols-[140px_1fr_48px] items-center gap-4 group page-break-avoid">
+                                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate" title={group.value}>
+                                    {group.value}
                                 </div>
-                                <div
-                                    role="progressbar"
-                                    aria-valuenow={Math.round(Math.min(group.positiveRate * 100, 100))}
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
-                                    aria-label={`${column.column} ${group.value} selection rate: ${Math.round(group.positiveRate * 100)}%`}
-                                    className="h-2.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden ring-1 ring-slate-100 dark:ring-gray-800/50"
-                                >
-                                    <div
-                                        aria-hidden="true"
-                                        className={`h-full rounded-full transition-all duration-500 ease-out ${group.positiveRate < threshold
-                                            ? "bg-gradient-to-r from-amber-500 to-orange-400 shadow-[0_0_10px_rgba(251,191,36,0.3)]"
-                                            : "bg-gradient-to-r from-emerald-500 to-teal-400 shadow-[0_0_10px_rgba(52,211,153,0.3)]"
-                                            }`}
-                                        style={{ width: `${Math.min(group.positiveRate * 100, 100)}%` }}
-                                    />
+                                <div className="relative h-2.5">
+                                    <div className="absolute inset-0 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden">
+                                        <div
+                                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isBelowThreshold
+                                                ? 'bg-gradient-to-r from-amber-500 to-orange-400'
+                                                : 'bg-gradient-to-r from-indigo-500 to-purple-400'
+                                                }`}
+                                            style={{ width: `${Math.min(rate, 100)}%` }}
+                                        />
+                                    </div>
+                                    {/* Hover info tooltip wrapper */}
+                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
+                                        <div className="bg-slate-800/90 text-[10px] text-white px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+                                            {group.rows.toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`text-sm font-bold text-right tabular-nums ${isBelowThreshold ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'}`}>
+                                    {formatPercent(group.positiveRate)}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Toggle Button - Hidden in PDF export */}
+            {/* Show More Button */}
             {hasMore && !isExporting && (
                 <button
                     type="button"
                     onClick={() => setIsExpanded(!isExpanded)}
-                    data-html2canvas-ignore="true"
-                    className="w-full text-center py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors hide-in-pdf"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors hide-in-pdf"
                 >
                     {isExpanded ? (
-                        <>Show less</>
+                        <>
+                            <ChevronUp className="w-4 h-4" />
+                            Show Less
+                        </>
                     ) : (
-                        <>Show all {column.groups.length} groups (+{hiddenCount} more)</>
+                        <>
+                            <ChevronDown className="w-4 h-4" />
+                            Show {hiddenCount} More Groups
+                        </>
                     )}
                 </button>
             )}
 
-            {/* Stats Footer */}
-            <div className="text-xs text-slate-400 pt-2 border-t border-slate-100 dark:border-gray-700">
-                Total: {column.groups.reduce((sum, g) => sum + g.rows, 0).toLocaleString()} rows •
-                Distribution sum: {formatPercent(column.groups.reduce((sum, g) => sum + (g.distribution ?? 0), 0))} •
-                Outcome share sum: {formatPercent(column.groups.reduce((sum, g) => sum + (g.outcomeShare ?? 0), 0))}
+            {/* Summary Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-700 text-xs text-slate-400">
+                <span>{column.groups.reduce((sum, g) => sum + g.rows, 0).toLocaleString()} total samples</span>
+                {column.explanation && (
+                    <div className="relative">
+                        <button
+                            type="button"
+                            // Use stopPropagation to prevent bubbling to parent container handlers (if any)
+                            // while maintaining hover-only tooltip behavior.
+                            onClick={(e) => {
+                                e.stopPropagation();
+                            }}
+                            className="group p-1 rounded-full hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors hide-in-pdf relative"
+                            aria-label="Show explanation"
+                        >
+                            <Info className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+
+                            {/* Custom Tooltip implementation */}
+                            <div className="hidden group-hover:block absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-xl shadow-xl z-50 animate-fadeIn pointer-events-none">
+                                <div className="absolute -bottom-1 right-2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                                <div className="leading-relaxed">
+                                    {Array.isArray(column.explanation)
+                                        ? column.explanation.map((item, i) => (
+                                            <p key={i} className="mb-1 last:mb-0">
+                                                {item}
+                                            </p>
+                                        ))
+                                        : column.explanation}
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );

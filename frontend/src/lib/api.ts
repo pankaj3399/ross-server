@@ -113,6 +113,13 @@ export interface SubscriptionDetailsResponse {
   invoices?: SubscriptionInvoice[]; // Optional - only included when includeInvoices=true
 }
 
+export interface Thresholds {
+  FAIRNESS: { HIGH: number; MODERATE: number };
+  BIAS: { LOW: number; MODERATE: number };
+  TOXICITY: { LOW: number; MODERATE: number };
+  POSITIVE: { HIGH: number; MODERATE: number };
+}
+
 class ApiService {
   private getAuthToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -406,7 +413,7 @@ class ApiService {
         disparateImpactRatio: number;
         totalRows: number;
         totalPositives: number;
-        explanation: string;
+        explanation: string[];
         groups: Array<{
           value: string;
           rows: number;
@@ -430,16 +437,20 @@ class ApiService {
         groupDistribution: { name: string; formula: string; description: string; interpretation: string; threshold: string };
       };
     };
-    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string };
-    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string };
+    fairnessResult: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    biasness: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    toxicity: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    relevance: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
+    faithfulness: { score: number; label: "low" | "moderate" | "high"; explanation: string[] };
   }> {
     return this.request("/fairness/dataset-evaluate", {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async getThresholds(): Promise<Thresholds> {
+    return this.request<Thresholds>("/fairness/thresholds");
   }
 
   async startFairnessEvaluationJob(data: {

@@ -3,9 +3,14 @@ export type VerdictStatus = "pass" | "caution" | "fail" | "insufficient";
 export type MetricLabel = "low" | "moderate" | "high";
 
 export type DatasetMetric = {
+  /** Score value (0.0-1.0 scale) */
   score: number;
+  /** Label classification based on metric-specific thresholds */
   label: MetricLabel;
-  explanation: string;
+  /** AI-generated explanation points */
+  explanation: string[];
+  /** True if score is an estimate due to AI service unavailability */
+  isEstimated?: boolean;
 };
 
 export type FairnessGroup = {
@@ -47,7 +52,7 @@ export type FairnessColumn = {
   /** Group-level metrics */
   groups: FairnessGroup[];
   /** Human-readable explanation of the metrics */
-  explanation: string;
+  explanation: string[];
 };
 
 export type DatasetEvaluationResponse = {
