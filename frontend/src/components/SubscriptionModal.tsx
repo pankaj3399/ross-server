@@ -15,9 +15,18 @@ const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  currentPlan?: 'free' | 'basic_premium' | 'pro_premium';
+  onUpgradeToPro?: () => void;
+  onDowngradeToBasic?: () => void;
 }
 
-export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModalProps) {
+export default function SubscriptionModal({
+  isOpen,
+  onClose,
+  currentPlan = 'free',
+  onUpgradeToPro,
+  onDowngradeToBasic,
+}: SubscriptionModalProps) {
   const [prices, setPrices] = useState<{ basic: number | null; pro: number | null }>({
     basic: null,
     pro: null,
@@ -149,10 +158,10 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
             {/* Plan Badge */}
             <div className="absolute -top-3 left-6 z-30">
               <span className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold shadow-lg uppercase tracking-wide">
-                Small Teams
+                {currentPlan === 'basic_premium' ? '✓ Current Plan' : 'Small Teams'}
               </span>
             </div>
-            
+
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-300 h-full flex flex-col relative overflow-hidden">
               <div className="text-center mb-6 flex-shrink-0">
                 <div className="flex items-center justify-center mb-4">
@@ -211,25 +220,57 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
               </div>
 
               {/* CTA Button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
-                disabled={upgradingPlan === "basic" || loadingPrices}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
-              >
-                {upgradingPlan === "basic" ? (
-                  <>
-                    <Loader className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Star className="w-4 h-4" />
-                    Choose Basic Premium
-                  </>
-                )}
-              </motion.button>
+              {currentPlan === 'basic_premium' ? (
+                <div className="w-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-3.5 px-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 cursor-not-allowed">
+                  <CheckCircle className="w-4 h-4" />
+                  Current Plan
+                </div>
+              ) : currentPlan === 'pro_premium' ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    if (onDowngradeToBasic) {
+                      onDowngradeToBasic();
+                      onClose();
+                    }
+                  }}
+                  disabled={upgradingPlan === "basic" || loadingPrices}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                >
+                  {upgradingPlan === "basic" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Star className="w-4 h-4" />
+                      Downgrade to Basic
+                    </>
+                  )}
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
+                  disabled={upgradingPlan === "basic" || loadingPrices}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                >
+                  {upgradingPlan === "basic" ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Star className="w-4 h-4" />
+                      Upgrade to Basic
+                    </>
+                  )}
+                </motion.button>
+              )}
             </div>
           </motion.div>
 
@@ -249,7 +290,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 transition={{ delay: 0.6, type: "spring", stiffness: 200 }}
                 className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg tracking-wide"
               >
-                ★ MOST POPULAR
+                {currentPlan === 'pro_premium' ? '✓ Current Plan' : '★ MOST POPULAR'}
               </motion.div>
             </div>
 
@@ -314,27 +355,59 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 </div>
 
                 {/* CTA Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
-                  disabled={upgradingPlan === "pro" || loadingPrices}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
-                >
-                  {upgradingPlan === "pro" ? (
-                    <>
-                      <Loader className="w-4 h-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <Award className="w-6 h-6" />
-                      </div>
-                      Choose Pro Premium
-                    </>
-                  )}
-                </motion.button>
+                {currentPlan === 'pro_premium' ? (
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-3.5 px-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 cursor-not-allowed">
+                    <CheckCircle className="w-4 h-4" />
+                    Current Plan
+                  </div>
+                ) : currentPlan === 'basic_premium' ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      if (onUpgradeToPro) {
+                        onUpgradeToPro();
+                        onClose();
+                      } else {
+                        handleSelectPlan(PRO_PRICE_ID, "pro");
+                      }
+                    }}
+                    disabled={upgradingPlan === "pro" || loadingPrices}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                  >
+                    {upgradingPlan === "pro" ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Award className="w-5 h-5" />
+                        Upgrade to Pro
+                      </>
+                    )}
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
+                    disabled={upgradingPlan === "pro" || loadingPrices}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3.5 px-4 rounded-xl font-semibold text-base transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl flex-shrink-0"
+                  >
+                    {upgradingPlan === "pro" ? (
+                      <>
+                        <Loader className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Award className="w-5 h-5" />
+                        Upgrade to Pro
+                      </>
+                    )}
+                  </motion.button>
+                )}
               </div>
             </div>
           </motion.div>
