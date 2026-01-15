@@ -15,6 +15,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
     const exportPdf = useCallback(async () => {
         if (!reportRef.current || !payload) return;
+        if (isExporting) return; // Prevent concurrent exports
         try {
             setIsExporting(true);
 
@@ -238,13 +239,19 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                 // 4. Metric Cards (CAPTURE AS GRID)
                 // We look for the grid container of the metric cards
-                const metricGrid = clone.querySelector(".grid.lg\\:grid-cols-5");
+                const metricGrid = clone.querySelector(".pdf-metric-grid");
                 if (metricGrid) {
                     sections.push(metricGrid as HTMLElement);
                 } else {
-                    clone.querySelectorAll(".grid > .rounded-xl").forEach(el => {
-                        if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
-                    });
+                    // Fallback to old selector or individual cards if class is missing
+                    const fallbackGrid = clone.querySelector(".grid.lg\\:grid-cols-5");
+                    if (fallbackGrid) {
+                        sections.push(fallbackGrid as HTMLElement);
+                    } else {
+                        clone.querySelectorAll(".grid > .rounded-xl").forEach(el => {
+                            if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
+                        });
+                    }
                 }
 
                 // Fallback: If we missed anything big, add main sections that aren't covered
@@ -331,7 +338,13 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 }
 
                 const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";
-                const dateSuffix = new Date(payload.generatedAt).toISOString().split("T")[0];
+                let dateSuffix: string;
+                try {
+                    dateSuffix = new Date(payload.generatedAt).toISOString().split("T")[0];
+                } catch (error) {
+                    // Fallback to current date if generatedAt is invalid
+                    dateSuffix = new Date().toISOString().split("T")[0];
+                }
                 pdf.save(`${baseName}-fairness-report-${dateSuffix}.pdf`);
             } finally {
                 if (clone && document.body.contains(clone)) {

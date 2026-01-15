@@ -250,7 +250,7 @@ const DatasetTestingReportPage = () => {
                 {/* Metric Score Cards - Simplified Grid */}
                 <section className="space-y-4">
                     <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Overall Metrics</h3>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 pdf-metric-grid">
                         {metricCards.map((metric) => (
                             <FairnessMetricCard key={metric.key} title={metric.title} data={metric.data} />
                         ))}
