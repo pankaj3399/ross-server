@@ -13,10 +13,10 @@ import {
   Github,
   CheckCircle,
 } from "lucide-react";
-import SubscriptionModal from "../../../../../components/SubscriptionModal";
+import SubscriptionModal from "../../../../../components/features/subscriptions/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
 
-type TestMethod = 
+type TestMethod =
   | "prompt-response"
   | "api-endpoint"
   | "dataset-testing"
@@ -152,10 +152,9 @@ export default function FairnessBiasOptions() {
                   className={`
                     relative cursor-pointer rounded-2xl border-2 p-6 transition-all duration-200
                     bg-white dark:bg-gray-800
-                    ${
-                      isSelected
-                        ? "border-purple-500 dark:border-purple-400 shadow-lg scale-105"
-                        : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md"
+                    ${isSelected
+                      ? "border-purple-500 dark:border-purple-400 shadow-lg scale-105"
+                      : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md"
                     }
                     ${!isPremium ? "cursor-not-allowed" : ""}
                   `}
@@ -196,10 +195,9 @@ export default function FairnessBiasOptions() {
               disabled={!selectedMethod || !isPremium}
               className={`
                 px-8 py-3 rounded-xl font-semibold text-lg transition-all duration-200
-                ${
-                  selectedMethod && isPremium
-                    ? "bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl"
-                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                ${selectedMethod && isPremium
+                  ? "bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl"
+                  : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                 }
               `}
               whileHover={selectedMethod && isPremium ? { scale: 1.05 } : {}}

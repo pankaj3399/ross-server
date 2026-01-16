@@ -14,16 +14,16 @@ import {
 import { showToast } from "../../../../lib/toast";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Save,
-  ArrowRight,
-  ArrowLeft as ArrowLeftIcon,
-  Info,
-  Crown,
-  Scale,
-} from "lucide-react";
-import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
-import { SecureTextarea } from "../../../../components/SecureTextarea";
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconArrowRight,
+  IconArrowLeft as IconArrowLeftIcon,
+  IconInfoCircle,
+  IconCrown,
+  IconScale,
+} from "@tabler/icons-react";
+import AssessmentTreeNavigation from "../../../../components/shared/AssessmentTreeNavigation";
+import { SecureTextarea } from "../../../../components/shared/SecureTextarea";
 import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
 import { sanitizeNoteInput } from "../../../../lib/sanitize";
 import { AssessmentSkeleton, Skeleton } from "../../../../components/Skeleton";
@@ -364,7 +364,7 @@ export default function PremiumDomainsPage() {
   // Save all notes silently in the background
   const saveAllNotes = async (): Promise<void> => {
     const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
-    
+
     if (noteEntries.length === 0) {
       return;
     }
@@ -374,14 +374,14 @@ export default function PremiumDomainsPage() {
       try {
         const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
         const questionIndex = parseInt(questionIndexStr, 10);
-        
+
         if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
           console.warn(`Invalid note key format: ${key}`);
           return;
         }
 
         const sanitizedNote = sanitizeNoteInput(note.trim());
-        
+
         await apiService.saveQuestionNote(projectId, {
           domainId,
           practiceId,
@@ -405,9 +405,9 @@ export default function PremiumDomainsPage() {
     try {
       // Save all notes silently in the background before submitting
       await saveAllNotes();
-      
+
       const response = await apiService.submitProject(projectId);
-      
+
       setProjectResults(projectId, response.project, response.results);
       router.push(`/score-report-premium?projectId=${projectId}`);
     } catch (error) {
@@ -537,7 +537,7 @@ export default function PremiumDomainsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
         <div className="text-center max-w-md px-4">
-          <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+          <IconCrown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
             No Premium Domains Available
           </h1>
@@ -551,7 +551,7 @@ export default function PremiumDomainsPage() {
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 font-semibold"
               >
-                <Scale className="w-5 h-5" />
+                <IconScale className="w-5 h-5" />
                 Fairness & Bias Test
               </button>
             )}
@@ -561,7 +561,7 @@ export default function PremiumDomainsPage() {
                 onClick={() => router.push(`/assess/${projectId}`)}
                 className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <IconArrowLeft className="w-4 h-4" />
                 Back to Assessment
               </button>
             )}
@@ -573,7 +573,7 @@ export default function PremiumDomainsPage() {
 
   if (!currentPractice || questions.length === 0) {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-screen flex flex-row-reverse">
         <AssessmentTreeNavigation
           domains={progressData}
           currentDomainId={currentDomainId}
@@ -598,7 +598,7 @@ export default function PremiumDomainsPage() {
                   onClick={() => router.push(`/assess/${projectId}`)}
                   className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <IconArrowLeft className="w-4 h-4" />
                   Back
                 </button>
                 <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
@@ -612,7 +612,7 @@ export default function PremiumDomainsPage() {
           </div>
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+              <IconCrown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 Premium Domains Assessment
               </h1>
@@ -655,7 +655,7 @@ export default function PremiumDomainsPage() {
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-row-reverse">
       {/* Tree Navigation Sidebar */}
       <AssessmentTreeNavigation
         domains={progressData}
@@ -683,7 +683,7 @@ export default function PremiumDomainsPage() {
                 onClick={() => router.push(`/assess/${projectId}`)}
                 className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <IconArrowLeft className="w-4 h-4" />
                 Back
               </button>
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
@@ -699,13 +699,13 @@ export default function PremiumDomainsPage() {
             <div className="flex items-center gap-4">
               {saving && (
                 <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Save className="w-4 h-4 animate-spin" />
+                  <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                   Saving...
                 </div>
               )}
               {submitting && (
                 <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Save className="w-4 h-4 animate-spin" />
+                  <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                   Submitting...
                 </div>
               )}
@@ -756,7 +756,7 @@ export default function PremiumDomainsPage() {
                       Level {currentQuestion.level}
                     </span>
                     <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
+                      <IconInfoCircle size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
                       <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
                         Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
                       </span>
@@ -768,7 +768,7 @@ export default function PremiumDomainsPage() {
                       Stream {currentQuestion.stream}
                     </span>
                     <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
+                      <IconInfoCircle size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
                       <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
                         Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
                       </span>
@@ -858,7 +858,7 @@ export default function PremiumDomainsPage() {
                 disabled={!hasPreviousQuestion}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                <ArrowLeftIcon className="w-4 h-4" />
+                <IconArrowLeftIcon className="w-4 h-4" />
                 Previous
               </button>
 
@@ -868,7 +868,7 @@ export default function PremiumDomainsPage() {
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
               >
                 Next
-                <ArrowRight className="w-4 h-4" />
+                <IconArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>

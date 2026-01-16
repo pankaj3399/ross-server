@@ -212,20 +212,16 @@ export function getPasswordStrength(score: number): string {
  * Get password strength color
  */
 export function getPasswordStrengthColor(score: number): string {
-  if (score < 30) return "text-red-500";
-  if (score < 50) return "text-orange-500";
-  if (score < 70) return "text-yellow-500";
-  if (score < 85) return "text-blue-500";
-  return "text-green-500";
+  if (score < 50) return "text-destructive";
+  if (score < 70) return "text-muted-foreground";
+  return "text-primary";
 }
 
 /**
  * Get password strength background color
  */
 export function getPasswordStrengthBgColor(score: number): string {
-  if (score < 30) return "bg-red-500";
-  if (score < 50) return "bg-orange-500";
-  if (score < 70) return "bg-yellow-500";
-  if (score < 85) return "bg-blue-500";
-  return "bg-green-500";
+  if (score < 50) return "bg-destructive";
+  if (score < 70) return "bg-muted-foreground";
+  return "bg-primary";
 }

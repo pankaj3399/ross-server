@@ -8,14 +8,14 @@ import { useAssessmentResultsStore } from "../../store/assessmentResultsStore";
 import { apiService } from "../../lib/api";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Trophy,
-  Star,
-  Sparkles,
-  Brain,
-  Lock,
-  ChevronRight
-} from "lucide-react";
+  IconArrowLeft,
+  IconTrophy,
+  IconStar,
+  IconSparkles,
+  IconBrain,
+  IconLock,
+  IconChevronRight
+} from "@tabler/icons-react";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
 import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
 
@@ -147,7 +147,7 @@ export default function ScoreReportPage() {
 
   if (!results) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gradient-to-br dark:from-slate-900 dark:via-purple-900 dark:to-slate-900 transition-colors duration-300">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background transition-colors duration-300">
         <div className="text-center p-8 bg-white dark:bg-white/5 backdrop-blur-lg rounded-3xl border border-gray-200 dark:border-white/10 shadow-xl dark:shadow-2xl">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">No Results Found</h1>
           <p className="text-gray-600 dark:text-gray-300 mb-8 text-lg">Assessment results not found for this project.</p>
@@ -212,7 +212,7 @@ export default function ScoreReportPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gradient-to-br dark:from-slate-950 dark:via-purple-950 dark:to-slate-950 text-gray-900 dark:text-white selection:bg-purple-500/30 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-background text-gray-900 dark:text-white selection:bg-purple-500/30 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <motion.div
@@ -226,7 +226,7 @@ export default function ScoreReportPage() {
             className="group flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
           >
             <div className="p-2 rounded-full bg-gray-200 dark:bg-white/5 group-hover:bg-gray-300 dark:group-hover:bg-white/10 transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+              <IconArrowLeft className="w-5 h-5" />
             </div>
             <span className="font-medium">Back to Assessment</span>
           </button>
@@ -245,7 +245,7 @@ export default function ScoreReportPage() {
 
             {!isUserPremium && (
               <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-amber-50 dark:bg-gradient-to-r dark:from-amber-500/10 dark:to-orange-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-800 dark:text-amber-200 shadow-sm dark:shadow-none">
-                <Lock className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                <IconLock className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                 <span className="font-medium">Unlock AI Insights with Premium</span>
                 <button
                   onClick={() => router.push(`/assess/${projectId}/premium-features`)}
@@ -268,12 +268,12 @@ export default function ScoreReportPage() {
           >
             <div className="relative overflow-hidden rounded-[2.5rem] bg-white dark:bg-white/5 backdrop-blur-xl border border-gray-200 dark:border-white/10 p-8 shadow-xl dark:shadow-2xl">
               <div className="absolute top-0 right-0 p-8 opacity-5 dark:opacity-10">
-                <Trophy className="w-32 h-32 text-gray-900 dark:text-white" />
+                <IconTrophy className="w-32 h-32 text-gray-900 dark:text-white" />
               </div>
 
               <div className="relative z-10">
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-300 mb-8 flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-500" />
+                  <IconTrophy className="w-5 h-5 text-yellow-500" />
                   Overall Score
                 </h2>
 
@@ -316,7 +316,7 @@ export default function ScoreReportPage() {
                       className="flex items-center gap-2 px-3 py-1 rounded-lg font-medium text-sm"
                       style={{ backgroundColor: performance.color + '20', color: performance.color }}
                     >
-                      <Star className="w-4 h-4 fill-current" />
+                      <IconStar className="w-4 h-4 fill-current" />
                       {performance.level}
                     </div>
                   </div>
@@ -349,50 +349,50 @@ export default function ScoreReportPage() {
               <div className="flex-1 overflow-y-auto scrollbar-hide">
                 {premiumDomains.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {premiumDomains.map((domain: any, index: number) => {
-                    const domainPerformance = getPerformanceLevel(domain.percentage);
+                    {premiumDomains.map((domain: any, index: number) => {
+                      const domainPerformance = getPerformanceLevel(domain.percentage);
 
-                    return (
-                      <motion.div
-                        key={domain.domainId}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.1 * index }}
-                        className="group relative overflow-hidden rounded-3xl bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-6 transition-all duration-300 shadow-sm hover:shadow-md dark:shadow-none"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg text-gray-900 dark:text-white pr-2 line-clamp-1" title={domain.domainTitle}>
-                              {domain.domainTitle}
-                            </h3>
-                            <div className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30">
-                              Premium
+                      return (
+                        <motion.div
+                          key={domain.domainId}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, delay: 0.1 * index }}
+                          className="group relative overflow-hidden rounded-3xl bg-white dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 backdrop-blur-sm border border-gray-200 dark:border-white/10 p-6 transition-all duration-300 shadow-sm hover:shadow-md dark:shadow-none"
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-lg text-gray-900 dark:text-white pr-2 line-clamp-1" title={domain.domainTitle}>
+                                {domain.domainTitle}
+                              </h3>
+                              <div className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-xs font-medium text-purple-600 dark:text-purple-300 border border-purple-200 dark:border-purple-500/30">
+                                Premium
+                              </div>
+                            </div>
+                            <div
+                              className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-white/5 font-bold border border-gray-200 dark:border-white/10"
+                              style={{ color: domainPerformance.color }}
+                            >
+                              {domain.percentage.toFixed(0)}%
                             </div>
                           </div>
-                          <div
-                            className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-white/5 font-bold border border-gray-200 dark:border-white/10"
-                            style={{ color: domainPerformance.color }}
-                          >
-                            {domain.percentage.toFixed(0)}%
+
+                          <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-2 mb-4 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-1000 ease-out"
+                              style={{ width: `${domain.percentage}%`, backgroundColor: domainPerformance.color }}
+                            />
                           </div>
-                        </div>
 
-                        <div className="w-full bg-gray-100 dark:bg-white/5 rounded-full h-2 mb-4 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-1000 ease-out"
-                            style={{ width: `${domain.percentage}%`, backgroundColor: domainPerformance.color }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">{domain.correctAnswers}/{domain.totalQuestions} Correct</span>
-                          <span style={{ color: domainPerformance.color }} className="font-medium">
-                            {domainPerformance.level}
-                          </span>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500 dark:text-gray-400">{domain.correctAnswers}/{domain.totalQuestions} Correct</span>
+                            <span style={{ color: domainPerformance.color }} className="font-medium">
+                              {domainPerformance.level}
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-12 bg-white/50 dark:bg-white/5 rounded-3xl border border-gray-200 dark:border-white/10">
@@ -416,13 +416,13 @@ export default function ScoreReportPage() {
               className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/40 dark:to-slate-900/40 backdrop-blur-xl border border-purple-200 dark:border-purple-500/20 p-8 shadow-lg dark:shadow-none"
             >
               <div className="absolute top-0 right-0 p-8 opacity-10 dark:opacity-20">
-                <Brain className="w-64 h-64 text-purple-600 dark:text-purple-500" />
+                <IconBrain className="w-64 h-64 text-purple-600 dark:text-purple-500" />
               </div>
 
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
-                    <Sparkles className="w-6 h-6" />
+                    <IconSparkles className="w-6 h-6" />
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white">AI Strategic Insights</h2>
                 </div>
@@ -483,7 +483,7 @@ export default function ScoreReportPage() {
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-200/50 dark:to-black/50 pointer-events-none" />
               <div className="relative z-10 flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center mb-6 shadow-md dark:shadow-none">
-                  <Lock className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                  <IconLock className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Unlock Premium Insights</h3>
                 <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-8">
@@ -494,7 +494,7 @@ export default function ScoreReportPage() {
                   className="group flex items-center gap-2 px-8 py-4 rounded-xl bg-purple-600 hover:bg-purple-700 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white font-bold transition-all duration-300 shadow-lg hover:shadow-xl dark:shadow-none"
                 >
                   Upgrade Now
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <IconChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
             </motion.div>

@@ -7,25 +7,30 @@ import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { showToast } from "../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Shield,
-  Smartphone,
-  CheckCircle,
-  AlertCircle,
-  Settings,
-  User,
-  Key,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  CreditCard,
-  ArrowRight,
-  Star,
-} from "lucide-react";
-import { MFASetup } from "../../components/MFASetup";
+  IconShield,
+  IconDeviceMobile,
+  IconCircleCheck,
+  IconAlertCircle,
+  IconSettings,
+  IconUser,
+  IconKey,
+  IconRefresh,
+  IconEye,
+  IconEyeOff,
+  IconStar,
+  IconMail,
+} from "@tabler/icons-react";
+import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
 import { SimplePageSkeleton } from "../../components/Skeleton";
-import Link from "next/link";
-import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
+import { validatePassword } from "../../lib/passwordValidation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { user, isAuthenticated, refreshUser } = useAuth();
@@ -150,6 +155,7 @@ export default function SettingsPage() {
 
   const handleMFASetupCancel = () => {
     setShowMFASetup(false);
+    showToast.info("MFA setup cancelled");
   };
 
   const handleChangePasswordClick = () => {
@@ -248,11 +254,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleEmailNotificationsToggle = () => {
-    setEmailNotifications(!emailNotifications);
-    // Here you could add API call to save the preference
-  };
-
   const handleEditProfileClick = () => {
     setIsEditingProfile(true);
     setProfileError("");
@@ -282,7 +283,7 @@ export default function SettingsPage() {
   const validateProfileForm = () => {
     const trimmedName = profileForm.name.trim();
     const trimmedEmail = profileForm.email.trim();
-    
+
     if (!trimmedName || trimmedName.length === 0) {
       setProfileError("Name is required");
       return false;
@@ -387,48 +388,39 @@ export default function SettingsPage() {
   };
 
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
   const formatRelativeTime = (dateString: string | null | undefined): string | null => {
     if (!dateString) return null;
-    
+
     const date = new Date(dateString);
     const now = new Date();
     const diffInMs = now.getTime() - date.getTime();
     let diffInSeconds = Math.floor(diffInMs / 1000);
-    
+
     // Use Intl.RelativeTimeFormat for accurate relative time formatting
     const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     const prefix = "Profile last updated ";
-    
+
     // Handle negative diffInSeconds (future timestamps/clock skew) by clamping to zero
     if (diffInSeconds < 0) {
       return `${prefix}just now`;
     }
-    
+
     // Handle "just now" case separately
     if (diffInSeconds < 60) {
       return `${prefix}just now`;
     }
-    
+
     // Calculate time differences
     const diffInMinutes = Math.floor(diffInSeconds / 60);
     const diffInHours = Math.floor(diffInMinutes / 60);
     const diffInDays = Math.floor(diffInHours / 24);
     const monthsDiff = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
     const yearsDiff = now.getFullYear() - date.getFullYear();
-    
+
     // Determine the best unit and value
     let value: number;
     let unit: Intl.RelativeTimeFormatUnit;
-    
+
     if (diffInMinutes < 60) {
       value = diffInMinutes;
       unit = 'minute';
@@ -445,7 +437,7 @@ export default function SettingsPage() {
       value = yearsDiff;
       unit = 'year';
     }
-    
+
     // Return unified format with prefix
     return `${prefix}${rtf.format(-value, unit)}`;
   };
@@ -456,7 +448,7 @@ export default function SettingsPage() {
 
   if (showMFASetup) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <MFASetup
           onComplete={handleMFASetupComplete}
           onCancel={handleMFASetupCancel}
@@ -466,8 +458,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen relative">
-
+    <div className="bg-muted/30 min-h-screen relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <motion.div
@@ -476,12 +467,12 @@ export default function SettingsPage() {
           className="mb-8"
         >
           <div className="flex items-center space-x-3 mb-2">
-            <Settings className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <IconSettings className="w-8 h-8 text-primary" />
+            <h1 className="text-3xl font-bold text-foreground">
               Account Settings
             </h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-muted-foreground">
             Manage your account preferences, security settings, and subscriptions.
           </p>
         </motion.div>
@@ -493,268 +484,251 @@ export default function SettingsPage() {
           className="space-y-8"
         >
           {/* User Profile Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Profile Information
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Update your personal details and how others see you.
-                  </p>
-                </div>
-              </div>
-              {!isEditingProfile && (
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleEditProfileClick}
-                  className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-300 rounded-lg font-medium transition-all duration-300"
-                >
-                  Edit
-                </motion.button>
-              )}
-            </div>
-
-            {isEditingProfile ? (
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
-                {/* Name Field */}
-                <div>
-                  <label htmlFor="profile-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="profile-name"
-                    name="name"
-                    value={profileForm.name}
-                    onChange={handleProfileInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none"
-                    placeholder="Enter your name"
-                    disabled={profileLoading}
-                    maxLength={100}
-                  />
-                </div>
-
-                {/* Email Field */}
-                <div>
-                  <label htmlFor="profile-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="profile-email"
-                    name="email"
-                    value={profileForm.email}
-                    onChange={handleProfileInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none"
-                    placeholder="Enter your email"
-                    disabled={profileLoading}
-                  />
-                  {user?.email_verified && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Note: Changing your email will require verification
-                    </p>
-                  )}
-                </div>
-
-                {/* Error Message */}
-                {profileError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center space-x-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg"
-                  >
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <span className="text-sm">{profileError}</span>
-                  </motion.div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex items-center space-x-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={profileLoading}
-                    className="flex-1 px-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {profileLoading ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Saving...</span>
-                      </div>
-                    ) : (
-                      "Save Changes"
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleProfileCancel}
-                    disabled={profileLoading}
-                    className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                      FULL NAME
-                    </p>
-                    <p className="text-base font-medium text-gray-900 dark:text-white">
-                      {user?.name || "N/A"}
-                    </p>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <IconUser className="w-6 h-6 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                      EMAIL ADDRESS
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-base font-medium text-gray-900 dark:text-white">
-                        {user?.email || "N/A"}
-                      </p>
-                      {user?.email_verified ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                          VERIFIED
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                          UNVERIFIED
-                        </span>
-                      )}
+                    <CardTitle>Profile Information</CardTitle>
+                    <CardDescription>
+                      Update your personal details and how others see you.
+                    </CardDescription>
+                  </div>
+                </div>
+                {!isEditingProfile && (
+                  <Button variant="outline" onClick={handleEditProfileClick}>
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              {isEditingProfile ? (
+                <form onSubmit={handleProfileSubmit} className="space-y-4">
+                  {/* Name Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-name">Name</Label>
+                    <div className="relative">
+                      <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="profile-name"
+                        name="name"
+                        value={profileForm.name}
+                        onChange={handleProfileInputChange}
+                        placeholder="Enter your name"
+                        disabled={profileLoading}
+                        maxLength={100}
+                        className="pl-10"
+                      />
                     </div>
                   </div>
-                </div>
-                {!user?.email_verified && (
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200 mb-1">
-                          Email verification required
+
+                  {/* Email Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="profile-email">Email</Label>
+                    <div className="relative">
+                      <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="email"
+                        id="profile-email"
+                        name="email"
+                        value={profileForm.email}
+                        onChange={handleProfileInputChange}
+                        placeholder="Enter your email"
+                        disabled={profileLoading}
+                        className="pl-10"
+                      />
+                    </div>
+                    {user?.email_verified && (
+                      <p className="text-xs text-muted-foreground">
+                        Note: Changing your email will require verification
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Error Message */}
+                  {profileError && (
+                    <div className="flex items-center space-x-2 text-destructive bg-destructive/10 p-3 rounded-lg">
+                      <IconAlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <span className="text-sm">{profileError}</span>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button type="submit" disabled={profileLoading} className="flex-1">
+                      {profileLoading ? (
+                        <>
+                          <IconRefresh className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleProfileCancel}
+                      disabled={profileLoading}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        FULL NAME
+                      </p>
+                      <p className="text-base font-medium text-foreground">
+                        {user?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        EMAIL ADDRESS
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-medium text-foreground">
+                          {user?.email || "N/A"}
                         </p>
-                        <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                          Please verify your email address to access all features. Check your inbox for the verification code.
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={handleVerifyEmailClick}
-                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors"
-                          >
-                            Verify Email
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={handleResendVerification}
-                            disabled={resendingVerification}
-                            className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {resendingVerification ? (
-                              <div className="flex items-center space-x-2">
-                                <div className="w-3 h-3 border-2 border-amber-700 dark:border-amber-300 border-t-transparent rounded-full animate-spin" />
-                                <span>Sending...</span>
-                              </div>
-                            ) : (
-                              "Resend Code"
-                            )}
-                          </motion.button>
+                        {user?.email_verified ? (
+                          <Badge variant="secondary" className="bg-success/15 text-success hover:bg-success/25">
+                            VERIFIED
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-warning/15 text-warning-foreground hover:bg-warning/25">
+                            UNVERIFIED
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {!user?.email_verified && (
+                    <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
+                      <div className="flex items-start space-x-3">
+                        <IconAlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-warning-foreground mb-1">
+                            Email verification required
+                          </p>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Please verify your email address to access all features. Check your inbox for the verification code.
+                          </p>
+                          <div className="flex items-center space-x-2">
+                            <Button onClick={handleVerifyEmailClick} size="sm" className="bg-warning hover:bg-warning/90 text-warning-foreground">
+                              Verify Email
+                            </Button>
+                            <Button
+                              onClick={handleResendVerification}
+                              disabled={resendingVerification}
+                              variant="outline"
+                              size="sm"
+                            >
+                              {resendingVerification ? (
+                                <>
+                                  <IconRefresh className="mr-2 h-4 w-4 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                "Resend Code"
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Security Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
-                <Shield className="w-6 h-6 text-red-600 dark:text-red-400" />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                  <IconShield className="w-6 h-6 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle>Security Settings</CardTitle>
+                  <CardDescription>
+                    Enhance your account security with these tools.
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Security Settings
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Enhance your account security with these tools.
-                </p>
-              </div>
-            </div>
+            </CardHeader>
 
-            <div className="space-y-6">
+            <CardContent className="space-y-6">
               {/* MFA Setting */}
-              <div className="flex items-center justify-between p-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                    <Smartphone className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                    <IconDeviceMobile className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-foreground">
                       Two-Factor Authentication
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                       Protect your account with a second verification step.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  <Badge variant={user?.mfa_enabled ? "default" : "secondary"}>
                     {user?.mfa_enabled ? "Enabled" : "Disabled"}
-                  </span>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  </Badge>
+                  <Button
+                    variant={user?.mfa_enabled ? "destructive" : "default"}
                     onClick={handleMFAToggle}
                     disabled={mfaLoading}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${user?.mfa_enabled
-                      ? "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300"
-                      : "bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:text-purple-300"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    size="sm"
                   >
-                    {mfaLoading
-                      ? "Loading..."
-                      : user?.mfa_enabled
-                        ? "Disable"
-                        : "Enable"}
-                  </motion.button>
+                    {mfaLoading ? (
+                      "Loading..."
+                    ) : user?.mfa_enabled ? (
+                      "Disable"
+                    ) : (
+                      "Enable"
+                    )}
+                  </Button>
                 </div>
               </div>
 
+              <Separator />
+
               {/* Password Setting */}
-              <div className="p-4">
+              <div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                      <Key className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <IconKey className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                      <h3 className="font-semibold text-foreground">
                         Password
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <p className="text-sm text-muted-foreground">
                         {formatRelativeTime(user?.updated_at) || "Manage your password."}
                       </p>
                     </div>
                   </div>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <Button
+                    variant="outline"
                     onClick={handleChangePasswordClick}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 rounded-lg font-medium transition-all duration-300"
+                    size="sm"
                   >
                     {showChangePassword ? "Cancel" : "Change"}
-                  </motion.button>
+                  </Button>
                 </div>
 
                 {/* Change Password Form */}
@@ -764,184 +738,130 @@ export default function SettingsPage() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
+                      className="overflow-hidden pt-6"
                     >
                       {passwordSuccess ? (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="text-center py-6"
-                        >
-                          <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <CheckCircle className="w-6 h-6 text-green-600" />
+                        <div className="text-center py-6">
+                          <div className="w-12 h-12 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <IconCircleCheck className="w-6 h-6 text-success" />
                           </div>
-                          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                          <h4 className="text-lg font-semibold text-foreground mb-1">
                             Password Changed Successfully!
                           </h4>
-                          <p className="text-gray-600 dark:text-gray-300">
+                          <p className="text-muted-foreground">
                             Your password has been updated successfully.
                           </p>
-                        </motion.div>
+                        </div>
                       ) : (
-                        <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                        <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto border rounded-xl p-6 bg-muted/20">
                           {/* Current Password */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Current Password
-                            </label>
+                          <div className="space-y-2">
+                            <Label>Current Password</Label>
                             <div className="relative">
-                              <input
+                              <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
                                 type={showPasswords.current ? "text" : "password"}
                                 name="currentPassword"
                                 value={passwordForm.currentPassword}
                                 onChange={handlePasswordInputChange}
-                                className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none hover:outline-none focus:outline-none"
                                 placeholder="Enter your current password"
                                 disabled={passwordLoading}
+                                className="pl-10 pr-10"
                               />
                               <button
                                 type="button"
                                 onClick={() => togglePasswordVisibility("current")}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               >
                                 {showPasswords.current ? (
-                                  <EyeOff className="w-5 h-5" />
+                                  <IconEyeOff className="w-4 h-4" />
                                 ) : (
-                                  <Eye className="w-5 h-5" />
+                                  <IconEye className="w-4 h-4" />
                                 )}
                               </button>
                             </div>
                           </div>
 
                           {/* New Password */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              New Password
-                            </label>
+                          <div className="space-y-2">
+                            <Label>New Password</Label>
                             <div className="relative">
-                              <input
+                              <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
                                 type={showPasswords.new ? "text" : "password"}
                                 name="newPassword"
                                 value={passwordForm.newPassword}
                                 onChange={handlePasswordInputChange}
-                                className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none hover:outline-none focus:outline-none"
-                                placeholder="Enter your new password"
+                                placeholder="Enter new password"
                                 disabled={passwordLoading}
+                                className="pl-10 pr-10"
                               />
                               <button
                                 type="button"
                                 onClick={() => togglePasswordVisibility("new")}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               >
                                 {showPasswords.new ? (
-                                  <EyeOff className="w-5 h-5" />
+                                  <IconEyeOff className="w-4 h-4" />
                                 ) : (
-                                  <Eye className="w-5 h-5" />
+                                  <IconEye className="w-4 h-4" />
                                 )}
                               </button>
                             </div>
                           </div>
 
                           {/* Confirm Password */}
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Confirm New Password
-                            </label>
+                          <div className="space-y-2">
+                            <Label>Confirm New Password</Label>
                             <div className="relative">
-                              <input
+                              <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
                                 type={showPasswords.confirm ? "text" : "password"}
                                 name="confirmPassword"
                                 value={passwordForm.confirmPassword}
                                 onChange={handlePasswordInputChange}
-                                className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white outline-none hover:outline-none focus:outline-none"
-                                placeholder="Confirm your new password"
+                                placeholder="Confirm new password"
                                 disabled={passwordLoading}
+                                className="pl-10 pr-10"
                               />
                               <button
                                 type="button"
                                 onClick={() => togglePasswordVisibility("confirm")}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               >
                                 {showPasswords.confirm ? (
-                                  <EyeOff className="w-5 h-5" />
+                                  <IconEyeOff className="w-4 h-4" />
                                 ) : (
-                                  <Eye className="w-5 h-5" />
+                                  <IconEye className="w-4 h-4" />
                                 )}
                               </button>
                             </div>
                           </div>
 
-                          {/* Error Message */}
+                          {/* Error */}
                           {passwordError && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="flex items-center space-x-2 text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg"
-                            >
-                              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                              <span className="text-sm">{passwordError}</span>
-                            </motion.div>
-                          )}
-
-                          {/* Password Requirements */}
-                          <div className="text-xs text-gray-500 dark:text-gray-400 space-y-2">
-                            <p className="font-medium">Password Requirements:</p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-2">
-                              <div className="space-y-1">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least 8 characters long</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>Maximum 128 characters</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least one uppercase letter (A-Z)</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least one lowercase letter (a-z)</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least one number (0-9)</span>
-                                </div>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>At least one special character ({ALLOWED_SPECIAL_CHARS})</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>Cannot contain your name</span>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                                  <span>Cannot contain your email username</span>
-                                </div>
-                              </div>
+                            <div className="text-destructive text-sm flex items-center gap-2">
+                              <IconAlertCircle className="w-4 h-4" />
+                              {passwordError}
                             </div>
-                          </div>
+                          )}
 
                           {/* Submit Button */}
                           <div className="pt-2">
-                            <button
+                            <Button
                               type="submit"
                               disabled={passwordLoading}
-                              className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full"
                             >
                               {passwordLoading ? (
-                                <div className="flex items-center justify-center space-x-2">
-                                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  <span>Changing Password...</span>
-                                </div>
+                                <>
+                                  <IconRefresh className="mr-2 h-4 w-4 animate-spin" />
+                                  Updating Password...
+                                </>
                               ) : (
-                                "Change Password"
+                                "Update Password"
                               )}
-                            </button>
+                            </Button>
                           </div>
                         </form>
                       )}
@@ -949,129 +869,8 @@ export default function SettingsPage() {
                   )}
                 </AnimatePresence>
               </div>
-            </div>
-          </div>
-
-          {/* Subscription Management Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
-                <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Subscription
-                </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Manage your billing cycle and subscription plan.
-                </p>
-              </div>
-            </div>
-
-            {subscriptionLoading ? (
-              <div className="space-y-4">
-                <div className="h-20 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
-                <div className="h-12 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse" />
-              </div>
-            ) : subscriptionError ? (
-              <div className="space-y-6">
-                <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-red-900 dark:text-red-200">
-                        Failed to load subscription details
-                      </p>
-                      <p className="text-xs text-red-700 dark:text-red-300 mt-1">
-                        Please try refreshing the page or contact support if the issue persists.
-                      </p>
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        setSubscriptionError(false);
-                        fetchSubscriptionDetails();
-                      }}
-                      className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                      title="Retry loading subscription details"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Current Plan Info */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-                        CURRENT PLAN
-                      </p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white capitalize mb-3">
-                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
-                          user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
-                            'Free Plan'}
-                      </p>
-                      {subscriptionDetails?.plan && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-gray-600 dark:text-gray-300">Status</span>
-                            <span className={`font-medium flex items-center gap-1 ${subscriptionDetails.plan.status === 'active' ? 'text-green-600 dark:text-green-400' :
-                                subscriptionDetails.plan.status === 'trialing' ? 'text-blue-600 dark:text-blue-400' :
-                                  'text-gray-600 dark:text-gray-300'
-                              }`}>
-                              <span className="w-2 h-2 rounded-full bg-current"></span>
-                              {subscriptionDetails.plan.status === 'active' ? 'Active' :
-                                subscriptionDetails.plan.status === 'trialing' ? 'Trialing' :
-                                  subscriptionDetails.plan.status}
-                            </span>
-                          </div>
-                          {subscriptionDetails.plan.days_remaining !== null && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <span className="text-gray-600 dark:text-gray-300">Days Remaining</span>
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {subscriptionDetails.plan.days_remaining} days
-                              </span>
-                            </div>
-                          )}
-                          {subscriptionDetails.plan.cancel_at_period_end && subscriptionDetails.plan.cancel_effective_date && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <span className="text-gray-600 dark:text-gray-300">Cancellation Date</span>
-                              <span className="font-medium text-gray-900 dark:text-white">
-                                {formatDate(subscriptionDetails.plan.cancel_effective_date)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={fetchSubscriptionDetails}
-                      className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                      title="Refresh subscription details"
-                    >
-                      <RefreshCw className="w-4 h-4" />
-                    </motion.button>
-                  </div>
-                </div>
-
-                {/* Manage Subscription Button */}
-                <Link
-                  href="/manage-subscription"
-                  className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 hover:from-purple-700 hover:via-violet-700 hover:to-purple-800 text-white rounded-xl font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-3 group"
-                >
-                  <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span>Manage Subscription</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </Link>
-              </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     </div>

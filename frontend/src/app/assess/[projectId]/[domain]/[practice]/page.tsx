@@ -6,7 +6,7 @@ import { useAuth } from "../../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../../hooks/useRequireAuth";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, CheckCircle, Clock, Target } from "lucide-react";
+import { IconArrowLeft, IconDeviceFloppy, IconCircleCheck, IconClock, IconTarget } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../../../components/Skeleton";
 import { safeRenderHTML, stripHTML } from "../../../../../lib/htmlUtils";
 
@@ -20,9 +20,9 @@ interface Question {
 type LevelQuestionEntry =
   | string
   | {
-      question_text: string;
-      description?: string | null;
-    };
+    question_text: string;
+    description?: string | null;
+  };
 
 interface Practice {
   title: string;
@@ -171,7 +171,7 @@ export default function AssessmentPage() {
               onClick={() => router.back()}
               className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <IconArrowLeft className="w-4 h-4" />
               Back
             </button>
           </div>
@@ -185,7 +185,7 @@ export default function AssessmentPage() {
             </div>
             {saving && (
               <div className="flex items-center gap-2 text-sm text-purple-400">
-                <Save className="w-4 h-4 animate-spin" />
+                <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                 Saving...
               </div>
             )}
@@ -243,8 +243,8 @@ export default function AssessmentPage() {
                         {value === 0
                           ? "No"
                           : value === 0.5
-                          ? "Partially"
-                          : "Yes"}
+                            ? "Partially"
+                            : "Yes"}
                       </span>
                     </label>
                   ))}
@@ -262,7 +262,7 @@ export default function AssessmentPage() {
           className="mt-8 glass-effect rounded-2xl p-6"
         >
           <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5" />
+            <IconTarget className="w-5 h-5" />
             Progress
           </h3>
           <div className="space-y-3">
@@ -276,9 +276,8 @@ export default function AssessmentPage() {
               <div
                 className="bg-gradient-to-r from-purple-600 to-violet-600 h-3 rounded-full transition-all duration-300"
                 style={{
-                  width: `${
-                    (Object.keys(answers).length / questions.length) * 100
-                  }%`,
+                  width: `${(Object.keys(answers).length / questions.length) * 100
+                    }%`,
                 }}
               />
             </div>

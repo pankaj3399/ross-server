@@ -18,7 +18,7 @@ import {
   FileText,
   BarChart3,
 } from "lucide-react";
-import UnlockPremium from "../../../../components/UnlockPremium";
+import UnlockPremium from "../../../../components/features/subscriptions/UnlockPremium";
 import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
 
 interface FairnessQuestion {
@@ -85,13 +85,13 @@ export default function FairnessBiasTest() {
       try {
         const questionsData = await apiService.getFairnessQuestions();
         setFairnessQuestions(questionsData.questions);
-        
+
         if (questionsData.questions.length > 0) {
           setExpandedCategories(new Set(["cat-0"]));
         }
 
       } catch (error: any) {
-        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {        
+        if (error.status === 403 || error.message?.includes('Access denied') || error.message?.includes('Premium subscription')) {
           console.log("Premium access required");
         }
       } finally {
@@ -224,7 +224,7 @@ export default function FairnessBiasTest() {
 
   async function handleEvaluateAssessment() {
     const responsesArray: Array<{ category: string; prompt: string; response: string }> = [];
-    
+
     fairnessQuestions.forEach((category, catIdx) => {
       category.prompts.forEach((prompt, promptIdx) => {
         const key = `${catIdx}:${promptIdx}`;
@@ -312,11 +312,10 @@ export default function FairnessBiasTest() {
               return (
                 <div key={category.id} className="select-none">
                   <div
-                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                      isCurrentCategory
+                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentCategory
                         ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700"
                         : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                    }`}
+                      }`}
                     onClick={() => {
                       toggleCategory(category.id);
                       if (!isCurrentCategory) {
@@ -340,19 +339,17 @@ export default function FairnessBiasTest() {
                         <div className="flex items-center gap-2 mt-1">
                           <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                             <div
-                              className={`h-1.5 rounded-full transition-all duration-300 ${
-                                category.prompts.every((_, idx) => getQuestionStatus(catIdx, idx))
+                              className={`h-1.5 rounded-full transition-all duration-300 ${category.prompts.every((_, idx) => getQuestionStatus(catIdx, idx))
                                   ? "bg-green-500"
                                   : category.prompts.some((_, idx) => getQuestionStatus(catIdx, idx))
-                                  ? "bg-yellow-500"
-                                  : "bg-gray-300 dark:bg-gray-600"
-                              }`}
+                                    ? "bg-yellow-500"
+                                    : "bg-gray-300 dark:bg-gray-600"
+                                }`}
                               style={{
-                                width: `${
-                                  (category.prompts.filter((_, idx) => getQuestionStatus(catIdx, idx)).length /
+                                width: `${(category.prompts.filter((_, idx) => getQuestionStatus(catIdx, idx)).length /
                                     category.totalPrompts) *
                                   100
-                                }%`,
+                                  }%`,
                               }}
                             />
                           </div>
@@ -383,11 +380,10 @@ export default function FairnessBiasTest() {
                             <div
                               key={prompt.id}
                               ref={isCurrentQuestion ? currentQuestionRef : null}
-                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                                isCurrentQuestion
+                              className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentQuestion
                                   ? "bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700"
                                   : "hover:bg-gray-50 dark:hover:bg-gray-800"
-                              }`}
+                                }`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigateToQuestion(catIdx, promptIdx);
@@ -506,7 +502,7 @@ export default function FairnessBiasTest() {
                       const originalValue = e.target.value;
                       try {
                         const sanitizedValue = sanitizeNoteInput(originalValue, true);
-                        
+
                         // Reset warning state if field is cleared
                         if (!originalValue.trim()) {
                           setHasShownDangerWarning(prev => {
@@ -515,7 +511,7 @@ export default function FairnessBiasTest() {
                             return newSet;
                           });
                         }
-                        
+
                         // Check if dangerous content was removed - only show warning once per field
                         if (containsDangerousContent(originalValue) && !hasShownDangerWarning.has(currentResKey)) {
                           // Dangerous content was detected and removed - show warning toast once
@@ -525,7 +521,7 @@ export default function FairnessBiasTest() {
                           // Mark that we've shown the warning for this field
                           setHasShownDangerWarning(prev => new Set(prev).add(currentResKey));
                         }
-                        
+
                         // Update state with the sanitized (cleaned) value
                         setResponses({ ...responses, [currentResKey]: sanitizedValue });
                       } catch (error) {

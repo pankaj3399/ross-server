@@ -6,9 +6,9 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../../hooks/useRequireAuth";
-import { Download } from "lucide-react";
+import { IconDownload, IconPlus, IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import { RichTextEditor } from "@/components/shared/RichTextEditor";
 import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
 import { ROLES } from "@/lib/constants";
 
@@ -687,8 +687,8 @@ export default function AdminQuestions() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-destructive/15 border border-destructive/50 text-destructive px-4 py-3 rounded">
           <strong>Error:</strong> {error}
         </div>
       </div>
@@ -697,8 +697,8 @@ export default function AdminQuestions() {
 
   if (!aimaData) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded">
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-muted border border-border text-muted-foreground px-4 py-3 rounded">
           No data available
         </div>
       </div>
@@ -706,17 +706,15 @@ export default function AdminQuestions() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">
-                <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-                  AIMA Data Management
-                </span>
+              <h1 className="text-4xl font-bold mb-2 text-primary">
+                AIMA Data Management
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
+              <p className="text-muted-foreground text-lg">
                 Manage domains, practices, and questions for the AIMA assessment
                 framework.
               </p>
@@ -725,60 +723,48 @@ export default function AdminQuestions() {
               <button
                 onClick={handleDownloadWaitlistEmails}
                 disabled={downloadingEmails}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 disabled:transform-none disabled:cursor-not-allowed"
+                className="inline-flex items-center px-6 py-3 bg-secondary hover:bg-secondary/80 disabled:opacity-50 text-secondary-foreground font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-sm disabled:transform-none disabled:cursor-not-allowed"
               >
-                <Download className="w-5 h-5 mr-2" />
+                <IconDownload className="w-5 h-5 mr-2" />
                 {downloadingEmails
                   ? "Downloading..."
                   : "Download Waitlist Emails"}
               </button>
               <button
                 onClick={handleAddDomain}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
+                className="inline-flex items-center px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-sm"
               >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <IconPlus className="w-5 h-5 mr-2" />
                 Add New Domain
               </button>
             </div>
           </div>
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-card-foreground mb-4">
               Summary
             </h2>
             <div className="grid grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_domains}
                 </div>
-                <div className="text-blue-700 dark:text-blue-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Domains
                 </div>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_practices}
                 </div>
-                <div className="text-green-700 dark:text-green-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Practices
                 </div>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_questions}
                 </div>
-                <div className="text-purple-700 dark:text-purple-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Questions
                 </div>
               </div>
@@ -897,33 +883,9 @@ export default function AdminQuestions() {
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
                       {expandedDomains.has(domain.id) ? (
-                        <svg
-                          className="w-5 h-5 text-purple-500 dark:text-purple-400 transition-transform duration-200"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
+                        <IconChevronDown className="w-5 h-5 text-purple-500 dark:text-purple-400 transition-transform duration-200" />
                       ) : (
-                        <svg
-                          className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
+                        <IconChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
                       )}
                     </div>
                     <div>
@@ -950,8 +912,8 @@ export default function AdminQuestions() {
                       toggleDomainPremium(domain.id, domain.is_premium);
                     }}
                     className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${domain.is_premium
-                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                       }`}
                     title={domain.is_premium ? "Click to remove premium status" : "Click to mark as premium"}
                   >
@@ -979,19 +941,7 @@ export default function AdminQuestions() {
                       }}
                       className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors"
                     >
-                      <svg
-                        className="w-3 h-3 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
+                      <IconPlus className="w-3 h-3 mr-1" />
                       Add Practice
                     </button>
                   </div>
@@ -1010,33 +960,9 @@ export default function AdminQuestions() {
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0">
                                 {expandedPractices.has(practice.id) ? (
-                                  <svg
-                                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
+                                  <IconChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                                 ) : (
-                                  <svg
-                                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 5l7 7-7 7"
-                                    />
-                                  </svg>
+                                  <IconChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                                 )}
                               </div>
                               <div>
@@ -1075,19 +1001,7 @@ export default function AdminQuestions() {
                                 }}
                                 className="inline-flex items-center px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded transition-colors"
                               >
-                                <svg
-                                  className="w-3 h-3 mr-1"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 4v16m8-8H4"
-                                  />
-                                </svg>
+                                <IconPlus className="w-3 h-3 mr-1" />
                                 Add Question
                               </button>
                             </div>
@@ -1175,12 +1089,12 @@ export default function AdminQuestions() {
                                               isSavingQuestionUpdate)
                                           }
                                           className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${isEditingQuestion
-                                              ? !hasQuestionChanges ||
-                                                (questionTextChanged && !questionTextValue.trim()) ||
-                                                isSavingQuestionUpdate
-                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700"
-                                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800"
+                                            ? !hasQuestionChanges ||
+                                              (questionTextChanged && !questionTextValue.trim()) ||
+                                              isSavingQuestionUpdate
+                                              ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                              : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700"
+                                            : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800"
                                             }`}
                                         >
                                           {isEditingQuestion
@@ -1288,8 +1202,8 @@ export default function AdminQuestions() {
                                             }}
                                             disabled={!descriptionChanged || isSaving}
                                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${!descriptionChanged || isSaving
-                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-sm"
+                                              ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                                              : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-sm"
                                               }`}
                                           >
                                             {isSaving ? "Saving..." : "Save Description"}
@@ -1347,19 +1261,7 @@ export default function AdminQuestions() {
                 onClick={closeModals}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <IconX className="w-6 h-6" />
               </button>
             </div>
 
@@ -1384,8 +1286,8 @@ export default function AdminQuestions() {
                     }
                   }}
                   className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 ${showDomainModal
-                      ? "focus:ring-blue-500"
-                      : "focus:ring-green-500"
+                    ? "focus:ring-blue-500"
+                    : "focus:ring-green-500"
                     }`}
                   placeholder={
                     showDomainModal ? "Domain title" : "Practice title"
@@ -1417,8 +1319,8 @@ export default function AdminQuestions() {
                     }
                   }}
                   className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none ${showDomainModal
-                      ? "focus:ring-blue-500"
-                      : "focus:ring-green-500"
+                    ? "focus:ring-blue-500"
+                    : "focus:ring-green-500"
                     }`}
                   rows={3}
                   placeholder={
@@ -1466,8 +1368,8 @@ export default function AdminQuestions() {
               <button
                 onClick={showDomainModal ? submitDomain : submitPractice}
                 className={`px-6 py-3 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${showDomainModal
-                    ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-blue-500/25"
-                    : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 hover:shadow-green-500/25"
+                  ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-blue-500/25"
+                  : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 hover:shadow-green-500/25"
                   }`}
               >
                 {showDomainModal ? "Add Domain" : "Add Practice"}
@@ -1489,19 +1391,7 @@ export default function AdminQuestions() {
                 onClick={closeModals}
                 className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <IconX className="w-6 h-6" />
               </button>
             </div>
 

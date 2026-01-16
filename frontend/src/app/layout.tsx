@@ -3,9 +3,9 @@ import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { SidebarProvider } from "../contexts/SidebarContext";
-import { ConditionalLayout } from "../components/ConditionalLayout";
-import StripeProvider from "@/components/StripeProvider";
-import ToastComponent from "../components/Toast";
+import { ConditionalLayout } from "../components/layout/ConditionalLayout";
+import StripeProvider from "@/components/providers/StripeProvider";
+import ToastComponent from "../components/shared/Toast";
 
 export const metadata: Metadata = {
   title: "MATUR.ai - AI Maturity Assessment Platform | OWASP AIMA Framework",

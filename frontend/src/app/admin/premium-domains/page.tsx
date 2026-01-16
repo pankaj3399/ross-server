@@ -7,10 +7,10 @@ import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../../hooks/useRequireAuth";
 import { SimplePageSkeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import { RichTextEditor } from "@/components/shared/RichTextEditor";
 import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
 import { ROLES } from "@/lib/constants";
-import { Crown } from "lucide-react";
+import { IconCrown, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 
 interface Question {
     id: string;
@@ -655,8 +655,8 @@ export default function PremiumDomainsAdmin() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-                <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+            <div className="min-h-screen bg-background p-6">
+                <div className="bg-destructive/15 border border-destructive/50 text-destructive px-4 py-3 rounded">
                     <strong>Error:</strong> {error}
                 </div>
             </div>
@@ -665,8 +665,8 @@ export default function PremiumDomainsAdmin() {
 
     if (!aimaData) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-                <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded">
+            <div className="min-h-screen bg-background p-6">
+                <div className="bg-muted border border-border text-muted-foreground px-4 py-3 rounded">
                     No data available
                 </div>
             </div>
@@ -674,51 +674,49 @@ export default function PremiumDomainsAdmin() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-yellow-900 p-6">
+        <div className="min-h-screen bg-background p-6">
             <div className="max-w-6xl mx-auto">
                 <div className="mb-8">
                     <div className="flex items-center justify-between mb-6">
                         <div>
                             <div className="flex items-center gap-3">
-                                <Crown className="w-10 h-10 text-yellow-500" />
-                                <h1 className="text-4xl font-bold">
-                                    <span className="bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent">
-                                        Premium Domains
-                                    </span>
+                                <IconCrown className="w-10 h-10 text-primary" />
+                                <h1 className="text-4xl font-bold text-primary">
+                                    Premium Domains
                                 </h1>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 text-lg mt-2">
+                            <p className="text-muted-foreground text-lg mt-2">
                                 Manage premium domains, practices, and questions for the AIMA assessment framework.
                             </p>
                         </div>
                     </div>
-                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-yellow-200 dark:border-yellow-700/50 rounded-2xl p-6 shadow-lg">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Crown className="w-5 h-5 text-yellow-500" />
+                    <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                        <h2 className="text-xl font-semibold text-card-foreground mb-4 flex items-center gap-2">
+                            <IconCrown className="w-5 h-5 text-primary" />
                             Premium Content Summary
                         </h2>
                         <div className="grid grid-cols-3 gap-6">
-                            <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl">
-                                <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                            <div className="text-center p-4 bg-muted/50 rounded-xl">
+                                <div className="text-3xl font-bold text-primary">
                                     {aimaData.data.summary.total_domains}
                                 </div>
-                                <div className="text-yellow-700 dark:text-yellow-300 font-medium">
+                                <div className="text-muted-foreground font-medium">
                                     Premium Domains
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl">
-                                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">
+                            <div className="text-center p-4 bg-muted/50 rounded-xl">
+                                <div className="text-3xl font-bold text-primary">
                                     {aimaData.data.summary.total_practices}
                                 </div>
-                                <div className="text-amber-700 dark:text-amber-300 font-medium">
+                                <div className="text-muted-foreground font-medium">
                                     Practices
                                 </div>
                             </div>
-                            <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl">
-                                <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                            <div className="text-center p-4 bg-muted/50 rounded-xl">
+                                <div className="text-3xl font-bold text-primary">
                                     {aimaData.data.summary.total_questions}
                                 </div>
-                                <div className="text-orange-700 dark:text-orange-300 font-medium">
+                                <div className="text-muted-foreground font-medium">
                                     Questions
                                 </div>
                             </div>
@@ -729,8 +727,8 @@ export default function PremiumDomainsAdmin() {
 
             {aimaData.data.domains.length === 0 ? (
                 <div className="max-w-6xl mx-auto">
-                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-yellow-200 dark:border-yellow-700/50 rounded-2xl p-12 shadow-lg text-center">
-                        <Crown className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-primary/20 dark:border-primary/50 rounded-2xl p-12 shadow-lg text-center">
+                        <IconCrown className="w-16 h-16 text-primary mx-auto mb-4" />
                         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                             No Premium Domains Yet
                         </h3>
@@ -744,7 +742,7 @@ export default function PremiumDomainsAdmin() {
                     {aimaData.data.domains.map((domain) => (
                         <div
                             key={domain.id}
-                            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-yellow-200 dark:border-yellow-700/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 dark:shadow-gray-900/20"
+                            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-primary/20 dark:border-primary/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 dark:shadow-gray-900/20"
                         >
                             {/* Domain Header - Always Visible */}
                             <div
@@ -760,33 +758,9 @@ export default function PremiumDomainsAdmin() {
                                         <div className="flex items-center space-x-3">
                                             <div className="flex-shrink-0">
                                                 {expandedDomains.has(domain.id) ? (
-                                                    <svg
-                                                        className="w-5 h-5 text-yellow-500 dark:text-yellow-400 transition-transform duration-200"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M19 9l-7 7-7-7"
-                                                        />
-                                                    </svg>
+                                                    <IconChevronDown className="w-5 h-5 text-primary transition-transform duration-200" />
                                                 ) : (
-                                                    <svg
-                                                        className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <path
-                                                            strokeLinecap="round"
-                                                            strokeLinejoin="round"
-                                                            strokeWidth={2}
-                                                            d="M9 5l7 7-7 7"
-                                                        />
-                                                    </svg>
+                                                    <IconChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
                                                 )}
                                             </div>
                                             <div>
@@ -825,7 +799,7 @@ export default function PremiumDomainsAdmin() {
 
                             {/* Practices - Collapsible */}
                             {expandedDomains.has(domain.id) && (
-                                <div className="border-t border-yellow-200/50 dark:border-yellow-700/30">
+                                <div className="border-t border-primary/20 dark:border-primary/30">
                                     <div className="p-6 space-y-4">
                                         {domain.practices.length === 0 ? (
                                             <p className="text-gray-500 dark:text-gray-400 italic">
@@ -849,7 +823,7 @@ export default function PremiumDomainsAdmin() {
                                                             <div className="flex-shrink-0">
                                                                 {expandedPractices.has(practice.id) ? (
                                                                     <svg
-                                                                        className="w-4 h-4 text-yellow-500"
+                                                                        className="w-4 h-4 text-primary"
                                                                         fill="none"
                                                                         stroke="currentColor"
                                                                         viewBox="0 0 24 24"
@@ -964,7 +938,7 @@ export default function PremiumDomainsAdmin() {
                                                                                                 type="button"
                                                                                                 onClick={() => handleQuestionUpdate(question)}
                                                                                                 disabled={savingQuestionUpdates[question.id]}
-                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"
+                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                                                                             >
                                                                                                 {savingQuestionUpdates[question.id] ? "Saving..." : "Save"}
                                                                                             </button>
@@ -979,7 +953,7 @@ export default function PremiumDomainsAdmin() {
                                                                                     </div>
                                                                                 ) : (
                                                                                     <p
-                                                                                        className="text-gray-700 dark:text-gray-300 text-sm cursor-pointer hover:text-yellow-600 dark:hover:text-yellow-400"
+                                                                                        className="text-gray-700 dark:text-gray-300 text-sm cursor-pointer hover:text-primary"
                                                                                         onClick={() => startEditingQuestion(question)}
                                                                                         dangerouslySetInnerHTML={{
                                                                                             __html: safeRenderHTML(question.question_text),
@@ -987,12 +961,12 @@ export default function PremiumDomainsAdmin() {
                                                                                     />
                                                                                 )}
                                                                                 {questionUpdateStatus[question.id] === "saved" && (
-                                                                                    <span className="text-xs text-green-600 dark:text-green-400 mt-1 block">
+                                                                                    <span className="text-xs text-success mt-1 block">
                                                                                         ✓ Saved
                                                                                     </span>
                                                                                 )}
                                                                                 {questionUpdateStatus[question.id] === "error" && (
-                                                                                    <span className="text-xs text-red-600 dark:text-red-400 mt-1 block">
+                                                                                    <span className="text-xs text-destructive mt-1 block">
                                                                                         ✗ Error saving
                                                                                     </span>
                                                                                 )}
@@ -1015,17 +989,17 @@ export default function PremiumDomainsAdmin() {
                                                                                     type="button"
                                                                                     onClick={() => handleQuestionDescriptionSave(question)}
                                                                                     disabled={savingDescriptions[question.id]}
-                                                                                    className="px-3 py-1 text-xs font-medium rounded-lg bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"
+                                                                                    className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                                                                                 >
                                                                                     {savingDescriptions[question.id] ? "Saving..." : "Save Description"}
                                                                                 </button>
                                                                                 {descriptionStatus[question.id] === "saved" && (
-                                                                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                                                                    <span className="text-xs text-success">
                                                                                         ✓ Saved
                                                                                     </span>
                                                                                 )}
                                                                                 {descriptionStatus[question.id] === "error" && (
-                                                                                    <span className="text-xs text-red-600 dark:text-red-400">
+                                                                                    <span className="text-xs text-destructive">
                                                                                         ✗ Error
                                                                                     </span>
                                                                                 )}
@@ -1036,7 +1010,7 @@ export default function PremiumDomainsAdmin() {
                                                             )}
                                                             <button
                                                                 onClick={() => handleAddQuestion(practice.id)}
-                                                                className="w-full py-2 text-sm font-medium text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors"
+                                                                className="w-full py-2 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors"
                                                             >
                                                                 + Add Question
                                                             </button>
@@ -1047,7 +1021,7 @@ export default function PremiumDomainsAdmin() {
                                         )}
                                         <button
                                             onClick={() => handleAddPractice(domain.id)}
-                                            className="w-full py-3 text-sm font-medium text-yellow-600 dark:text-yellow-400 hover:text-yellow-700 dark:hover:text-yellow-300 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 rounded-lg transition-colors border border-dashed border-yellow-300 dark:border-yellow-700"
+                                            className="w-full py-3 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors border border-dashed border-primary/50"
                                         >
                                             + Add Practice
                                         </button>
@@ -1105,7 +1079,7 @@ export default function PremiumDomainsAdmin() {
                             <button
                                 type="button"
                                 onClick={submitPractice}
-                                className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
                             >
                                 Add Practice
                             </button>
@@ -1191,7 +1165,7 @@ export default function PremiumDomainsAdmin() {
                             <button
                                 type="button"
                                 onClick={submitQuestion}
-                                className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg transition-colors"
                             >
                                 Add Question
                             </button>

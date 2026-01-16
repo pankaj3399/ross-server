@@ -1,6 +1,9 @@
 import { DatasetMetric } from "../../types";
 import { NEGATIVE_METRICS } from "../../constants";
 import { CheckCircle2, AlertTriangle, XCircle, HelpCircle } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 interface FairnessMetricCardProps {
     title: string;
@@ -16,36 +19,41 @@ type VisualConfig = {
     bgColor: string;
     barColor: string;
     badgeLabel: string;
+    badgeVariant: "default" | "secondary" | "destructive" | "outline";
 };
 
 const VISUAL_CONFIGS: Record<'good' | 'caution' | 'bad' | 'unknown', VisualConfig> = {
     good: {
         icon: CheckCircle2,
-        color: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-50 dark:bg-emerald-500/10",
-        barColor: "bg-gradient-to-r from-emerald-500 to-emerald-400",
-        badgeLabel: "Good"
+        color: "text-primary",
+        bgColor: "bg-primary/10",
+        barColor: "bg-primary",
+        badgeLabel: "Good",
+        badgeVariant: "default"
     },
     caution: {
         icon: AlertTriangle,
-        color: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-50 dark:bg-amber-500/10",
-        barColor: "bg-gradient-to-r from-amber-500 to-amber-400",
-        badgeLabel: "Review"
+        color: "text-muted-foreground",
+        bgColor: "bg-muted",
+        barColor: "bg-muted-foreground",
+        badgeLabel: "Review",
+        badgeVariant: "secondary"
     },
     bad: {
         icon: XCircle,
-        color: "text-rose-600 dark:text-rose-400",
-        bgColor: "bg-rose-50 dark:bg-rose-500/10",
-        barColor: "bg-gradient-to-r from-rose-500 to-rose-400",
-        badgeLabel: "Alert"
+        color: "text-destructive",
+        bgColor: "bg-destructive/10",
+        barColor: "bg-destructive",
+        badgeLabel: "Alert",
+        badgeVariant: "destructive"
     },
     unknown: {
         icon: HelpCircle,
-        color: "text-slate-400 dark:text-slate-500",
-        bgColor: "bg-slate-50 dark:bg-slate-500/10",
-        barColor: "bg-slate-300 dark:bg-slate-600",
-        badgeLabel: "Unknown"
+        color: "text-muted-foreground",
+        bgColor: "bg-muted",
+        barColor: "bg-muted",
+        badgeLabel: "Unknown",
+        badgeVariant: "secondary"
     }
 };
 
@@ -83,11 +91,13 @@ const getVisualStatus = (
  * Normalizes explanation text into a clean array of bullet points.
  * Handles array inputs and cleans up bullets.
  */
-const normalizeExplanation = (explanation: string[] | undefined): string[] => {
+const normalizeExplanation = (explanation: string | string[] | undefined): string[] => {
     if (!explanation) return [];
-    
+
+    const explanations = Array.isArray(explanation) ? explanation : [explanation];
+
     // Clean and filter
-    return explanation
+    return explanations
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map(line => line.replace(/^[•\-\*]\s*/, '').trim());
@@ -141,70 +151,74 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
     // Error/unavailable state with friendly message
     if (!isValid || !data) {
         return (
-            <div className="rounded-xl bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-800 p-4 flex flex-col">
-                <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</span>
-                    <HelpCircle className="w-4 h-4 text-slate-300" />
-                </div>
-                <div className="flex-1 flex items-center justify-center py-4">
-                    <div className="text-center">
-                        <p className="text-2xl font-bold text-slate-300 dark:text-slate-600">—</p>
-                        <p className="text-xs text-slate-400 mt-1">Unavailable</p>
+            <Card>
+                <CardContent className="p-4 flex flex-col">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-semibold text-muted-foreground">{title}</span>
+                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
                     </div>
-                </div>
-            </div>
+                    <div className="flex-1 flex items-center justify-center py-4">
+                        <div className="text-center">
+                            <p className="text-2xl font-bold text-muted-foreground">—</p>
+                            <p className="text-xs text-muted-foreground mt-1">Unavailable</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
         );
     }
 
     return (
-        <div className={`rounded-xl bg-white dark:bg-gray-900 border border-slate-100 dark:border-gray-800 p-4 flex flex-col transition-all hover:shadow-md`}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{title}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${config.bgColor} ${config.color}`}>
-                    {config.badgeLabel}
-                </span>
-            </div>
-
-            {/* Score Display */}
-            <div className="flex items-center gap-3 mb-3">
-                <div className={`p-2 rounded-lg ${config.bgColor}`}>
-                    <Icon className={`w-5 h-5 ${config.color}`} />
+        <Card className="transition-all hover:shadow-md">
+            <CardContent className="p-4 flex flex-col">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-muted-foreground">{title}</span>
+                    <Badge variant={config.badgeVariant} className={`${config.bgColor} ${config.color}`}>
+                        {config.badgeLabel}
+                    </Badge>
                 </div>
-                <div>
-                    <p className="text-2xl font-bold text-slate-900 dark:text-white">{display}</p>
-                    <p className="text-xs text-slate-400">{scoreContext}</p>
-                </div>
-            </div>
 
-            {/* Progress Bar 
-                NOTE: If you change the classes below (esp h-1.5, rounded-full), check usePdfExport.ts 
-                as it manually styles these for PDF header/canvas generation.
-            */}
-            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden mb-3">
-                <div
-                    className={`h-full rounded-full transition-all duration-700 ${config.barColor}`}
-                    style={{ width: `${Math.min(Math.max(percent, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
-                />
-            </div>
-
-            {/* Explanation - beautifully formatted */}
-            {data.explanation && data.explanation.length > 0 && (
-                <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
-                    <p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                        Analysis
-                    </p>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 leading-relaxed">
-                        {normalizeExplanation(data.explanation).map((line, i) => (
-                            <div key={i} className="flex items-start gap-2">
-                                <span className="text-slate-400 mt-0.5">•</span>
-                                <span>{line}</span>
-                            </div>
-                        ))}
+                {/* Score Display */}
+                <div className="flex items-center gap-3 mb-3">
+                    <div className={`p-2 rounded-lg ${config.bgColor}`}>
+                        <Icon className={`w-5 h-5 ${config.color}`} />
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold text-foreground">{display}</p>
+                        <p className="text-xs text-muted-foreground">{scoreContext}</p>
                     </div>
                 </div>
-            )}
-        </div>
+
+                {/* Progress Bar 
+                    NOTE: If you change the classes below (esp h-1.5, rounded-full), check usePdfExport.ts 
+                    as it manually styles these for PDF header/canvas generation.
+                */}
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden mb-3">
+                    <div
+                        className={`h-full rounded-full transition-all duration-700 ${config.barColor}`}
+                        style={{ width: `${Math.min(Math.max(percent, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
+                    />
+                </div>
+
+                {/* Explanation - beautifully formatted */}
+                {data.explanation && data.explanation.length > 0 && (
+                    <div className="mt-1 p-3 bg-muted/50 rounded-lg border border-border">
+                        <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3 h-3 text-primary" />
+                            Analysis
+                        </p>
+                        <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                            {normalizeExplanation(data.explanation).map((line, i) => (
+                                <div key={i} className="flex items-start gap-2">
+                                    <span className="text-muted-foreground mt-0.5">•</span>
+                                    <span>{line}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 };

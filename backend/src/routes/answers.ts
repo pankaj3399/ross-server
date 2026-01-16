@@ -64,7 +64,7 @@ router.post("/", authenticateToken, async (req, res) => {
 
     await Promise.all(queries);
 
-    res.json({ ok: true, savedCount: answers.length });
+    res.json({ message: "Answers saved successfully", savedCount: answers.length });
   } catch (error) {
     console.error("Error saving answer:", error);
     res.status(500).json({ error: "Failed to save answer" });

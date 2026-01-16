@@ -6,9 +6,14 @@ import { showToast } from "../../lib/toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { PasswordStrengthIndicator } from "../../components/PasswordStrengthIndicator";
-import { Eye, EyeOff } from "lucide-react";
+import { PasswordStrengthIndicator } from "../../components/auth/PasswordStrengthIndicator";
+import { IconEye, IconEyeOff, IconLoader2, IconUser, IconBuilding, IconMail, IconLock } from "@tabler/icons-react";
 import { ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 export default function AuthPage() {
   const isLogin = useSearchParams().get("isLogin") === "true";
@@ -101,30 +106,32 @@ export default function AuthPage() {
               {isLogin ? "Welcome Back" : "Get Started"}
             </span>
           </h2>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-muted-foreground">
             {isLogin ? "Sign in to your account" : "Create your account"}
           </p>
         </motion.div>
-        <p className="mt-2 text-center text-sm text-gray-700 dark:text-gray-400">
+        <p className="mt-2 text-center text-sm text-muted-foreground">
           {isLogin ? (
             <>
               Or{" "}
-              <button
+              <Button
+                variant="link"
+                className="p-0 h-auto font-medium text-primary dark:text-primary-foreground"
                 onClick={() => router.push("/auth?isLogin=false")}
-                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
               >
                 create a new account
-              </button>
+              </Button>
             </>
           ) : (
             <>
               Or{" "}
-              <button
+              <Button
+                variant="link"
+                className="p-0 h-auto font-medium text-primary dark:text-primary-foreground"
                 onClick={() => router.push("/auth?isLogin=true")}
-                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"
               >
                 sign in to existing account
-              </button>
+              </Button>
             </>
           )}
         </p>
@@ -135,267 +142,238 @@ export default function AuthPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="glass-effect py-8 px-4 sm:rounded-2xl sm:px-10"
         >
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {!isLogin && (
-              <>
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Full Name
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      required={!isLogin}
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="organization"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Organization (Optional)
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="organization"
-                      name="organization"
-                      type="text"
-                      value={formData.organization}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Email address
-              </label>
-              <div className="mt-1">
-                                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                  />
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <div className="mt-1 flex gap-2 justify-center items-center">
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-4"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setShowPassword(prev => !prev)
-                    }}
-                  >
-                    {showPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {!isLogin && <div>
-              <label
-                htmlFor="Confirm Password"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Confirm Password
-              </label>
-              <div className="relative">
-                <div className="mt-1 flex gap-2 justify-center items-center">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-4"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setShowConfirmPassword(prev => !prev)
-                    }}
-                  >
-                    {showConfirmPassword ? <EyeOff className="text-gray-500 dark:text-gray-400" /> : <Eye className="text-gray-500 dark:text-gray-400" />}
-                  </button>
-                </div>
-              </div>
-            </div>}
-
-            {/* Password Requirements - Only show during registration */}
-            {!isLogin && (
-              <PasswordStrengthIndicator
-                password={formData.password}
-                userInfo={{ email: formData.email, name: formData.name }}
-                showDetails={true}
-              />
-            )}
-
-            {/* MFA Input - Only show during login when MFA is required */}
-            {isLogin && mfaRequired && (
-              <div className="space-y-4">
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">!</span>
+          <Card className="glass-effect border-0">
+            <CardContent className="pt-6">
+              <form className="space-y-6" onSubmit={handleSubmit}>
+                {!isLogin && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full Name</Label>
+                      <div className="relative">
+                        <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="name"
+                          name="name"
+                          type="text"
+                          required={!isLogin}
+                          value={formData.name}
+                          onChange={handleChange}
+                          className="h-12 pl-10"
+                        />
+                      </div>
                     </div>
-                    <h3 className="text-blue-300 font-semibold">
-                      Two-Factor Authentication Required
-                    </h3>
-                  </div>
-                  <p className="text-blue-200 text-sm">
-                    Please enter your 6-digit authentication code or backup code
-                    to continue.
-                  </p>
-                </div>
 
-                <div>
-                  <label
-                    htmlFor="mfaCode"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Authentication Code
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="mfaCode"
-                      name="mfaCode"
-                      type="text"
-                      placeholder="000000"
-                      maxLength={6}
-                      value={formData.mfaCode}
+                    <div className="space-y-2">
+                      <Label htmlFor="organization">Organization (Optional)</Label>
+                      <div className="relative">
+                        <IconBuilding className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="organization"
+                          name="organization"
+                          type="text"
+                          value={formData.organization}
+                          onChange={handleChange}
+                          className="h-12 pl-10"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email address</Label>
+                  <div className="relative">
+                    <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      required
+                      value={formData.email}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 text-center text-2xl tracking-widest"
+                      className="h-12 pl-10"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                    Enter the 6-digit code from your authenticator app
-                  </p>
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      required
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="h-12 pl-10 pr-12"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setShowPassword(prev => !prev)
+                      }}
+                    >
+                      {showPassword ? <IconEyeOff className="h-4 w-4 text-muted-foreground" /> : <IconEye className="h-4 w-4 text-muted-foreground" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {!isLogin && (
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <div className="relative">
+                      <IconLock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        className="h-12 pl-10 pr-12"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setShowConfirmPassword(prev => !prev)
+                        }}
+                      >
+                        {showConfirmPassword ? <IconEyeOff className="h-4 w-4 text-muted-foreground" /> : <IconEye className="h-4 w-4 text-muted-foreground" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Password Requirements - Only show during registration */}
+                {!isLogin && (
+                  <PasswordStrengthIndicator
+                    password={formData.password}
+                    userInfo={{ email: formData.email, name: formData.name }}
+                    showDetails={true}
+                  />
+                )}
+
+                {/* MFA Input - Only show during login when MFA is required */}
+                {isLogin && mfaRequired && (
+                  <div className="space-y-4">
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm font-bold">!</span>
+                        </div>
+                        <h3 className="text-primary font-semibold">
+                          Two-Factor Authentication Required
+                        </h3>
+                      </div>
+                      <p className="text-primary dark:text-primary/70 text-sm">
+                        Please enter your 6-digit authentication code or backup code
+                        to continue.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="mfaCode">Authentication Code</Label>
+                      <Input
+                        id="mfaCode"
+                        name="mfaCode"
+                        type="text"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={formData.mfaCode}
+                        onChange={handleChange}
+                        className="h-12 text-center text-2xl tracking-widest"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter the 6-digit code from your authenticator app
+                      </p>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <Separator />
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-2 bg-card text-muted-foreground">
+                          Or
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="backupCode">Backup Code</Label>
+                      <Input
+                        id="backupCode"
+                        name="backupCode"
+                        type="text"
+                        placeholder="Enter backup code"
+                        value={formData.backupCode}
+                        onChange={handleChange}
+                        className="h-12"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Use a backup code if you don't have access to your
+                        authenticator app
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 font-semibold"
+                >
+                  {loading ? (
+                    <>
+                      <IconLoader2 className="h-4 w-4 animate-spin" />
+                      Please wait...
+                    </>
+                  ) : isLogin ? (
+                    "Sign in"
+                  ) : (
+                    "Create account"
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-6">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300 dark:border-white/20" />
+                    <Separator />
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-2 bg-transparent text-gray-600 dark:text-gray-400">
-                      Or
-                    </span>
+                    <span className="px-2 bg-card text-muted-foreground">Or</span>
                   </div>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="backupCode"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    Backup Code
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="backupCode"
-                      name="backupCode"
-                      type="text"
-                      placeholder="Enter backup code"
-                      value={formData.backupCode}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 bg-white dark:bg-white/10 border border-gray-300 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                    Use a backup code if you don't have access to your
-                    authenticator app
-                  </p>
+                <div className="mt-6 text-center">
+                  <Button variant="link" asChild className="text-primary dark:text-primary-foreground">
+                    <Link href="/">Back to home</Link>
+                  </Button>
                 </div>
               </div>
-            )}
-
-            {error && (
-              <div className="text-red-400 text-sm text-center bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-3 px-4 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none pulse-glow"
-              >
-                {loading
-                  ? "Please wait..."
-                  : isLogin
-                    ? "Sign in"
-                    : "Create account"}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300 dark:border-white/20" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-transparent text-gray-600 dark:text-gray-400">Or</span>
-              </div>
-            </div>
-
-            <div className="mt-6 text-center">
-              <Link
-                href="/"
-                className="font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
-              >
-                Back to home
-              </Link>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     </div>

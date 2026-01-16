@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { Info, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { FairnessColumn } from "../../types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -11,31 +20,36 @@ interface SensitiveColumnAnalysisProps {
 }
 
 // Visual status configuration
+// Visual status configuration
 const getStatusConfig = (verdict: string) => {
-    const configs: Record<string, { icon: typeof CheckCircle2; color: string; bgColor: string; label: string }> = {
+    const configs: Record<string, { icon: typeof CheckCircle2; color: string; bgColor: string; label: string; badgeVariant: "default" | "secondary" | "destructive" | "outline" }> = {
         pass: {
             icon: CheckCircle2,
-            color: "text-emerald-600 dark:text-emerald-400",
-            bgColor: "bg-emerald-50 dark:bg-emerald-500/10",
-            label: "Pass"
+            color: "text-success",
+            bgColor: "bg-success/10",
+            label: "Pass",
+            badgeVariant: "default"
         },
         caution: {
             icon: AlertTriangle,
-            color: "text-amber-600 dark:text-amber-400",
-            bgColor: "bg-amber-50 dark:bg-amber-500/10",
-            label: "Needs Review"
+            color: "text-warning",
+            bgColor: "bg-warning/10",
+            label: "Needs Review",
+            badgeVariant: "outline"
         },
         fail: {
             icon: XCircle,
-            color: "text-rose-600 dark:text-rose-400",
-            bgColor: "bg-rose-50 dark:bg-rose-500/10",
-            label: "Fail"
+            color: "text-destructive",
+            bgColor: "bg-destructive/10",
+            label: "Fail",
+            badgeVariant: "destructive"
         },
         insufficient: {
             icon: Info,
-            color: "text-slate-500",
-            bgColor: "bg-slate-50 dark:bg-slate-800/70",
-            label: "Insufficient"
+            color: "text-muted-foreground",
+            bgColor: "bg-muted",
+            label: "Insufficient",
+            badgeVariant: "secondary"
         }
     };
     return configs[verdict] || configs.caution;
@@ -66,182 +80,185 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
     const cautionPercent = thresholdPercent * 0.75;
 
     return (
-        <div className={`rounded-2xl border ${column.verdict === 'fail' ? 'border-rose-200 dark:border-rose-500/30' : 'border-slate-100 dark:border-gray-800'} p-5 space-y-5 page-break-avoid w-full bg-white dark:bg-gray-900`}>
-            {/* Header with Status */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-xl ${status.bgColor}`}>
-                        <StatusIcon className={`w-5 h-5 ${status.color}`} />
-                    </div>
-                    <div>
-                        <h4 className="text-lg font-semibold text-slate-900 dark:text-white capitalize">
-                            {column.column}
-                        </h4>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {column.groups.length} groups analyzed
-                        </p>
-                    </div>
-                </div>
-                <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${status.bgColor} ${status.color}`}>
-                    {status.label}
-                </span>
-            </div>
-
-            {/* Visual Fairness Score */}
-            {fairnessScore !== null && (
-                <div className="bg-slate-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fairness Score</span>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-2xl font-bold ${fairnessScore >= thresholdPercent ? 'text-emerald-600' : fairnessScore >= cautionPercent ? 'text-amber-600' : 'text-rose-600'}`}>
-                                {fairnessScore.toFixed(0)}%
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setShowDetails(!showDetails)}
-                                className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors hide-in-pdf"
-                                title="What does this mean?"
-                            >
-                                <Info className="w-4 h-4 text-slate-400" />
-                            </button>
+        <Card className={`page-break-avoid w-full ${column.verdict === 'fail' ? 'border-destructive/30' : ''}`}>
+            <CardContent className="p-5 space-y-5">
+                {/* Header with Status */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${status.bgColor}`}>
+                            <StatusIcon className={`w-5 h-5 ${status.color}`} />
                         </div>
-                    </div>
-
-                    {/* 
-                        Progress bar 
-                        NOTE: Checked by usePdfExport.ts for PDF styling. 
-                        Do not change structure without verifying export.
-                    */}
-                    <div className="relative h-3 rounded-full bg-slate-200 dark:bg-gray-700 overflow-hidden pdf-progress-bar">
-                        <div
-                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${fairnessScore >= thresholdPercent ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' :
-                                fairnessScore >= cautionPercent ? 'bg-gradient-to-r from-amber-500 to-amber-400' :
-                                    'bg-gradient-to-r from-rose-500 to-rose-400'
-                                }`}
-                            style={{ width: `${Math.min(Math.max(fairnessScore, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
-                        />
-                        {/* Threshold marker */}
-                        <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-slate-600 dark:bg-slate-400"
-                            style={{ left: `${thresholdPercent}%` }}
-                            title={`${thresholdPercent.toFixed(0)}% threshold`}
-                        />
-                    </div>
-
-                    <div className="flex justify-between text-xs text-slate-400">
-                        <span>0%</span>
-                        <span className="font-medium">{thresholdPercent.toFixed(0)}% threshold</span>
-                        <span>100%</span>
-                    </div>
-                    {/* Expandable details */}
-                    {showDetails && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-gray-700 text-xs text-slate-500 dark:text-slate-400 space-y-1 animate-fadeIn">
-                            <p><strong>Fairness Score</strong> measures how equally outcomes are distributed across groups.</p>
-                            <p>Scores ≥{thresholdPercent.toFixed(0)}% meet the required fairness threshold.</p>
-                            <p className="text-slate-400 text-[10px] mt-2">
-                                Technical: DIR = {formatPercent(column.disparateImpactRatio ?? 0)} | DPD = {formatPercent(column.disparity)}
+                        <div>
+                            <h4 className="text-lg font-semibold text-foreground capitalize">
+                                {column.column}
+                            </h4>
+                            <p className="text-sm text-muted-foreground">
+                                {column.groups.length} groups analyzed
                             </p>
                         </div>
-                    )}
+                    </div>
+                    <Badge variant={status.badgeVariant} className={`${status.bgColor} ${status.color}`}>
+                        {status.label}
+                    </Badge>
                 </div>
-            )}
 
-            {/* Groups - Visual Bar Chart */}
-            <div className="space-y-3">
-                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Selection Rate by Group</p>
-
-                <div className="space-y-2">
-                    {visibleGroups.map((group) => {
-                        const rate = group.positiveRate * 100;
-                        const isBelowThreshold = rate < (threshold * 100);
-
-                        return (
-                            <div key={group.value} className="grid grid-cols-[140px_1fr_48px] items-center gap-4 group page-break-avoid">
-                                <div className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate" title={group.value}>
-                                    {group.value}
-                                </div>
-                                <div className="relative h-2.5">
-                                    <div className="absolute inset-0 rounded-full bg-slate-100 dark:bg-gray-800 overflow-hidden">
-                                        <div
-                                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isBelowThreshold
-                                                ? 'bg-gradient-to-r from-amber-500 to-orange-400'
-                                                : 'bg-gradient-to-r from-indigo-500 to-purple-400'
-                                                }`}
-                                            style={{ width: `${Math.min(rate, 100)}%` }}
-                                        />
-                                    </div>
-                                    {/* Hover info tooltip wrapper */}
-                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
-                                        <div className="bg-slate-800/90 text-[10px] text-white px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-                                            {group.rows.toLocaleString()}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className={`text-sm font-bold text-right tabular-nums ${isBelowThreshold ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'}`}>
-                                    {formatPercent(group.positiveRate)}
-                                </div>
+                {/* Visual Fairness Score */}
+                {fairnessScore !== null && (
+                    <div className="bg-muted rounded-xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-muted-foreground">Fairness Score</span>
+                            <div className="flex items-center gap-2">
+                                <span className={`text-2xl font-bold ${fairnessScore >= thresholdPercent ? 'text-success' : fairnessScore >= cautionPercent ? 'text-warning' : 'text-destructive'}`}>
+                                    {fairnessScore.toFixed(0)}%
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setShowDetails(!showDetails)}
+                                    className="h-6 w-6 hide-in-pdf"
+                                    title="What does this mean?"
+                                >
+                                    <Info className="w-4 h-4 text-muted-foreground" />
+                                </Button>
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
+                        </div>
 
-            {/* Show More Button */}
-            {hasMore && !isExporting && (
-                <button
-                    type="button"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-colors hide-in-pdf"
-                >
-                    {isExpanded ? (
-                        <>
-                            <ChevronUp className="w-4 h-4" />
-                            Show Less
-                        </>
-                    ) : (
-                        <>
-                            <ChevronDown className="w-4 h-4" />
-                            Show {hiddenCount} More Groups
-                        </>
-                    )}
-                </button>
-            )}
+                        {/* 
+                            Progress bar 
+                            NOTE: Checked by usePdfExport.ts for PDF styling. 
+                            Do not change structure without verifying export.
+                        */}
+                        <div className="relative h-3 rounded-full bg-muted-foreground/20 overflow-hidden pdf-progress-bar">
+                            <div
+                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${fairnessScore >= thresholdPercent ? 'bg-success' :
+                                    fairnessScore >= cautionPercent ? 'bg-warning' :
+                                        'bg-destructive'
+                                    }`}
+                                style={{ width: `${Math.min(Math.max(fairnessScore, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
+                            />
+                            {/* Threshold marker */}
+                            <div
+                                className="absolute top-0 bottom-0 w-0.5 bg-foreground/60"
+                                style={{ left: `${thresholdPercent}%` }}
+                                title={`${thresholdPercent.toFixed(0)}% threshold`}
+                            />
+                        </div>
 
-            {/* Summary Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-700 text-xs text-slate-400">
-                <span>{column.groups.reduce((sum, g) => sum + g.rows, 0).toLocaleString()} total samples</span>
-                {column.explanation && (
-                    <div className="relative">
-                        <button
-                            type="button"
-                            // Use stopPropagation to prevent bubbling to parent container handlers (if any)
-                            // while maintaining hover-only tooltip behavior.
-                            onClick={(e) => {
-                                e.stopPropagation();
-                            }}
-                            className="group p-1 rounded-full hover:bg-slate-100 dark:hover:bg-gray-800 transition-colors hide-in-pdf relative"
-                            aria-label="Show explanation"
-                        >
-                            <Info className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-
-                            {/* Custom Tooltip implementation */}
-                            <div className="hidden group-hover:block absolute bottom-full right-0 mb-2 w-64 p-3 bg-slate-800 text-white text-xs rounded-xl shadow-xl z-50 animate-fadeIn pointer-events-none">
-                                <div className="absolute -bottom-1 right-2 w-2 h-2 bg-slate-800 rotate-45"></div>
-                                <div className="leading-relaxed">
-                                    {Array.isArray(column.explanation)
-                                        ? column.explanation.map((item, i) => (
-                                            <p key={i} className="mb-1 last:mb-0">
-                                                {item}
-                                            </p>
-                                        ))
-                                        : column.explanation}
-                                </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>0%</span>
+                            <span className="font-medium">{thresholdPercent.toFixed(0)}% threshold</span>
+                            <span>100%</span>
+                        </div>
+                        {/* Expandable details */}
+                        {showDetails && (
+                            <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1 animate-fadeIn">
+                                <p><strong>Fairness Score</strong> measures how equally outcomes are distributed across groups.</p>
+                                <p>Scores ≥{thresholdPercent.toFixed(0)}% meet the required fairness threshold.</p>
+                                <p className="text-muted-foreground/60 text-[10px] mt-2">
+                                    Technical: DIR = {formatPercent(column.disparateImpactRatio ?? 0)} | DPD = {formatPercent(column.disparity)}
+                                </p>
                             </div>
-                        </button>
+                        )}
                     </div>
                 )}
-            </div>
-        </div>
+
+                {/* Groups - Visual Bar Chart */}
+                <div className="space-y-3">
+                    <p className="text-sm font-medium text-muted-foreground">Selection Rate by Group</p>
+
+                    <div className="space-y-2">
+                        {visibleGroups.map((group) => {
+                            const rate = group.positiveRate * 100;
+                            const isBelowThreshold = rate < (threshold * 100);
+
+                            return (
+                                <div key={group.value} className="grid grid-cols-[140px_1fr_48px] items-center gap-4 group page-break-avoid">
+                                    <div className="text-sm font-medium text-muted-foreground truncate" title={group.value}>
+                                        {group.value}
+                                    </div>
+                                    <div className="relative h-2.5">
+                                        <div className="absolute inset-0 rounded-full bg-muted overflow-hidden">
+                                            <div
+                                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isBelowThreshold
+                                                    ? 'bg-gradient-to-r from-warning to-warning/80'
+                                                    : 'bg-gradient-to-r from-primary to-primary/80'
+                                                    }`}
+                                                style={{ width: `${Math.min(rate, 100)}%` }}
+                                            />
+                                        </div>
+                                        {/* Hover info tooltip wrapper */}
+                                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
+                                            <div className="bg-popover text-[10px] text-popover-foreground px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm border border-border">
+                                                {group.rows.toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className={`text-sm font-bold text-right tabular-nums ${isBelowThreshold ? 'text-warning' : 'text-muted-foreground'}`}>
+                                        {formatPercent(group.positiveRate)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Show More Button */}
+                {hasMore && !isExporting && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="w-full hide-in-pdf"
+                    >
+                        {isExpanded ? (
+                            <>
+                                <ChevronUp className="w-4 h-4" />
+                                Show Less
+                            </>
+                        ) : (
+                            <>
+                                <ChevronDown className="w-4 h-4" />
+                                Show {hiddenCount} More Groups
+                            </>
+                        )}
+                    </Button>
+                )}
+
+                {/* Summary Footer */}
+                <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">
+                    <span>{column.groups.reduce((sum, g) => sum + g.rows, 0).toLocaleString()} total samples</span>
+                    {column.explanation && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 hide-in-pdf"
+                                        aria-label="Show explanation"
+                                    >
+                                        <Info className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                    <div className="leading-relaxed text-xs">
+                                        {Array.isArray(column.explanation)
+                                            ? column.explanation.map((item, i) => (
+                                                <p key={i} className="mb-1 last:mb-0">
+                                                    {item}
+                                                </p>
+                                            ))
+                                            : column.explanation}
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     );
 };

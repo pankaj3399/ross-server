@@ -6,11 +6,11 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../hooks/useRequireAuth";
 import { apiService, Domain as ApiDomain, Practice, PracticeQuestionLevels } from "../../../../lib/api";
 import { motion } from "framer-motion";
-import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
+import AssessmentTreeNavigation from "../../../../components/shared/AssessmentTreeNavigation";
 import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
 import { PREMIUM_STATUS } from "../../../../lib/constants";
 import { FeatureCard } from "./components/FeatureCard";
-import { ArrowLeft, Shield, Bug, Scale, ClipboardCheck, Crown } from "lucide-react";
+import { IconArrowLeft, IconShield, IconBug, IconScale, IconClipboardCheck, IconCrown } from "@tabler/icons-react";
 
 interface PracticeWithLevels extends Practice {
   levels: PracticeQuestionLevels;
@@ -156,7 +156,7 @@ export default function PremiumFeaturesPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-row-reverse">
       {/* Tree Navigation Sidebar */}
       <AssessmentTreeNavigation
         domains={progressData}
@@ -185,7 +185,7 @@ export default function PremiumFeaturesPage() {
                 onClick={() => router.push(`/assess/${projectId}`)}
                 className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <IconArrowLeft className="w-4 h-4" />
                 Back to AIMA Assessment
               </button>
               <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
@@ -221,8 +221,8 @@ export default function PremiumFeaturesPage() {
               <FeatureCard
                 icon={
                   <>
-                    <Shield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
-                    <Bug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
+                    <IconShield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
+                    <IconBug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
                   </>
                 }
                 title="AI Vulnerability Assessment"
@@ -233,7 +233,7 @@ export default function PremiumFeaturesPage() {
 
               {/* Card 2: Automated Bias & Fairness Testing */}
               <FeatureCard
-                icon={<Scale className="w-28 h-28 text-purple-600 dark:text-purple-400" />}
+                icon={<IconScale className="w-28 h-28 text-purple-600 dark:text-purple-400" />}
                 title="Automated Bias & Fairness Testing"
                 description="Detect and mitigate algorithmic bias across datasets."
                 href={`/assess/${projectId}/fairness-bias/options`}
@@ -242,7 +242,7 @@ export default function PremiumFeaturesPage() {
 
               {/* Card 3: Actionable Governance Controls */}
               <FeatureCard
-                icon={<ClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />}
+                icon={<IconClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />}
                 title="Actionable Governance Controls"
                 description="Get concrete steps to improve maturity scores."
                 href={`/assess/${projectId}/premium-domains`}
@@ -258,7 +258,7 @@ export default function PremiumFeaturesPage() {
               className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-3xl p-8 shadow-xl border border-purple-200 dark:border-purple-700 mb-8"
             >
               <div className="flex items-center gap-4 mb-4">
-                <Crown className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                <IconCrown className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                 <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
                   Premium Domains Assessment
                 </h3>
