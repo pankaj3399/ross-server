@@ -165,16 +165,13 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   }
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center justify-between">
+    <Sidebar collapsible="icon" variant="sidebar">
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center">
+        <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
           <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
             MATHUR.ai
           </span>
-          <span className="text-lg font-bold text-primary hidden group-data-[collapsible=icon]:block">
-            M
-          </span>
-          <SidebarTrigger className="group-data-[collapsible=icon]:hidden" />
+          <SidebarTrigger className="" />
         </div>
       </SidebarHeader>
 
