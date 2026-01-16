@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import UnlockPremium from "../../../../components/features/subscriptions/UnlockPremium";
 import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
+import { Button } from "@/components/ui/button";
 
 interface FairnessQuestion {
   label: string;
@@ -129,10 +130,10 @@ export default function FairnessBiasTest() {
 
   if (questionsLoading) {
     return (
-      <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+      <div className="min-h-screen flex bg-background relative">
         {!isPremium && (
           <>
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            <div className="absolute inset-0 bg-overlay/20 backdrop-blur-sm z-40" />
             {showUnlockPremium && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <UnlockPremium
@@ -152,10 +153,10 @@ export default function FairnessBiasTest() {
 
   if (fairnessQuestions.length === 0) {
     return (
-      <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+      <div className="min-h-screen flex bg-background relative">
         {!isPremium && (
           <>
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm z-40" />
+            <div className="absolute inset-0 bg-overlay/20 backdrop-blur-sm z-40" />
             {showUnlockPremium && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <UnlockPremium
@@ -168,7 +169,7 @@ export default function FairnessBiasTest() {
         )}
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-lg text-gray-400">No fairness questions available.</p>
+            <p className="text-lg text-muted-foreground">No fairness questions available.</p>
           </div>
         </div>
       </div>
@@ -240,7 +241,7 @@ export default function FairnessBiasTest() {
     });
 
     if (responsesArray.length === 0) {
-      alert("Please provide at least one response before evaluating.");
+      showToast.warning("Please provide at least one response before evaluating.");
       return;
     }
 
@@ -255,7 +256,7 @@ export default function FairnessBiasTest() {
       router.push(`/assess/${projectId}/fairness-bias/job/${result.jobId}`);
     } catch (error: any) {
       console.error("Failed to start evaluation:", error);
-      alert(error.message || "Failed to start evaluation. Please try again.");
+      showToast.error(error.message || "Failed to start evaluation. Please try again.");
     } finally {
       setIsEvaluating(false);
     }
@@ -267,7 +268,7 @@ export default function FairnessBiasTest() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950 relative">
+    <div className="min-h-screen flex bg-background relative">
       {!isPremium && showUnlockPremium && (
         <UnlockPremium
           featureName="Fairness & Bias Test"
@@ -275,31 +276,31 @@ export default function FairnessBiasTest() {
         />
       )}
 
-      <div className={`w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen overflow-y-auto ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
+      <div className={`w-80 bg-card border-r border-border h-screen overflow-y-auto ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         <div className="p-6">
           <div className="flex items-center gap-2 mb-6">
-            <BarChart3 className="w-6 h-6 text-purple-600" />
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <BarChart3 className="w-6 h-6 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">
               Fairness & Bias Test
             </h2>
           </div>
 
-          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div className="mb-6 p-4 bg-muted/50 rounded-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-muted-foreground">
                 Progress
               </span>
-              <span className="text-sm text-purple-600 dark:text-purple-400 font-medium">
+              <span className="text-sm text-primary font-medium">
                 {answeredQuestions}/{totalQuestions}
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div className="w-full bg-secondary rounded-full h-2">
               <div
-                className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
+                className="bg-primary h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {Math.round(progress)}% Complete
             </div>
           </div>
@@ -313,8 +314,8 @@ export default function FairnessBiasTest() {
                 <div key={category.id} className="select-none">
                   <div
                     className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentCategory
-                        ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700"
-                        : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                      ? "bg-primary/20 border border-primary/30"
+                      : "hover:bg-muted/50"
                       }`}
                     onClick={() => {
                       toggleCategory(category.id);
@@ -326,34 +327,34 @@ export default function FairnessBiasTest() {
                     <div className="flex items-center gap-3 flex-1">
                       <div className="flex items-center gap-2">
                         {isExpanded ? (
-                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-500" />
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         )}
-                        <FileText className="w-4 h-4 text-gray-500" />
+                        <FileText className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        <h3 className="text-sm font-medium text-foreground truncate">
                           {category.label}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                          <div className="flex-1 bg-secondary rounded-full h-1.5">
                             <div
                               className={`h-1.5 rounded-full transition-all duration-300 ${category.prompts.every((_, idx) => getQuestionStatus(catIdx, idx))
-                                  ? "bg-green-500"
-                                  : category.prompts.some((_, idx) => getQuestionStatus(catIdx, idx))
-                                    ? "bg-yellow-500"
-                                    : "bg-gray-300 dark:bg-gray-600"
+                                ? "bg-success"
+                                : category.prompts.some((_, idx) => getQuestionStatus(catIdx, idx))
+                                  ? "bg-warning"
+                                  : "bg-muted"
                                 }`}
                               style={{
                                 width: `${(category.prompts.filter((_, idx) => getQuestionStatus(catIdx, idx)).length /
-                                    category.totalPrompts) *
+                                  category.totalPrompts) *
                                   100
                                   }%`,
                               }}
                             />
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-muted-foreground">
                             {category.prompts.filter((_, idx) => getQuestionStatus(catIdx, idx)).length}/
                             {category.totalPrompts}
                           </span>
@@ -381,8 +382,8 @@ export default function FairnessBiasTest() {
                               key={prompt.id}
                               ref={isCurrentQuestion ? currentQuestionRef : null}
                               className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentQuestion
-                                  ? "bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700"
-                                  : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                                ? "bg-primary/10 border border-primary/20"
+                                : "hover:bg-muted/50"
                                 }`}
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -391,13 +392,13 @@ export default function FairnessBiasTest() {
                             >
                               <div className="flex items-center gap-2">
                                 {getQuestionStatus(catIdx, promptIdx) ? (
-                                  <CheckCircle className="w-3 h-3 text-green-500" />
+                                  <CheckCircle className="w-3 h-3 text-success" />
                                 ) : (
-                                  <Circle className="w-3 h-3 text-gray-400" />
+                                  <Circle className="w-3 h-3 text-muted-foreground" />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 line-clamp-2">
+                                <div className="text-xs font-medium text-muted-foreground line-clamp-2">
                                   {prompt.text.substring(0, 60)}
                                   {prompt.text.length > 60 ? "..." : ""}
                                 </div>
@@ -416,44 +417,43 @@ export default function FairnessBiasTest() {
       </div>
 
       <div className={`flex-1 flex flex-col ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-card border-b border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => router.back()}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors pl-0 hover:bg-transparent"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
-              </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              </Button>
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h1 className="text-lg font-semibold text-foreground">
                   {currentCategory?.label || "Loading..."}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Question {answeredQuestions} of {totalQuestions} • Prompt{" "}
                   {currentPromptIndex + 1} of {currentCategory?.totalPrompts || 0}
                 </p>
               </div>
             </div>
-            <button
+            <Button
               onClick={handleEvaluateAssessment}
-              disabled={isEvaluating || answeredQuestions === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              isLoading={isEvaluating}
+              disabled={answeredQuestions === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all duration-200 shadow-sm"
             >
               {isEvaluating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Evaluating...
-                </>
+                "Evaluating..."
               ) : (
                 <>
-                  <BarChart3 className="w-4 h-4" />
+                  <BarChart3 className="w-4 h-4 mr-2" />
                   Evaluate Assessment
                 </>
               )}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -461,16 +461,16 @@ export default function FairnessBiasTest() {
           <div className="max-w-4xl mx-auto">
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-foreground">
                   Question {answeredQuestions} of {totalQuestions}
                 </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="text-sm text-muted-foreground">
                   {Math.round(progress)}% Complete
                 </span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-secondary rounded-full h-2">
                 <div
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-primary h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -482,21 +482,21 @@ export default function FairnessBiasTest() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
+                className="bg-card rounded-2xl shadow-lg border border-border p-8 mb-8"
               >
                 <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
+                  <h2 className="text-xl font-semibold text-foreground leading-relaxed">
                     {currentPrompt.text}
                   </h2>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     Your Response
                   </label>
                   <textarea
                     rows={8}
-                    className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 p-4 text-gray-800 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                    className="w-full rounded-xl border border-input bg-background p-4 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
                       const originalValue = e.target.value;
@@ -544,7 +544,7 @@ export default function FairnessBiasTest() {
                     }}
                     placeholder="Type or paste your response here..."
                   />
-                  <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-lg">
+                  <div className="mt-2 text-xs text-muted-foreground bg-muted p-2 rounded-lg">
                     <strong>Security:</strong> Your notes are automatically sanitized to
                     prevent malicious content. HTML tags and scripts are not allowed.
                   </div>
@@ -554,23 +554,24 @@ export default function FairnessBiasTest() {
             )}
 
             <div className="flex items-center justify-between">
-              <button
+              <Button
                 onClick={handlePrevious}
                 disabled={!hasPrevious}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                variant="outline"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 border border-input text-foreground hover:bg-muted bg-transparent"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
-              </button>
+              </Button>
 
-              <button
+              <Button
                 onClick={handleNext}
                 disabled={!hasNext}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
               >
                 Next
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
             </div>
           </div>
         </div>

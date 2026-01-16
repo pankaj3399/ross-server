@@ -14,7 +14,6 @@ import {
   IconMoon,
   IconSun,
   IconCrown,
-  IconMenu2,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -33,6 +32,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
   SidebarTrigger,
+  SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -166,12 +166,12 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center">
+      <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
         <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
           <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
             MATHUR.ai
           </span>
-          <SidebarTrigger className="" />
+          <SidebarTrigger className="size-8" />
         </div>
       </SidebarHeader>
 
@@ -193,7 +193,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                       tooltip={item.label}
                     >
                       <Link href={item.disabled ? "#" : item.href}>
-                        <Icon className="size-6" />
+                        <Icon className="size-4" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -205,7 +205,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="group-data-[collapsible=icon]:p-0">
         <SidebarSeparator />
 
         {/* Theme Toggle */}
@@ -220,9 +220,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                 className="cursor-pointer"
               >
                 {theme === "dark" ? (
-                  <IconSun className="size-6" />
+                  <IconSun className="size-4" />
                 ) : (
-                  <IconMoon className="size-6" />
+                  <IconMoon className="size-4" />
                 )}
                 <span>Theme</span>
                 <Switch
@@ -246,9 +246,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     size="lg"
                     tooltip={user.name || "User"}
                   >
-                    <Avatar className="size-10">
+                    <Avatar className="size-8">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        <IconUser className="size-5" />
+                        <IconUser className="size-4" />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col gap-0.5 leading-none">
@@ -271,7 +271,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/settings">
-                      <IconSettings className="size-5 mr-2" />
+                      <IconSettings className="size-4 mr-2" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
@@ -280,7 +280,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     onClick={handleLogout}
                     className="text-destructive focus:text-destructive"
                   >
-                    <IconLogout className="size-5 mr-2" />
+                    <IconLogout className="size-4 mr-2" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -289,6 +289,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
           </SidebarMenu>
         )}
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 }
@@ -297,7 +298,8 @@ export function AppSidebar({ items = defaultSidebarItems }: AppSidebarProps) {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
 
-  const shouldHideSidebar = pathname === "/" || pathname?.startsWith("/auth");
+  // Only hide on auth pages or if not authenticated
+  const shouldHideSidebar = pathname?.startsWith("/auth");
 
   if (shouldHideSidebar || !isAuthenticated) {
     return null;
@@ -311,7 +313,8 @@ export function SidebarMobileTrigger() {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
 
-  const shouldHide = pathname === "/" || pathname?.startsWith("/auth");
+  // Only hide on auth pages or if not authenticated
+  const shouldHide = pathname?.startsWith("/auth");
 
   if (shouldHide || !isAuthenticated) {
     return null;

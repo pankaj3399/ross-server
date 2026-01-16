@@ -768,17 +768,19 @@ export default function SettingsPage() {
                                 disabled={passwordLoading}
                                 className="pl-10 pr-10"
                               />
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => togglePasswordVisibility("current")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                               >
                                 {showPasswords.current ? (
                                   <IconEyeOff className="w-4 h-4" />
                                 ) : (
                                   <IconEye className="w-4 h-4" />
                                 )}
-                              </button>
+                              </Button>
                             </div>
                           </div>
 
@@ -796,17 +798,19 @@ export default function SettingsPage() {
                                 disabled={passwordLoading}
                                 className="pl-10 pr-10"
                               />
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => togglePasswordVisibility("new")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                               >
                                 {showPasswords.new ? (
                                   <IconEyeOff className="w-4 h-4" />
                                 ) : (
                                   <IconEye className="w-4 h-4" />
                                 )}
-                              </button>
+                              </Button>
                             </div>
                           </div>
 
@@ -824,17 +828,19 @@ export default function SettingsPage() {
                                 disabled={passwordLoading}
                                 className="pl-10 pr-10"
                               />
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => togglePasswordVisibility("confirm")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                               >
                                 {showPasswords.confirm ? (
                                   <IconEyeOff className="w-4 h-4" />
                                 ) : (
                                   <IconEye className="w-4 h-4" />
                                 )}
-                              </button>
+                              </Button>
                             </div>
                           </div>
 

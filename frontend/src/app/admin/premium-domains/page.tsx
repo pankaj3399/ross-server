@@ -10,6 +10,7 @@ import { SimplePageSkeleton, AimaDataManagementSkeleton } from "@/components/Ske
 import { RichTextEditor } from "@/components/shared/RichTextEditor";
 import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
 import { ROLES } from "@/lib/constants";
+import { showToast } from "@/lib/toast";
 import { IconCrown, IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 
 interface Question {
@@ -220,11 +221,11 @@ export default function PremiumDomainsAdmin() {
             } else {
                 const error = await response.json();
                 console.error(`Error: ${error.error}`);
-                alert(`Failed to update premium status: ${error.error}`);
+                showToast.error(`Failed to update premium status: ${error.error}`);
             }
         } catch (err) {
             console.error("Failed to toggle domain premium status");
-            alert("Failed to update premium status. Please try again.");
+            showToast.error("Failed to update premium status. Please try again.");
         }
     };
 
@@ -727,12 +728,12 @@ export default function PremiumDomainsAdmin() {
 
             {aimaData.data.domains.length === 0 ? (
                 <div className="max-w-6xl mx-auto">
-                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-primary/20 dark:border-primary/50 rounded-2xl p-12 shadow-lg text-center">
+                    <div className="bg-card backdrop-blur-sm border border-primary/20 rounded-2xl p-12 shadow-lg text-center">
                         <IconCrown className="w-16 h-16 text-primary mx-auto mb-4" />
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                        <h3 className="text-xl font-semibold text-foreground mb-2">
                             No Premium Domains Yet
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
+                        <p className="text-muted-foreground">
                             Mark domains as premium in the AIMA Data Management page to see them here.
                         </p>
                     </div>
@@ -742,11 +743,11 @@ export default function PremiumDomainsAdmin() {
                     {aimaData.data.domains.map((domain) => (
                         <div
                             key={domain.id}
-                            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-primary/20 dark:border-primary/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 dark:shadow-gray-900/20"
+                            className="bg-card backdrop-blur-sm border border-primary/20 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
                         >
                             {/* Domain Header - Always Visible */}
                             <div
-                                className="p-6 cursor-pointer hover:bg-yellow-50/50 dark:hover:bg-gray-700/50 transition-all duration-200 rounded-2xl"
+                                className="p-6 cursor-pointer hover:bg-muted/50 transition-all duration-200 rounded-2xl"
                                 onClick={() => toggleDomain(domain.id)}
                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
                                 role="button"
@@ -760,19 +761,19 @@ export default function PremiumDomainsAdmin() {
                                                 {expandedDomains.has(domain.id) ? (
                                                     <IconChevronDown className="w-5 h-5 text-primary transition-transform duration-200" />
                                                 ) : (
-                                                    <IconChevronRight className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200" />
+                                                    <IconChevronRight className="w-5 h-5 text-muted-foreground transition-transform duration-200" />
                                                 )}
                                             </div>
                                             <div>
                                                 <div className="flex items-center space-x-2">
-                                                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                                    <h2 className="text-xl font-semibold text-foreground">
                                                         {domain.title}
                                                     </h2>
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
                                                         ⭐ Premium
                                                     </span>
                                                 </div>
-                                                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                                <p className="text-muted-foreground text-sm mt-1">
                                                     {domain.description}
                                                 </p>
                                             </div>
@@ -785,12 +786,12 @@ export default function PremiumDomainsAdmin() {
                                                 e.stopPropagation();
                                                 toggleDomainPremium(domain.id, domain.is_premium);
                                             }}
-                                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
+                                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-destructive/10 text-destructive hover:bg-destructive/20"
                                             title="Click to remove premium status"
                                         >
                                             Remove Premium
                                         </button>
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-warning/10 text-warning">
                                             {domain.practices.length} practices
                                         </span>
                                     </div>
@@ -802,14 +803,14 @@ export default function PremiumDomainsAdmin() {
                                 <div className="border-t border-primary/20 dark:border-primary/30">
                                     <div className="p-6 space-y-4">
                                         {domain.practices.length === 0 ? (
-                                            <p className="text-gray-500 dark:text-gray-400 italic">
+                                            <p className="text-muted-foreground italic">
                                                 No practices in this domain yet.
                                             </p>
                                         ) : (
                                             domain.practices.map((practice) => (
                                                 <div
                                                     key={practice.id}
-                                                    className="bg-gray-50/50 dark:bg-gray-700/30 rounded-xl p-4"
+                                                    className="bg-muted/30 rounded-xl p-4"
                                                 >
                                                     <div
                                                         className="flex items-center justify-between cursor-pointer"
@@ -822,45 +823,21 @@ export default function PremiumDomainsAdmin() {
                                                         <div className="flex items-center space-x-2">
                                                             <div className="flex-shrink-0">
                                                                 {expandedPractices.has(practice.id) ? (
-                                                                    <svg
-                                                                        className="w-4 h-4 text-primary"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={2}
-                                                                            d="M19 9l-7 7-7-7"
-                                                                        />
-                                                                    </svg>
+                                                                    <IconChevronDown className="w-4 h-4 text-primary" />
                                                                 ) : (
-                                                                    <svg
-                                                                        className="w-4 h-4 text-gray-400"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        viewBox="0 0 24 24"
-                                                                    >
-                                                                        <path
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            strokeWidth={2}
-                                                                            d="M9 5l7 7-7 7"
-                                                                        />
-                                                                    </svg>
+                                                                    <IconChevronRight className="w-4 h-4 text-muted-foreground" />
                                                                 )}
                                                             </div>
                                                             <div>
-                                                                <h3 className="font-medium text-gray-900 dark:text-white">
+                                                                <h3 className="font-medium text-foreground">
                                                                     {practice.title}
                                                                 </h3>
-                                                                <p className="text-gray-500 dark:text-gray-400 text-sm">
+                                                                <p className="text-muted-foreground text-sm">
                                                                     {practice.description}
                                                                 </p>
                                                             </div>
                                                         </div>
-                                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                        <span className="text-sm text-muted-foreground">
                                                             {practice.questions.length} questions
                                                         </span>
                                                     </div>
@@ -869,25 +846,25 @@ export default function PremiumDomainsAdmin() {
                                                     {expandedPractices.has(practice.id) && (
                                                         <div className="mt-4 space-y-3">
                                                             {practice.questions.length === 0 ? (
-                                                                <p className="text-gray-500 dark:text-gray-400 italic text-sm">
+                                                                <p className="text-muted-foreground italic text-sm">
                                                                     No questions in this practice yet.
                                                                 </p>
                                                             ) : (
                                                                 practice.questions.map((question, idx) => (
                                                                     <div
                                                                         key={question.id}
-                                                                        className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200/50 dark:border-gray-600/50"
+                                                                        className="bg-card rounded-lg p-4 shadow-sm border border-border"
                                                                     >
                                                                         <div className="flex items-start justify-between">
                                                                             <div className="flex-1">
                                                                                 <div className="flex items-center space-x-2 mb-2">
-                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300">
+                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/10 text-warning">
                                                                                         L{question.level}
                                                                                     </span>
-                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/20 text-warning">
                                                                                         {question.stream}
                                                                                     </span>
-                                                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                                                    <span className="text-xs text-muted-foreground">
                                                                                         Q{idx + 1}
                                                                                     </span>
                                                                                 </div>
@@ -901,7 +878,7 @@ export default function PremiumDomainsAdmin() {
                                                                                                     [question.id]: e.target.value,
                                                                                                 }))
                                                                                             }
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm resize-none"
+                                                                                            className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm resize-none focus:ring-2 focus:ring-ring focus:border-input"
                                                                                             rows={3}
                                                                                         />
                                                                                         <div className="flex gap-2">
@@ -913,7 +890,7 @@ export default function PremiumDomainsAdmin() {
                                                                                                         [question.id]: e.target.value,
                                                                                                     }))
                                                                                                 }
-                                                                                                className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                                                                                                className="px-2 py-1 rounded border border-input bg-background text-foreground text-sm"
                                                                                             >
                                                                                                 <option value="1">Level 1</option>
                                                                                                 <option value="2">Level 2</option>
@@ -927,7 +904,7 @@ export default function PremiumDomainsAdmin() {
                                                                                                         [question.id]: e.target.value,
                                                                                                     }))
                                                                                                 }
-                                                                                                className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                                                                                                className="px-2 py-1 rounded border border-input bg-background text-foreground text-sm"
                                                                                             >
                                                                                                 <option value="A">Stream A</option>
                                                                                                 <option value="B">Stream B</option>
@@ -945,7 +922,7 @@ export default function PremiumDomainsAdmin() {
                                                                                             <button
                                                                                                 type="button"
                                                                                                 onClick={() => cancelEditingQuestion(question.id)}
-                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500"
+                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
                                                                                             >
                                                                                                 Cancel
                                                                                             </button>
@@ -953,7 +930,7 @@ export default function PremiumDomainsAdmin() {
                                                                                     </div>
                                                                                 ) : (
                                                                                     <p
-                                                                                        className="text-gray-700 dark:text-gray-300 text-sm cursor-pointer hover:text-primary"
+                                                                                        className="text-foreground text-sm cursor-pointer hover:text-primary"
                                                                                         onClick={() => startEditingQuestion(question)}
                                                                                         dangerouslySetInnerHTML={{
                                                                                             __html: safeRenderHTML(question.question_text),
@@ -974,8 +951,8 @@ export default function PremiumDomainsAdmin() {
                                                                         </div>
 
                                                                         {/* Description Editor */}
-                                                                        <div className="mt-3 pt-3 border-t border-gray-200/50 dark:border-gray-600/50">
-                                                                            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-2">
+                                                                        <div className="mt-3 pt-3 border-t border-border">
+                                                                            <label className="text-xs font-medium text-muted-foreground block mb-2">
                                                                                 Description / Notes
                                                                             </label>
                                                                             <RichTextEditor
@@ -1035,14 +1012,14 @@ export default function PremiumDomainsAdmin() {
 
             {/* Practice Modal */}
             {showPracticeModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-xl">
+                        <h3 className="text-xl font-semibold text-foreground mb-4">
                             Add New Practice
                         </h3>
                         <div className="space-y-4">
                             <div>
-                                <label htmlFor="practice-title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="practice-title" className="block text-sm font-medium text-foreground mb-1">
                                     Title
                                 </label>
                                 <input
@@ -1050,12 +1027,12 @@ export default function PremiumDomainsAdmin() {
                                     type="text"
                                     value={practiceForm.title}
                                     onChange={(e) => setPracticeForm({ ...practiceForm, title: e.target.value })}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input"
                                     placeholder="Enter practice title"
                                 />
                             </div>
                             <div>
-                                <label htmlFor="practice-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="practice-description" className="block text-sm font-medium text-foreground mb-1">
                                     Description
                                 </label>
                                 <textarea
@@ -1063,7 +1040,7 @@ export default function PremiumDomainsAdmin() {
                                     value={practiceForm.description}
                                     onChange={(e) => setPracticeForm({ ...practiceForm, description: e.target.value })}
                                     rows={3}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                                    className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground resize-none focus:ring-2 focus:ring-ring focus:border-input"
                                     placeholder="Enter practice description"
                                 />
                             </div>
@@ -1072,7 +1049,7 @@ export default function PremiumDomainsAdmin() {
                             <button
                                 type="button"
                                 onClick={closeModals}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>
@@ -1090,22 +1067,22 @@ export default function PremiumDomainsAdmin() {
 
             {/* Question Modal */}
             {showQuestionModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-xl">
+                        <h3 className="text-xl font-semibold text-foreground mb-4">
                             Add New Question
                         </h3>
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label htmlFor="question-level" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="question-level" className="block text-sm font-medium text-card-foreground mb-1">
                                         Level
                                     </label>
                                     <select
                                         id="question-level"
                                         value={questionForm.level}
                                         onChange={(e) => setQuestionForm({ ...questionForm, level: e.target.value })}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input"
                                     >
                                         <option value="1">Level 1</option>
                                         <option value="2">Level 2</option>
@@ -1113,14 +1090,14 @@ export default function PremiumDomainsAdmin() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label htmlFor="question-stream" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    <label htmlFor="question-stream" className="block text-sm font-medium text-card-foreground mb-1">
                                         Stream
                                     </label>
                                     <select
                                         id="question-stream"
                                         value={questionForm.stream}
                                         onChange={(e) => setQuestionForm({ ...questionForm, stream: e.target.value })}
-                                        className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-input"
                                     >
                                         <option value="A">Stream A</option>
                                         <option value="B">Stream B</option>
@@ -1128,7 +1105,7 @@ export default function PremiumDomainsAdmin() {
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="question-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="question-text" className="block text-sm font-medium text-card-foreground mb-1">
                                     Question Text
                                 </label>
                                 <textarea
@@ -1136,12 +1113,12 @@ export default function PremiumDomainsAdmin() {
                                     value={questionForm.question_text}
                                     onChange={(e) => setQuestionForm({ ...questionForm, question_text: e.target.value })}
                                     rows={4}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                                    className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground resize-none focus:ring-2 focus:ring-ring focus:border-input"
                                     placeholder="Enter question text"
                                 />
                             </div>
                             <div>
-                                <label htmlFor="question-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                <label htmlFor="question-description" className="block text-sm font-medium text-card-foreground mb-1">
                                     Description (Optional)
                                 </label>
                                 <textarea
@@ -1149,7 +1126,7 @@ export default function PremiumDomainsAdmin() {
                                     value={questionForm.description}
                                     onChange={(e) => setQuestionForm({ ...questionForm, description: e.target.value })}
                                     rows={2}
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                                    className="w-full px-4 py-2 rounded-lg border border-input bg-background text-foreground resize-none focus:ring-2 focus:ring-ring focus:border-input"
                                     placeholder="Enter question description"
                                 />
                             </div>
@@ -1158,7 +1135,7 @@ export default function PremiumDomainsAdmin() {
                             <button
                                 type="button"
                                 onClick={closeModals}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
                             >
                                 Cancel
                             </button>

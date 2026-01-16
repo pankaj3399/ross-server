@@ -7,7 +7,6 @@ import {
   IconShield,
   IconCircleCheck,
   IconCircleX,
-  IconLoader2,
   IconArrowLeft,
   IconRefresh,
   IconClock
@@ -189,7 +188,7 @@ export default function VerifyOTPPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-slate-950 dark:via-purple-950 dark:to-violet-950">
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-background">
       {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl floating-animation"></div>
@@ -210,9 +209,9 @@ export default function VerifyOTPPage() {
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="w-20 h-20 mx-auto bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg pulse-glow"
+              className="w-20 h-20 mx-auto bg-primary rounded-2xl flex items-center justify-center shadow-lg pulse-glow"
             >
-              <IconShield className="w-10 h-10 text-white" />
+              <IconShield className="w-10 h-10 text-primary-foreground" />
             </motion.div>
           </div>
 
@@ -286,7 +285,7 @@ export default function VerifyOTPPage() {
                             disabled={loading}
                             className={`
                               w-12 h-12 text-center text-2xl font-bold rounded-xl border-2 transition-all duration-300
-                              focus:outline-none focus:ring-4 focus:ring-purple-500/30
+                              focus:outline-none focus:ring-4 focus:ring-primary/30
                               ${digit
                                 ? 'border-primary bg-primary/10 text-primary'
                                 : 'border-border bg-background text-foreground'
@@ -295,7 +294,7 @@ export default function VerifyOTPPage() {
                             `}
                             style={{
                               boxShadow: digit
-                                ? '0 0 20px rgba(139, 92, 246, 0.3)'
+                                ? '0 0 20px hsl(var(--primary) / 0.3)'
                                 : 'none'
                             }}
                           />
@@ -322,17 +321,11 @@ export default function VerifyOTPPage() {
                     <div className="space-y-4">
                       <Button
                         onClick={() => handleVerifyOTP()}
-                        disabled={loading || otp.some(digit => digit === "")}
-                        className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 font-semibold"
+                        isLoading={loading}
+                        disabled={otp.some(digit => digit === "")}
+                        className="w-full h-12 bg-primary hover:bg-primary/90 font-semibold"
                       >
-                        {loading ? (
-                          <>
-                            <IconLoader2 className="w-5 h-5 animate-spin" />
-                            Verifying...
-                          </>
-                        ) : (
-                          "Verify Code"
-                        )}
+                        {loading ? "Verifying..." : "Verify Code"}
                       </Button>
 
                       {/* Resend OTP */}
@@ -340,14 +333,12 @@ export default function VerifyOTPPage() {
                         <Button
                           variant="ghost"
                           onClick={handleResendOTP}
-                          disabled={resendCooldown > 0 || isResending}
+                          isLoading={isResending}
+                          disabled={resendCooldown > 0}
                           className="text-primary"
                         >
                           {isResending ? (
-                            <>
-                              <IconLoader2 className="w-4 h-4 animate-spin" />
-                              Sending...
-                            </>
+                            "Sending..."
                           ) : resendCooldown > 0 ? (
                             <>
                               <IconClock className="w-4 h-4" />

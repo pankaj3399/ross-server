@@ -73,43 +73,30 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         }
         .rich-text-editor-wrapper .ql-editor {
           min-height: ${rows * 1.5}rem;
-          color: rgb(17 24 39);
-        }
-        .dark .rich-text-editor-wrapper .ql-editor {
-          color: rgb(243 244 246);
+          color: var(--foreground);
         }
         .rich-text-editor-wrapper .ql-toolbar {
           border-top-left-radius: 0.5rem;
           border-top-right-radius: 0.5rem;
-          border-color: rgb(229 231 235);
+          border-color: var(--border);
+          background-color: var(--muted);
         }
-        .dark .rich-text-editor-wrapper .ql-toolbar {
-          border-color: rgb(75 85 99);
-          background-color: rgb(55 65 81);
+        .rich-text-editor-wrapper .ql-stroke {
+          stroke: var(--muted-foreground);
         }
-        .dark .rich-text-editor-wrapper .ql-stroke {
-          stroke: rgb(209 213 219);
+        .rich-text-editor-wrapper .ql-fill {
+          fill: var(--muted-foreground);
         }
-        .dark .rich-text-editor-wrapper .ql-fill {
-          fill: rgb(209 213 219);
-        }
-        .dark .rich-text-editor-wrapper .ql-picker-label {
-          color: rgb(209 213 219);
+        .rich-text-editor-wrapper .ql-picker-label {
+          color: var(--muted-foreground);
         }
         .rich-text-editor-wrapper .ql-container {
-          border-color: rgb(229 231 235);
-          background-color: white;
-        }
-        .dark .rich-text-editor-wrapper .ql-container {
-          border-color: rgb(75 85 99);
-          background-color: rgb(55 65 81);
+          border-color: var(--border);
+          background-color: var(--card);
         }
         .rich-text-editor-wrapper .ql-editor.ql-blank::before {
-          color: rgb(156 163 175);
+          color: var(--muted-foreground);
           font-style: normal;
-        }
-        .dark .rich-text-editor-wrapper .ql-editor.ql-blank::before {
-          color: rgb(107 114 128);
         }
       `}</style>
       <ReactQuill

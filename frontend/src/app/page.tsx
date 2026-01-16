@@ -76,7 +76,7 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 px-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-violet-50/50 to-blue-50/50 dark:from-purple-900/20 dark:via-violet-900/20 dark:to-blue-900/20"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-primary/10 to-background dark:from-primary/20 dark:via-background dark:to-background"></div>
         <div className="relative max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -85,7 +85,7 @@ export default function Home() {
             className="mb-8"
           >
             <h1 className="text-6xl md:text-7xl font-bold mb-6">
-              <span className="gradient-text">MATUR.ai</span>
+              <span className="text-primary">MATUR.ai</span>
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
               Assess your AI maturity using the OWASP AIMA framework
@@ -106,7 +106,7 @@ export default function Home() {
               <p className="text-xl text-muted-foreground mb-8">
                 Welcome back, {user?.name}!
               </p>
-              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-14 px-8">
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                 <Link href="/dashboard">
                   Go to Dashboard
                   <IconArrowRight className="w-5 h-5 ml-2" />
@@ -120,7 +120,7 @@ export default function Home() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="space-y-6"
             >
-              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-14 px-8">
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                 <Link href="/auth?isLogin=false">
                   Get Started
                   <IconArrowRight className="w-5 h-5 ml-2" />
@@ -144,7 +144,7 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              <span className="gradient-text">Why Choose MATUR.ai?</span>
+              <span className="text-primary">Why Choose MATUR.ai?</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Comprehensive AI maturity assessment platform built on industry
@@ -160,11 +160,11 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
               >
-                <Card className="glass-effect h-full hover:bg-muted/50 transition-all duration-300 group">
+                <Card className="bg-card hover:bg-muted/50 transition-all duration-300 group border-border">
                   <CardContent className="p-8">
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="p-3 bg-gradient-to-r from-purple-600 to-violet-600 rounded-xl">
-                        <feature.icon className="w-6 h-6 text-white" />
+                      <div className="p-3 bg-primary rounded-xl">
+                        <feature.icon className="w-6 h-6 text-primary-foreground" />
                       </div>
                       <h3 className="text-xl font-semibold text-foreground">
                         {feature.title}
@@ -191,7 +191,7 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-6">
-              <span className="gradient-text">8 Critical AI Domains</span>
+              <span className="text-primary">8 Critical AI Domains</span>
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
               Comprehensive coverage of AI maturity across all essential areas
@@ -206,12 +206,12 @@ export default function Home() {
                 whileInView={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
               >
-                <Card className="glass-effect hover:bg-muted/50 transition-all duration-300 group">
+                <Card className="bg-card hover:bg-muted/50 transition-all duration-300 group border-border">
                   <CardContent className="p-6 text-center">
                     <div className="flex items-center justify-center mb-3">
-                      <IconCircleCheck className="w-6 h-6 text-green-400" />
+                      <IconCircleCheck className="w-6 h-6 text-primary" />
                     </div>
-                    <h3 className="text-lg font-semibold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-300 transition-colors">
+                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
                       {domain}
                     </h3>
                   </CardContent>
@@ -230,13 +230,13 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <Card className="glass-effect">
+            <Card className="bg-card border-border">
               <CardContent className="p-12">
                 <div className="flex items-center justify-center mb-6">
-                  <IconSparkles className="w-12 h-12 text-purple-400" />
+                  <IconSparkles className="w-12 h-12 text-primary" />
                 </div>
                 <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                  <span className="gradient-text">
+                  <span className="text-primary">
                     Ready to Assess Your AI Maturity?
                   </span>
                 </h2>
@@ -245,7 +245,7 @@ export default function Home() {
                   mature AI systems
                 </p>
                 {!isAuthenticated && (
-                  <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-14 px-8">
+                  <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                     <Link href="/auth">
                       Start Your Assessment
                       <IconArrowRight className="w-5 h-5 ml-2" />

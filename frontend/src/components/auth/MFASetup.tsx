@@ -164,7 +164,7 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
         <CardContent className="space-y-6">
           {/* QR Code */}
           <div className="text-center">
-            <div className="inline-block p-4 bg-white rounded-lg border-2 border-border">
+            <div className="inline-block p-4 bg-card rounded-lg border-2 border-border">
               <img
                 src={mfaData?.qrCodeUrl}
                 alt="MFA QR Code"

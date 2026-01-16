@@ -89,15 +89,16 @@ const getVisualStatus = (
 
 /**
  * Normalizes explanation text into a clean array of bullet points.
- * Handles array inputs and cleans up bullets.
+ * Handles string or array inputs and cleans up bullets.
  */
 const normalizeExplanation = (explanation: string | string[] | undefined): string[] => {
     if (!explanation) return [];
 
-    const explanations = Array.isArray(explanation) ? explanation : [explanation];
+    // Handle string input by splitting on newlines
+    const lines = Array.isArray(explanation) ? explanation : explanation.split('\n');
 
     // Clean and filter
-    return explanations
+    return lines
         .map(line => line.trim())
         .filter(line => line.length > 0)
         .map(line => line.replace(/^[•\-\*]\s*/, '').trim());

@@ -235,8 +235,6 @@ export default function DashboardPage() {
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
-
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
@@ -253,7 +251,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
+    <div className="min-h-full flex flex-col bg-background">
       <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
         <div className="py-6">
           {/* Page Header */}
@@ -282,7 +280,7 @@ export default function DashboardPage() {
             >
               <Button
                 onClick={() => setShowCreateForm(true)}
-                className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-12 px-6"
+                className="btn-primary h-12 px-6"
               >
                 <IconPlus className="w-5 h-5 mr-2" />
                 New Project
@@ -296,13 +294,13 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              className="mb-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-xl shadow-lg"
+              className="mb-6 bg-success/15 border border-success/30 text-foreground p-4 rounded-xl shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <IconCircleCheck className="w-6 h-6" />
+                <IconCircleCheck className="w-6 h-6 text-success" />
                 <div>
                   <h3 className="font-semibold text-lg">🎉 Payment Successful!</h3>
-                  <p className="text-green-100">Your subscription has been upgraded. Welcome to premium!</p>
+                  <p className="text-muted-foreground">Your subscription has been upgraded. Welcome to premium!</p>
                 </div>
               </div>
             </motion.div>
@@ -314,13 +312,13 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              className="mb-6 bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 rounded-xl shadow-lg"
+              className="mb-6 bg-destructive/15 border border-destructive/30 text-foreground p-4 rounded-xl shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <IconAlertCircle className="w-6 h-6" />
+                <IconAlertCircle className="w-6 h-6 text-destructive" />
                 <div>
                   <h3 className="font-semibold text-lg">Payment Canceled</h3>
-                  <p className="text-red-100">You can try upgrading again anytime.</p>
+                  <p className="text-muted-foreground">You can try upgrading again anytime.</p>
                 </div>
               </div>
             </motion.div>
@@ -355,21 +353,21 @@ export default function DashboardPage() {
                 </p>
                 <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+                  className="btn-primary"
                 >
                   Create Your First Project
                 </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {projects.map((project) => (
+                {projects.map((project, index) => (
                   <motion.div
                     key={project.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ y: -5 }}
                   >
-                    <Card className="h-full hover:shadow-xl transition-all duration-300">
+                    <Card className={`h-full hover:shadow-xl transition-all duration-300 ${["bg-chart-1/10", "bg-chart-2/10", "bg-chart-3/10", "bg-chart-4/10", "bg-chart-5/10"][index % 5]}`}>
                       <CardHeader className="pb-3">
                         <div className="flex justify-between items-start">
                           <CardTitle className="text-lg">{project.name}</CardTitle>
@@ -519,7 +517,7 @@ export default function DashboardPage() {
               </Button>
               <Button
                 type="submit"
-                className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+                className="btn-primary"
               >
                 Create Project
               </Button>
@@ -620,7 +618,7 @@ export default function DashboardPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
+                className="btn-primary"
               >
                 {isLoading ? (
                   <>

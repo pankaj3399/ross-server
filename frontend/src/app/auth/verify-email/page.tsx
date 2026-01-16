@@ -47,7 +47,7 @@ export default function VerifyEmailPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
+    <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-background">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -68,7 +68,7 @@ export default function VerifyEmailPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <Card className="bg-white/10 dark:bg-gray-800/20 backdrop-blur-lg shadow-xl border-white/20 dark:border-gray-700/50">
+          <Card className="bg-card/80 backdrop-blur-lg shadow-xl border-border">
             <CardContent className="py-8 px-4 sm:px-10">
               <div className="text-center">
                 {status === "loading" && (
@@ -90,8 +90,8 @@ export default function VerifyEmailPage() {
                     transition={{ duration: 0.5 }}
                     className="mb-6"
                   >
-                    <IconCircleCheck className="w-16 h-16 text-green-500 mx-auto" />
-                    <p className="mt-4 text-green-600 dark:text-green-400 font-medium">
+                    <IconCircleCheck className="w-16 h-16 text-success mx-auto" />
+                    <p className="mt-4 text-success font-medium">
                       {message}
                     </p>
                   </motion.div>
@@ -104,8 +104,8 @@ export default function VerifyEmailPage() {
                     transition={{ duration: 0.5 }}
                     className="mb-6"
                   >
-                    <IconCircleX className="w-16 h-16 text-red-500 mx-auto" />
-                    <p className="mt-4 text-red-600 dark:text-red-400 font-medium">
+                    <IconCircleX className="w-16 h-16 text-destructive mx-auto" />
+                    <p className="mt-4 text-destructive font-medium">
                       {message}
                     </p>
                   </motion.div>
@@ -113,7 +113,7 @@ export default function VerifyEmailPage() {
 
                 <div className="mt-8 space-y-4">
                   {status === "success" && (
-                    <Button asChild className="w-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-12">
+                    <Button asChild className="w-full bg-primary hover:bg-primary/90 h-12">
                       <Link href="/auth?isLogin=true">
                         Sign In to Your Account
                       </Link>
@@ -122,7 +122,7 @@ export default function VerifyEmailPage() {
 
                   {status === "error" && (
                     <div className="space-y-3">
-                      <Button asChild className="w-full bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-12">
+                      <Button asChild className="w-full bg-primary hover:bg-primary/90 h-12">
                         <Link href="/auth">
                           Try Again
                         </Link>

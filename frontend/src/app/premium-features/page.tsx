@@ -163,7 +163,7 @@ export default function PremiumFeaturesPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-12 flex flex-col justify-center items-center"
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-purple-950 dark:text-purple-300 mb-3">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3">
               Unlock advanced AI governance tools.
             </h1>
             <p className="text-lg text-muted-foreground mb-6">
@@ -185,7 +185,7 @@ export default function PremiumFeaturesPage() {
                 <CardContent className="p-8 flex flex-col items-center text-center">
                   <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto relative">
                     <IconShield className="w-28 h-28 text-primary relative z-10 fill-primary" />
-                    <IconBug className="w-14 h-14 text-white dark:text-primary-foreground absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
+                    <IconBug className="w-14 h-14 text-primary-foreground absolute z-50 fill-primary-foreground dark:fill-background" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
                   </div>
                   <CardTitle className="text-2xl mb-3">
                     AI Vulnerability Assessment
@@ -228,10 +228,10 @@ export default function PremiumFeaturesPage() {
               whileHover={{ y: -5, scale: 1.02 }}
               onClick={() => handleCardClick("governance")}
             >
-              <Card className="cursor-pointer hover:shadow-2xl hover:border-purple-300 dark:hover:border-purple-600 transition-all h-full">
+              <Card className="cursor-pointer hover:shadow-2xl hover:border-primary/50 transition-all h-full">
                 <CardContent className="p-8 flex flex-col items-center text-center">
                   <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                    <IconClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />
+                    <IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />
                   </div>
                   <CardTitle className="text-2xl mb-3">
                     Actionable Governance Controls
@@ -252,7 +252,7 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.4 }}
               className="flex justify-center"
             >
-              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 h-14 px-8">
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 h-14 px-8">
                 <Link href="/manage-subscription">
                   Manage Subscription
                 </Link>
@@ -277,7 +277,7 @@ export default function PremiumFeaturesPage() {
           <ScrollArea className="max-h-[60vh] pr-4">
             {loadingProjects || loadingAccess ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <IconLoader2 className="h-8 w-8 animate-spin text-purple-600 mb-3" />
+                <IconLoader2 className="h-8 w-8 animate-spin text-primary mb-3" />
                 <p className="text-sm text-muted-foreground">
                   {loadingAccess ? "Checking project access..." : "Loading projects..."}
                 </p>
@@ -312,7 +312,7 @@ export default function PremiumFeaturesPage() {
                     <Button
                       variant="ghost"
                       onClick={() => handleProjectClick(project.id)}
-                      className="w-full justify-start h-auto py-4 px-4 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                      className="w-full justify-start h-auto py-4 px-4 hover:bg-primary/5"
                     >
                       <div className="flex-1 min-w-0 text-left">
                         <h4 className="font-medium truncate">

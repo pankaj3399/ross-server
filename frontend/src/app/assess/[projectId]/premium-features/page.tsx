@@ -150,7 +150,7 @@ export default function PremiumFeaturesPage() {
   if (authLoading || userLoading || loading || !isAuthenticated || !user || !isPremium) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -177,20 +177,20 @@ export default function PremiumFeaturesPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-card border-b border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => router.push(`/assess/${projectId}`)}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
               >
                 <IconArrowLeft className="w-4 h-4" />
                 Back to AIMA Assessment
               </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h1 className="text-lg font-semibold text-foreground">
                   Premium Features
                 </h1>
               </div>
@@ -199,7 +199,7 @@ export default function PremiumFeaturesPage() {
         </div>
 
         {/* Premium Features Content */}
-        <div className="flex-1 overflow-y-auto bg-white dark:bg-gray-950">
+        <div className="flex-1 overflow-y-auto bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
             <motion.div
@@ -207,10 +207,10 @@ export default function PremiumFeaturesPage() {
               animate={{ opacity: 1, y: 0 }}
               className="mb-12 flex flex-col justify-center items-center"
             >
-              <h1 className="text-4xl md:text-5xl font-bold text-purple-950 dark:text-purple-300 mb-3 text-center">
+              <h1 className="text-4xl md:text-5xl font-bold text-primary mb-3 text-center">
                 Take your AI governance to the next level
               </h1>
-              <p className="text-lg text-gray-800 dark:text-gray-300 mb-6 text-center max-w-3xl">
+              <p className="text-lg text-muted-foreground mb-6 text-center max-w-3xl">
                 Access advanced premium tools and features to enhance your AI maturity assessment.
               </p>
             </motion.div>
@@ -221,8 +221,8 @@ export default function PremiumFeaturesPage() {
               <FeatureCard
                 icon={
                   <>
-                    <IconShield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
-                    <IconBug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
+                    <IconShield className="w-28 h-28 text-primary relative z-10 fill-primary" />
+                    <IconBug className="w-14 h-14 text-primary-foreground absolute z-50 fill-primary-foreground dark:fill-background" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
                   </>
                 }
                 title="AI Vulnerability Assessment"
@@ -233,7 +233,7 @@ export default function PremiumFeaturesPage() {
 
               {/* Card 2: Automated Bias & Fairness Testing */}
               <FeatureCard
-                icon={<IconScale className="w-28 h-28 text-purple-600 dark:text-purple-400" />}
+                icon={<IconScale className="w-28 h-28 text-primary" />}
                 title="Automated Bias & Fairness Testing"
                 description="Detect and mitigate algorithmic bias across datasets."
                 href={`/assess/${projectId}/fairness-bias/options`}
@@ -242,7 +242,7 @@ export default function PremiumFeaturesPage() {
 
               {/* Card 3: Actionable Governance Controls */}
               <FeatureCard
-                icon={<IconClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />}
+                icon={<IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />}
                 title="Actionable Governance Controls"
                 description="Get concrete steps to improve maturity scores."
                 href={`/assess/${projectId}/premium-domains`}
@@ -255,20 +255,20 @@ export default function PremiumFeaturesPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-3xl p-8 shadow-xl border border-purple-200 dark:border-purple-700 mb-8"
+              className="bg-card rounded-3xl p-8 shadow-xl border border-border mb-8"
             >
               <div className="flex items-center gap-4 mb-4">
-                <IconCrown className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                <h3 className="text-2xl font-semibold text-gray-900 dark:text-white">
+                <IconCrown className="w-8 h-8 text-primary" />
+                <h3 className="text-2xl font-semibold text-card-foreground">
                   Premium Domains Assessment
                 </h3>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Access additional premium assessment domains with advanced questions and practices.
               </p>
               <button
                 onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
-                className="bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg"
               >
                 Go to Premium Domains
               </button>

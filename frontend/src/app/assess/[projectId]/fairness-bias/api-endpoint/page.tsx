@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiService } from "@/lib/api";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -32,28 +33,28 @@ const API_KEY_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "none", label: "None / Public API", description: "Do not send an API key with the request." },
-  {
-    value: "auth_header",
-    label: "Header - Authorization: Bearer <API_KEY>",
-    description: "Adds an Authorization header using the Bearer scheme.",
-  },
-  {
-    value: "x_api_key",
-    label: "Header - x-api-key: <API_KEY>",
-    description: "Adds an x-api-key header with your key. Customize the header name below.",
-  },
-  {
-    value: "query_param",
-    label: "Query Param - ?key=<API_KEY>",
-    description: "Appends ?key=<API_KEY> to your endpoint URL. Customize the parameter name below.",
-  },
-  {
-    value: "body_field",
-    label: "Body Field - include api_key",
-    description: "Adds \"api_key\": \"<API_KEY>\" to the request JSON body. Customize the property name below.",
-  },
-];
+    { value: "none", label: "None / Public API", description: "Do not send an API key with the request." },
+    {
+      value: "auth_header",
+      label: "Header - Authorization: Bearer <API_KEY>",
+      description: "Adds an Authorization header using the Bearer scheme.",
+    },
+    {
+      value: "x_api_key",
+      label: "Header - x-api-key: <API_KEY>",
+      description: "Adds an x-api-key header with your key. Customize the header name below.",
+    },
+    {
+      value: "query_param",
+      label: "Query Param - ?key=<API_KEY>",
+      description: "Appends ?key=<API_KEY> to your endpoint URL. Customize the parameter name below.",
+    },
+    {
+      value: "body_field",
+      label: "Body Field - include api_key",
+      description: "Adds \"api_key\": \"<API_KEY>\" to the request JSON body. Customize the property name below.",
+    },
+  ];
 
 const API_KEY_FIELD_HINTS: Record<ApiKeyPlacement, string> = {
   none: "",
@@ -121,11 +122,11 @@ export default function ApiEndpointPage() {
   const trimmedApiKeyFieldName = apiKeyFieldName.trim();
   const hasRequiredFields = Boolean(
     apiEndpoint &&
-      isValidUrl &&
-      trimmedResponseKey &&
-      trimmedRequestTemplate &&
-      !templateError &&
-      (!requiresApiKey || trimmedApiKey),
+    isValidUrl &&
+    trimmedResponseKey &&
+    trimmedRequestTemplate &&
+    !templateError &&
+    (!requiresApiKey || trimmedApiKey),
   );
   const canSubmit = hasRequiredFields && !jobStarting;
 
@@ -168,43 +169,43 @@ export default function ApiEndpointPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-400">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-foreground">
                   API Automated Testing
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Test your model's API endpoint for fairness and bias
                 </p>
               </div>
             </div>
-            <button
+            <Button
               onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint/pending-jobs`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
             >
               Show all pending jobs
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -215,17 +216,17 @@ export default function ApiEndpointPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 mb-8"
+          className="bg-card rounded-2xl border border-border p-8 mb-8"
         >
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
-              <Globe className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center">
+              <Globe className="w-6 h-6 text-info" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-xl font-semibold text-foreground">
                 API Endpoint URL
               </h2>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Enter your model's API endpoint URL
               </p>
             </div>
@@ -235,7 +236,7 @@ export default function ApiEndpointPage() {
             <div>
               <label
                 htmlFor="api-endpoint"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Endpoint URL
               </label>
@@ -248,20 +249,19 @@ export default function ApiEndpointPage() {
                 disabled={jobStarting}
                 className={`
                   w-full px-4 py-3 rounded-xl border transition-colors
-                  bg-white dark:bg-gray-900
-                  ${
-                    isValidUrl
-                      ? "border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400"
-                      : "border-red-500 dark:border-red-500 focus:border-red-600 dark:focus:border-red-600"
+                  bg-background
+                  ${isValidUrl
+                    ? "border-input focus:border-primary"
+                    : "border-destructive focus:border-destructive"
                   }
-                  text-gray-900 dark:text-white
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                  text-foreground
+                  placeholder-muted-foreground
+                  focus:outline-none focus:ring-2 focus:ring-primary/20
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               />
               {!isValidUrl && apiEndpoint && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
                   Please enter a valid URL
                 </p>
@@ -271,7 +271,7 @@ export default function ApiEndpointPage() {
             <div>
               <label
                 htmlFor="request-template"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Request Body Template
               </label>
@@ -284,19 +284,19 @@ export default function ApiEndpointPage() {
                 disabled={jobStarting}
                 className={`
                   w-full px-4 py-3 rounded-xl border transition-colors font-mono text-sm resize-y
-                  bg-white dark:bg-gray-900
-                  border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
-                  text-gray-900 dark:text-white
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                  bg-background
+                  border-input focus:border-primary
+                  text-foreground
+                  placeholder-muted-foreground
+                  focus:outline-none focus:ring-2 focus:ring-primary/20
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Paste the exact JSON payload your API expects (POST). Use <code>{"{{prompt}}"}</code> anywhere you want us to inject each fairness prompt. We will replace it before sending the request.
               </p>
               {templateError && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
                   {templateError}
                 </p>
@@ -306,7 +306,7 @@ export default function ApiEndpointPage() {
             <div>
               <label
                 htmlFor="response-key-path"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                className="block text-sm font-medium text-foreground mb-2"
               >
                 Response Output Path
               </label>
@@ -319,15 +319,15 @@ export default function ApiEndpointPage() {
                 disabled={jobStarting}
                 className={`
                   w-full px-4 py-3 rounded-xl border transition-colors font-mono text-sm
-                  bg-white dark:bg-gray-900
-                  border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
-                  text-gray-900 dark:text-white
-                  placeholder-gray-400 dark:placeholder-gray-500
-                  focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                  bg-background
+                  border-input focus:border-primary
+                  text-foreground
+                  placeholder-muted-foreground
+                  focus:outline-none focus:ring-2 focus:ring-primary/20
                   disabled:opacity-50 disabled:cursor-not-allowed
                 `}
               />
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to tell us where your model&apos;s final answer lives.
               </p>
             </div>
@@ -336,7 +336,7 @@ export default function ApiEndpointPage() {
               <div>
                 <label
                   htmlFor="api-key-value"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   API Key (secured locally)
                 </label>
@@ -349,22 +349,22 @@ export default function ApiEndpointPage() {
                   disabled={jobStarting}
                   className={`
                     w-full px-4 py-3 rounded-xl border transition-colors
-                    bg-white dark:bg-gray-900
-                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
-                    text-gray-900 dark:text-white
-                    placeholder-gray-400 dark:placeholder-gray-500
-                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    bg-background
+                    border-input focus:border-primary
+                    text-foreground
+                    placeholder-muted-foreground
+                    focus:outline-none focus:ring-2 focus:ring-primary
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 />
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-2 text-xs text-muted-foreground">
                   We only use this key when sending requests to your model. It is never logged or shared.
                 </p>
               </div>
               <div>
                 <label
                   htmlFor="api-key-placement"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   API Key Placement
                 </label>
@@ -375,10 +375,10 @@ export default function ApiEndpointPage() {
                   disabled={jobStarting}
                   className={`
                     w-full px-4 py-3 rounded-xl border transition-colors
-                    bg-white dark:bg-gray-900
-                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
-                    text-gray-900 dark:text-white
-                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    bg-background
+                    border-input focus:border-primary
+                    text-foreground
+                    focus:outline-none focus:ring-2 focus:ring-primary
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
@@ -389,12 +389,12 @@ export default function ApiEndpointPage() {
                   ))}
                 </select>
                 {requiresApiKey && !trimmedApiKey && (
-                  <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <p className="mt-2 text-sm text-destructive flex items-center gap-1">
                     <AlertCircle className="w-4 h-4" />
                     API key is required for the selected placement.
                   </p>
                 )}
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-2 text-xs text-muted-foreground">
                   {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.description}
                   {apiKeyPlacement === "body_field" && " (We append an \"api_key\" property to your JSON body.)"}
                 </p>
@@ -404,7 +404,7 @@ export default function ApiEndpointPage() {
               <div>
                 <label
                   htmlFor="api-key-field-name"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Field name for this placement
                 </label>
@@ -417,15 +417,15 @@ export default function ApiEndpointPage() {
                   disabled={jobStarting}
                   className={`
                     w-full px-4 py-3 rounded-xl border transition-colors
-                    bg-white dark:bg-gray-900
-                    border-gray-300 dark:border-gray-600 focus:border-purple-500 dark:focus:border-purple-400
-                    text-gray-900 dark:text-white
-                    placeholder-gray-400 dark:placeholder-gray-500
-                    focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400
+                    bg-background
+                    border-input focus:border-primary
+                    text-foreground
+                    placeholder-muted-foreground
+                    focus:outline-none focus:ring-2 focus:ring-primary
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 />
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-2 text-xs text-muted-foreground">
                   We will use this exact value as the header, query parameter, or JSON property name.
                   Leave blank to use the suggested default above.
                 </p>
@@ -434,57 +434,57 @@ export default function ApiEndpointPage() {
 
             {/* API Configuration Summary */}
             {(apiEndpoint || requestTemplate || responseKey) && (
-              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
+              <div className="bg-muted/30 border border-border rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-foreground mb-4">
                   API Configuration Summary
                 </h3>
                 <div className="space-y-4">
                   {apiEndpoint && (
                     <div>
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         API Endpoint URL
                       </div>
-                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 break-all">
+                      <div className="text-sm font-mono text-foreground bg-background px-3 py-2 rounded border border-border break-all">
                         {apiEndpoint}
                       </div>
                     </div>
                   )}
                   {requestTemplate && (
                     <div>
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         Request Body Template
                       </div>
-                      <pre className="text-xs sm:text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 whitespace-pre-wrap break-words">
+                      <pre className="text-xs sm:text-sm font-mono text-foreground bg-background px-3 py-2 rounded border border-border whitespace-pre-wrap break-words">
                         {requestTemplate}
                       </pre>
                     </div>
                   )}
                   {responseKey && (
                     <div>
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         Response Key Path
                       </div>
-                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700">
+                      <div className="text-sm font-mono text-foreground bg-background px-3 py-2 rounded border border-border">
                         {responseKey}
                       </div>
                     </div>
                   )}
                   {apiKeyPlacement !== "none" && (
                     <div>
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         API Key Placement
                       </div>
-                      <div className="text-sm text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700">
+                      <div className="text-sm text-foreground bg-background px-3 py-2 rounded border border-border">
                         {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.label}
                       </div>
                     </div>
                   )}
                   {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) && (
                     <div>
-                      <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                      <div className="text-xs font-medium text-muted-foreground mb-1">
                         Field Name
                       </div>
-                      <div className="text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-700 break-all">
+                      <div className="text-sm font-mono text-foreground bg-background px-3 py-2 rounded border border-border break-all">
                         {trimmedApiKeyFieldName || API_KEY_FIELD_HINTS[apiKeyPlacement]}
                       </div>
                     </div>
@@ -493,16 +493,16 @@ export default function ApiEndpointPage() {
               </div>
             )}
 
-            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-6 space-y-4">
-              <h3 className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-4">
+              <h3 className="text-sm font-semibold text-primary">
                 How to describe your request & response
               </h3>
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
-                  <p className="text-xs uppercase font-semibold text-purple-800 dark:text-purple-200 tracking-wide mb-2">
+                  <p className="text-xs uppercase font-semibold text-primary/80 tracking-wide mb-2">
                     Request body template
                   </p>
-                  <ul className="text-xs text-purple-900 dark:text-purple-100 space-y-1 mb-3 list-disc list-inside">
+                  <ul className="text-xs text-primary/90 space-y-1 mb-3 list-disc list-inside">
                     <li>Paste the exact JSON body your API expects.</li>
                     <li>Use the <code>{"{{prompt}}"}</code> token wherever the fairness prompt should be inserted.</li>
                     <li>
@@ -510,8 +510,8 @@ export default function ApiEndpointPage() {
                       we also append an <code>api_key</code> field containing your key.
                     </li>
                   </ul>
-                  <pre className="text-xs font-mono text-purple-900 dark:text-purple-100 bg-white dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-700 p-3 whitespace-pre-wrap">
-{`{
+                  <pre className="text-xs font-mono text-primary/90 bg-background rounded-lg border border-primary/20 p-3 whitespace-pre-wrap">
+                    {`{
   "model": "gpt-4o-mini",
   "messages": [
     {
@@ -523,16 +523,16 @@ export default function ApiEndpointPage() {
                   </pre>
                 </div>
                 <div>
-                  <p className="text-xs uppercase font-semibold text-purple-800 dark:text-purple-200 tracking-wide mb-2">
+                  <p className="text-xs uppercase font-semibold text-primary/80 tracking-wide mb-2">
                     Response output path
                   </p>
-                  <ul className="text-xs text-purple-900 dark:text-purple-100 space-y-1 mb-3 list-disc list-inside">
+                  <ul className="text-xs text-primary/90 space-y-1 mb-3 list-disc list-inside">
                     <li>Tell us how to locate the model&apos;s final text in your JSON response.</li>
                     <li>Use dot/bracket notation (e.g. <code>choices[0].message.content</code>).</li>
                     <li>We will extract that string and feed it into the fairness evaluator.</li>
                   </ul>
-                  <pre className="text-xs font-mono text-purple-900 dark:text-purple-100 bg-white dark:bg-purple-950/40 rounded-lg border border-purple-200 dark:border-purple-700 p-3 whitespace-pre-wrap">
-{`{
+                  <pre className="text-xs font-mono text-primary/90 bg-background rounded-lg border border-primary/20 p-3 whitespace-pre-wrap">
+                    {`{
   "choices": [
     {
       "message": {
@@ -546,49 +546,36 @@ export default function ApiEndpointPage() {
               </div>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
+            <div className="bg-info/20 border border-info/30 rounded-xl p-4">
+              <p className="text-sm text-info">
                 <strong>Note:</strong> Your API should accept POST requests with a JSON body that matches your template.
                 We replace every <code>{"{{prompt}}"}</code> token before calling your endpoint. Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to point at the final answer inside the response JSON.
               </p>
             </div>
 
-            <motion.button
+            <Button
               onClick={handleTestModel}
+              isLoading={jobStarting}
               disabled={!canSubmit}
               className={`
-                w-full py-3 rounded-xl font-semibold text-lg transition-all duration-200
-                flex items-center justify-center gap-2
-                ${
-                  canSubmit
-                    ? "bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl"
-                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                }
+                w-full py-6 rounded-xl font-semibold text-lg transition-all duration-200
+                flex items-center justify-center gap-2 shadow-lg hover:shadow-xl
               `}
-              whileHover={
-                canSubmit ? { scale: 1.02 } : {}
-              }
-              whileTap={
-                canSubmit ? { scale: 0.98 } : {}
-              }
             >
               {jobStarting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Scheduling...
-                </>
+                "Scheduling..."
               ) : (
                 <>
-                  <Play className="w-5 h-5" />
+                  <Play className="w-5 h-5 mr-2" />
                   Start Fairness Evaluation
                 </>
               )}
-            </motion.button>
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
               We will queue the job instantly. You can monitor progress on the next screen—no more 5-minute loading spinners.
             </p>
             {jobStartError && (
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-sm text-red-600 dark:text-red-300 flex items-center gap-2">
+              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-sm text-destructive flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
                 {jobStartError}
               </div>
@@ -600,12 +587,12 @@ export default function ApiEndpointPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-purple-200 dark:border-purple-800 p-6 mb-8"
+          className="bg-card rounded-2xl border border-dashed border-border p-6 mb-8"
         >
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          <h3 className="text-lg font-semibold text-foreground mb-2">
             What happens next?
           </h3>
-          <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-disc pl-6">
+          <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-6">
             <li>The backend creates a background job instantly and returns a job ID.</li>
             <li>You will land on a live progress page that polls every few seconds and hard-refreshes every 20 seconds.</li>
             <li>As soon as the job is done we redirect you to the Fairness &amp; Bias report automatically.</li>

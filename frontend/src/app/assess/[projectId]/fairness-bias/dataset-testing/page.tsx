@@ -283,23 +283,23 @@ const DatasetTestingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-950">
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-background">
+      <div className="bg-card border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-              className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               Back
             </button>
-            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+            <div className="h-6 w-px bg-border" />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-foreground">
                 Dataset Testing
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Upload a CSV to evaluate your dataset for fairness and biasness
               </p>
             </div>
@@ -311,20 +311,20 @@ const DatasetTestingPage = () => {
       {/* Error state - subscription check failed */}
       {!isCheckingSubscription && subscriptionStatus === 'unknown' && (
         <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-12 text-center space-y-6">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center mx-auto">
-              <RefreshCw className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+          <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
+            <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
+              <RefreshCw className="w-8 h-8 text-warning" />
             </div>
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Unable to Verify Subscription</h2>
-              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+              <h2 className="text-2xl font-bold text-foreground">Unable to Verify Subscription</h2>
+              <p className="text-muted-foreground max-w-md mx-auto">
                 We encountered a temporary error while checking your subscription status. Please try again.
               </p>
             </div>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-700 transition"
+              className="inline-flex items-center gap-2 rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning/90 transition"
             >
               <RefreshCw className="w-4 h-4" />
               Retry
@@ -337,20 +337,20 @@ const DatasetTestingPage = () => {
       {
         !isCheckingSubscription && subscriptionStatus === 'free' && (
           <div className="max-w-7xl mx-auto px-6 py-12">
-            <div className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-12 text-center space-y-6">
-              <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+            <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
+              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
+                <Lock className="w-8 h-8 text-primary" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Premium Feature</h2>
-                <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto">
+                <h2 className="text-2xl font-bold text-foreground">Premium Feature</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
                   Fairness & Bias evaluation is available on Premium plans. Upgrade your account to access advanced dataset testing.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => router.push("/subscriptions")}
-                className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white hover:bg-purple-700 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
               >
                 Upgrade to Premium
               </button>
@@ -364,22 +364,22 @@ const DatasetTestingPage = () => {
         !isCheckingSubscription && subscriptionStatus === 'trial' && (
           <>
             <div className="max-w-7xl mx-auto px-6 pt-6">
-              <div className="rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-800 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-indigo-600 dark:text-indigo-300 text-sm">⏱</span>
+              <div className="rounded-xl bg-secondary/50 border border-secondary px-4 py-3 flex items-center gap-3">
+                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-secondary-foreground text-sm">⏱</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                  <p className="text-sm font-medium text-foreground">
                     You're on a trial plan
                   </p>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                  <p className="text-xs text-muted-foreground">
                     Upgrade to keep access to Fairness & Bias evaluation after your trial ends.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push("/subscriptions")}
-                  className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:text-indigo-800 dark:hover:text-indigo-200 transition"
+                  className="text-xs font-semibold text-primary hover:text-primary/80 transition"
                 >
                   Upgrade →
                 </button>

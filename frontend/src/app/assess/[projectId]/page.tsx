@@ -762,25 +762,25 @@ export default function AssessmentPage() {
   // Show project not found error (400/404)
   if (projectNotFound) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <IconAlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Project Not Found
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             No domains available for this project.
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Go to Dashboard
             </button>
             <button
               onClick={() => router.back()}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go Back
             </button>
@@ -793,13 +793,13 @@ export default function AssessmentPage() {
   // Show error if there's an error and no domains (generic error)
   if (error && domains.length === 0 && !projectNotFound && !loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <IconAlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Unable to Load Assessment
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => {
@@ -807,13 +807,13 @@ export default function AssessmentPage() {
                 setLoading(true);
                 window.location.reload();
               }}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Retry
             </button>
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go to Dashboard
             </button>
@@ -826,19 +826,19 @@ export default function AssessmentPage() {
   // Show no domains data available (empty domains array)
   if (domains.length === 0 && !loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <IconAlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             No Assessment Data Available
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             No domains data available
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Go to Dashboard
             </button>
@@ -906,29 +906,29 @@ export default function AssessmentPage() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col">
           {/* HEADER + Premium Button */}
-          <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+          <div className="bg-background border-b border-border p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => router.back()}
-                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                  className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
                 >
                   <IconArrowLeft className="w-4 h-4" />
                   Back
                 </button>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+                <div className="h-6 w-px bg-border" />
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h1 className="text-lg font-semibold text-foreground">
                     {practice?.title || 'Loading...'}
                   </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
                 {saving && (
-                  <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                  <div className="flex items-center gap-2 text-sm text-primary">
                     <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                     Saving...
                   </div>
@@ -963,16 +963,16 @@ export default function AssessmentPage() {
               {/* Progress Bar */}
               <div className="mb-8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="text-sm font-medium text-foreground">
                     Question {validQuestionIndex + 1} of {totalQuestions}
                   </span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm text-muted-foreground">
                     {Math.round(progress)}% Complete
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="w-full bg-secondary rounded-full h-2">
                   <div
-                    className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -984,40 +984,40 @@ export default function AssessmentPage() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
+                className="bg-card rounded-2xl shadow-lg border border-border p-8 mb-8"
               >
                 <div className="mb-6">
                   <div className="flex items-center gap-5 mb-4">
                     <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
                         Level {currentQuestion.level}
                       </span>
                       <div className="relative group">
-                        <IconInfoCircle size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
                           Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
                         </span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
                         Stream {currentQuestion.stream}
                       </span>
                       <div className="relative group">
-                        <IconInfoCircle size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
                           Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
+                  <h2 className="text-xl font-semibold text-foreground leading-relaxed">
                     {currentQuestion.question}
                   </h2>
                   {currentQuestion.description && (
-                    <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
+                    <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
                       <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
                     </div>
                   )}
@@ -1044,8 +1044,8 @@ export default function AssessmentPage() {
                     <label
                       key={option.value}
                       className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
-                        ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                        : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50"
                         }`}
                     >
                       <input
@@ -1056,13 +1056,13 @@ export default function AssessmentPage() {
                         onChange={() =>
                           handleAnswerChange(validQuestionIndex, option.value)
                         }
-                        className="mt-1 w-4 h-4 text-purple-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-purple-500 focus:ring-2"
+                        className="mt-1 w-4 h-4 text-primary bg-background border-border focus:ring-primary focus:ring-2"
                       />
                       <div className="ml-3 flex-1">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="text-sm font-medium text-foreground">
                           {option.label}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-sm text-muted-foreground">
                           {option.description}
                         </div>
                       </div>
@@ -1071,8 +1071,8 @@ export default function AssessmentPage() {
                 </div>
 
                 {/* Notes Section */}
-                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                <div className="mt-6 pt-6 border-t border-border">
+                  <h3 className="text-sm font-medium text-foreground mb-3">
                     Your Notes
                   </h3>
                   <SecureTextarea
@@ -1093,7 +1093,7 @@ export default function AssessmentPage() {
                 <button
                   onClick={handlePreviousQuestion}
                   disabled={!hasPreviousQuestion}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground hover:bg-muted"
                 >
                   <IconArrowLeft className="w-4 h-4" />
                   Previous
@@ -1102,7 +1102,7 @@ export default function AssessmentPage() {
                 <button
                   onClick={handleNextQuestion}
                   disabled={!hasNextQuestion}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   Next
                   <IconArrowRight className="w-4 h-4" />
