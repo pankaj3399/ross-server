@@ -297,8 +297,10 @@ export default function PremiumFeaturesPage() {
                 </p>
                 <Button asChild>
                   <Link href="/dashboard">
-                    Go to Dashboard
-                    <IconArrowRight className="w-4 h-4" />
+                    <span className="inline-flex items-center gap-2">
+                      Go to Dashboard
+                      <IconArrowRight className="w-4 h-4" />
+                    </span>
                   </Link>
                 </Button>
               </div>

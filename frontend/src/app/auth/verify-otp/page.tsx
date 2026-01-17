@@ -362,9 +362,11 @@ export default function VerifyOTPPage() {
                 <Separator className="mb-6" />
                 <div className="flex justify-between items-center">
                   <Button variant="ghost" asChild className="p-0">
-                    <Link href="/auth" className="flex items-center space-x-2">
-                      <IconArrowLeft className="w-4 h-4" />
-                      <span>Back to Login</span>
+                    <Link href="/auth">
+                      <span className="inline-flex items-center space-x-2">
+                        <IconArrowLeft className="w-4 h-4" />
+                        <span>Back to Login</span>
+                      </span>
                     </Link>
                   </Button>
 

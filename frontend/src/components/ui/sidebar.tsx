@@ -29,7 +29,7 @@ const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
-const SIDEBAR_WIDTH_ICON = "3rem"
+const SIDEBAR_WIDTH_ICON = "5.5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
 type SidebarContextProps = {
@@ -328,12 +328,24 @@ const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"main">
 >(({ className, ...props }, ref) => {
+  const { state, isMobile } = useSidebar()
+
   return (
     <main
       ref={ref}
+      style={
+        {
+          "--sidebar-width": SIDEBAR_WIDTH,
+          "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
+          marginLeft: !isMobile
+            ? (state === "collapsed" ? "var(--sidebar-width-icon)" : "var(--sidebar-width)")
+            : undefined,
+          ...props.style,
+        } as React.CSSProperties
+      }
       className={cn(
-        "relative flex min-w-0 flex-1 flex-col bg-background overflow-auto transition-[margin-left] duration-200 ease-linear",
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=collapsed]:peer-data-[variant=inset]:ml-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow",
+        "relative flex min-w-0 flex-1 flex-col bg-background overflow-auto transition-all duration-200 ease-linear",
+        "pl-0",
         className
       )}
       {...props}
@@ -502,7 +514,10 @@ const SidebarMenu = React.forwardRef<
   <ul
     ref={ref}
     data-sidebar="menu"
-    className={cn("flex w-full min-w-0 flex-col gap-1", className)}
+    className={cn(
+      "flex w-full min-w-0 flex-col gap-1 group-data-[collapsible=icon]:items-center",
+      className
+    )}
     {...props}
   />
 ))

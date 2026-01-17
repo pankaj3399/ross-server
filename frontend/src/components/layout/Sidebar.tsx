@@ -171,7 +171,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
           <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
             MATHUR.ai
           </span>
-          <SidebarTrigger className="size-8" />
+          <SidebarTrigger className="size-10" />
         </div>
       </SidebarHeader>
 
@@ -192,9 +192,12 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                       disabled={item.disabled}
                       tooltip={item.label}
                     >
-                      <Link href={item.disabled ? "#" : item.href}>
-                        <Icon className="size-4" />
-                        <span>{item.label}</span>
+                      <Link
+                        href={item.disabled ? "#" : item.href}
+                        className="flex items-center gap-3"
+                      >
+                        <Icon className="size-6" />
+                        <span className="text-base font-medium">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -217,14 +220,14 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
             >
               <div
                 onClick={toggleTheme}
-                className="cursor-pointer"
+                className="cursor-pointer flex items-center gap-2"
               >
                 {theme === "dark" ? (
-                  <IconSun className="size-4" />
+                  <IconSun className="size-6" />
                 ) : (
-                  <IconMoon className="size-4" />
+                  <IconMoon className="size-6" />
                 )}
-                <span>Theme</span>
+                <span className="text-base font-medium">Theme</span>
                 <Switch
                   checked={theme === "dark"}
                   onCheckedChange={toggleTheme}
@@ -246,13 +249,13 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     size="lg"
                     tooltip={user.name || "User"}
                   >
-                    <Avatar className="size-8">
+                    <Avatar className="size-10">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        <IconUser className="size-4" />
+                        <IconUser className="size-6" />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col gap-0.5 leading-none">
-                      <span className="font-semibold">{user.name || "User"}</span>
+                      <span className="text-sm font-semibold">{user.name || "User"}</span>
                       <span className="text-xs text-muted-foreground">{user.email || ""}</span>
                     </div>
                   </SidebarMenuButton>
@@ -270,8 +273,8 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/settings">
-                      <IconSettings className="size-4 mr-2" />
+                    <Link href="/settings" className="flex items-center">
+                      <IconSettings className="size-5 mr-2" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
@@ -280,7 +283,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     onClick={handleLogout}
                     className="text-destructive focus:text-destructive"
                   >
-                    <IconLogout className="size-4 mr-2" />
+                    <IconLogout className="size-5 mr-2" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>

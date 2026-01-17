@@ -108,8 +108,10 @@ export default function Home() {
               </p>
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                 <Link href="/dashboard">
-                  Go to Dashboard
-                  <IconArrowRight className="w-5 h-5 ml-2" />
+                  <span className="inline-flex items-center">
+                    Go to Dashboard
+                    <IconArrowRight className="w-5 h-5 ml-2" />
+                  </span>
                 </Link>
               </Button>
             </motion.div>
@@ -122,8 +124,10 @@ export default function Home() {
             >
               <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                 <Link href="/auth?isLogin=false">
-                  Get Started
-                  <IconArrowRight className="w-5 h-5 ml-2" />
+                  <span className="inline-flex items-center">
+                    Get Started
+                    <IconArrowRight className="w-5 h-5 ml-2" />
+                  </span>
                 </Link>
               </Button>
               <p className="text-sm text-muted-foreground">
@@ -247,8 +251,10 @@ export default function Home() {
                 {!isAuthenticated && (
                   <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
                     <Link href="/auth">
-                      Start Your Assessment
-                      <IconArrowRight className="w-5 h-5 ml-2" />
+                      <span className="inline-flex items-center">
+                        Start Your Assessment
+                        <IconArrowRight className="w-5 h-5 ml-2" />
+                      </span>
                     </Link>
                   </Button>
                 )}

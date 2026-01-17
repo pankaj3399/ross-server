@@ -50,22 +50,28 @@ export function Header() {
             {isAuthenticated ? (
               <Button asChild>
                 <Link href="/dashboard">
-                  <IconLayoutDashboard className="w-4 h-4 mr-2" />
-                  Dashboard
+                  <span className="inline-flex items-center">
+                    <IconLayoutDashboard className="w-4 h-4 mr-2" />
+                    Dashboard
+                  </span>
                 </Link>
               </Button>
             ) : (
               <>
                 <Button variant="ghost" asChild>
                   <Link href="/auth?isLogin=true">
-                    <IconLogin className="w-4 h-4 mr-2" />
-                    Sign in
+                    <span className="inline-flex items-center">
+                      <IconLogin className="w-4 h-4 mr-2" />
+                      Sign in
+                    </span>
                   </Link>
                 </Button>
                 <Button asChild>
                   <Link href="/auth?isLogin=false">
-                    <IconRocket className="w-4 h-4 mr-2" />
-                    Get Started
+                    <span className="inline-flex items-center">
+                      <IconRocket className="w-4 h-4 mr-2" />
+                      Get Started
+                    </span>
                   </Link>
                 </Button>
               </>
