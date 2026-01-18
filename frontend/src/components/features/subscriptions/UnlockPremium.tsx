@@ -34,11 +34,8 @@ export default function UnlockPremium({
   featureName = "this feature",
   isOpen = true
 }: UnlockPremiumProps) {
-  const { prices: storePrices, loading: storeLoading, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
+  const { prices, loading: loadingPrices, fetched, setPrices, setPriceLoading, setFetched } = usePriceStore();
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
-
-  const prices = storePrices;
-  const loadingPrices = storeLoading;
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -118,7 +115,8 @@ export default function UnlockPremium({
       // Validate URL before redirecting to prevent open redirect
       try {
         const parsedUrl = new URL(url);
-        if (!parsedUrl.hostname.endsWith('stripe.com')) {
+        const isValidStripeHost = parsedUrl.hostname === 'stripe.com' || parsedUrl.hostname.endsWith('.stripe.com');
+        if (parsedUrl.protocol !== 'https:' || !isValidStripeHost) {
           throw new Error('Invalid checkout URL');
         }
         window.location.href = url;

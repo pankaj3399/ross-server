@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -18,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
 
   const footerLinks = {
     product: [
@@ -246,17 +249,28 @@ export function Footer() {
                 Get the latest updates on AI maturity assessment best practices
                 and platform features.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  // TODO: Implement newsletter subscription API call
+                  console.log('Newsletter subscription submitted:', newsletterEmail);
+                  setNewsletterEmail('');
+                }}
+                className="flex flex-col sm:flex-row gap-3"
+              >
                 <Input
                   type="email"
                   placeholder="Enter your email"
                   aria-label="Newsletter email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  required
                   className="flex-1"
                 />
-                <Button>
+                <Button type="submit">
                   Subscribe
                 </Button>
-              </div>
+              </form>
             </div>
           </motion.div>
         </div>
@@ -310,14 +324,14 @@ export function Footer() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="flex items-center space-x-6 text-sm"
             >
-              <Button variant="link" asChild className="p-0 h-auto">
-                <Link href="/privacy" className="text-muted-foreground hover:text-primary">Privacy</Link>
+              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground hover:text-primary">
+                <Link href="/privacy">Privacy</Link>
               </Button>
-              <Button variant="link" asChild className="p-0 h-auto">
-                <Link href="/terms" className="text-muted-foreground hover:text-primary">Terms</Link>
+              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground hover:text-primary">
+                <Link href="/terms">Terms</Link>
               </Button>
-              <Button variant="link" asChild className="p-0 h-auto">
-                <Link href="/cookies" className="text-muted-foreground hover:text-primary">Cookies</Link>
+              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground hover:text-primary">
+                <Link href="/cookies">Cookies</Link>
               </Button>
             </motion.div>
           </div>

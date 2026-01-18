@@ -53,6 +53,7 @@ export interface SidebarItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   disabled?: boolean;
+  activePatterns?: string[];
 }
 
 interface AppSidebarProps {
@@ -78,12 +79,14 @@ const defaultSidebarItems: SidebarItem[] = [
     label: "Premium Features",
     icon: IconDiamond,
     href: "/premium-features",
+    activePatterns: ["/premium-features"],
   },
   {
     id: "settings",
     label: "Settings",
     icon: IconSettings,
     href: "/settings",
+    activePatterns: ["/settings", "/manage-subscription"],
   },
 ];
 
@@ -115,6 +118,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         label: "Manage AIMA Data",
         href: "/admin/aima-data",
         icon: IconDatabase,
+        activePatterns: ["/admin/aima-data"],
       });
     }
     if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-premium-domains")) {
@@ -123,41 +127,45 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         label: "Premium Domains",
         href: "/admin/premium-domains",
         icon: IconCrown,
+        activePatterns: ["/admin/premium-domains"],
       });
     }
     return Array.from(allSidebarItemsMap.values());
   }, [items, user?.role]);
 
-  const isActive = (href: string, id: string) => {
-    if (href === "#") return false;
+  const itemMatchesPath = (item: SidebarItem, currentPath: string): boolean => {
+    if (item.href === "#" || item.disabled) return false;
+
+    // Check activePatterns first
+    if (item.activePatterns && item.activePatterns.length > 0) {
+      return item.activePatterns.some(pattern => currentPath.includes(pattern));
+    }
+
+    // Fallback to exact match or prefix match
+    return currentPath === item.href || (item.href !== "/" && currentPath.startsWith(item.href));
+  };
+
+  const isActive = (item: SidebarItem) => {
+    if (item.href === "#") return false;
 
     const currentPath = pathname || "";
 
-    const itemMatchesPath = (itemHref: string, itemId: string) => {
-      if (itemHref === "#") return false;
-      if (itemId === "premium" && currentPath.includes("/premium-features")) return true;
-      if (itemId === "settings" && (currentPath.includes("/settings") || currentPath.includes("/manage-subscription"))) return true;
-      if (itemId === "admin-aima" && currentPath.includes("/admin/aima-data")) return true;
-      if (itemId === "admin-premium-domains" && currentPath.includes("/admin/premium-domains")) return true;
-      return currentPath === itemHref || (itemHref !== "/" && currentPath.startsWith(itemHref));
-    };
-
-    if (id === "dashboard") {
+    if (item.id === "dashboard") {
       if (currentPath === "/dashboard" || currentPath === "/") {
         return true;
       }
 
-      const otherItemMatches = allSidebarItems.some((item) => {
-        if (item.id === "dashboard" || item.disabled) {
+      const otherItemMatches = allSidebarItems.some((otherItem) => {
+        if (otherItem.id === "dashboard" || otherItem.disabled) {
           return false;
         }
-        return itemMatchesPath(item.href, item.id);
+        return itemMatchesPath(otherItem, currentPath);
       });
 
       return !otherItemMatches;
     }
 
-    return itemMatchesPath(href, id);
+    return itemMatchesPath(item, currentPath);
   };
 
   if (!isAuthenticated) {
@@ -182,7 +190,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
             <SidebarMenu>
               {allSidebarItems.map((item) => {
                 const Icon = item.icon;
-                const active = isActive(item.href, item.id);
+                const active = isActive(item);
 
                 return (
                   <SidebarMenuItem key={item.id}>

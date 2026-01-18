@@ -972,13 +972,13 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Manage Subscription Button */}
-                <Link href="/manage-subscription" className="block">
-                  <Button className="w-full h-14 text-base gap-3 group">
+                <Button asChild className="w-full h-14 text-base gap-3 group">
+                  <Link href="/manage-subscription">
                     <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>Manage Subscription</span>
                     <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )}
           </CardContent>

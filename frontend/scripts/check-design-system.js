@@ -98,10 +98,11 @@ const REPLACEMENT_SUGGESTIONS = {
 };
 
 // Pre-computed sorted keys for efficient matching (longest first)
-const SORTED_REPLACEMENT_KEYS = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
+const sortedKeys = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
 
 function isExcludedFile(filePath) {
-  const relativePath = path.relative(SRC_DIR, filePath);
+  // Normalize path separators for cross-platform support (Windows uses backslashes)
+  const relativePath = path.relative(SRC_DIR, filePath).replace(/\\/g, '/');
   return EXCLUDED_FILES.some(excluded => relativePath.includes(excluded));
 }
 
@@ -147,8 +148,11 @@ function checkFile(filePath) {
       while ((match = pattern.exec(line)) !== null) {
         const matchedText = match[0];
         
-        // Check if this match is an exception
-        const isException = exceptions.some(exc => exc.test(line));
+        // Check if this match is an exception - scope to the matched span only
+        const matchStart = match.index;
+        const matchEnd = match.index + matchedText.length;
+        const matchSpan = line.slice(matchStart, matchEnd);
+        const isException = exceptions.some(exc => exc.test(matchSpan));
         if (isException) continue;
         
         // Skip if in a comment
@@ -158,7 +162,7 @@ function checkFile(filePath) {
         
 // Get suggestion if available - prefer exact or longest key match
         let suggestion = '';
-        for (const key of SORTED_REPLACEMENT_KEYS) {
+        for (const key of sortedKeys) {
           if (matchedText === key || matchedText.startsWith(key + '-')) {
             suggestion = REPLACEMENT_SUGGESTIONS[key];
             break;
@@ -180,16 +184,6 @@ function checkFile(filePath) {
   return violations;
 }
 
-function getSuggestionForMatch(matchedText) {
-  // Sort keys by length descending to prefer exact/longest matches
-  const sortedKeys = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
-    if (matchedText === key || matchedText.startsWith(key + '-')) {
-      return REPLACEMENT_SUGGESTIONS[key];
-    }
-  }
-  return '';
-}
 
 function main() {
   console.log('\n🎨 Design System Validation Script\n');
