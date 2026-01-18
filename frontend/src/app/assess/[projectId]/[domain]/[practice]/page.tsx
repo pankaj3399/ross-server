@@ -6,7 +6,7 @@ import { useAuth } from "../../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../../hooks/useRequireAuth";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, CheckCircle, Clock, Target } from "lucide-react";
+import { IconArrowLeft, IconDeviceFloppy, IconTarget } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../../../components/Skeleton";
 import { safeRenderHTML, stripHTML } from "../../../../../lib/htmlUtils";
 
@@ -20,9 +20,9 @@ interface Question {
 type LevelQuestionEntry =
   | string
   | {
-      question_text: string;
-      description?: string | null;
-    };
+    question_text: string;
+    description?: string | null;
+  };
 
 interface Practice {
   title: string;
@@ -145,10 +145,10 @@ export default function AssessmentPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             Practice not found
           </h1>
-          <p className="text-gray-300">
+          <p className="text-muted-foreground">
             The requested practice could not be found.
           </p>
         </div>
@@ -164,28 +164,29 @@ export default function AssessmentPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="glass-effect rounded-2xl p-6 mb-8"
+          className="bg-card rounded-2xl p-6 mb-8 border border-border shadow-sm"
         >
           <div className="flex items-center gap-3 mb-4">
             <button
+              type="button"
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
+              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <IconArrowLeft className="w-4 h-4" />
               Back
             </button>
           </div>
-          <h1 className="text-3xl font-bold mb-2">
-            <span className="gradient-text">{practice.title}</span>
+          <h1 className="text-3xl font-bold mb-2 text-foreground">
+            {practice.title}
           </h1>
-          <p className="text-gray-300 mb-4 text-lg">{practice.description}</p>
+          <p className="text-muted-foreground mb-4 text-lg">{practice.description}</p>
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-muted-foreground">
               Domain: {domainId} | Practice: {practiceId}
             </div>
             {saving && (
-              <div className="flex items-center gap-2 text-sm text-purple-400">
-                <Save className="w-4 h-4 animate-spin" />
+              <div className="flex items-center gap-2 text-sm text-primary">
+                <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                 Saving...
               </div>
             )}
@@ -204,22 +205,22 @@ export default function AssessmentPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="glass-effect rounded-2xl p-6"
+                className="bg-card rounded-2xl p-6 border border-border shadow-sm"
               >
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-600 to-violet-600 text-white">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary text-primary-foreground">
                       Level {question.level}
                     </span>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white/20 text-gray-300">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                       Stream {question.stream}
                     </span>
                   </div>
-                  <p className="text-white font-medium text-lg leading-relaxed">
+                  <p className="text-card-foreground font-medium text-lg leading-relaxed">
                     {question.question}
                   </p>
                   {question.description && (
-                    <div className="mt-3 rounded-xl border border-dashed border-white/20 bg-white/10 p-4 text-sm text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-300 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
+                    <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
                       <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(question.description) }} />
                     </div>
                   )}
@@ -237,14 +238,14 @@ export default function AssessmentPage() {
                         value={value}
                         checked={currentAnswer === value}
                         onChange={() => handleAnswerChange(index, value)}
-                        className="mr-3 w-4 h-4 text-purple-600 bg-white/10 border-white/20 focus:ring-purple-500 focus:ring-2"
+                        className="mr-3 w-4 h-4 text-primary bg-background border-input focus:ring-ring focus:ring-2"
                       />
-                      <span className="text-sm text-gray-300 group-hover:text-white transition-colors">
+                      <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                         {value === 0
                           ? "No"
                           : value === 0.5
-                          ? "Partially"
-                          : "Yes"}
+                            ? "Partially"
+                            : "Yes"}
                       </span>
                     </label>
                   ))}
@@ -259,30 +260,29 @@ export default function AssessmentPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mt-8 glass-effect rounded-2xl p-6"
+          className="mt-8 bg-card rounded-2xl p-6 border border-border shadow-sm"
         >
-          <h3 className="text-lg font-medium text-white mb-4 flex items-center gap-2">
-            <Target className="w-5 h-5" />
+          <h3 className="text-lg font-medium text-card-foreground mb-4 flex items-center gap-2">
+            <IconTarget className="w-5 h-5" />
             Progress
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-300">Questions answered</span>
-              <span className="text-white font-medium">
+              <span className="text-muted-foreground">Questions answered</span>
+              <span className="text-card-foreground font-medium">
                 {Object.keys(answers).length} / {questions.length}
               </span>
             </div>
-            <div className="w-full bg-white/20 rounded-full h-3">
+            <div className="w-full bg-muted rounded-full h-3">
               <div
-                className="bg-gradient-to-r from-purple-600 to-violet-600 h-3 rounded-full transition-all duration-300"
+                className="bg-primary h-3 rounded-full transition-all duration-300"
                 style={{
-                  width: `${
-                    (Object.keys(answers).length / questions.length) * 100
-                  }%`,
+                  width: `${(Object.keys(answers).length / questions.length) * 100
+                    }%`,
                 }}
               />
             </div>
-            <div className="text-xs text-gray-400 text-center">
+            <div className="text-xs text-muted-foreground text-center">
               {Math.round(
                 (Object.keys(answers).length / questions.length) * 100,
               )}

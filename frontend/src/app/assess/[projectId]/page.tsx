@@ -15,15 +15,16 @@ import { showToast } from "../../../lib/toast";
 import { PREMIUM_STATUS, FALLBACK_PRICES } from "../../../lib/constants";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Save,
-  ArrowRight,
-  ArrowLeft as ArrowLeftIcon,
-  Info,
-  AlertTriangle,
-} from "lucide-react";
-import AssessmentTreeNavigation from "../../../components/AssessmentTreeNavigation";
-import { SecureTextarea } from "../../../components/SecureTextarea";
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconArrowRight,
+  IconInfoCircle,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
+import DOMPurify from "dompurify";
+
+import AssessmentTreeNavigation from "../../../components/shared/AssessmentTreeNavigation";
+import { SecureTextarea } from "../../../components/shared/SecureTextarea";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
 import { sanitizeNoteInput } from "../../../lib/sanitize";
 import { usePracticeStore } from "../../../store/practiceStore";
@@ -43,9 +44,9 @@ interface Question {
 type LevelQuestionEntry =
   | string
   | {
-      question_text: string;
-      description?: string | null;
-    };
+    question_text: string;
+    description?: string | null;
+  };
 
 interface PracticeWithLevels extends ApiPractice {
   levels: PracticeQuestionLevels;
@@ -137,7 +138,7 @@ export default function AssessmentPage() {
 
   const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
-  const { 
+  const {
     getProjectState,
     setProjectState,
     clearProjectState,
@@ -217,7 +218,7 @@ export default function AssessmentPage() {
         setError(null);
         setProjectNotFound(false);
         setLoading(true);
-        
+
         const domainsData = await apiService.getDomainsFull(projectId);
 
         // Check if domains array is empty or null
@@ -243,7 +244,7 @@ export default function AssessmentPage() {
         // Transform domains - questions are now included in the response
         const transformedDomains = nonPremiumDomains.map((domain) => {
           const practicesWithLevels: { [key: string]: PracticeWithLevels } = {};
-          
+
           Object.entries(domain.practices).forEach(([practiceId, practice]) => {
             practicesWithLevels[practiceId] = {
               ...practice,
@@ -294,7 +295,7 @@ export default function AssessmentPage() {
         if (targetDomainId && targetPracticeId) {
           const targetDomain = orderedDomains.find(d => d.id === targetDomainId);
           const targetPractice = targetDomain?.practices[targetPracticeId];
-          
+
           if (targetPractice && targetPractice.levels && Object.keys(targetPractice.levels).length > 0) {
             const questionsList: Question[] = [];
             Object.entries(targetPractice.levels).forEach(([level, streams]) => {
@@ -317,9 +318,9 @@ export default function AssessmentPage() {
             });
 
             setQuestions(questionsList);
-            
+
             const validIndex = Math.min(targetQuestionIndex, Math.max(0, questionsList.length - 1));
-            
+
             setProjectState(projectId, {
               currentDomainId: targetDomainId,
               currentPracticeId: targetPracticeId,
@@ -365,10 +366,10 @@ export default function AssessmentPage() {
         });
       } catch (error: any) {
         console.error("Failed to fetch data:", error);
-        
+
         // Check if it's a 400 or 404 error (project not found or invalid project ID)
-        if (error?.status === 400 || error?.status === 404 || 
-            error?.response?.status === 400 || error?.response?.status === 404) {
+        if (error?.status === 400 || error?.status === 404 ||
+          error?.response?.status === 400 || error?.response?.status === 404) {
           setProjectNotFound(true);
           setError("No domains available for this project");
         } else {
@@ -383,70 +384,70 @@ export default function AssessmentPage() {
     fetchData();
   }, [projectId, isAuthenticated, authLoading, router]);
 
-useEffect(() => {
-  if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
-    const domain = domains.find(d => d.id === currentDomainId);
-    const currentPractice = domain?.practices[currentPracticeId];
-    
-    if (currentPractice && currentPractice.levels && Object.keys(currentPractice.levels).length > 0) {
-      const questionsList: Question[] = [];
-      Object.entries(currentPractice.levels).forEach(([level, streams]) => {
-        Object.entries(
-          streams as Record<string, PracticeQuestionDetail[]>,
-        ).forEach(([stream, questionEntries]) => {
-          questionEntries.forEach((questionEntry) => {
-            const normalized = normalizeQuestionEntry(questionEntry);
-            if (!normalized) {
-              return;
-            }
-            questionsList.push({
-              level,
-              stream,
-              question: normalized.question,
-              description: normalized.description ?? undefined,
+  useEffect(() => {
+    if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
+      const domain = domains.find(d => d.id === currentDomainId);
+      const currentPractice = domain?.practices[currentPracticeId];
+
+      if (currentPractice && currentPractice.levels && Object.keys(currentPractice.levels).length > 0) {
+        const questionsList: Question[] = [];
+        Object.entries(currentPractice.levels).forEach(([level, streams]) => {
+          Object.entries(
+            streams as Record<string, PracticeQuestionDetail[]>,
+          ).forEach(([stream, questionEntries]) => {
+            questionEntries.forEach((questionEntry) => {
+              const normalized = normalizeQuestionEntry(questionEntry);
+              if (!normalized) {
+                return;
+              }
+              questionsList.push({
+                level,
+                stream,
+                question: normalized.question,
+                description: normalized.description ?? undefined,
+              });
             });
           });
         });
-      });
 
-      setQuestions(questionsList);
-      
-      if (questionsList.length > 0) {
-        const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
-        if (validIndex !== currentQuestionIndex) {
+        setQuestions(questionsList);
+
+        if (questionsList.length > 0) {
+          const validIndex = Math.min(currentQuestionIndex, questionsList.length - 1);
+          if (validIndex !== currentQuestionIndex) {
+            setProjectState(projectId, {
+              currentQuestionIndex: validIndex,
+            });
+          }
+        }
+
+        if (!practice || practice.title !== currentPractice.title) {
           setProjectState(projectId, {
-            currentQuestionIndex: validIndex,
+            practice: {
+              title: currentPractice.title,
+              description: currentPractice.description,
+              levels: currentPractice.levels,
+            },
+          });
+        }
+      } else {
+        setQuestions([]);
+        if (currentPractice) {
+          setProjectState(projectId, {
+            practice: {
+              title: currentPractice.title,
+              description: currentPractice.description,
+              levels: {},
+            },
+          });
+        } else {
+          setProjectState(projectId, {
+            practice: null,
           });
         }
       }
-      
-      if (!practice || practice.title !== currentPractice.title) {
-        setProjectState(projectId, {
-          practice: {
-            title: currentPractice.title,
-            description: currentPractice.description,
-            levels: currentPractice.levels,
-          },
-        });
-      }
-    } else {
-      setQuestions([]);
-      if (currentPractice) {
-        setProjectState(projectId, {
-          practice: {
-            title: currentPractice.title,
-            description: currentPractice.description,
-            levels: {},
-          },
-        });
-      } else {
-        setProjectState(projectId, {
-          practice: null,
-        });
-      }
     }
-  }
-}, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState, practice]);
+  }, [loading, domains, currentDomainId, currentPracticeId, currentQuestionIndex, projectId, setProjectState, practice]);
 
   const {
     progressData,
@@ -536,14 +537,14 @@ useEffect(() => {
   // Save all notes with user feedback
   const saveAllNotes = async (isSubmitting: boolean = false): Promise<void> => {
     const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
-    
+
     if (noteEntries.length === 0) {
       return;
     }
 
     // Show loading toast
-    const toastMessage = isSubmitting 
-      ? "Saving notes and submitting..." 
+    const toastMessage = isSubmitting
+      ? "Saving notes and submitting..."
       : "Saving notes...";
     const toastId = showToast.loading(toastMessage);
 
@@ -552,14 +553,14 @@ useEffect(() => {
       try {
         const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
         const questionIndex = parseInt(questionIndexStr, 10);
-        
+
         if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
           console.warn(`Invalid note key format: ${key}`);
           return { success: false, key, error: "Invalid key format" };
         }
 
         const sanitizedNote = sanitizeNoteInput(note.trim());
-        
+
         await apiService.saveQuestionNote(projectId, {
           domainId,
           practiceId,
@@ -568,7 +569,7 @@ useEffect(() => {
           questionIndex,
           note: sanitizedNote,
         });
-        
+
         return { success: true, key };
       } catch (error) {
         console.error(`Failed to save note for key ${key}:`, error);
@@ -578,7 +579,7 @@ useEffect(() => {
 
     // Wait for all saves to complete and collect results
     const results = await Promise.allSettled(savePromises);
-    
+
     // Dismiss loading toast
     showToast.dismiss(toastId);
 
@@ -610,7 +611,7 @@ useEffect(() => {
       const firstPracticeId = Object.keys(domain.practices)[0];
       if (firstPracticeId) {
         const firstPractice = domain.practices[firstPracticeId];
-        
+
         setProjectState(projectId, {
           currentDomainId: domainId,
           currentPracticeId: firstPracticeId,
@@ -630,9 +631,9 @@ useEffect(() => {
     const domain = domains.find(d => d.id === domainId);
     if (domain && domain.practices[practiceId]) {
       const selectedPractice = domain.practices[practiceId];
-      
+
       navigateToPractice(domainId, practiceId);
-      
+
       setProjectState(projectId, {
         currentDomainId: domainId,
         currentPracticeId: practiceId,
@@ -650,7 +651,7 @@ useEffect(() => {
     const domain = domains.find(d => d.id === domainId);
     if (domain && domain.practices[practiceId]) {
       const selectedPractice = domain.practices[practiceId];
-      
+
       setProjectState(projectId, {
         currentDomainId: domainId,
         currentPracticeId: practiceId,
@@ -684,10 +685,10 @@ useEffect(() => {
     if (next) {
       const isMovingToDifferentDomain = next.domainId !== currentDomainId;
       const isMovingToDifferentPractice = next.practiceId !== currentPracticeId;
-      
+
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
         const practiceData = getPracticeData(next.domainId, next.practiceId);
-        
+
         setProjectState(projectId, {
           currentDomainId: next.domainId,
           currentPracticeId: next.practiceId,
@@ -709,10 +710,10 @@ useEffect(() => {
     if (prev) {
       const isMovingToDifferentDomain = prev.domainId !== currentDomainId;
       const isMovingToDifferentPractice = prev.practiceId !== currentPracticeId;
-      
+
       if (isMovingToDifferentDomain || isMovingToDifferentPractice) {
         const practiceData = getPracticeData(prev.domainId, prev.practiceId);
-        
+
         setProjectState(projectId, {
           currentDomainId: prev.domainId,
           currentPracticeId: prev.practiceId,
@@ -739,11 +740,11 @@ useEffect(() => {
       // Save all notes before submitting (with user feedback)
       setSubmissionPhase('saving-notes');
       await saveAllNotes(true);
-      
+
       // Now submit the project
       setSubmissionPhase('submitting');
       const response = await apiService.submitProject(projectId);
-      
+
       setProjectResults(projectId, response.project, response.results);
       router.push(`/score-report-aima?projectId=${projectId}`);
     } catch (error) {
@@ -763,25 +764,26 @@ useEffect(() => {
   // Show project not found error (400/404)
   if (projectNotFound) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Project Not Found
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             No domains available for this project.
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Go to Dashboard
             </button>
             <button
               onClick={() => router.back()}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              type="button"
+              className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go Back
             </button>
@@ -794,13 +796,13 @@ useEffect(() => {
   // Show error if there's an error and no domains (generic error)
   if (error && domains.length === 0 && !projectNotFound && !loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Unable to Load Assessment
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => {
@@ -808,13 +810,15 @@ useEffect(() => {
                 setLoading(true);
                 window.location.reload();
               }}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              type="button"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Retry
             </button>
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              type="button"
+              className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go to Dashboard
             </button>
@@ -827,19 +831,19 @@ useEffect(() => {
   // Show no domains data available (empty domains array)
   if (domains.length === 0 && !loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <IconAlertTriangle className="w-12 h-12 text-warning mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             No Assessment Data Available
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-muted-foreground mb-6">
             No domains data available
           </p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => router.push("/dashboard")}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Go to Dashboard
             </button>
@@ -860,7 +864,7 @@ useEffect(() => {
 
   const validQuestionIndex = Math.min(currentQuestionIndex, questions.length - 1);
   const currentQuestion = questions[validQuestionIndex];
-  
+
   if (!currentQuestion) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -890,229 +894,233 @@ useEffect(() => {
 
   return (
     <>
-      <div className="min-h-screen flex">
+      <div className="min-h-screen flex flex-row-reverse">
         {/* Tree Navigation Sidebar */}
         <AssessmentTreeNavigation
-        domains={progressData}
-        currentDomainId={currentDomainId}
-        currentPracticeId={currentPracticeId}
-        currentQuestionIndex={currentQuestionIndex}
-        onDomainClick={handleDomainClick}
-        onPracticeClick={handlePracticeClick}
-        onQuestionClick={handleQuestionClick}
-        projectId={projectId}
-        isPremium={isPremium}
-      />
+          domains={progressData}
+          currentDomainId={currentDomainId}
+          currentPracticeId={currentPracticeId}
+          currentQuestionIndex={currentQuestionIndex}
+          onDomainClick={handleDomainClick}
+          onPracticeClick={handlePracticeClick}
+          onQuestionClick={handleQuestionClick}
+          projectId={projectId}
+          isPremium={isPremium}
+        />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* HEADER + Premium Button */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.back()}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {practice?.title || 'Loading...'}
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {saving && (
-                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Save className="w-4 h-4 animate-spin" />
-                  Saving...
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
+          {/* HEADER + Premium Button */}
+          <div className="bg-background border-b border-border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => router.back()}
+                  type="button"
+                  className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                >
+                  <IconArrowLeft className="w-4 h-4" />
+                  Back
+                </button>
+                <div className="h-6 w-px bg-border" />
+                <div>
+                  <h1 className="text-lg font-semibold text-foreground">
+                    {practice?.title || 'Loading...'}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
+                  </p>
                 </div>
-              )}
-              <button
-                onClick={handleSubmitProject}
-                disabled={submitting}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    {submissionPhase === 'saving-notes' 
-                      ? 'Saving notes...' 
-                      : submissionPhase === 'submitting'
-                      ? 'Submitting assessment...'
-                      : 'Processing...'}
-                  </>
-                ) : (
-                  <>
-                    Submit Project
-                  </>
+              </div>
+              <div className="flex items-center gap-4">
+                {saving && (
+                  <div className="flex items-center gap-2 text-sm text-primary">
+                    <IconDeviceFloppy className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </div>
                 )}
-              </button>
+                <button
+                  onClick={handleSubmitProject}
+                  type="button"
+                  disabled={submitting}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      {submissionPhase === 'saving-notes'
+                        ? 'Saving notes...'
+                        : submissionPhase === 'submitting'
+                          ? 'Submitting assessment...'
+                          : 'Processing...'}
+                    </>
+                  ) : (
+                    <>
+                      Submit Project
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Question Content */}
-        <div className="flex-1 p-6">
-          <div className="max-w-4xl mx-auto">
-            {/* Progress Bar */}
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Question {validQuestionIndex + 1} of {totalQuestions}
-                </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {Math.round(progress)}% Complete
-                </span>
+          {/* Question Content */}
+          <div className="flex-1 p-6">
+            <div className="max-w-4xl mx-auto">
+              {/* Progress Bar */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">
+                    Question {validQuestionIndex + 1} of {totalQuestions}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(progress)}% Complete
+                  </span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
 
-            {/* Question Card */}
-            <motion.div
-              key={validQuestionIndex}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
-            >
-              <div className="mb-6">
-                <div className="flex items-center gap-5 mb-4">
-                  <div className="flex items-center gap-1">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                      Level {currentQuestion.level}
-                    </span>
-                    <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
-                        Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
+              {/* Question Card */}
+              <motion.div
+                key={validQuestionIndex}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-card rounded-2xl shadow-lg border border-border p-8 mb-8"
+              >
+                <div className="mb-6">
+                  <div className="flex items-center gap-5 mb-4">
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
+                        Level {currentQuestion.level}
                       </span>
+                      <div className="relative group">
+                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
+                          Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
+                        Stream {currentQuestion.stream}
+                      </span>
+                      <div className="relative group">
+                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
+                          Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                      Stream {currentQuestion.stream}
-                    </span>
-                    <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
-                        Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
-                      </span>
+                  <h2 className="text-xl font-semibold text-foreground leading-relaxed">
+                    {currentQuestion.question}
+                  </h2>
+                  {currentQuestion.description && (
+                    <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
+                      <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQuestion.description) }} />
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
-                  {currentQuestion.question}
-                </h2>
-                {currentQuestion.description && (
-                  <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
-                    <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  {
-                    value: 0,
-                    label: "No",
-                    description: "Not implemented or not applicable",
-                  },
-                  {
-                    value: 0.5,
-                    label: "Partially",
-                    description: "Partially implemented or in progress",
-                  },
-                  {
-                    value: 1,
-                    label: "Yes",
-                    description: "Fully implemented and operational",
-                  },
-                ].map((option) => (
-                  <label
-                    key={option.value}
-                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
-                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
-                      }`}
-                  >
-                    <input
-                      type="radio"
-                      name="answer"
-                      value={option.value}
-                      checked={currentAnswer === option.value}
-                      onChange={() =>
-                        handleAnswerChange(validQuestionIndex, option.value)
-                      }
-                      className="mt-1 w-4 h-4 text-purple-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-purple-500 focus:ring-2"
-                    />
-                    <div className="ml-3 flex-1">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {option.label}
+                <div className="space-y-3">
+                  {[
+                    {
+                      value: 0,
+                      label: "No",
+                      description: "Not implemented or not applicable",
+                    },
+                    {
+                      value: 0.5,
+                      label: "Partially",
+                      description: "Partially implemented or in progress",
+                    },
+                    {
+                      value: 1,
+                      label: "Yes",
+                      description: "Fully implemented and operational",
+                    },
+                  ].map((option) => (
+                    <label
+                      key={option.value}
+                      className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50 hover:bg-muted/50"
+                        }`}
+                    >
+                      <input
+                        type="radio"
+                        name="answer"
+                        value={option.value}
+                        checked={currentAnswer === option.value}
+                        onChange={() =>
+                          handleAnswerChange(validQuestionIndex, option.value)
+                        }
+                        className="mt-1 w-4 h-4 text-primary bg-background border-border focus:ring-primary focus:ring-2"
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="text-sm font-medium text-foreground">
+                          {option.label}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {option.description}
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {option.description}
-                      </div>
-                    </div>
-                  </label>
-                ))}
+                    </label>
+                  ))}
+                </div>
+
+                {/* Notes Section */}
+                <div className="mt-6 pt-6 border-t border-border">
+                  <h3 className="text-sm font-medium text-foreground mb-3">
+                    Your Notes
+                  </h3>
+                  <SecureTextarea
+                    value={currentNote}
+                    onChange={(note) =>
+                      handleNoteChange(validQuestionIndex, note)
+                    }
+                    onSave={(value) => handleNoteSave(validQuestionIndex, value)}
+                    placeholder="Add your notes, reminders, or thoughts about this question..."
+                    maxLength={5000}
+                    className="w-full"
+                  />
+                </div>
+              </motion.div>
+
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={handlePreviousQuestion}
+                  type="button"
+                  disabled={!hasPreviousQuestion}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground hover:bg-muted"
+                >
+                  <IconArrowLeft className="w-4 h-4" />
+                  Previous
+                </button>
+
+                <button
+                  onClick={handleNextQuestion}
+                  type="button"
+                  disabled={!hasNextQuestion}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  Next
+                  <IconArrowRight className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Notes Section */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  Your Notes
-                </h3>
-                <SecureTextarea
-                  value={currentNote}
-                  onChange={(note) =>
-                    handleNoteChange(validQuestionIndex, note)
-                  }
-                  onSave={(value) => handleNoteSave(validQuestionIndex, value)}
-                  placeholder="Add your notes, reminders, or thoughts about this question..."
-                  maxLength={5000}
-                  className="w-full"
-                />
-              </div>
-            </motion.div>
-
-            {/* Navigation Buttons */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={handlePreviousQuestion}
-                disabled={!hasPreviousQuestion}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <ArrowLeftIcon className="w-4 h-4" />
-                Previous
-              </button>
-
-              <button
-                onClick={handleNextQuestion}
-                disabled={!hasNextQuestion}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
-              >
-                Next
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

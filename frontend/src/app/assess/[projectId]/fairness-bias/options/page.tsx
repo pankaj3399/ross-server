@@ -13,10 +13,10 @@ import {
   Github,
   CheckCircle,
 } from "lucide-react";
-import SubscriptionModal from "../../../../../components/SubscriptionModal";
+import SubscriptionModal from "../../../../../components/features/subscriptions/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
 
-type TestMethod = 
+type TestMethod =
   | "prompt-response"
   | "api-endpoint"
   | "dataset-testing"
@@ -72,24 +72,24 @@ export default function FairnessBiasOptions() {
       title: "Manual Prompt Testing",
       description: "Provide prompt responses manually and generate a comprehensive fairness and bias report",
       icon: FileText,
-      color: "from-purple-600 to-violet-600",
-      hoverColor: "from-purple-700 to-violet-700",
+      color: "bg-primary text-primary-foreground",
+      hoverColor: "hover:bg-primary/90",
     },
     {
       id: "api-endpoint" as TestMethod,
       title: "API Automated Testing",
       description: "Provide your model's API endpoint URL. We'll send prompts to your API and automatically evaluate the responses for fairness and bias",
       icon: Globe,
-      color: "from-blue-600 to-cyan-600",
-      hoverColor: "from-blue-700 to-cyan-700",
+      color: "bg-info text-info-foreground",
+      hoverColor: "hover:bg-info/90",
     },
     {
       id: "dataset-testing" as TestMethod,
       title: "Dataset Testing",
       description: "Upload your CSV file to automatically run fairness and bias evaluations on your data.",
       icon: Upload,
-      color: "from-green-600 to-emerald-600",
-      hoverColor: "from-green-700 to-emerald-700",
+      color: "bg-success text-success-foreground",
+      hoverColor: "hover:bg-success/90",
     },
   ];
 
@@ -98,26 +98,26 @@ export default function FairnessBiasOptions() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
+    <div className="min-h-screen bg-background relative">
       {/* Blurred Content */}
       <div className={isPremium ? "" : "blur-sm pointer-events-none select-none"}>
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-card border-b border-border">
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-2xl font-bold text-foreground">
                   Fairness & Bias Test
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   Select a method to test your model for fairness and bias
                 </p>
               </div>
@@ -128,10 +128,10 @@ export default function FairnessBiasOptions() {
         {/* Main Content */}
         <div className="max-w-7xl mx-auto px-6 py-12">
           <div className="mb-8 text-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-xl font-semibold text-foreground mb-2">
               Choose Your Testing Method
             </h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-muted-foreground">
               Select one of the following options to proceed with fairness and bias testing
             </p>
           </div>
@@ -151,11 +151,10 @@ export default function FairnessBiasOptions() {
                   onClick={() => isPremium && handleMethodSelect(option.id)}
                   className={`
                     relative cursor-pointer rounded-2xl border-2 p-6 transition-all duration-200
-                    bg-white dark:bg-gray-800
-                    ${
-                      isSelected
-                        ? "border-purple-500 dark:border-purple-400 shadow-lg scale-105"
-                        : "border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 hover:shadow-md"
+                    bg-card
+                    ${isSelected
+                      ? "border-primary shadow-lg scale-105"
+                      : "border-border hover:border-primary/50 hover:shadow-md"
                     }
                     ${!isPremium ? "cursor-not-allowed" : ""}
                   `}
@@ -163,7 +162,7 @@ export default function FairnessBiasOptions() {
                   {/* Selection Indicator */}
                   {isSelected && (
                     <div className="absolute top-4 right-4">
-                      <CheckCircle className="w-6 h-6 text-purple-500 dark:text-purple-400" />
+                      <CheckCircle className="w-6 h-6 text-primary" />
                     </div>
                   )}
 
@@ -171,17 +170,17 @@ export default function FairnessBiasOptions() {
                   <div
                     className={`
                       w-16 h-16 rounded-xl flex items-center justify-center mb-4
-                      bg-gradient-to-br ${option.color}
+                      ${option.color}
                     `}
                   >
-                    <Icon className="w-8 h-8 text-white" />
+                    <Icon className="w-8 h-8" />
                   </div>
 
                   {/* Content */}
-                  <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">
+                  <h3 className="text-xl font-semibold mb-2 text-foreground">
                     {option.title}
                   </h3>
-                  <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {option.description}
                   </p>
                 </motion.div>
@@ -196,10 +195,9 @@ export default function FairnessBiasOptions() {
               disabled={!selectedMethod || !isPremium}
               className={`
                 px-8 py-3 rounded-xl font-semibold text-lg transition-all duration-200
-                ${
-                  selectedMethod && isPremium
-                    ? "bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white shadow-lg hover:shadow-xl"
-                    : "bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                ${selectedMethod && isPremium
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-xl"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
                 }
               `}
               whileHover={selectedMethod && isPremium ? { scale: 1.05 } : {}}
@@ -219,7 +217,7 @@ export default function FairnessBiasOptions() {
           router.push(`/assess/${projectId}/fairness-bias/options`);
         }}
       />
-    </div>
+    </div >
   );
 }
 

@@ -10,14 +10,37 @@ import { useRequireAuth } from "../../hooks/useRequireAuth";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  Plus,
-  Trash2,
-  ArrowRight,
-  CheckCircle,
-  AlertCircle,
-  Loader,
-} from "lucide-react";
-import { CardSkeleton } from "../../components/Skeleton";
+  IconPlus,
+  IconTrash,
+  IconArrowRight,
+  IconCircleCheck,
+  IconAlertCircle,
+  IconLoader2,
+  IconFolder,
+  IconRobot,
+  IconBriefcase
+} from "@tabler/icons-react";
+import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 const SKELETON_COUNT = 5;
@@ -43,6 +66,16 @@ const INDUSTRY_OPTIONS = [
   "Others",
 ];
 
+const AI_SYSTEM_TYPES = [
+  "Machine Learning Model",
+  "Deep Learning System",
+  "NLP System",
+  "Computer Vision",
+  "Recommendation System",
+  "Autonomous System",
+  "Other",
+];
+
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
   const { loading: authLoading } = useRequireAuth();
@@ -62,6 +95,8 @@ export default function DashboardPage() {
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -108,7 +143,6 @@ export default function DashboardPage() {
             console.error("Failed to refresh user before redirect:", error);
           }
         })();
-        // Use push instead of replace to preserve history
         router.push(savedReturnUrl);
         return;
       }
@@ -130,12 +164,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    // Wait for auth to finish loading
     if (authLoading) {
       return;
     }
 
-    // Only proceed if authenticated
     if (!isAuthenticated) {
       return;
     }
@@ -163,6 +195,7 @@ export default function DashboardPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsCreating(true);
     try {
       const response = await apiService.createProject(newProject);
       setProjects([...projects, response.project]);
@@ -172,6 +205,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to create project:", error);
       showToast.error("Failed to create project. Please try again.");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -205,27 +240,29 @@ export default function DashboardPage() {
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
-
+    setIsLoading(true);
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
       showToast.success("Project deleted successfully!");
+      setDeletingProjectId(null);
     } catch (error) {
       console.error("Failed to delete project:", error);
       showToast.error("Failed to delete project. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
 
-  if (!isAuthenticated) {
-    return <div>Loading...</div>;
+  if (authLoading || !isAuthenticated) {
+    return <DashboardSkeleton />;
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="py-8">
+    <div className="min-h-full flex flex-col bg-background">
+      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="py-6">
           {/* Page Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <motion.div
@@ -238,8 +275,8 @@ export default function DashboardPage() {
                 <span className="gradient-text">Dashboard</span>
               </h1>
               <div>
-                <p className="text-gray-600 dark:text-gray-300 font-medium">
-                  Welcome back, <span className="text-purple-600 dark:text-purple-400 font-bold">{user?.name}</span>! Manage your AI maturity assessments
+                <p className="text-muted-foreground font-medium">
+                  Welcome back, <span className="text-primary font-bold">{user?.name}</span>! Manage your AI maturity assessments
                 </p>
               </div>
             </motion.div>
@@ -250,15 +287,13 @@ export default function DashboardPage() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="flex justify-end items-center"
             >
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <Button
                 onClick={() => setShowCreateForm(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 pulse-glow"
+                className="btn-primary h-12 px-6"
               >
-                <Plus className="w-5 h-5" />
+                <IconPlus className="w-5 h-5 mr-2" />
                 New Project
-              </motion.button>
+              </Button>
             </motion.div>
           </div>
 
@@ -268,13 +303,13 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              className="mb-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-xl shadow-lg"
+              className="mb-6 bg-success/15 border border-success/30 text-foreground p-4 rounded-xl shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <CheckCircle className="w-6 h-6" />
+                <IconCircleCheck className="w-6 h-6 text-success" />
                 <div>
                   <h3 className="font-semibold text-lg">🎉 Payment Successful!</h3>
-                  <p className="text-green-100">Your subscription has been upgraded. Welcome to premium!</p>
+                  <p className="text-muted-foreground">Your subscription has been upgraded. Welcome to premium!</p>
                 </div>
               </div>
             </motion.div>
@@ -286,13 +321,13 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
-              className="mb-6 bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 rounded-xl shadow-lg"
+              className="mb-6 bg-destructive/15 border border-destructive/30 text-foreground p-4 rounded-xl shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <AlertCircle className="w-6 h-6" />
+                <IconAlertCircle className="w-6 h-6 text-destructive" />
                 <div>
                   <h3 className="font-semibold text-lg">Payment Canceled</h3>
-                  <p className="text-red-100">You can try upgrading again anytime.</p>
+                  <p className="text-muted-foreground">You can try upgrading again anytime.</p>
                 </div>
               </div>
             </motion.div>
@@ -304,7 +339,7 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
+            <h2 className="text-2xl font-bold mb-6 text-foreground">
               Your Projects
             </h2>
             {loading ? (
@@ -315,86 +350,80 @@ export default function DashboardPage() {
               </div>
             ) : projects.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Plus className="w-12 h-12 text-gray-400" />
+                <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                  <IconPlus className="w-12 h-12 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-semibold mb-2">
                   No projects yet
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                <p className="text-muted-foreground mb-6">
                   Create your first AI maturity assessment project to get
                   started.
                 </p>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <Button
                   onClick={() => setShowCreateForm(true)}
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105"
+                  className="btn-primary"
                 >
                   Create Your First Project
-                </motion.button>
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {projects.map((project) => (
+                {projects.map((project, index) => (
                   <motion.div
                     key={project.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ y: -5 }}
-                    className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700"
                   >
-                    {/* Title and Status */}
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {project.name}
-                      </h3>
-                      <Link
-                        href={`/assess/${project.id}`}
-                        className="flex items-center gap-2 text-green-600 dark:text-green-500 hover:text-green-700 dark:hover:text-green-400 transition-colors text-sm font-medium"
-                      >
-                        <span>
-                          {project.status === 'completed' ? 'Completed' : 
-                           project.status === 'in_progress' ? 'In Progress' : 
-                           'Start'}
-                        </span>
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </div>
+                    <Card className={`h-full hover:shadow-xl transition-all duration-300 ${["bg-chart-1/10", "bg-chart-2/10", "bg-chart-3/10", "bg-chart-4/10", "bg-chart-5/10"][index % 5]}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">{project.name}</CardTitle>
+                          <Link
+                            href={`/assess/${project.id}`}
+                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+                          >
+                            <span>
+                              {project.status === 'completed' ? 'Completed' :
+                                project.status === 'in_progress' ? 'In Progress' :
+                                  'Start'}
+                            </span>
+                            <IconArrowRight className="w-4 h-4" />
+                          </Link>
+                        </div>
+                        <CardDescription>
+                          {project.description || "No description provided"}
+                        </CardDescription>
+                      </CardHeader>
 
-                    {/* Description */}
-                    <p className="text-gray-500 dark:text-gray-400 mb-4 text-sm">
-                      {project.description || "No description provided"}
-                    </p>
+                      <CardContent className="pb-3">
+                        <Badge variant="secondary">
+                          {project.ai_system_type || "General AI System"}
+                        </Badge>
+                      </CardContent>
 
-                    {/* Tag */}
-                    <div className="mb-4">
-                      <span className="inline-block text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md">
-                        {project.ai_system_type || "General AI System"}
-                      </span>
-                    </div>
+                      <Separator />
 
-                    {/* Separator */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 mb-4"></div>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEditProject(project)}
-                        className="flex items-center gap-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProject(project.id)}
-                        className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                      </button>
-                    </div>
+                      <CardFooter className="pt-4 justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditProject(project)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                          onClick={() => setDeletingProjectId(project.id)}
+                        >
+                          <IconTrash className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      </CardFooter>
+                    </Card>
                   </motion.div>
                 ))}
               </div>
@@ -404,237 +433,260 @@ export default function DashboardPage() {
       </div>
 
       {/* Create Project Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
-          >
-            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-              Create New Project
-            </h3>
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Project Name
-                </label>
-                <input
-                  type="text"
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateProject} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Project Name</Label>
+              <div className="relative">
+                <IconFolder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="project-name"
                   value={newProject.name}
                   onChange={(e) =>
                     setNewProject({ ...newProject, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Enter project name"
                   required
+                  className="pl-10"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={newProject.description}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      description: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Describe your AI system"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  AI System Type
-                </label>
-                <select
-                  value={newProject.aiSystemType}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      aiSystemType: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select AI System Type</option>
-                  <option value="Machine Learning Model">
-                    Machine Learning Model
-                  </option>
-                  <option value="Deep Learning System">
-                    Deep Learning System
-                  </option>
-                  <option value="NLP System">NLP System</option>
-                  <option value="Computer Vision">Computer Vision</option>
-                  <option value="Recommendation System">
-                    Recommendation System
-                  </option>
-                  <option value="Autonomous System">Autonomous System</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Industry
-                </label>
-                <select
-                  value={newProject.industry}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      industry: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select Industry</option>
-                  {INDUSTRY_OPTIONS.map((industry) => (
-                    <option key={industry} value={industry}>
-                      {industry}
-                    </option>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description">Description</Label>
+              <Textarea
+                id="project-description"
+                value={newProject.description}
+                onChange={(e) =>
+                  setNewProject({
+                    ...newProject,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Describe your AI system"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>AI System Type</Label>
+              <Select
+                value={newProject.aiSystemType}
+                onValueChange={(value) =>
+                  setNewProject({ ...newProject, aiSystemType: value })
+                }
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconRobot className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select AI System Type" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_SYSTEM_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
                   ))}
-                </select>
-              </div>
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(false)}
-                  className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-xl transition-all duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105"
-                >
-                  Create Project
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Industry</Label>
+              <Select
+                value={newProject.industry}
+                onValueChange={(value) =>
+                  setNewProject({ ...newProject, industry: value })
+                }
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconBriefcase className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select Industry" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <SelectItem key={industry} value={industry}>
+                      {industry}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateForm(false)}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="btn-primary"
+                disabled={isCreating}
+              >
+                {isCreating ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Project"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="relative bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md z-10"
-          >
-            <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
-              Edit Project
-            </h3>
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Project Name
-                </label>
-                <input
-                  type="text"
+      {/* Edit Project Modal */}
+      <Dialog open={!!editingProject} onOpenChange={(open) => !open && setEditingProject(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-project-name">Project Name</Label>
+              <div className="relative">
+                <IconFolder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="edit-project-name"
                   value={editProjectData.name}
                   onChange={(e) =>
                     setEditProjectData({ ...editProjectData, name: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Enter project name"
                   required
+                  className="pl-10"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={editProjectData.description}
-                  onChange={(e) =>
-                    setEditProjectData({ ...editProjectData, description: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Describe your AI system"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  AI System Type
-                </label>
-                <select
-                  value={editProjectData.aiSystemType}
-                  onChange={(e) =>
-                    setEditProjectData({
-                      ...editProjectData,
-                      aiSystemType: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select AI System Type</option>
-                  <option value="Machine Learning Model">
-                    Machine Learning Model
-                  </option>
-                  <option value="Deep Learning System">
-                    Deep Learning System
-                  </option>
-                  <option value="NLP System">NLP System</option>
-                  <option value="Computer Vision">Computer Vision</option>
-                  <option value="Recommendation System">
-                    Recommendation System
-                  </option>
-                  <option value="Autonomous System">Autonomous System</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Industry
-                </label>
-                <select
-                  value={editProjectData.industry}
-                  onChange={(e) =>
-                    setEditProjectData({
-                      ...editProjectData,
-                      industry: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">Select Industry</option>
-                  {INDUSTRY_OPTIONS.map((industry) => (
-                    <option key={industry} value={industry}>
-                      {industry}
-                    </option>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-project-description">Description</Label>
+              <Textarea
+                id="edit-project-description"
+                value={editProjectData.description}
+                onChange={(e) =>
+                  setEditProjectData({ ...editProjectData, description: e.target.value })
+                }
+                placeholder="Describe your AI system"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>AI System Type</Label>
+              <Select
+                value={editProjectData.aiSystemType}
+                onValueChange={(value) =>
+                  setEditProjectData({ ...editProjectData, aiSystemType: value })
+                }
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconRobot className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select AI System Type" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_SYSTEM_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
                   ))}
-                </select>
-              </div>
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditingProject(null)}
-                  className="px-6 py-3 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 rounded-xl transition-all duration-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={`flex justify-center items-center w-40 h-12 px-6 py-3 ${isLoading ? "opacity-70" : ""} bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-semibold transition-all duration-300 transform hover:scale-105`}
-                >
-                  {isLoading ? <Loader className="animate-spin" /> : "Save Changes"}
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Industry</Label>
+              <Select
+                value={editProjectData.industry}
+                onValueChange={(value) =>
+                  setEditProjectData({ ...editProjectData, industry: value })
+                }
+              >
+                <SelectTrigger>
+                  <div className="flex items-center gap-2">
+                    <IconBriefcase className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Select Industry" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((industry) => (
+                    <SelectItem key={industry} value={industry}>
+                      {industry}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingProject(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="btn-primary"
+              >
+                {isLoading ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deletingProjectId} onOpenChange={(open) => !open && setDeletingProjectId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently removed.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setDeletingProjectId(null)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deletingProjectId && handleDeleteProject(deletingProjectId)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

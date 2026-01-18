@@ -6,9 +6,10 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
 import { useRequireAuth } from "../../../hooks/useRequireAuth";
-import { Download } from "lucide-react";
+import { IconDownload, IconPlus, IconChevronDown, IconChevronRight, IconX } from "@tabler/icons-react";
 import { SimplePageSkeleton, Skeleton, AimaDataManagementSkeleton } from "@/components/Skeleton";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import { Button } from "@/components/ui/button";
+import { RichTextEditor } from "@/components/shared/RichTextEditor";
 import { safeRenderHTML, stripHTML } from "@/lib/htmlUtils";
 import { ROLES } from "@/lib/constants";
 
@@ -142,6 +143,9 @@ export default function AdminQuestions() {
   const [savingDescriptions, setSavingDescriptions] = useState<Record<string, boolean>>({});
   const [descriptionStatus, setDescriptionStatus] = useState<Record<string, "saved" | "error">>({});
   const [downloadingEmails, setDownloadingEmails] = useState(false);
+  const [submittingDomain, setSubmittingDomain] = useState(false);
+  const [submittingPractice, setSubmittingPractice] = useState(false);
+  const [submittingQuestion, setSubmittingQuestion] = useState(false);
 
   const handleDownloadWaitlistEmails = async () => {
     try {
@@ -251,6 +255,7 @@ export default function AdminQuestions() {
 
   const submitDomain = async () => {
     try {
+      setSubmittingDomain(true);
       const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-domain`, {
         method: "POST",
@@ -270,6 +275,8 @@ export default function AdminQuestions() {
       }
     } catch (err) {
       console.error("Failed to add domain");
+    } finally {
+      setSubmittingDomain(false);
     }
   };
 
@@ -300,6 +307,7 @@ export default function AdminQuestions() {
 
   const submitPractice = async () => {
     try {
+      setSubmittingPractice(true);
       const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-practice`, {
         method: "POST",
@@ -319,11 +327,14 @@ export default function AdminQuestions() {
       }
     } catch (err) {
       console.error("Failed to add practice");
+    } finally {
+      setSubmittingPractice(false);
     }
   };
 
   const submitQuestion = async () => {
     try {
+      setSubmittingQuestion(true);
       const token = localStorage.getItem("auth_token");
       const response = await fetch(`${API_BASE_URL}/admin/add-question`, {
         method: "POST",
@@ -346,6 +357,8 @@ export default function AdminQuestions() {
       }
     } catch (err) {
       console.error("Failed to add question");
+    } finally {
+      setSubmittingQuestion(false);
     }
   };
 
@@ -687,8 +700,8 @@ export default function AdminQuestions() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-destructive/15 border border-destructive/50 text-destructive px-4 py-3 rounded">
           <strong>Error:</strong> {error}
         </div>
       </div>
@@ -697,8 +710,8 @@ export default function AdminQuestions() {
 
   if (!aimaData) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded">
+      <div className="min-h-screen bg-background p-6">
+        <div className="bg-muted border border-border text-muted-foreground px-4 py-3 rounded">
           No data available
         </div>
       </div>
@@ -706,79 +719,64 @@ export default function AdminQuestions() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-900 dark:via-gray-800 dark:to-purple-900 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">
-                <span className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-                  AIMA Data Management
-                </span>
+              <h1 className="text-4xl font-bold mb-2 text-primary">
+                AIMA Data Management
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-lg">
+              <p className="text-muted-foreground text-lg">
                 Manage domains, practices, and questions for the AIMA assessment
                 framework.
               </p>
             </div>
             <div className="flex gap-3">
-              <button
+              <Button
                 onClick={handleDownloadWaitlistEmails}
+                isLoading={downloadingEmails}
                 disabled={downloadingEmails}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:from-gray-400 disabled:to-gray-500 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-green-500/25 disabled:transform-none disabled:cursor-not-allowed"
+                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-xl shadow-sm"
               >
-                <Download className="w-5 h-5 mr-2" />
-                {downloadingEmails
-                  ? "Downloading..."
-                  : "Download Waitlist Emails"}
-              </button>
+                {!downloadingEmails && <IconDownload className="w-5 h-5 mr-2" />}
+                {downloadingEmails ? "Downloading..." : "Download Waitlist Emails"}
+              </Button>
               <button
                 onClick={handleAddDomain}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
+                className="inline-flex items-center px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-sm"
               >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
+                <IconPlus className="w-5 h-5 mr-2" />
                 Add New Domain
               </button>
             </div>
           </div>
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-card-foreground mb-4">
               Summary
             </h2>
             <div className="grid grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_domains}
                 </div>
-                <div className="text-blue-700 dark:text-blue-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Domains
                 </div>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_practices}
                 </div>
-                <div className="text-green-700 dark:text-green-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Practices
                 </div>
               </div>
-              <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl">
-                <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+              <div className="text-center p-4 bg-muted/50 rounded-xl">
+                <div className="text-3xl font-bold text-primary">
                   {aimaData.data.summary.total_questions}
                 </div>
-                <div className="text-purple-700 dark:text-purple-300 font-medium">
+                <div className="text-muted-foreground font-medium">
                   Questions
                 </div>
               </div>
@@ -789,8 +787,8 @@ export default function AdminQuestions() {
 
       {/* Industry Analytics Section */}
       <div className="my-8">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-lg">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        <div className="bg-card/80 backdrop-blur-sm border border-border rounded-2xl p-6 shadow-lg">
+          <h2 className="text-2xl font-bold text-foreground mb-6">
             Industry Analytics
           </h2>
           {loadingIndustryAnalytics ? (
@@ -802,35 +800,34 @@ export default function AdminQuestions() {
             <div className="space-y-6">
               {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl">
-                  <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                <div className="text-center p-4 bg-primary/10 rounded-xl">
+                  <div className="text-2xl font-bold text-primary">
                     {industryAnalytics.summary.total_projects}
                   </div>
-                  <div className="text-indigo-700 dark:text-indigo-300 font-medium text-sm">
+                  <div className="text-primary/80 font-medium text-sm">
                     Total Projects
                   </div>
                 </div>
-                <div className="text-center p-4 bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl">
-                  <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                <div className="text-center p-4 bg-success/10 rounded-xl">
+                  <div className="text-2xl font-bold text-success">
                     {industryAnalytics.summary.projects_with_industry}
                   </div>
-                  <div className="text-emerald-700 dark:text-emerald-300 font-medium text-sm">
+                  <div className="text-success-foreground font-medium text-sm">
                     With Industry
                   </div>
                 </div>
-                <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl">
-                  <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                <div className="text-center p-4 bg-warning/10 rounded-xl">
+                  <div className="text-2xl font-bold text-warning">
                     {industryAnalytics.summary.projects_without_industry}
                   </div>
-                  <div className="text-amber-700 dark:text-amber-300 font-medium text-sm">
-                    Without Industry
+                  <div className="text-warning-foreground font-medium text-sm">
                   </div>
                 </div>
               </div>
 
               {/* Industry Distribution */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <h3 className="text-lg font-semibold text-foreground mb-4">
                   Industry Distribution
                 </h3>
                 <div className="space-y-3">
@@ -841,24 +838,24 @@ export default function AdminQuestions() {
                       return (
                         <div
                           key={index}
-                          className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="bg-muted/30 rounded-lg p-4 hover:bg-muted/50 transition-colors"
                         >
                           <div className="flex items-center justify-between mb-2">
-                            <span className="font-medium text-gray-900 dark:text-white">
+                            <span className="font-medium text-foreground">
                               {item.industry || "Not Specified"}
                             </span>
                             <div className="flex items-center space-x-4">
-                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                              <span className="text-sm font-semibold text-muted-foreground">
                                 {count} projects
                               </span>
-                              <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+                              <span className="text-sm font-semibold text-primary">
                                 {percentage.toFixed(1)}%
                               </span>
                             </div>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                          <div className="w-full bg-secondary rounded-full h-2">
                             <div
-                              className="bg-gradient-to-r from-purple-500 to-violet-500 h-2 rounded-full transition-all duration-500"
+                              className="bg-primary h-2 rounded-full transition-all duration-500"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
@@ -866,7 +863,7 @@ export default function AdminQuestions() {
                       );
                     })
                   ) : (
-                    <p className="text-gray-600 dark:text-gray-400 text-center py-4">
+                    <p className="text-muted-foreground text-center py-4">
                       No industry data available yet.
                     </p>
                   )}
@@ -875,7 +872,7 @@ export default function AdminQuestions() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-600 dark:text-gray-400">Failed to load industry analytics.</p>
+              <p className="text-muted-foreground">Failed to load industry analytics.</p>
             </div>
           )}
         </div>
@@ -885,59 +882,39 @@ export default function AdminQuestions() {
         {aimaData.data.domains.map((domain) => (
           <div
             key={domain.id}
-            className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 dark:shadow-gray-900/20"
+            className="bg-card backdrop-blur-sm border border-border rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
           >
             {/* Domain Header - Always Visible */}
             <div
-              className="p-6 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-all duration-200 rounded-2xl"
+              className="p-6 cursor-pointer hover:bg-muted/50 transition-all duration-200 rounded-2xl"
               onClick={() => toggleDomain(domain.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={expandedDomains.has(domain.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3">
                     <div className="flex-shrink-0">
                       {expandedDomains.has(domain.id) ? (
-                        <svg
-                          className="w-5 h-5 text-purple-500 dark:text-purple-400 transition-transform duration-200"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 9l-7 7-7-7"
-                          />
-                        </svg>
+                        <IconChevronDown className="w-5 h-5 text-primary transition-transform duration-200" />
                       ) : (
-                        <svg
-                          className="w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-200"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
+                        <IconChevronRight className="w-5 h-5 text-muted-foreground transition-transform duration-200" />
                       )}
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h2 className="text-xl font-semibold text-foreground">
                           {domain.title}
                         </h2>
                         {domain.is_premium && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
                             ⭐ Premium
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                      <p className="text-muted-foreground text-sm mt-1">
                         {domain.description}
                       </p>
                     </div>
@@ -950,14 +927,14 @@ export default function AdminQuestions() {
                       toggleDomainPremium(domain.id, domain.is_premium);
                     }}
                     className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${domain.is_premium
-                        ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-warning/20 text-warning hover:bg-warning/30"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                       }`}
                     title={domain.is_premium ? "Click to remove premium status" : "Click to mark as premium"}
                   >
                     {domain.is_premium ? "⭐ Premium" : "Mark as Premium"}
                   </button>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary">
                     {domain.practices.length} practices
                   </span>
                 </div>
@@ -966,10 +943,10 @@ export default function AdminQuestions() {
 
             {/* Practices - Collapsible */}
             {expandedDomains.has(domain.id) && (
-              <div className="border-t border-gray-200 dark:border-gray-700">
+              <div className="border-t border-border">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">
+                    <h3 className="text-lg font-medium text-foreground">
                       Practices
                     </h3>
                     <button
@@ -977,21 +954,9 @@ export default function AdminQuestions() {
                         e.stopPropagation();
                         handleAddPractice(domain.id);
                       }}
-                      className="inline-flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md transition-colors"
+                      className="inline-flex items-center px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded-md transition-colors"
                     >
-                      <svg
-                        className="w-3 h-3 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
+                      <IconPlus className="w-3 h-3 mr-1" />
                       Add Practice
                     </button>
                   </div>
@@ -999,63 +964,43 @@ export default function AdminQuestions() {
                     {domain.practices.map((practice) => (
                       <div
                         key={practice.id}
-                        className="border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700"
+                        className="border border-border rounded-lg bg-secondary/30"
                       >
                         {/* Practice Header */}
                         <div
-                          className="p-4 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => togglePractice(practice.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePractice(practice.id); } }}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={expandedPractices.has(practice.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0">
                                 {expandedPractices.has(practice.id) ? (
-                                  <svg
-                                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 9l-7 7-7-7"
-                                    />
-                                  </svg>
+                                  <IconChevronDown className="w-4 h-4 text-muted-foreground" />
                                 ) : (
-                                  <svg
-                                    className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 5l7 7-7 7"
-                                    />
-                                  </svg>
+                                  <IconChevronRight className="w-4 h-4 text-muted-foreground" />
                                 )}
                               </div>
                               <div>
                                 <div className="flex items-center space-x-2">
-                                  <h3 className="text-lg font-medium text-gray-800 dark:text-gray-200">
+                                  <h3 className="text-lg font-medium text-foreground">
                                     {practice.title}
                                   </h3>
                                   {aimaData?.data.domains.find(d => d.id === practice.domain_id)?.is_premium && (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
                                       ⭐ Premium
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                <p className="text-muted-foreground text-sm mt-1">
                                   {practice.description}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                            <div className="text-sm text-muted-foreground">
                               {practice.questions.length} questions
                             </div>
                           </div>
@@ -1063,9 +1008,9 @@ export default function AdminQuestions() {
 
                         {/* Questions - Collapsible */}
                         {expandedPractices.has(practice.id) && (
-                          <div className="border-t border-gray-200 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-600">
+                          <div className="border-t border-border p-4 bg-muted/20">
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              <h4 className="text-sm font-medium text-foreground">
                                 Questions
                               </h4>
                               <button
@@ -1073,21 +1018,9 @@ export default function AdminQuestions() {
                                   e.stopPropagation();
                                   handleAddQuestion(practice.id);
                                 }}
-                                className="inline-flex items-center px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded transition-colors"
+                                className="inline-flex items-center px-2.5 py-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded transition-colors"
                               >
-                                <svg
-                                  className="w-3 h-3 mr-1"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M12 4v16m8-8H4"
-                                  />
-                                </svg>
+                                <IconPlus className="w-3 h-3 mr-1" />
                                 Add Question
                               </button>
                             </div>
@@ -1122,7 +1055,7 @@ export default function AdminQuestions() {
                                 return (
                                   <div
                                     key={question.id}
-                                    className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600"
+                                    className="bg-card rounded-lg p-4 border border-border"
                                   >
                                     <div className="flex items-start justify-between mb-2">
                                       <div className="flex items-center space-x-2 flex-wrap gap-1">
@@ -1130,18 +1063,18 @@ export default function AdminQuestions() {
                                           const domain = aimaData?.data.domains.find(d => d.id === practice.domain_id);
                                           const isPremium = domain?.is_premium || false;
                                           return isPremium ? (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-900 shadow-sm">
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
                                               ⭐ Premium
                                             </span>
                                           ) : null;
                                         })()}
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                                           Level {isEditingQuestion ? questionLevelValue : question.level}
                                         </span>
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
                                           Stream {isEditingQuestion ? questionStreamValue : question.stream}
                                         </span>
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
                                           Q{question.question_index + 1}
                                         </span>
                                       </div>
@@ -1153,7 +1086,7 @@ export default function AdminQuestions() {
                                               e.stopPropagation();
                                               cancelEditingQuestion(question.id);
                                             }}
-                                            className="px-2.5 py-1 text-xs font-medium rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                                            className="px-2.5 py-1 text-xs font-medium rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all"
                                           >
                                             Cancel
                                           </button>
@@ -1175,12 +1108,12 @@ export default function AdminQuestions() {
                                               isSavingQuestionUpdate)
                                           }
                                           className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${isEditingQuestion
-                                              ? !hasQuestionChanges ||
-                                                (questionTextChanged && !questionTextValue.trim()) ||
-                                                isSavingQuestionUpdate
-                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700"
-                                              : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-800"
+                                            ? !hasQuestionChanges ||
+                                              (questionTextChanged && !questionTextValue.trim()) ||
+                                              isSavingQuestionUpdate
+                                              ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                              : "bg-primary text-primary-foreground hover:bg-primary/90"
+                                            : "bg-primary/10 text-primary hover:bg-primary/20"
                                             }`}
                                         >
                                           {isEditingQuestion
@@ -1194,7 +1127,7 @@ export default function AdminQuestions() {
                                     {isEditingQuestion && (
                                       <div className="grid grid-cols-2 gap-3 mb-3 mt-2">
                                         <div>
-                                          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                                          <label className="block text-xs font-semibold text-muted-foreground mb-1">
                                             Level
                                           </label>
                                           <select
@@ -1205,7 +1138,7 @@ export default function AdminQuestions() {
                                                 [question.id]: e.target.value,
                                               }))
                                             }
-                                            className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-input transition-all duration-200"
                                           >
                                             <option value="1">Level 1</option>
                                             <option value="2">Level 2</option>
@@ -1213,7 +1146,7 @@ export default function AdminQuestions() {
                                           </select>
                                         </div>
                                         <div>
-                                          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                                          <label className="block text-xs font-semibold text-muted-foreground mb-1">
                                             Stream
                                           </label>
                                           <select
@@ -1224,7 +1157,7 @@ export default function AdminQuestions() {
                                                 [question.id]: e.target.value,
                                               }))
                                             }
-                                            className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                            className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-input transition-all duration-200"
                                           >
                                             <option value="A">Stream A</option>
                                             <option value="B">Stream B</option>
@@ -1241,29 +1174,29 @@ export default function AdminQuestions() {
                                             [question.id]: e.target.value,
                                           }))
                                         }
-                                        className="w-full px-3 py-2 border border-purple-200 dark:border-purple-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
+                                        className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-input transition-all duration-200"
                                         rows={4}
                                         placeholder="Update the question text..."
                                       />
                                     ) : (
-                                      <p className="text-gray-800 dark:text-gray-300 leading-relaxed">
+                                      <p className="text-card-foreground leading-relaxed">
                                         {stripHTML(question.question_text)}
                                       </p>
                                     )}
                                     {questionUpdateFeedback === "saved" && (
-                                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                      <p className="text-xs text-success mt-1">
                                         Question updated
                                       </p>
                                     )}
                                     {questionUpdateFeedback === "error" && (
-                                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                      <p className="text-xs text-destructive mt-1">
                                         Failed to save question. Please try again.
                                       </p>
                                     )}
 
                                     <div className="mt-4 space-y-3">
                                       <div>
-                                        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wide">
+                                        <label className="block text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">
                                           Description (guide text)
                                         </label>
                                         <RichTextEditor
@@ -1278,7 +1211,7 @@ export default function AdminQuestions() {
                                           rows={3}
                                           placeholder="Add guidance text to help users interpret this question..."
                                         />
-                                        <div className="mt-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                                           <span>Shown directly under this question in assessments.</span>
                                           <button
                                             onClick={(e) => {
@@ -1288,8 +1221,8 @@ export default function AdminQuestions() {
                                             }}
                                             disabled={!descriptionChanged || isSaving}
                                             className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${!descriptionChanged || isSaving
-                                                ? "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                                : "bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-700 hover:to-violet-700 shadow-sm"
+                                              ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                              : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                                               }`}
                                           >
                                             {isSaving ? "Saving..." : "Save Description"}
@@ -1297,24 +1230,24 @@ export default function AdminQuestions() {
                                         </div>
                                       </div>
 
-                                      <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 p-3 text-sm">
+                                      <div className="rounded-lg border border-dashed border-border bg-muted/40 p-3 text-sm">
                                         {descriptionValue ? (
                                           <div
-                                            className="rich-text-preview text-gray-600 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0"
+                                            className="rich-text-preview text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0"
                                             dangerouslySetInnerHTML={{ __html: safeRenderHTML(descriptionValue) }}
                                           />
                                         ) : (
-                                          <span className="text-gray-600 dark:text-gray-200">No description yet. This preview matches what respondents will see.</span>
+                                          <span className="text-muted-foreground">No description yet. This preview matches what respondents will see.</span>
                                         )}
                                       </div>
 
                                       {status === "saved" && (
-                                        <p className="text-xs text-green-600 dark:text-green-400">
+                                        <p className="text-xs text-success">
                                           Description saved
                                         </p>
                                       )}
                                       {status === "error" && (
-                                        <p className="text-xs text-red-600 dark:text-red-400">
+                                        <p className="text-xs text-destructive">
                                           Failed to save description. Please try again.
                                         </p>
                                       )}
@@ -1336,274 +1269,258 @@ export default function AdminQuestions() {
       </div>
 
       {/* Domain/Practice Modal */}
-      {(showDomainModal || showPracticeModal) && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {showDomainModal ? "Add New Domain" : "Add New Practice"}
-              </h2>
-              <button
-                onClick={closeModals}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+      {
+        (showDomainModal || showPracticeModal) && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-border">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">
+                  {showDomainModal ? "Add New Domain" : "Add New Practice"}
+                </h2>
+                <button
+                  onClick={closeModals}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={
-                    showDomainModal ? domainForm.title : practiceForm.title
-                  }
-                  onChange={(e) => {
-                    if (showDomainModal) {
-                      setDomainForm({ ...domainForm, title: e.target.value });
-                    } else {
-                      setPracticeForm({
-                        ...practiceForm,
-                        title: e.target.value,
-                      });
-                    }
-                  }}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 ${showDomainModal
-                      ? "focus:ring-blue-500"
-                      : "focus:ring-green-500"
-                    }`}
-                  placeholder={
-                    showDomainModal ? "Domain title" : "Practice title"
-                  }
-                />
+                  <IconX className="w-6 h-6" />
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={
-                    showDomainModal
-                      ? domainForm.description
-                      : practiceForm.description
-                  }
-                  onChange={(e) => {
-                    if (showDomainModal) {
-                      setDomainForm({
-                        ...domainForm,
-                        description: e.target.value,
-                      });
-                    } else {
-                      setPracticeForm({
-                        ...practiceForm,
-                        description: e.target.value,
-                      });
-                    }
-                  }}
-                  className={`w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none ${showDomainModal
-                      ? "focus:ring-blue-500"
-                      : "focus:ring-green-500"
-                    }`}
-                  rows={3}
-                  placeholder={
-                    showDomainModal
-                      ? "Domain description (optional)"
-                      : "Practice description (optional)"
-                  }
-                />
-              </div>
-
-              {showDomainModal && (
-                <div className="flex items-center space-x-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
-                  <input
-                    type="checkbox"
-                    id="is_premium"
-                    checked={domainForm.is_premium}
-                    onChange={(e) =>
-                      setDomainForm({
-                        ...domainForm,
-                        is_premium: e.target.checked,
-                      })
-                    }
-                    className="w-5 h-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500 focus:ring-2"
-                  />
+              <div className="space-y-6">
+                <div>
                   <label
-                    htmlFor="is_premium"
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
+                    htmlFor={showDomainModal ? "title-input-domain" : "title-input-practice"}
+                    className="block text-sm font-medium text-foreground mb-2"
                   >
-                    <span className="font-semibold text-yellow-700 dark:text-yellow-400">⭐ Premium Domain</span>
-                    <span className="block text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      Mark this domain as premium. All practices and questions under this domain will be considered premium and only visible to premium users.
-                    </span>
+                    Title
                   </label>
+                  <input
+                    id={showDomainModal ? "title-input-domain" : "title-input-practice"}
+                    type="text"
+                    value={
+                      showDomainModal ? domainForm.title : practiceForm.title
+                    }
+                    onChange={(e) => {
+                      if (showDomainModal) {
+                        setDomainForm({ ...domainForm, title: e.target.value });
+                      } else {
+                        setPracticeForm({
+                          ...practiceForm,
+                          title: e.target.value,
+                        });
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200"
+                    placeholder={
+                      showDomainModal ? "Domain title" : "Practice title"
+                    }
+                  />
                 </div>
-              )}
-            </div>
 
-            <div className="flex justify-end space-x-3 mt-8">
-              <button
-                onClick={closeModals}
-                className="px-6 py-3 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl font-medium transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={showDomainModal ? submitDomain : submitPractice}
-                className={`px-6 py-3 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg ${showDomainModal
-                    ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:shadow-blue-500/25"
-                    : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 hover:shadow-green-500/25"
-                  }`}
-              >
-                {showDomainModal ? "Add Domain" : "Add Practice"}
-              </button>
+                <div>
+                  <label
+                    htmlFor={showDomainModal ? "description-input-domain" : "description-input-practice"}
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    id={showDomainModal ? "description-input-domain" : "description-input-practice"}
+                    value={
+                      showDomainModal
+                        ? domainForm.description
+                        : practiceForm.description
+                    }
+                    onChange={(e) => {
+                      if (showDomainModal) {
+                        setDomainForm({
+                          ...domainForm,
+                          description: e.target.value,
+                        });
+                      } else {
+                        setPracticeForm({
+                          ...practiceForm,
+                          description: e.target.value,
+                        });
+                      }
+                    }}
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200 resize-none"
+                    rows={3}
+                    placeholder={
+                      showDomainModal
+                        ? "Domain description (optional)"
+                        : "Practice description (optional)"
+                    }
+                  />
+                </div>
+
+                {showDomainModal && (
+                  <div className="flex items-center space-x-3 p-4 bg-warning/10 border border-warning/20 rounded-xl">
+                    <input
+                      type="checkbox"
+                      id="is_premium"
+                      checked={domainForm.is_premium}
+                      onChange={(e) =>
+                        setDomainForm({
+                          ...domainForm,
+                          is_premium: e.target.checked,
+                        })
+                      }
+                      className="w-5 h-5 text-warning border-border rounded focus:ring-warning focus:ring-2"
+                    />
+                    <label
+                      htmlFor="is_premium"
+                      className="text-sm font-medium text-foreground cursor-pointer flex-1"
+                    >
+                      <span className="font-semibold text-warning">⭐ Premium Domain</span>
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        Mark this domain as premium. All practices and questions under this domain will be considered premium and only visible to premium users.
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  onClick={closeModals}
+                  className="px-6 py-3 text-muted-foreground bg-secondary hover:bg-secondary/80 rounded-xl font-medium transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <Button
+                  onClick={showDomainModal ? submitDomain : submitPractice}
+                  isLoading={showDomainModal ? submittingDomain : submittingPractice}
+                  className={`px-6 py-3 text-primary-foreground rounded-xl font-medium shadow-lg hover:shadow-primary/25 ${showDomainModal
+                    ? "bg-primary hover:bg-primary/90"
+                    : "bg-primary hover:bg-primary/90"
+                    }`}
+                >
+                  {showDomainModal ? (submittingDomain ? "Adding..." : "Add Domain") : (submittingPractice ? "Adding..." : "Add Practice")}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Question Modal */}
-      {showQuestionModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Add New Question
-              </h2>
-              <button
-                onClick={closeModals}
-                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+      {
+        showQuestionModal && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-2xl p-6 w-full max-w-md shadow-2xl border border-border">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">
+                  Add New Question
+                </h2>
+                <button
+                  onClick={closeModals}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-muted"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
+                  <IconX className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Level
+                    </label>
+                    <select
+                      value={questionForm.level}
+                      onChange={(e) =>
+                        setQuestionForm({
+                          ...questionForm,
+                          level: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-input bg-background text-foreground transition-all duration-200"
+                    >
+                      <option value="1">Level 1</option>
+                      <option value="2">Level 2</option>
+                      <option value="3">Level 3</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Stream
+                    </label>
+                    <select
+                      value={questionForm.stream}
+                      onChange={(e) =>
+                        setQuestionForm({
+                          ...questionForm,
+                          stream: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200"
+                    >
+                      <option value="A">Stream A</option>
+                      <option value="B">Stream B</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Question Text
+                  </label>
+                  <textarea
+                    value={questionForm.question_text}
+                    onChange={(e) =>
+                      setQuestionForm({
+                        ...questionForm,
+                        question_text: e.target.value,
+                      })
+                    }
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200 resize-none"
+                    rows={4}
+                    placeholder="Enter the question text..."
                   />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Level
-                  </label>
-                  <select
-                    value={questionForm.level}
-                    onChange={(e) =>
-                      setQuestionForm({
-                        ...questionForm,
-                        level: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
-                  >
-                    <option value="1">Level 1</option>
-                    <option value="2">Level 2</option>
-                    <option value="3">Level 3</option>
-                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Stream
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Description (optional)
                   </label>
-                  <select
-                    value={questionForm.stream}
-                    onChange={(e) =>
+                  <RichTextEditor
+                    value={questionForm.description}
+                    onChange={(value) =>
                       setQuestionForm({
                         ...questionForm,
-                        stream: e.target.value,
+                        description: value,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200"
-                  >
-                    <option value="A">Stream A</option>
-                    <option value="B">Stream B</option>
-                  </select>
+                    className="w-full"
+                    rows={3}
+                    placeholder="Add guidance to help users interpret this question..."
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    This text appears under the question for respondents.
+                  </p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Question Text
-                </label>
-                <textarea
-                  value={questionForm.question_text}
-                  onChange={(e) =>
-                    setQuestionForm({
-                      ...questionForm,
-                      question_text: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-all duration-200 resize-none"
-                  rows={4}
-                  placeholder="Enter the question text..."
-                />
+              <div className="flex justify-end space-x-3 mt-8">
+                <button
+                  onClick={closeModals}
+                  className="px-6 py-3 text-muted-foreground bg-secondary hover:bg-secondary/80 rounded-xl font-medium transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <Button
+                  onClick={submitQuestion}
+                  isLoading={submittingQuestion}
+                  className="px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-medium shadow-lg hover:shadow-primary/25"
+                >
+                  {submittingQuestion ? "Adding..." : "Add Question"}
+                </Button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description (optional)
-                </label>
-                <RichTextEditor
-                  value={questionForm.description}
-                  onChange={(value) =>
-                    setQuestionForm({
-                      ...questionForm,
-                      description: value,
-                    })
-                  }
-                  className="w-full"
-                  rows={3}
-                  placeholder="Add guidance to help users interpret this question..."
-                />
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  This text appears under the question for respondents.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-8">
-              <button
-                onClick={closeModals}
-                className="px-6 py-3 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl font-medium transition-all duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitQuestion}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25"
-              >
-                Add Question
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

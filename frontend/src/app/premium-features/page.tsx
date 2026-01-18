@@ -6,16 +6,28 @@ import Link from "next/link";
 import { useAuth } from "../../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Shield,
-  Scale,
-  ClipboardCheck,
-  Bug,
-  X,
-  ArrowRight,
-  FolderOpen,
-} from "lucide-react";
+  IconShield,
+  IconScale,
+  IconClipboardCheck,
+  IconBug,
+  IconX,
+  IconArrowRight,
+  IconFolderOpen,
+  IconLoader2,
+} from "@tabler/icons-react";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, Project } from "../../lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type FeatureType = "vulnerability" | "bias-fairness" | "governance" | null;
 
@@ -61,7 +73,6 @@ export default function PremiumFeaturesPage() {
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithAccess[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(false);
-  const modalOverlayRef = useRef<HTMLDivElement>(null);
 
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
@@ -84,13 +95,6 @@ export default function PremiumFeaturesPage() {
       }
     }
   }, [selectedFeature, projects]);
-
-  // Focus modal when opened
-  useEffect(() => {
-    if (selectedFeature) {
-      modalOverlayRef.current?.focus();
-    }
-  }, [selectedFeature]);
 
   const loadProjectsWithAccess = async () => {
     try {
@@ -149,7 +153,7 @@ export default function PremiumFeaturesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="py-8 my-8">
 
@@ -159,10 +163,10 @@ export default function PremiumFeaturesPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-12 flex flex-col justify-center items-center"
           >
-            <h1 className="text-4xl md:text-5xl font-bold text-purple-950 dark:text-purple-300 mb-3">
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-3">
               Unlock advanced AI governance tools.
             </h1>
-            <p className="text-lg text-gray-800 dark:text-gray-300 mb-6">
+            <p className="text-lg text-muted-foreground mb-6">
               Take your AI maturity to the next level with automated testing and actionable insights.
             </p>
           </motion.div>
@@ -176,18 +180,21 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.1 }}
               whileHover={{ y: -5, scale: 1.02 }}
               onClick={() => handleCardClick("vulnerability")}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-2xl hover:border-purple-300 dark:hover:border-purple-600"
             >
-              <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto relative">
-                <Shield className="w-28 h-28 text-purple-600 dark:text-purple-400 relative z-10 fill-purple-600 dark:fill-purple-400" />
-                <Bug className="w-14 h-14 text-white dark:text-purple-400 absolute z-50 fill-white dark:fill-gray-900" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
-              </div>
-              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                AI Vulnerability Assessment
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                Automated scanning for security risks in models.
-              </p>
+              <Card className="cursor-pointer hover:shadow-2xl hover:border-primary/50 transition-all h-full">
+                <CardContent className="p-8 flex flex-col items-center text-center">
+                  <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto relative">
+                    <IconShield className="w-28 h-28 text-primary relative z-10 fill-primary" />
+                    <IconBug className="w-14 h-14 text-primary-foreground absolute z-50 fill-primary-foreground dark:fill-background" style={{ transform: 'translate(-50%, -50%)', top: '50%', left: '50%' }} />
+                  </div>
+                  <CardTitle className="text-2xl mb-3">
+                    AI Vulnerability Assessment
+                  </CardTitle>
+                  <CardDescription className="text-base">
+                    Automated scanning for security risks in models.
+                  </CardDescription>
+                </CardContent>
+              </Card>
             </motion.div>
 
             {/* Card 2: Automated Bias & Fairness Testing */}
@@ -197,17 +204,20 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.2 }}
               whileHover={{ y: -5, scale: 1.02 }}
               onClick={() => handleCardClick("bias-fairness")}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-2xl hover:border-purple-300 dark:hover:border-purple-600"
             >
-              <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <Scale className="w-28 h-28 text-purple-600 dark:text-purple-400" />
-              </div>
-              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                Automated Bias & Fairness Testing
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                Detect and mitigate algorithmic bias across datasets.
-              </p>
+              <Card className="cursor-pointer hover:shadow-2xl hover:border-primary/50 transition-all h-full">
+                <CardContent className="p-8 flex flex-col items-center text-center">
+                  <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <IconScale className="w-28 h-28 text-primary" />
+                  </div>
+                  <CardTitle className="text-2xl mb-3">
+                    Automated Bias & Fairness Testing
+                  </CardTitle>
+                  <CardDescription className="text-base">
+                    Detect and mitigate algorithmic bias across datasets.
+                  </CardDescription>
+                </CardContent>
+              </Card>
             </motion.div>
 
             {/* Card 3: Actionable Governance Controls */}
@@ -217,17 +227,20 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.3 }}
               whileHover={{ y: -5, scale: 1.02 }}
               onClick={() => handleCardClick("governance")}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl transition-shadow border border-gray-100 dark:border-gray-700 cursor-pointer hover:shadow-2xl hover:border-purple-300 dark:hover:border-purple-600"
             >
-              <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <ClipboardCheck className="w-28 h-28 text-white dark:text-purple-400 fill-purple-600 dark:fill-purple-400" />
-              </div>
-              <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3 text-center">
-                Actionable Governance Controls
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed text-center">
-                Get concrete steps to improve maturity scores.
-              </p>
+              <Card className="cursor-pointer hover:shadow-2xl hover:border-primary/50 transition-all h-full">
+                <CardContent className="p-8 flex flex-col items-center text-center">
+                  <div className="rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                    <IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />
+                  </div>
+                  <CardTitle className="text-2xl mb-3">
+                    Actionable Governance Controls
+                  </CardTitle>
+                  <CardDescription className="text-base">
+                    Get concrete steps to improve maturity scores.
+                  </CardDescription>
+                </CardContent>
+              </Card>
             </motion.div>
           </div>
 
@@ -239,130 +252,102 @@ export default function PremiumFeaturesPage() {
               transition={{ delay: 0.4 }}
               className="flex justify-center"
             >
-              <Link
-                href="/manage-subscription"
-                className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-purple-600 to-violet-600 rounded-xl shadow-lg hover:from-purple-700 hover:to-violet-700 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-              >
-                Manage Subscription
-              </Link>
+              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 h-14 px-8">
+                <Link href="/manage-subscription">
+                  Manage Subscription
+                </Link>
+              </Button>
             </motion.div>
           )}
         </div>
       </div>
 
       {/* Project Selection Modal */}
-      <AnimatePresence>
-        {selectedFeature && (
-          <div
-            ref={modalOverlayRef}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 focus:outline-none"
-            onClick={closeModal}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                closeModal();
-              }
-            }}
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {FEATURE_CONFIGS[selectedFeature].title}
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {FEATURE_CONFIGS[selectedFeature].description}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                </button>
-              </div>
+      <Dialog open={!!selectedFeature} onOpenChange={(open) => !open && closeModal()}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedFeature && FEATURE_CONFIGS[selectedFeature].title}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedFeature && FEATURE_CONFIGS[selectedFeature].description}
+            </DialogDescription>
+          </DialogHeader>
 
-              {/* Project List */}
-              <div className="p-4 overflow-y-auto max-h-[60vh]">
-                {loadingProjects || loadingAccess ? (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-3"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {loadingAccess ? "Checking project access..." : "Loading projects..."}
-                    </p>
-                  </div>
-                ) : filteredProjects.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FolderOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600 dark:text-gray-400 mb-2">
-                      {FEATURE_CONFIGS[selectedFeature].requiresPremiumDomains
-                        ? "No projects with premium domains found"
-                        : "No projects found"}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                      {FEATURE_CONFIGS[selectedFeature].requiresPremiumDomains
-                        ? "Create a project with premium domains to use this feature"
-                        : "Create a project to get started"}
-                    </p>
-                    <Link
-                      href="/dashboard"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                    >
-                      Go to Dashboard
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredProjects.map((project) => (
-                      <motion.button
-                        key={project.id}
-                        onClick={() => handleProjectClick(project.id)}
-                        whileHover={{ x: 4 }}
-                        className="w-full flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors text-left group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-gray-900 dark:text-white truncate">
-                            {project.name}
-                          </h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                            {project.description || "No description"}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">
-                              {project.ai_system_type || "General AI System"}
-                            </span>
-                            <span className={`text-xs px-2 py-0.5 rounded ${project.status === 'completed'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                              : project.status === 'in_progress'
-                                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                                : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                              }`}>
-                              {project.status === 'completed' ? 'Completed' :
-                                project.status === 'in_progress' ? 'In Progress' : 'Not Started'}
-                            </span>
-                          </div>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex-shrink-0 ml-4" />
-                      </motion.button>
-                    ))}
-                  </div>
-                )}
+          <ScrollArea className="max-h-[60vh] pr-4">
+            {loadingProjects || loadingAccess ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <IconLoader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                <p className="text-sm text-muted-foreground">
+                  {loadingAccess ? "Checking project access..." : "Loading projects..."}
+                </p>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            ) : filteredProjects.length === 0 ? (
+              <div className="text-center py-8">
+                <IconFolderOpen className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground mb-2">
+                  {selectedFeature && FEATURE_CONFIGS[selectedFeature].requiresPremiumDomains
+                    ? "No projects with premium domains found"
+                    : "No projects found"}
+                </p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {selectedFeature && FEATURE_CONFIGS[selectedFeature].requiresPremiumDomains
+                    ? "Create a project with premium domains to use this feature"
+                    : "Create a project to get started"}
+                </p>
+                <Button asChild>
+                  <Link href="/dashboard">
+                    <span className="inline-flex items-center gap-2">
+                      Go to Dashboard
+                      <IconArrowRight className="w-4 h-4" />
+                    </span>
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {filteredProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    whileHover={{ x: 4 }}
+                  >
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleProjectClick(project.id)}
+                      className="w-full justify-start h-auto py-4 px-4 hover:bg-primary/5"
+                    >
+                      <div className="flex-1 min-w-0 text-left">
+                        <h4 className="font-medium truncate">
+                          {project.name}
+                        </h4>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {project.description || "No description"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary">
+                            {project.ai_system_type || "General AI System"}
+                          </Badge>
+                          <Badge variant={
+                            project.status === 'completed'
+                              ? 'default'
+                              : project.status === 'in_progress'
+                                ? 'outline'
+                                : 'secondary'
+                          }>
+                            {project.status === 'completed' ? 'Completed' :
+                              project.status === 'in_progress' ? 'In Progress' : 'Not Started'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <IconArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0 ml-4" />
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

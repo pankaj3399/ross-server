@@ -39,17 +39,17 @@ const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; v
   const isMedium = score >= 0.4 && score < 0.7;
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 min-w-[120px]">
+    <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px]">
       {isGood ? (
-        <CheckCircle2 className="w-4 h-4 text-green-500" />
+        <CheckCircle2 className="w-4 h-4 text-success" />
       ) : isMedium ? (
-        <AlertCircle className="w-4 h-4 text-yellow-500" />
+        <AlertCircle className="w-4 h-4 text-warning" />
       ) : (
-        <XCircle className="w-4 h-4 text-red-500" />
+        <XCircle className="w-4 h-4 text-destructive" />
       )}
       <div className="flex flex-col">
-        <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-        <span className="text-sm font-semibold text-gray-900 dark:text-white">{percentage}%</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-sm font-semibold text-foreground">{percentage}%</span>
       </div>
     </div>
   );
@@ -60,17 +60,17 @@ const ResponseSection = ({ response }: { response: string }) => {
   const isLongResponse = response.length > 200; // Consider responses over 200 chars as long
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border-l-4 border-blue-500">
-      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+    <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-info">
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         Your Response
       </div>
-      <div className={`text-sm text-gray-700 dark:text-gray-300 leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
+      <div className={`text-sm text-foreground leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
         {response}
       </div>
       {isLongResponse && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
+          className="mt-2 text-xs font-medium text-info hover:text-info/80 flex items-center gap-1"
         >
           {isExpanded ? (
             <>
@@ -146,22 +146,23 @@ export default function FairnessBiasReport() {
 
   if (accessDenied || (!user && !loading)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-center max-w-md mx-auto p-8"
         >
-          <div className="w-20 h-20 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <XCircle className="w-10 h-10 text-purple-600 dark:text-purple-400" />
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <XCircle className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-white">Premium Feature</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <h2 className="text-2xl font-bold mb-3 text-foreground">Premium Feature</h2>
+          <p className="text-muted-foreground mb-6">
             Fairness & Bias reports are available for premium subscribers only.
           </p>
           <button
+            type="button"
             onClick={() => router.push(`/assess/${projectId}`)}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
           >
             Return to Assessment
           </button>
@@ -180,35 +181,35 @@ export default function FairnessBiasReport() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-background">
       {/* Compact Header */}
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-10 shadow-sm">
+      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
+                type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Fairness & Bias Report</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Evaluation Results</p>
+                <h1 className="text-xl font-bold text-foreground">Fairness & Bias Report</h1>
+                <p className="text-sm text-muted-foreground">Evaluation Results</p>
               </div>
             </div>
 
             {/* Quick Stats */}
             <div className="hidden md:flex items-center gap-4">
               <div className="text-right">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Completed</div>
-                <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                <div className="text-xs text-muted-foreground">Completed</div>
+                <div className="text-lg font-bold text-primary">
                   {evaluatedCount}/{totalQuestions}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-gray-500 dark:text-gray-400">Avg Score</div>
-                <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                <div className="text-xs text-muted-foreground">Avg Score</div>
+                <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
                   {(avgOverall * 100).toFixed(0)}%
                 </div>
               </div>
@@ -217,12 +218,12 @@ export default function FairnessBiasReport() {
 
           {/* Progress Bar */}
           <div className="mt-4">
-            <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-purple-600 to-violet-600"
+                className="h-full bg-primary"
               />
             </div>
           </div>
@@ -238,10 +239,10 @@ export default function FairnessBiasReport() {
             <div key={category.label} className="mb-12">
               {/* Category Title */}
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h2 className="text-2xl font-bold text-foreground mb-2">
                   {category.label}
                 </h2>
-                <div className="h-1 w-20 bg-gradient-to-r from-purple-600 to-violet-600 rounded-full" />
+                <div className="h-1 w-20 bg-primary rounded-full" />
               </div>
 
               {/* Questions Grid */}
@@ -257,18 +258,18 @@ export default function FairnessBiasReport() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: promptIdx * 0.05 }}
-                      className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden hover:shadow-lg transition-shadow"
+                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow"
                     >
                       {/* Question */}
-                      <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+                      <div className="p-6 border-b border-border">
                         <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                            <span className="text-sm font-bold text-purple-600 dark:text-purple-400">
+                          <div className="flex-shrink-0 w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
+                            <span className="text-sm font-bold text-primary">
                               {questionNumber}
                             </span>
                           </div>
                           <div className="flex-1">
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white leading-relaxed">
+                            <h3 className="text-base font-semibold text-foreground leading-relaxed">
                               {prompt}
                             </h3>
                           </div>
@@ -280,11 +281,11 @@ export default function FairnessBiasReport() {
                         <div className="p-6 space-y-6">
                           {/* Scores Row */}
                           <div className="flex flex-wrap gap-3">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
-                              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
+                              <TrendingUp className="w-5 h-5 text-primary" />
                               <div>
-                                <div className="text-xs text-purple-700 dark:text-purple-300 font-medium">Overall</div>
-                                <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                <div className="text-xs text-primary/80 font-medium">Overall</div>
+                                <div className="text-xl font-bold text-primary">
                                   {((evaluation.overallScore || 0) * 100).toFixed(0)}%
                                 </div>
                               </div>
@@ -326,14 +327,20 @@ export default function FairnessBiasReport() {
                           {/* Reasoning */}
                           {evaluation.reasoning && (
                             <details className="group">
-                              <summary className="cursor-pointer text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 flex items-center gap-2">
+                              <summary className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 flex items-center gap-2">
                                 <span>View AI Analysis</span>
-                                <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4 transition-transform group-open:rotate-180"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                >
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
                               </summary>
-                              <div className="mt-3 p-4 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-200 dark:border-purple-800">
-                                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                              <div className="mt-3 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                                   {evaluation.reasoning}
                                 </p>
                               </div>
@@ -342,7 +349,7 @@ export default function FairnessBiasReport() {
                         </div>
                       ) : (
                         <div className="p-6">
-                          <div className="flex items-center gap-3 text-gray-400 dark:text-gray-600">
+                          <div className="flex items-center gap-3 text-muted-foreground">
                             <Clock className="w-5 h-5" />
                             <span className="text-sm">Awaiting evaluation</span>
                           </div>

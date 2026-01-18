@@ -9,23 +9,24 @@ import {
   ArrowLeft,
   Loader2,
   RefreshCcw,
-  CheckCircle2,
   AlertTriangle,
   Clock,
+  CheckCircle2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type JobStatus = Awaited<ReturnType<typeof apiService.getFairnessJob>>;
 
 const statusColors: Record<string, string> = {
-  queued: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
-  processing: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
-  running: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
-  completed: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  failed: "text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400",
-  collecting_responses: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400",
-  evaluating: "text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400",
-  success: "text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400",
-  partial_success: "text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
+  queued: "text-info bg-info/10",
+  processing: "text-warning bg-warning/10",
+  running: "text-primary bg-primary/10",
+  completed: "text-success bg-success/10",
+  failed: "text-destructive bg-destructive/10",
+  collecting_responses: "text-info bg-info/10",
+  evaluating: "text-primary bg-primary/10",
+  success: "text-success bg-success/10",
+  partial_success: "text-warning bg-warning/10",
 };
 
 export default function ManualPromptJobPage() {
@@ -125,10 +126,10 @@ export default function ManualPromptJobPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-lg text-gray-500 dark:text-gray-400">Checking job status…</p>
+          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Checking job status…</p>
         </div>
       </div>
     );
@@ -136,26 +137,28 @@ export default function ManualPromptJobPage() {
 
   if (error || !jobStatus) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 max-w-lg w-full text-center">
-          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-lg w-full text-center">
+          <AlertTriangle className="w-10 h-10 text-destructive mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-foreground mb-2">
             Unable to load this job
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <p className="text-muted-foreground mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button
+            <Button
               onClick={() => fetchStatus(true)}
-              className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition"
+              isLoading={loading}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-sm"
             >
-              Retry
-            </button>
-            <button
+              {loading ? "Retrying..." : "Retry"}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
-              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+              className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go Back
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -167,20 +170,21 @@ export default function ManualPromptJobPage() {
   const hasErrors = jobStatus.errors.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div className="min-h-screen bg-background">
+      <div className="bg-card border-b border-border">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
-            className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition"
+            className="flex items-center gap-2 text-primary hover:text-primary/80 transition pl-0 hover:bg-transparent"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
-          </button>
-          <div className="h-6 w-px bg-gray-300 dark:bg-gray-700" />
+          </Button>
+          <div className="h-6 w-px bg-border" />
           <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Job ID</p>
-            <p className="font-mono text-sm text-gray-900 dark:text-white break-all">{jobStatus.jobId}</p>
+            <p className="text-sm text-muted-foreground">Job ID</p>
+            <p className="font-mono text-sm text-foreground break-all">{jobStatus.jobId}</p>
           </div>
         </div>
       </div>
@@ -189,7 +193,7 @@ export default function ManualPromptJobPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6"
+          className="bg-card border border-border rounded-2xl p-6"
         >
           <div className="flex flex-wrap items-center gap-4">
             <span
@@ -197,46 +201,45 @@ export default function ManualPromptJobPage() {
             >
               {jobStatus.status.toUpperCase()}
             </span>
-            <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
               <Clock className="w-4 h-4" />
               Auto refresh every 20s · Live poll every 20s
             </div>
           </div>
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mt-4">{progressLabel}</h2>
+          <h2 className="text-2xl font-semibold text-foreground mt-4">{progressLabel}</h2>
 
           <div className="mt-6">
-            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Progress</span>
               <span>
                 {jobStatus.progress} ({jobStatus.percent}%)
               </span>
             </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-3 overflow-hidden">
+            <div className="w-full bg-secondary rounded-full h-3 overflow-hidden">
               <div
-                className={`h-full ${
-                  jobStatus.status === "completed" || jobStatus.status === "success"
-                    ? "bg-green-500"
-                    : jobStatus.status === "partial_success"
-                    ? "bg-yellow-500"
+                className={`h-full ${jobStatus.status === "completed" || jobStatus.status === "success"
+                  ? "bg-success"
+                  : jobStatus.status === "partial_success"
+                    ? "bg-warning"
                     : jobStatus.status === "failed"
-                    ? "bg-red-500"
-                    : jobStatus.status === "processing"
-                    ? "bg-yellow-500"
-                    : "bg-gradient-to-r from-purple-600 to-violet-600"
-                }`}
+                      ? "bg-destructive"
+                      : jobStatus.status === "processing"
+                        ? "bg-warning"
+                        : "bg-primary"
+                  }`}
                 style={{ width: `${Math.min(jobStatus.percent, 100)}%` }}
               />
             </div>
             {jobStatus.lastProcessedPrompt && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                 Last processed prompt:{" "}
-                <span className="text-gray-800 dark:text-gray-200">{jobStatus.lastProcessedPrompt}</span>
+                <span className="text-foreground">{jobStatus.lastProcessedPrompt}</span>
               </p>
             )}
           </div>
 
           {jobStatus.status === "failed" && jobStatus.errorMessage && (
-            <div className="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-700 dark:text-red-300">
+            <div className="mt-4 bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">
               {jobStatus.errorMessage}
             </div>
           )}
@@ -248,17 +251,17 @@ export default function ManualPromptJobPage() {
             animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-1 md:grid-cols-3 gap-4"
           >
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Prompts</p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">{summary.total}</p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs text-muted-foreground mb-1">Total Prompts</p>
+              <p className="text-2xl font-semibold text-foreground">{summary.total}</p>
             </div>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Successful</p>
-              <p className="text-2xl font-semibold text-green-600 dark:text-green-400">{summary.successful}</p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs text-muted-foreground mb-1">Successful</p>
+              <p className="text-2xl font-semibold text-success">{summary.successful}</p>
             </div>
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4">
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Failed</p>
-              <p className="text-2xl font-semibold text-red-600 dark:text-red-400">{summary.failed}</p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs text-muted-foreground mb-1">Failed</p>
+              <p className="text-2xl font-semibold text-destructive">{summary.failed}</p>
             </div>
           </motion.div>
         )}
@@ -267,33 +270,33 @@ export default function ManualPromptJobPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6"
+            className="bg-card border border-border rounded-2xl p-6"
           >
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle2 className="w-5 h-5 text-green-500" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Completed prompts</h3>
+              <CheckCircle2 className="w-5 h-5 text-success" />
+              <h3 className="text-lg font-semibold text-foreground">Completed prompts</h3>
             </div>
             <div className="space-y-4">
               {jobStatus.results.slice(0, 5).map((result) => (
                 <div
                   key={`${result.category}-${result.prompt}`}
-                  className="border border-gray-200 dark:border-gray-800 rounded-xl p-4 bg-gray-50 dark:bg-gray-900/40"
+                  className="border border-border rounded-xl p-4 bg-muted/30"
                 >
-                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{result.category}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{result.prompt}</p>
+                  <p className="text-sm font-semibold text-foreground">{result.category}</p>
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{result.prompt}</p>
                   {result.evaluation && (
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       Overall score: {(result.evaluation.overallScore * 100).toFixed(1)}%
                     </div>
                   )}
                   {result.message && (
-                    <p className="text-xs text-green-600 dark:text-green-300 mt-2">{result.message}</p>
+                    <p className="text-xs text-success mt-2">{result.message}</p>
                   )}
                 </div>
               ))}
 
               {jobStatus.results.length > 5 && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Showing 5 of {jobStatus.results.length} results.
                 </p>
               )}
@@ -305,11 +308,11 @@ export default function ManualPromptJobPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6"
+            className="bg-card border border-border rounded-2xl p-6"
           >
             <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              <h3 className="text-lg font-semibold text-foreground">
                 Prompts that need attention
               </h3>
             </div>
@@ -317,17 +320,17 @@ export default function ManualPromptJobPage() {
               {jobStatus.errors.slice(0, 5).map((item) => (
                 <div
                   key={`${item.category}-${item.prompt}`}
-                  className="border border-red-200 dark:border-red-900 rounded-xl p-4 bg-red-50 dark:bg-red-950/40"
+                  className="border border-destructive/20 rounded-xl p-4 bg-destructive/5"
                 >
-                  <p className="text-sm font-semibold text-red-700 dark:text-red-300">{item.category}</p>
-                  <p className="text-sm text-red-600 dark:text-red-200 mt-1 line-clamp-2">{item.prompt}</p>
-                  <p className="text-xs text-red-500 dark:text-red-200 mt-2">
+                  <p className="text-sm font-semibold text-destructive">{item.category}</p>
+                  <p className="text-sm text-foreground mt-1 line-clamp-2">{item.prompt}</p>
+                  <p className="text-xs text-destructive mt-2">
                     {item.message ?? item.error ?? "Unknown error"}
                   </p>
                 </div>
               ))}
               {jobStatus.errors.length > 5 && (
-                <p className="text-xs text-red-500 dark:text-red-300">
+                <p className="text-xs text-destructive">
                   Showing 5 of {jobStatus.errors.length} errors. See the full report for details.
                 </p>
               )}
@@ -336,20 +339,28 @@ export default function ManualPromptJobPage() {
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
+          <Button
             onClick={() => fetchStatus(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-700 transition"
+            isLoading={loading}
+            variant="secondary"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
           >
-            <RefreshCcw className="w-4 h-4" />
-            Refresh now
-          </button>
-          <button
+            {loading ? (
+              "Refreshing..."
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Refresh now
+              </>
+            )}
+          </Button>
+          <Button
             onClick={() => router.push(`/assess/${projectId}/fairness-bias/report?jobId=${jobId}`)}
             disabled={!["completed", "success", "partial_success"].includes(jobStatus.status)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 text-white disabled:opacity-50 disabled:cursor-not-allowed transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition shadow-sm"
           >
             View report
-          </button>
+          </Button>
         </div>
       </div>
     </div>

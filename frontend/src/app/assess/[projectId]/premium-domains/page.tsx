@@ -14,16 +14,16 @@ import {
 import { showToast } from "../../../../lib/toast";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Save,
-  ArrowRight,
-  ArrowLeft as ArrowLeftIcon,
-  Info,
-  Crown,
-  Scale,
-} from "lucide-react";
-import AssessmentTreeNavigation from "../../../../components/AssessmentTreeNavigation";
-import { SecureTextarea } from "../../../../components/SecureTextarea";
+  IconArrowLeft,
+  IconDeviceFloppy,
+  IconArrowRight,
+  IconArrowLeft as IconArrowLeftIcon,
+  IconInfoCircle,
+  IconCrown,
+  IconScale,
+} from "@tabler/icons-react";
+import AssessmentTreeNavigation from "../../../../components/shared/AssessmentTreeNavigation";
+import { SecureTextarea } from "../../../../components/shared/SecureTextarea";
 import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigation";
 import { sanitizeNoteInput } from "../../../../lib/sanitize";
 import { AssessmentSkeleton, Skeleton } from "../../../../components/Skeleton";
@@ -364,7 +364,7 @@ export default function PremiumDomainsPage() {
   // Save all notes silently in the background
   const saveAllNotes = async (): Promise<void> => {
     const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
-    
+
     if (noteEntries.length === 0) {
       return;
     }
@@ -374,14 +374,14 @@ export default function PremiumDomainsPage() {
       try {
         const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
         const questionIndex = parseInt(questionIndexStr, 10);
-        
+
         if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
           console.warn(`Invalid note key format: ${key}`);
           return;
         }
 
         const sanitizedNote = sanitizeNoteInput(note.trim());
-        
+
         await apiService.saveQuestionNote(projectId, {
           domainId,
           practiceId,
@@ -405,9 +405,9 @@ export default function PremiumDomainsPage() {
     try {
       // Save all notes silently in the background before submitting
       await saveAllNotes();
-      
+
       const response = await apiService.submitProject(projectId);
-      
+
       setProjectResults(projectId, response.project, response.results);
       router.push(`/score-report-premium?projectId=${projectId}`);
     } catch (error) {
@@ -535,13 +535,13 @@ export default function PremiumDomainsPage() {
   // Only show this UI when fetch succeeded and there are no premium domains
   if (fetchSucceeded && (noPremiumDomains || domains.length === 0)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center max-w-md px-4">
-          <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          <IconCrown className="w-16 h-16 text-primary mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground mb-4">
             No Premium Domains Available
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-8">
+          <p className="text-muted-foreground mb-8">
             There are currently no premium domains available for this project. Please check back later.
           </p>
           <div className="flex flex-col gap-4">
@@ -549,9 +549,9 @@ export default function PremiumDomainsPage() {
               <button
                 type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 font-semibold"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition-all duration-300 font-semibold"
               >
-                <Scale className="w-5 h-5" />
+                <IconScale className="w-5 h-5" />
                 Fairness & Bias Test
               </button>
             )}
@@ -559,9 +559,9 @@ export default function PremiumDomainsPage() {
               <button
                 type="button"
                 onClick={() => router.push(`/assess/${projectId}`)}
-                className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-xl transition-all duration-300"
+                className="flex items-center justify-center gap-2 px-6 py-3 border border-border text-foreground hover:bg-muted rounded-xl transition-all duration-300"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <IconArrowLeft className="w-4 h-4" />
                 Back to Assessment
               </button>
             )}
@@ -573,7 +573,7 @@ export default function PremiumDomainsPage() {
 
   if (!currentPractice || questions.length === 0) {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-screen flex flex-row-reverse">
         <AssessmentTreeNavigation
           domains={progressData}
           currentDomainId={currentDomainId}
@@ -591,19 +591,19 @@ export default function PremiumDomainsPage() {
         />
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+          <div className="bg-background border-b border-border p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => router.push(`/assess/${projectId}`)}
-                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                  className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
                 >
-                  <ArrowLeft className="w-4 h-4" />
+                  <IconArrowLeft className="w-4 h-4" />
                   Back
                 </button>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+                <div className="h-6 w-px bg-border" />
                 <div>
-                  <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h1 className="text-lg font-semibold text-foreground">
                     Premium Domains Assessment
                   </h1>
                 </div>
@@ -612,11 +612,11 @@ export default function PremiumDomainsPage() {
           </div>
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <Crown className="w-16 h-16 text-purple-600 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              <IconCrown className="w-16 h-16 text-primary mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-foreground mb-4">
                 Premium Domains Assessment
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Select a domain, practice, or question from the navigation tree to get started.
               </p>
             </div>
@@ -655,7 +655,7 @@ export default function PremiumDomainsPage() {
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-row-reverse">
       {/* Tree Navigation Sidebar */}
       <AssessmentTreeNavigation
         domains={progressData}
@@ -676,43 +676,43 @@ export default function PremiumDomainsPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="bg-background border-b border-border p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push(`/assess/${projectId}`)}
-                className="flex items-center gap-2 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
+                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <IconArrowLeft className="w-4 h-4" />
                 Back
               </button>
-              <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
+              <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h1 className="text-lg font-semibold text-foreground">
                   {currentPractice?.title || 'Loading...'}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-muted-foreground">
                   {domains.find(d => d.id === currentDomainId)?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
               {saving && (
-                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Save className="w-4 h-4 animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-primary">
+                  <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                   Saving...
                 </div>
               )}
               {submitting && (
-                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
-                  <Save className="w-4 h-4 animate-spin" />
+                <div className="flex items-center gap-2 text-sm text-primary">
+                  <IconDeviceFloppy className="w-4 h-4 animate-spin" />
                   Submitting...
                 </div>
               )}
               <button
                 onClick={handleSubmitProject}
                 disabled={submitting}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Project
               </button>
@@ -726,16 +726,16 @@ export default function PremiumDomainsPage() {
             {/* Progress Bar */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-foreground">
                   Question {validQuestionIndex + 1} of {totalQuestions}
                 </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
+                <span className="text-sm text-muted-foreground">
                   {Math.round(progress)}% Complete
                 </span>
               </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-secondary rounded-full h-2">
                 <div
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-primary h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -747,40 +747,40 @@ export default function PremiumDomainsPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 mb-8"
+              className="bg-card rounded-2xl shadow-lg border border-border p-8 mb-8"
             >
               <div className="mb-6">
                 <div className="flex items-center gap-5 mb-4">
                   <div className="flex items-center gap-1">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
                       Level {currentQuestion.level}
                     </span>
                     <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                      <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
                         Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
                       </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
                       Stream {currentQuestion.stream}
                     </span>
                     <div className="relative group">
-                      <Info size={16} className="cursor-pointer text-gray-500 hover:text-gray-700" />
-                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-black text-white text-xs rounded-md px-2 py-1 whitespace-nowrap">
+                      <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
+                      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
                         Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white leading-relaxed">
+                <h2 className="text-xl font-semibold text-foreground leading-relaxed">
                   {currentQuestion.question}
                 </h2>
                 {currentQuestion.description && (
-                  <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-600 dark:bg-gray-700/40 dark:text-gray-200 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-purple-600 [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
+                  <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
                     <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
                   </div>
                 )}
@@ -807,8 +807,8 @@ export default function PremiumDomainsPage() {
                   <label
                     key={option.value}
                     className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
-                      ? "border-purple-500 bg-purple-50 dark:bg-purple-900/20"
-                      : "border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-500 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
                       }`}
                   >
                     <input
@@ -819,13 +819,13 @@ export default function PremiumDomainsPage() {
                       onChange={() =>
                         handleAnswerChange(validQuestionIndex, option.value)
                       }
-                      className="mt-1 w-4 h-4 text-purple-600 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 focus:ring-purple-500 focus:ring-2"
+                      className="mt-1 w-4 h-4 text-primary bg-background border-border focus:ring-primary focus:ring-2"
                     />
                     <div className="ml-3 flex-1">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-foreground">
                         {option.label}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-sm text-muted-foreground">
                         {option.description}
                       </div>
                     </div>
@@ -834,8 +834,8 @@ export default function PremiumDomainsPage() {
               </div>
 
               {/* Notes Section */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              <div className="mt-6 pt-6 border-t border-border">
+                <h3 className="text-sm font-medium text-foreground mb-3">
                   Your Notes
                 </h3>
                 <SecureTextarea
@@ -856,19 +856,19 @@ export default function PremiumDomainsPage() {
               <button
                 onClick={handlePreviousQuestion}
                 disabled={!hasPreviousQuestion}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground hover:bg-muted"
               >
-                <ArrowLeftIcon className="w-4 h-4" />
+                <IconArrowLeftIcon className="w-4 h-4" />
                 Previous
               </button>
 
               <button
                 onClick={handleNextQuestion}
                 disabled={!hasNextQuestion}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Next
-                <ArrowRight className="w-4 h-4" />
+                <IconArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
