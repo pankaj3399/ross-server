@@ -138,7 +138,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
 
     // Check activePatterns first
     if (item.activePatterns && item.activePatterns.length > 0) {
-      return item.activePatterns.some(pattern => currentPath.includes(pattern));
+      return item.activePatterns.some(pattern => currentPath.startsWith(pattern));
     }
 
     // Fallback to exact match or prefix match

@@ -107,7 +107,10 @@ function isExcludedFile(filePath) {
 }
 
 function isExcludedDir(dirPath) {
-  return EXCLUDED_DIRS.some(excluded => dirPath.includes(excluded));
+  // Normalize path and handle both Unix (/) and Windows (\) separators
+  const normalized = path.normalize(dirPath);
+  const segments = normalized.split(/[\\/]/);
+  return segments.some(segment => EXCLUDED_DIRS.includes(segment));
 }
 
 function getAllFiles(dir, files = []) {
@@ -148,11 +151,28 @@ function checkFile(filePath) {
       while ((match = pattern.exec(line)) !== null) {
         const matchedText = match[0];
         
-        // Check if this match is an exception - scope to the matched span only
+        // Check if this match is an exception - run each exception regex against the full line
+        // and verify if any exception match range covers the hex match range
         const matchStart = match.index;
         const matchEnd = match.index + matchedText.length;
-        const matchSpan = line.slice(matchStart, matchEnd);
-        const isException = exceptions.some(exc => exc.test(matchSpan));
+        let isException = false;
+        for (const exc of exceptions) {
+          // Reset lastIndex for global regexes
+          exc.lastIndex = 0;
+          let exceptionMatch;
+          while ((exceptionMatch = exc.exec(line)) !== null) {
+            const excStart = exceptionMatch.index;
+            const excEnd = exceptionMatch.index + exceptionMatch[0].length;
+            // Exception is valid if it covers the hex match range
+            if (excStart <= matchStart && excEnd >= matchEnd) {
+              isException = true;
+              break;
+            }
+            // Prevent infinite loop for non-global regexes
+            if (!exc.global) break;
+          }
+          if (isException) break;
+        }
         if (isException) continue;
         
         // Skip if in a comment

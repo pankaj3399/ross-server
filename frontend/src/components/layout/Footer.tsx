@@ -250,11 +250,16 @@ export function Footer() {
                 and platform features.
               </p>
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  // TODO: Implement newsletter subscription API call
-                  console.log('Newsletter subscription submitted:', newsletterEmail);
-                  setNewsletterEmail('');
+                  try {
+                    // TODO: Replace with actual newsletter subscription API call
+                    // await submitNewsletter(newsletterEmail);
+                    setNewsletterEmail('');
+                  } catch {
+                    // Handle subscription error without logging PII
+                    console.error('Newsletter subscription failed');
+                  }
                 }}
                 className="flex flex-col sm:flex-row gap-3"
               >
