@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { SidebarProvider } from "../contexts/SidebarContext";
 import { ConditionalLayout } from "../components/layout/ConditionalLayout";
 import StripeProvider from "@/components/providers/StripeProvider";
 import ToastComponent from "../components/shared/Toast";
@@ -28,10 +27,8 @@ export default function RootLayout({
         <StripeProvider>
           <ThemeProvider>
             <AuthProvider>
-              <SidebarProvider>
-                <ConditionalLayout>{children}</ConditionalLayout>
-                <ToastComponent />
-              </SidebarProvider>
+              <ConditionalLayout>{children}</ConditionalLayout>
+              <ToastComponent />
             </AuthProvider>
           </ThemeProvider>
         </StripeProvider>
