@@ -148,102 +148,6 @@ class TokenService {
   }
 
   /**
-   * Create pending registration with OTP
-   */
-  async createPendingRegistration(data: {
-    email: string;
-    passwordHash: string;
-    name: string;
-    organization?: string;
-  }): Promise<string> {
-    const otp = this.generateOTP();
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
-
-    // Delete any existing pending registration for this email
-    await pool.query(
-      "DELETE FROM pending_registrations WHERE email = $1",
-      [data.email],
-    );
-
-    // Insert new pending registration
-    await pool.query(
-      `INSERT INTO pending_registrations (email, password_hash, name, organization, otp, expires_at) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [data.email, data.passwordHash, data.name, data.organization || null, otp, expiresAt],
-    );
-
-    return otp;
-  }
-
-  /**
-   * Verify pending registration OTP and return registration data
-   */
-  async verifyPendingRegistration(
-    email: string,
-    otp: string,
-  ): Promise<{
-    valid: boolean;
-    data?: {
-      email: string;
-      passwordHash: string;
-      name: string;
-      organization: string | null;
-    };
-  }> {
-    try {
-      const result = await pool.query(
-        `SELECT email, password_hash, name, organization
-         FROM pending_registrations
-         WHERE email = $1 AND otp = $2 AND expires_at > CURRENT_TIMESTAMP`,
-        [email, otp],
-      );
-
-      if (result.rows.length === 0) {
-        console.log("- No matching pending registration found or expired");
-        return { valid: false };
-      }
-
-      const row = result.rows[0];
-
-      // Delete the pending registration (it will be moved to users table)
-      await pool.query(
-        "DELETE FROM pending_registrations WHERE email = $1",
-        [email],
-      );
-
-      return {
-        valid: true,
-        data: {
-          email: row.email,
-          passwordHash: row.password_hash,
-          name: row.name,
-          organization: row.organization,
-        },
-      };
-    } catch (error) {
-      console.error("Error verifying pending registration:", error);
-      return { valid: false };
-    }
-  }
-
-  /**
-   * Check if email has pending registration
-   */
-  async hasPendingRegistration(email: string): Promise<boolean> {
-    try {
-      const result = await pool.query(
-        `SELECT id FROM pending_registrations 
-         WHERE email = $1 AND expires_at > CURRENT_TIMESTAMP`,
-        [email],
-      );
-      return result.rows.length > 0;
-    } catch (error) {
-      console.error("Error checking pending registration:", error);
-      return false;
-    }
-  }
-
-  /**
    * Clean up expired tokens
    */
   async cleanupExpiredTokens(): Promise<void> {
@@ -256,9 +160,6 @@ class TokenService {
       );
       await pool.query(
         "DELETE FROM temp_mfa_codes WHERE expires_at < CURRENT_TIMESTAMP",
-      );
-      await pool.query(
-        "DELETE FROM pending_registrations WHERE expires_at < CURRENT_TIMESTAMP",
       );
     } catch (error) {
       console.error("Error cleaning up expired tokens:", error);
