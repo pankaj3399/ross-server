@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentType } from "react";
 import { useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -51,7 +52,7 @@ export interface SidebarItem {
   id: string;
   label: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   disabled?: boolean;
   activePatterns?: string[];
 }

@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 export function Footer() {
   const currentYear = new Date().getFullYear();
   const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const footerLinks = {
     product: [
@@ -147,7 +148,7 @@ export function Footer() {
                         className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center group"
                       >
                         {link.name}
-                        <IconArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <IconArrowRight aria-hidden="true" className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     </li>
                   ))}
@@ -173,7 +174,7 @@ export function Footer() {
                         className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center group"
                       >
                         {link.name}
-                        <IconArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <IconArrowRight aria-hidden="true" className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     </li>
                   ))}
@@ -199,7 +200,7 @@ export function Footer() {
                         className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center group"
                       >
                         {link.name}
-                        <IconArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <IconArrowRight aria-hidden="true" className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     </li>
                   ))}
@@ -225,7 +226,7 @@ export function Footer() {
                         className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center group"
                       >
                         {link.name}
-                        <IconArrowRight className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <IconArrowRight aria-hidden="true" className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </Link>
                     </li>
                   ))}
@@ -252,13 +253,21 @@ export function Footer() {
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (isSubmitting) return;
+
+                  const email = newsletterEmail.trim();
+                  if (!email) return;
+
+                  setIsSubmitting(true);
                   try {
                     // TODO: Replace with actual newsletter subscription API call
-                    // await submitNewsletter(newsletterEmail);
+                    // await submitNewsletter(email);
                     setNewsletterEmail('');
                   } catch {
                     // Handle subscription error without logging PII
                     console.error('Newsletter subscription failed');
+                  } finally {
+                    setIsSubmitting(false);
                   }
                 }}
                 className="flex flex-col sm:flex-row gap-3"
@@ -271,9 +280,10 @@ export function Footer() {
                   onChange={(e) => setNewsletterEmail(e.target.value)}
                   required
                   className="flex-1"
+                  disabled={isSubmitting}
                 />
-                <Button type="submit">
-                  Subscribe
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Subscribing...' : 'Subscribe'}
                 </Button>
               </form>
             </div>

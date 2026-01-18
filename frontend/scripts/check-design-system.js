@@ -138,10 +138,26 @@ function checkFile(filePath) {
   const content = fs.readFileSync(filePath, 'utf-8');
   const lines = content.split('\n');
   const violations = [];
+  let inMultiLineComment = false;
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNum = i + 1;
+    
+    // Track multi-line comment state
+    // Handle single-line /* ... */ comments on the same line
+    if (!inMultiLineComment && line.includes('/*') && line.includes('*/')) {
+      // Single-line block comment - process normally, exceptions will handle it
+    } else if (!inMultiLineComment && line.includes('/*')) {
+      inMultiLineComment = true;
+      continue; // Skip this line, it starts a multi-line comment
+    }
+    if (inMultiLineComment) {
+      if (line.includes('*/')) {
+        inMultiLineComment = false;
+      }
+      continue; // Skip lines inside multi-line comments
+    }
     
     for (const { name, pattern, exceptions } of VIOLATION_PATTERNS) {
       // Reset regex lastIndex
@@ -175,12 +191,12 @@ function checkFile(filePath) {
         }
         if (isException) continue;
         
-        // Skip if in a comment
-        if (line.trim().startsWith('//') || line.trim().startsWith('*') || line.trim().startsWith('/*')) {
+        // Skip if in a single-line comment
+        if (line.trim().startsWith('//') || line.trim().startsWith('/*')) {
           continue;
         }
         
-// Get suggestion if available - prefer exact or longest key match
+        // Get suggestion if available - prefer exact or longest key match
         let suggestion = '';
         for (const key of sortedKeys) {
           if (matchedText === key || matchedText.startsWith(key + '-')) {
@@ -226,7 +242,7 @@ function main() {
   // Output results
   if (totalViolations === 0) {
     console.log('✅ No design system violations found!\n');
-    console.log('🎉 All files follow the design system. This script can now be deleted.\n');
+    console.log('🎉 All files follow the design system. This script enforces the design system in CI — keep it to validate future changes.\n');
     return 0;
   }
   
