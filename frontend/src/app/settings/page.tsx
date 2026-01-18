@@ -759,11 +759,12 @@ export default function SettingsPage() {
                         <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md mx-auto border rounded-xl p-6 bg-muted/20">
                           {/* Current Password */}
                           <div className="space-y-2">
-                            <Label>Current Password</Label>
+                            <Label htmlFor="currentPassword">Current Password</Label>
                             <div className="relative">
                               <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                               <Input
                                 type={showPasswords.current ? "text" : "password"}
+                                id="currentPassword"
                                 name="currentPassword"
                                 value={passwordForm.currentPassword}
                                 onChange={handlePasswordInputChange}
@@ -791,11 +792,12 @@ export default function SettingsPage() {
 
                           {/* New Password */}
                           <div className="space-y-2">
-                            <Label>New Password</Label>
+                            <Label htmlFor="newPassword">New Password</Label>
                             <div className="relative">
                               <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                               <Input
                                 type={showPasswords.new ? "text" : "password"}
+                                id="newPassword"
                                 name="newPassword"
                                 value={passwordForm.newPassword}
                                 onChange={handlePasswordInputChange}
@@ -823,11 +825,12 @@ export default function SettingsPage() {
 
                           {/* Confirm Password */}
                           <div className="space-y-2">
-                            <Label>Confirm New Password</Label>
+                            <Label htmlFor="confirmPassword">Confirm New Password</Label>
                             <div className="relative">
                               <IconKey className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                               <Input
                                 type={showPasswords.confirm ? "text" : "password"}
+                                id="confirmPassword"
                                 name="confirmPassword"
                                 value={passwordForm.confirmPassword}
                                 onChange={handlePasswordInputChange}

@@ -114,11 +114,21 @@ export default function UnlockPremium({
       setUpgradingPlan(planName);
       saveReturnUrlForCheckout();
       const { url } = await apiService.createCheckoutSession(priceId);
-      window.location.href = url;
+
+      // Validate URL before redirecting to prevent open redirect
+      try {
+        const parsedUrl = new URL(url);
+        if (!parsedUrl.hostname.endsWith('stripe.com')) {
+          throw new Error('Invalid checkout URL');
+        }
+        window.location.href = url;
+      } catch {
+        showToast.error("Invalid checkout URL received. Please try again.");
+        setUpgradingPlan(null);
+      }
     } catch (error) {
       console.error("Failed to create checkout session:", error);
       showToast.error("Failed to start upgrade process. Please try again.");
-    } finally {
       setUpgradingPlan(null);
     }
   };

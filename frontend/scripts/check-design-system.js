@@ -97,6 +97,9 @@ const REPLACEMENT_SUGGESTIONS = {
   'border-purple': 'border-primary',
 };
 
+// Pre-computed sorted keys for efficient matching (longest first)
+const SORTED_REPLACEMENT_KEYS = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
+
 function isExcludedFile(filePath) {
   const relativePath = path.relative(SRC_DIR, filePath);
   return EXCLUDED_FILES.some(excluded => relativePath.includes(excluded));
@@ -153,10 +156,9 @@ function checkFile(filePath) {
           continue;
         }
         
-        // Get suggestion if available - prefer exact or longest key match
+// Get suggestion if available - prefer exact or longest key match
         let suggestion = '';
-        const sortedKeys = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
-        for (const key of sortedKeys) {
+        for (const key of SORTED_REPLACEMENT_KEYS) {
           if (matchedText === key || matchedText.startsWith(key + '-')) {
             suggestion = REPLACEMENT_SUGGESTIONS[key];
             break;

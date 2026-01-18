@@ -310,14 +310,14 @@ export function Footer() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="flex items-center space-x-6 text-sm"
             >
-              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground">
-                <Link href="/privacy">Privacy</Link>
+              <Button variant="link" asChild className="p-0 h-auto">
+                <Link href="/privacy" className="text-muted-foreground hover:text-primary">Privacy</Link>
               </Button>
-              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground">
-                <Link href="/terms">Terms</Link>
+              <Button variant="link" asChild className="p-0 h-auto">
+                <Link href="/terms" className="text-muted-foreground hover:text-primary">Terms</Link>
               </Button>
-              <Button variant="link" asChild className="p-0 h-auto text-muted-foreground">
-                <Link href="/cookies">Cookies</Link>
+              <Button variant="link" asChild className="p-0 h-auto">
+                <Link href="/cookies" className="text-muted-foreground hover:text-primary">Cookies</Link>
               </Button>
             </motion.div>
           </div>

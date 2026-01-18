@@ -147,9 +147,33 @@ export default function PremiumFeaturesPage() {
     router.push(`/assess/${projectId}`);
   };
 
-  // Combined loading check - render loading UI if any of these conditions are true
-  if (authLoading || userLoading || loading || !isAuthenticated || !user || !isPremium) {
+  // Show loading UI while auth/data is loading
+  if (authLoading || userLoading || loading) {
     return <PremiumFeaturesSkeleton />;
+  }
+
+  // Redirect non-premium users to subscription page
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <IconCrown className="w-10 h-10 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold mb-3 text-foreground">Premium Feature</h2>
+          <p className="text-muted-foreground mb-6">
+            Premium features are available for premium subscribers only. Upgrade your plan to access advanced AI governance tools.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push("/subscriptions")}
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
+          >
+            Upgrade to Premium
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
