@@ -160,6 +160,7 @@ export default function FairnessBiasReport() {
             Fairness & Bias reports are available for premium subscribers only.
           </p>
           <button
+            type="button"
             onClick={() => router.push(`/assess/${projectId}`)}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-medium"
           >
@@ -187,6 +188,7 @@ export default function FairnessBiasReport() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
+                type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
               >
                 <ArrowLeft className="w-5 h-5 text-muted-foreground" />
@@ -207,7 +209,7 @@ export default function FairnessBiasReport() {
               </div>
               <div className="text-right">
                 <div className="text-xs text-muted-foreground">Avg Score</div>
-                <div className="text-lg font-bold text-success">
+                <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
                   {(avgOverall * 100).toFixed(0)}%
                 </div>
               </div>
@@ -327,7 +329,13 @@ export default function FairnessBiasReport() {
                             <details className="group">
                               <summary className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 flex items-center gap-2">
                                 <span>View AI Analysis</span>
-                                <svg className="w-4 h-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  className="w-4 h-4 transition-transform group-open:rotate-180"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                  aria-hidden="true"
+                                >
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
                               </summary>

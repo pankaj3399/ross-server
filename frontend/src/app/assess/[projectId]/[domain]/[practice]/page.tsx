@@ -168,6 +168,7 @@ export default function AssessmentPage() {
         >
           <div className="flex items-center gap-3 mb-4">
             <button
+              type="button"
               onClick={() => router.back()}
               className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
             >

@@ -777,6 +777,8 @@ export default function SettingsPage() {
                                 size="icon"
                                 onClick={() => togglePasswordVisibility("current")}
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                aria-label={showPasswords.current ? "Hide current password" : "Show current password"}
+                                aria-pressed={showPasswords.current}
                               >
                                 {showPasswords.current ? (
                                   <IconEyeOff className="w-4 h-4" />
@@ -807,6 +809,8 @@ export default function SettingsPage() {
                                 size="icon"
                                 onClick={() => togglePasswordVisibility("new")}
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                aria-label={showPasswords.new ? "Hide new password" : "Show new password"}
+                                aria-pressed={showPasswords.new}
                               >
                                 {showPasswords.new ? (
                                   <IconEyeOff className="w-4 h-4" />
@@ -837,6 +841,8 @@ export default function SettingsPage() {
                                 size="icon"
                                 onClick={() => togglePasswordVisibility("confirm")}
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                aria-label={showPasswords.confirm ? "Hide confirm password" : "Show confirm password"}
+                                aria-pressed={showPasswords.confirm}
                               >
                                 {showPasswords.confirm ? (
                                   <IconEyeOff className="w-4 h-4" />

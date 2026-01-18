@@ -34,6 +34,7 @@ const VIOLATION_PATTERNS = [
       /\/\*[\s\S]*?(#[0-9a-fA-F]{3,8})[\s\S]*?\*\//,  // Multi-line comments
       /href=["'][^"']*#/,  // Anchor links
       /&#[0-9]+;/,  // HTML entities
+      /--[\w-]+\s*:\s*#[0-9a-fA-F]{3,8}/,  // CSS custom property definitions (e.g., --some-name: #fff)
     ]
   },
   {
@@ -152,11 +153,12 @@ function checkFile(filePath) {
           continue;
         }
         
-        // Get suggestion if available
+        // Get suggestion if available - prefer exact or longest key match
         let suggestion = '';
-        for (const [key, value] of Object.entries(REPLACEMENT_SUGGESTIONS)) {
-          if (matchedText.includes(key.split('-')[1]) || matchedText.startsWith(key)) {
-            suggestion = value;
+        const sortedKeys = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
+        for (const key of sortedKeys) {
+          if (matchedText === key || matchedText.startsWith(key + '-')) {
+            suggestion = REPLACEMENT_SUGGESTIONS[key];
             break;
           }
         }
@@ -177,9 +179,11 @@ function checkFile(filePath) {
 }
 
 function getSuggestionForMatch(matchedText) {
-  for (const [pattern, suggestion] of Object.entries(REPLACEMENT_SUGGESTIONS)) {
-    if (matchedText.includes(pattern) || matchedText.startsWith(pattern)) {
-      return suggestion;
+  // Sort keys by length descending to prefer exact/longest matches
+  const sortedKeys = Object.keys(REPLACEMENT_SUGGESTIONS).sort((a, b) => b.length - a.length);
+  for (const key of sortedKeys) {
+    if (matchedText === key || matchedText.startsWith(key + '-')) {
+      return REPLACEMENT_SUGGESTIONS[key];
     }
   }
   return '';

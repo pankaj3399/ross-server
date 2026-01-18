@@ -240,16 +240,17 @@ export default function DashboardPage() {
   };
 
   const handleDeleteProject = async (id: string) => {
-    setDeletingProjectId(id);
+    setIsLoading(true);
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
       showToast.success("Project deleted successfully!");
+      setDeletingProjectId(null);
     } catch (error) {
       console.error("Failed to delete project:", error);
       showToast.error("Failed to delete project. Please try again.");
     } finally {
-      setDeletingProjectId(null);
+      setIsLoading(false);
     }
   };
 
@@ -416,20 +417,10 @@ export default function DashboardPage() {
                           variant="outline"
                           size="sm"
                           className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                          onClick={() => handleDeleteProject(project.id)}
-                          disabled={deletingProjectId === project.id}
+                          onClick={() => setDeletingProjectId(project.id)}
                         >
-                          {deletingProjectId === project.id ? (
-                            <>
-                              <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <IconTrash className="w-4 h-4 mr-2" />
-                              Delete
-                            </>
-                          )}
+                          <IconTrash className="w-4 h-4 mr-2" />
+                          Delete
                         </Button>
                       </CardFooter>
                     </Card>
@@ -658,6 +649,42 @@ export default function DashboardPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deletingProjectId} onOpenChange={(open) => !open && setDeletingProjectId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently removed.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => setDeletingProjectId(null)}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deletingProjectId && handleDeleteProject(deletingProjectId)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

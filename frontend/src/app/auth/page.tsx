@@ -236,7 +236,7 @@ export default function AuthPage() {
                         id="confirmPassword"
                         name="confirmPassword"
                         type={showConfirmPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
+                        autoComplete="new-password"
                         required
                         value={formData.confirmPassword}
                         onChange={handleChange}

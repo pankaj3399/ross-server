@@ -63,13 +63,13 @@ body {
    Interactive Elements
    ====================== */
 
-a,
-button,
-[role="button"],
-[role="link"],
-[type="button"],
-[type="submit"],
-[type="reset"] {
+a:not([aria-disabled="true"]),
+button:enabled,
+[role="button"]:not([aria-disabled="true"]),
+[role="link"]:not([aria-disabled="true"]),
+[type="button"]:enabled,
+[type="submit"]:enabled,
+[type="reset"]:enabled {
   cursor: pointer;
 }
 

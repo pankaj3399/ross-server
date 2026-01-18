@@ -43,8 +43,9 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, isLoading = false, children, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, isLoading = false, disabled: disabledProp, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    const disabled = isLoading || Boolean(disabledProp)
 
     // When asChild is true, we can't add sibling elements (like the loader)
     // because Slot uses React.Children.only which expects a single child
@@ -53,7 +54,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         <Comp
           className={cn(buttonVariants({ variant, size, className }))}
           ref={ref}
-          disabled={isLoading || props.disabled}
+          disabled={disabled}
           {...props}
         >
           {children}
@@ -65,8 +66,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={isLoading || props.disabled}
         {...props}
+        disabled={disabled}
       >
         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {children}

@@ -929,8 +929,9 @@ export default function PremiumDomainsAdmin() {
                                                                                         </div>
                                                                                     </div>
                                                                                 ) : (
-                                                                                    <p
-                                                                                        className="text-foreground text-sm cursor-pointer hover:text-primary"
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="text-foreground text-sm cursor-pointer hover:text-primary text-left"
                                                                                         onClick={() => startEditingQuestion(question)}
                                                                                         dangerouslySetInnerHTML={{
                                                                                             __html: safeRenderHTML(question.question_text),

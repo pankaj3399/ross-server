@@ -301,7 +301,7 @@ const DatasetTestingPage = () => {
                 Dataset Testing
               </h1>
               <p className="text-sm text-muted-foreground">
-                Upload a CSV to evaluate your dataset for fairness and biasness
+                Upload a CSV to evaluate your dataset for fairness and bias
               </p>
             </div>
           </div>

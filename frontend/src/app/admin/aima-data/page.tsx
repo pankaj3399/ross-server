@@ -888,6 +888,10 @@ export default function AdminQuestions() {
             <div
               className="p-6 cursor-pointer hover:bg-muted/50 transition-all duration-200 rounded-2xl"
               onClick={() => toggleDomain(domain.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
+              role="button"
+              tabIndex={0}
+              aria-expanded={expandedDomains.has(domain.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -966,6 +970,10 @@ export default function AdminQuestions() {
                         <div
                           className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => togglePractice(practice.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePractice(practice.id); } }}
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={expandedPractices.has(practice.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">

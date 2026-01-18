@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Home } from "lucide-react";
+import { IconHome } from "@tabler/icons-react";
 import {
   Breadcrumb as ShadcnBreadcrumb,
   BreadcrumbItem,
@@ -66,13 +66,13 @@ export function Breadcrumb() {
             {index > 0 && <BreadcrumbSeparator />}
             {index === breadcrumbs.length - 1 ? (
               <BreadcrumbPage className="flex items-center gap-1.5">
-                {index === 0 && <Home className="h-4 w-4" />}
+                {index === 0 && <IconHome className="h-4 w-4" />}
                 {breadcrumb.name}
               </BreadcrumbPage>
             ) : (
               <BreadcrumbLink asChild>
                 <Link href={breadcrumb.href} className="flex items-center gap-1.5">
-                  {index === 0 && <Home className="h-4 w-4" />}
+                  {index === 0 && <IconHome className="h-4 w-4" />}
                   {breadcrumb.name}
                 </Link>
               </BreadcrumbLink>

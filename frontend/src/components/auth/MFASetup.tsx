@@ -82,7 +82,7 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "matur-ai-backup-codes.txt";
+    a.download = "MATHUR.ai-backup-codes.txt";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -169,6 +169,11 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
                 src={mfaData?.qrCodeUrl}
                 alt="MFA QR Code"
                 className="w-48 h-48"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  setError("Failed to load QR code. Please copy the secret key manually.");
+                }}
               />
             </div>
           </div>

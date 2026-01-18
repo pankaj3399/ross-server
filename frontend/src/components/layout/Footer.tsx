@@ -250,6 +250,7 @@ export function Footer() {
                 <Input
                   type="email"
                   placeholder="Enter your email"
+                  aria-label="Newsletter email"
                   className="flex-1"
                 />
                 <Button>
