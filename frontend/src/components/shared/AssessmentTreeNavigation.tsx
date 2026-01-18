@@ -194,7 +194,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     });
   };
 
+  const safeProgressPercent = (answered: number, total: number) => {
+    if (total === 0) return 0;
+    return (answered / total) * 100;
+  };
+
   const getProgressColor = (answered: number, total: number) => {
+    if (total === 0) return "text-muted-foreground";
     if (answered === 0) return "text-muted-foreground";
     if (answered === total) return "text-primary";
     return "text-foreground";
@@ -265,10 +271,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                 : "bg-muted-foreground/30"
                               }`}
                             style={{
-                              width: `${(domain.questionsAnswered /
-                                domain.totalQuestions) *
-                                100
-                                }%`,
+                              width: `${safeProgressPercent(
+                                domain.questionsAnswered,
+                                domain.totalQuestions
+                              )}%`,
                             }}
                           />
                         </div>
@@ -349,10 +355,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           : "bg-muted-foreground/30"
                                         }`}
                                       style={{
-                                        width: `${(practice.questionsAnswered /
-                                          practice.totalQuestions) *
-                                          100
-                                          }%`,
+                                        width: `${safeProgressPercent(
+                                          practice.questionsAnswered,
+                                          practice.totalQuestions
+                                        )}%`,
                                       }}
                                     />
                                   </div>

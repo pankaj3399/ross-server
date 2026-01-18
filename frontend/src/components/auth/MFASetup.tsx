@@ -75,7 +75,7 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
   const downloadBackupCodes = () => {
     if (!mfaData) return;
 
-    const content = `MATUR.ai - Backup Codes\n\nSave these codes in a secure location. Each code can only be used once.\n\n${mfaData.backupCodes.join(
+    const content = `MATHUR.ai - Backup Codes\n\nSave these codes in a secure location. Each code can only be used once.\n\n${mfaData.backupCodes.join(
       "\n",
     )}\n\nGenerated: ${new Date().toLocaleString()}`;
     const blob = new Blob([content], { type: "text/plain" });

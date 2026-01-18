@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react"
 import { useTheme } from "../../contexts/ThemeContext"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
+import { CSSProperties } from "react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()
@@ -41,7 +42,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--normal-text": "hsl(var(--foreground))",
           "--normal-border": "hsl(var(--border))",
           "--border-radius": "var(--radius)",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       {...props}
     />

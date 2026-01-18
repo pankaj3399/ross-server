@@ -91,8 +91,8 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
         if (response.ok) {
           const data = await response.json();
           setPrices({
-            basic: data.prices[BASIC_PRICE_ID] || null,
-            pro: data.prices[PRO_PRICE_ID] || null,
+            basic: data.prices[BASIC_PRICE_ID] ?? null,
+            pro: data.prices[PRO_PRICE_ID] ?? null,
           });
         } else {
           console.error("Failed to fetch prices");
@@ -110,6 +110,10 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
   }, [isOpen]);
 
   const handleSelectPlan = async (priceId: string, planName: string) => {
+    if (!priceId) {
+      showToast.warning("Plan price configuration missing. Please contact support.");
+      return;
+    }
     try {
       setUpgradingPlan(planName);
       saveReturnUrlForCheckout();

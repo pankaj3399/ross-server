@@ -21,6 +21,8 @@ import {
   IconInfoCircle,
   IconAlertTriangle,
 } from "@tabler/icons-react";
+import DOMPurify from "dompurify";
+
 import AssessmentTreeNavigation from "../../../components/shared/AssessmentTreeNavigation";
 import { SecureTextarea } from "../../../components/shared/SecureTextarea";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
@@ -780,6 +782,7 @@ export default function AssessmentPage() {
             </button>
             <button
               onClick={() => router.back()}
+              type="button"
               className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go Back
@@ -807,12 +810,14 @@ export default function AssessmentPage() {
                 setLoading(true);
                 window.location.reload();
               }}
+              type="button"
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
               Retry
             </button>
             <button
               onClick={() => router.push("/dashboard")}
+              type="button"
               className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go to Dashboard
@@ -911,6 +916,7 @@ export default function AssessmentPage() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => router.back()}
+                  type="button"
                   className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
                 >
                   <IconArrowLeft className="w-4 h-4" />
@@ -935,6 +941,7 @@ export default function AssessmentPage() {
                 )}
                 <button
                   onClick={handleSubmitProject}
+                  type="button"
                   disabled={submitting}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1018,7 +1025,7 @@ export default function AssessmentPage() {
                   </h2>
                   {currentQuestion.description && (
                     <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
-                      <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
+                      <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(currentQuestion.description) }} />
                     </div>
                   )}
                 </div>
@@ -1092,6 +1099,7 @@ export default function AssessmentPage() {
               <div className="flex items-center justify-between">
                 <button
                   onClick={handlePreviousQuestion}
+                  type="button"
                   disabled={!hasPreviousQuestion}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-border text-foreground hover:bg-muted"
                 >
@@ -1101,6 +1109,7 @@ export default function AssessmentPage() {
 
                 <button
                   onClick={handleNextQuestion}
+                  type="button"
                   disabled={!hasNextQuestion}
                   className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
                 >

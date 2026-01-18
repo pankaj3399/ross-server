@@ -35,6 +35,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { isSidebarVisible } from "../../lib/route-utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -304,7 +305,7 @@ export function AppSidebar({ items = defaultSidebarItems }: AppSidebarProps) {
   const { isAuthenticated } = useAuth();
 
   // Only hide on auth pages, homepage, or if not authenticated
-  const shouldHideSidebar = pathname?.startsWith("/auth") || pathname === "/";
+  const shouldHideSidebar = !isSidebarVisible(pathname);
 
   if (shouldHideSidebar || !isAuthenticated) {
     return null;
@@ -319,7 +320,7 @@ export function SidebarMobileTrigger() {
   const { isAuthenticated } = useAuth();
 
   // Only hide on auth pages, homepage, or if not authenticated
-  const shouldHide = pathname?.startsWith("/auth") || pathname === "/";
+  const shouldHide = !isSidebarVisible(pathname);
 
   if (shouldHide || !isAuthenticated) {
     return null;

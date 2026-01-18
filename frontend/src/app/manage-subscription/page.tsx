@@ -573,11 +573,11 @@ export default function ManageSubscriptionPage() {
               )}
             </div>
             <Button
-              onClick={handleUpgradeClick}
+              onClick={isPremium ? handleDowngradeToBasic : handleUpgradeClick}
               size="lg"
               className="gap-2"
             >
-              Change Plan
+              {isPremium ? "Downgrade to Basic" : "Upgrade to Pro"}
               <IconArrowRight className="w-4 h-4" />
             </Button>
           </div>

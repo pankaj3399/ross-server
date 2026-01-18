@@ -1,5 +1,3 @@
-"use client";
-
 // Re-export specific components from the new structure
 export {
   Skeleton,
