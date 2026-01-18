@@ -28,17 +28,17 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         duration: 4000,
         classNames: {
-          toast: "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          success: "group-[.toaster]:bg-accent group-[.toaster]:text-accent-foreground group-[.toaster]:border-border",
-          error: "group-[.toaster]:bg-destructive/10 group-[.toaster]:text-destructive group-[.toaster]:border-destructive/20",
-          warning: "group-[.toaster]:bg-accent group-[.toaster]:text-accent-foreground group-[.toaster]:border-border",
-          info: "group-[.toaster]:bg-primary/10 group-[.toaster]:text-primary group-[.toaster]:border-primary/20",
+          toast: "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg group-[.toaster]:backdrop-blur-none",
+          success: "group-[.toaster]:bg-background group-[.toaster]:text-success group-[.toaster]:border-success/30",
+          error: "group-[.toaster]:bg-background group-[.toaster]:text-destructive group-[.toaster]:border-destructive/30",
+          warning: "group-[.toaster]:bg-background group-[.toaster]:text-warning group-[.toaster]:border-warning/30",
+          info: "group-[.toaster]:bg-background group-[.toaster]:text-primary group-[.toaster]:border-primary/30",
         },
       }}
       style={
         {
-          "--normal-bg": "hsl(var(--popover))",
-          "--normal-text": "hsl(var(--popover-foreground))",
+          "--normal-bg": "hsl(var(--background))",
+          "--normal-text": "hsl(var(--foreground))",
           "--normal-border": "hsl(var(--border))",
           "--border-radius": "var(--radius)",
         } as React.CSSProperties

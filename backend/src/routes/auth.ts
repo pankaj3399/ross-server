@@ -69,6 +69,14 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "User already exists" });
     }
 
+    // Check if there's already a pending registration for this email
+    const hasPending = await tokenService.hasPendingRegistration(email);
+    if (hasPending) {
+      return res.status(400).json({ 
+        error: "A verification email was already sent. Please check your email or wait for it to expire before trying again." 
+      });
+    }
+
     // Validate password strength
     const passwordValidation = validatePassword(password, { email, name });
     if (!passwordValidation.isValid) {
@@ -83,16 +91,13 @@ router.post("/register", async (req, res) => {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create user
-    const result = await pool.query(
-      "INSERT INTO users (email, password_hash, name, organization, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, subscription_status, email_verified",
-      [email, passwordHash, name, organization || null, false],
-    );
-
-    const user = result.rows[0];
-
-    // Create email verification OTP
-    const otp = await tokenService.createEmailVerificationOTP(user.id);
+    // Create pending registration (NOT in users table yet)
+    const otp = await tokenService.createPendingRegistration({
+      email,
+      passwordHash,
+      name,
+      organization,
+    });
 
     // Send verification email with OTP
     const emailSent = await emailService.sendEmailVerification(
@@ -100,20 +105,12 @@ router.post("/register", async (req, res) => {
       otp,
     );
     if (!emailSent) {
-      console.error("Failed to send verification email for user:", user.id);
+      console.error("Failed to send verification email for:", email);
     }
 
     res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        subscription_status: user.subscription_status,
-        email_verified: user.email_verified,
-      },
       message:
-        "Registration successful. Please check your email for the verification code.",
+        "Registration initiated. Please check your email for the verification code.",
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -135,6 +132,40 @@ router.post("/verify-email", async (req, res) => {
       return res.status(400).json({ error: "Email and OTP are required" });
     }
 
+    // First, try to verify as a pending registration (new signup flow)
+    const pendingResult = await tokenService.verifyPendingRegistration(email, otp);
+    
+    if (pendingResult.valid && pendingResult.data) {
+      // Create user from pending registration data
+      const userResult = await pool.query(
+        "INSERT INTO users (email, password_hash, name, organization, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, subscription_status, email_verified",
+        [pendingResult.data.email, pendingResult.data.passwordHash, pendingResult.data.name, pendingResult.data.organization, true],
+      );
+
+      const user = userResult.rows[0];
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { userId: user.id, email: user.email, emailVerified: true },
+        process.env.JWT_SECRET!,
+        { expiresIn: "7d" },
+      );
+
+      return res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          subscription_status: user.subscription_status,
+          email_verified: user.email_verified,
+        },
+        token,
+        message: "Email verified successfully. Your account is now active.",
+      });
+    }
+
+    // Fall back to old flow for existing users (email change verification)
     const result = await tokenService.verifyEmailOTP(email, otp);
 
     if (!result.valid) {
@@ -227,6 +258,63 @@ router.post("/resend-verification", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Resend verification error:", error);
+    res.status(500).json({ error: "Failed to resend verification email" });
+  }
+});
+
+// Resend verification email for pending registrations (no auth required)
+router.post("/resend-pending-verification", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Check if there's a pending registration for this email
+    const hasPending = await tokenService.hasPendingRegistration(email);
+    if (!hasPending) {
+      // Don't reveal whether email exists - just return success
+      return res.json({
+        message: "If a pending registration exists, a new verification code has been sent.",
+      });
+    }
+
+    // Get the pending registration data to recreate it with a new OTP
+    const pendingResult = await pool.query(
+      "SELECT password_hash, name, organization FROM pending_registrations WHERE email = $1 AND expires_at > CURRENT_TIMESTAMP",
+      [email],
+    );
+
+    if (pendingResult.rows.length === 0) {
+      return res.json({
+        message: "If a pending registration exists, a new verification code has been sent.",
+      });
+    }
+
+    const pending = pendingResult.rows[0];
+
+    // Create new pending registration with new OTP
+    const otp = await tokenService.createPendingRegistration({
+      email,
+      passwordHash: pending.password_hash,
+      name: pending.name,
+      organization: pending.organization,
+    });
+
+    // Send verification email
+    const emailSent = await emailService.sendEmailVerification(email, otp);
+
+    if (!emailSent) {
+      return res.status(500).json({ error: "Failed to send verification email" });
+    }
+
+    res.json({
+      message: "Verification code sent successfully. Please check your email.",
+      emailSent: true,
+    });
+  } catch (error) {
+    console.error("Resend pending verification error:", error);
     res.status(500).json({ error: "Failed to resend verification email" });
   }
 });

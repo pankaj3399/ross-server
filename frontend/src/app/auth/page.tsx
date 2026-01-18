@@ -116,7 +116,7 @@ export default function AuthPage() {
               Or{" "}
               <Button
                 variant="link"
-                className="p-0 h-auto font-medium text-primary dark:text-primary-foreground"
+                className="p-0 h-auto font-medium text-primary dark:text-primary"
                 onClick={() => router.push("/auth?isLogin=false")}
               >
                 create a new account
@@ -127,7 +127,7 @@ export default function AuthPage() {
               Or{" "}
               <Button
                 variant="link"
-                className="p-0 h-auto font-medium text-primary dark:text-primary-foreground"
+                className="p-0 h-auto font-medium text-primary dark:text-primary"
                 onClick={() => router.push("/auth?isLogin=true")}
               >
                 sign in to existing account
@@ -341,7 +341,7 @@ export default function AuthPage() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 font-semibold"
+                  className="w-full h-12 bg-primary hover:bg-primary/80 font-semibold"
                 >
                   {loading ? (
                     <>
@@ -367,7 +367,7 @@ export default function AuthPage() {
                 </div>
 
                 <div className="mt-6 text-center">
-                  <Button variant="link" asChild className="text-primary dark:text-primary-foreground">
+                  <Button variant="link" asChild className="text-primary">
                     <Link href="/">Back to home</Link>
                   </Button>
                 </div>

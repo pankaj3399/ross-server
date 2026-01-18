@@ -163,7 +163,8 @@ export default function VerifyOTPPage() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+      // Use the pending verification endpoint for new signups (no auth required)
+      const response = await fetch(`${API_BASE_URL}/auth/resend-pending-verification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -172,7 +173,7 @@ export default function VerifyOTPPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setResendCooldown(60); // 60 seconds cooldown
+        setResendCooldown(30); // 30 seconds cooldown
         setError(""); // Clear any previous errors
         showToast.success("OTP sent successfully! Please check your email.");
       } else {

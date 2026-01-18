@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { showToast } from "../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,6 +20,8 @@ import {
   IconEyeOff,
   IconStar,
   IconMail,
+  IconCreditCard,
+  IconArrowRight,
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
@@ -458,7 +461,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="bg-muted/30 min-h-screen relative">
+    <div className="bg-background min-h-screen relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <motion.div
@@ -878,6 +881,99 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Subscription Management Section */}
+        <Card className="mt-12">
+          <CardHeader>
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center">
+                <IconStar className="w-6 h-6 text-warning" />
+              </div>
+              <div>
+                <CardTitle>Subscription</CardTitle>
+                <CardDescription>
+                  Manage your billing cycle and subscription plan.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {subscriptionLoading ? (
+              <div className="space-y-4">
+                <div className="h-20 bg-muted rounded-lg animate-pulse" />
+                <div className="h-12 bg-muted rounded-lg animate-pulse" />
+              </div>
+            ) : subscriptionError ? (
+              <div className="text-center py-6">
+                <IconAlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Failed to load subscription details</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchSubscriptionDetails}
+                  className="mt-3"
+                >
+                  <IconRefresh className="w-4 h-4 mr-2" />
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Current Plan Info */}
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        CURRENT PLAN
+                      </p>
+                      <p className="text-xl font-bold text-foreground capitalize mb-3">
+                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
+                          user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
+                            'Free Plan'}
+                      </p>
+                      {subscriptionDetails?.plan && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">Status</span>
+                            <span className={cn(
+                              "font-medium flex items-center gap-1",
+                              subscriptionDetails.plan.status === 'active' ? 'text-success' :
+                                subscriptionDetails.plan.status === 'trialing' ? 'text-primary' :
+                                  'text-muted-foreground'
+                            )}>
+                              <span className="w-2 h-2 rounded-full bg-current"></span>
+                              {subscriptionDetails.plan.status === 'active' ? 'Active' :
+                                subscriptionDetails.plan.status === 'trialing' ? 'Trialing' :
+                                  subscriptionDetails.plan.status}
+                            </span>
+                          </div>
+                          {subscriptionDetails.plan.days_remaining !== null && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <span className="text-muted-foreground">Days remaining</span>
+                              <span className="font-medium text-foreground">
+                                {subscriptionDetails.plan.days_remaining} days
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Manage Subscription Button */}
+                <Link href="/manage-subscription" className="block">
+                  <Button className="w-full h-14 text-base gap-3 group">
+                    <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    <span>Manage Subscription</span>
+                    <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

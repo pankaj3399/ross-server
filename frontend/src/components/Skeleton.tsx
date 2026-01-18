@@ -28,3 +28,11 @@ export {
 } from "./skeletons/SubscriptionSkeleton";
 
 export { SimplePageSkeleton } from "./skeletons/AuthSkeleton";
+
+export { DashboardSkeleton } from "./skeletons/DashboardSkeleton";
+
+export { SettingsSkeleton } from "./skeletons/SettingsSkeleton";
+
+export { PremiumFeaturesSkeleton } from "./skeletons/PremiumFeaturesSkeleton";
+
+export { ApiEndpointSkeleton } from "./skeletons/ApiEndpointSkeleton";

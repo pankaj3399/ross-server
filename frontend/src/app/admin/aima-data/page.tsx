@@ -1279,10 +1279,14 @@ export default function AdminQuestions() {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                  <label
+                    htmlFor={showDomainModal ? "title-input-domain" : "title-input-practice"}
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
                     Title
                   </label>
                   <input
+                    id={showDomainModal ? "title-input-domain" : "title-input-practice"}
                     type="text"
                     value={
                       showDomainModal ? domainForm.title : practiceForm.title
@@ -1297,10 +1301,7 @@ export default function AdminQuestions() {
                         });
                       }
                     }}
-                    className={`w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-background text-foreground transition-all duration-200 ${showDomainModal
-                      ? "focus:ring-primary"
-                      : "focus:ring-primary"
-                      }`}
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200"
                     placeholder={
                       showDomainModal ? "Domain title" : "Practice title"
                     }
@@ -1308,10 +1309,14 @@ export default function AdminQuestions() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                  <label
+                    htmlFor={showDomainModal ? "description-input-domain" : "description-input-practice"}
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
                     Description
                   </label>
                   <textarea
+                    id={showDomainModal ? "description-input-domain" : "description-input-practice"}
                     value={
                       showDomainModal
                         ? domainForm.description
@@ -1330,10 +1335,7 @@ export default function AdminQuestions() {
                         });
                       }
                     }}
-                    className={`w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent bg-background text-foreground transition-all duration-200 resize-none ${showDomainModal
-                      ? "focus:ring-primary"
-                      : "focus:ring-primary"
-                      }`}
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground transition-all duration-200 resize-none"
                     rows={3}
                     placeholder={
                       showDomainModal

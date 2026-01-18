@@ -20,7 +20,7 @@ import {
   IconRobot,
   IconBriefcase
 } from "@tabler/icons-react";
-import { CardSkeleton } from "../../components/Skeleton";
+import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -95,6 +95,8 @@ export default function DashboardPage() {
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -193,6 +195,7 @@ export default function DashboardPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsCreating(true);
     try {
       const response = await apiService.createProject(newProject);
       setProjects([...projects, response.project]);
@@ -202,6 +205,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to create project:", error);
       showToast.error("Failed to create project. Please try again.");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -235,6 +240,7 @@ export default function DashboardPage() {
   };
 
   const handleDeleteProject = async (id: string) => {
+    setDeletingProjectId(id);
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
@@ -242,12 +248,14 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to delete project:", error);
       showToast.error("Failed to delete project. Please try again.");
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
 
-  if (!isAuthenticated) {
-    return <div>Loading...</div>;
+  if (authLoading || !isAuthenticated) {
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -373,7 +381,7 @@ export default function DashboardPage() {
                           <CardTitle className="text-lg">{project.name}</CardTitle>
                           <Link
                             href={`/assess/${project.id}`}
-                            className="flex items-center gap-2 text-success hover:text-success/80 transition-colors text-sm font-medium"
+                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
                           >
                             <span>
                               {project.status === 'completed' ? 'Completed' :
@@ -409,9 +417,19 @@ export default function DashboardPage() {
                           size="sm"
                           className="text-destructive border-destructive/40 hover:bg-destructive/10"
                           onClick={() => handleDeleteProject(project.id)}
+                          disabled={deletingProjectId === project.id}
                         >
-                          <IconTrash className="w-4 h-4 mr-2" />
-                          Delete
+                          {deletingProjectId === project.id ? (
+                            <>
+                              <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            <>
+                              <IconTrash className="w-4 h-4 mr-2" />
+                              Delete
+                            </>
+                          )}
                         </Button>
                       </CardFooter>
                     </Card>
@@ -512,14 +530,23 @@ export default function DashboardPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setShowCreateForm(false)}
+                disabled={isCreating}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 className="btn-primary"
+                disabled={isCreating}
               >
-                Create Project
+                {isCreating ? (
+                  <>
+                    <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Project"
+                )}
               </Button>
             </div>
           </form>

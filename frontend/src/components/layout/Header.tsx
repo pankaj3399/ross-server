@@ -23,11 +23,9 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo Section */}
           <Link href="/" className="flex items-center space-x-3">
-            <img
-              src={mounted && theme === "dark" ? "/logo-dark.png" : "/logo.png"}
-              alt="MATUR.ai Logo"
-              className="h-14 w-auto"
-            />
+            <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
+              MATHUR.ai
+            </span>
           </Link>
 
           {/* Navigation Section */}
@@ -41,9 +39,9 @@ export function Header() {
               aria-label="Toggle theme"
             >
               {theme === "dark" ? (
-                <IconSun className="h-5 w-5" />
+                <IconSun className="size-6" />
               ) : (
-                <IconMoon className="h-5 w-5" />
+                <IconMoon className="size-6" />
               )}
             </Button>
 
@@ -51,7 +49,7 @@ export function Header() {
               <Button asChild>
                 <Link href="/dashboard">
                   <span className="inline-flex items-center">
-                    <IconLayoutDashboard className="w-4 h-4 mr-2" />
+                    <IconLayoutDashboard className="size-6 mr-2" />
                     Dashboard
                   </span>
                 </Link>
@@ -61,7 +59,7 @@ export function Header() {
                 <Button variant="ghost" asChild>
                   <Link href="/auth?isLogin=true">
                     <span className="inline-flex items-center">
-                      <IconLogin className="w-4 h-4 mr-2" />
+                      <IconLogin className="size-6 mr-2" />
                       Sign in
                     </span>
                   </Link>
@@ -69,7 +67,7 @@ export function Header() {
                 <Button asChild>
                   <Link href="/auth?isLogin=false">
                     <span className="inline-flex items-center">
-                      <IconRocket className="w-4 h-4 mr-2" />
+                      <IconRocket className="size-6 mr-2" />
                       Get Started
                     </span>
                   </Link>

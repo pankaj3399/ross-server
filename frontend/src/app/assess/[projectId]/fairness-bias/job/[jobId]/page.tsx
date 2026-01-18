@@ -178,7 +178,7 @@ export default function ManualPromptJobPage() {
             onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
             className="flex items-center gap-2 text-primary hover:text-primary/80 transition pl-0 hover:bg-transparent"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            <ArrowLeft className="w-4 h-4" />
             Back
           </Button>
           <div className="h-6 w-px bg-border" />
@@ -323,7 +323,7 @@ export default function ManualPromptJobPage() {
                   className="border border-destructive/20 rounded-xl p-4 bg-destructive/5"
                 >
                   <p className="text-sm font-semibold text-destructive">{item.category}</p>
-                  <p className="text-sm text-destructive-foreground mt-1 line-clamp-2">{item.prompt}</p>
+                  <p className="text-sm text-foreground mt-1 line-clamp-2">{item.prompt}</p>
                   <p className="text-xs text-destructive mt-2">
                     {item.message ?? item.error ?? "Unknown error"}
                   </p>

@@ -203,22 +203,28 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                 </div>
 
                 {/* Explanation - beautifully formatted */}
-                {data.explanation && data.explanation.length > 0 && (
-                    <div className="mt-1 p-3 bg-muted/50 rounded-lg border border-border">
-                        <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3 h-3 text-primary" />
-                            Analysis
-                        </p>
-                        <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
-                            {normalizeExplanation(data.explanation).map((line, i) => (
-                                <div key={i} className="flex items-start gap-2">
-                                    <span className="text-muted-foreground mt-0.5">•</span>
-                                    <span>{line}</span>
-                                </div>
-                            ))}
+                {(() => {
+                    const explanationItems = normalizeExplanation(data.explanation);
+
+                    if (explanationItems.length === 0) return null;
+
+                    return (
+                        <div className="mt-1 p-3 bg-muted/50 rounded-lg border border-border">
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3 h-3 text-primary" />
+                                Analysis
+                            </p>
+                            <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                                {explanationItems.map((line, i) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                        <span className="text-muted-foreground mt-0.5">•</span>
+                                        <span>{line}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </CardContent>
         </Card>
     );

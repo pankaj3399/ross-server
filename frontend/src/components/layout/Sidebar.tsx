@@ -171,7 +171,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
           <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
             MATHUR.ai
           </span>
-          <SidebarTrigger className="size-10" />
+          <SidebarTrigger className="size-8" />
         </div>
       </SidebarHeader>
 
@@ -191,12 +191,13 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                       isActive={active}
                       disabled={item.disabled}
                       tooltip={item.label}
+                      className="group-data-[collapsible=icon]:!p-1.5"
                     >
                       <Link
                         href={item.disabled ? "#" : item.href}
                         className="flex items-center gap-3"
                       >
-                        <Icon className="size-6" />
+                        <Icon className="size-7" />
                         <span className="text-base font-medium">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -208,7 +209,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="group-data-[collapsible=icon]:p-0">
+      <SidebarFooter className="group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:gap-2">
         <SidebarSeparator />
 
         {/* Theme Toggle */}
@@ -217,17 +218,18 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
             <SidebarMenuButton
               asChild
               tooltip={theme === "dark" ? "Light mode" : "Dark mode"}
+              className="group-data-[collapsible=icon]:!p-1.5"
             >
               <div
                 onClick={toggleTheme}
                 className="cursor-pointer flex items-center gap-2"
               >
                 {theme === "dark" ? (
-                  <IconSun className="size-6" />
+                  <IconSun className="size-7" />
                 ) : (
-                  <IconMoon className="size-6" />
+                  <IconMoon className="size-7" />
                 )}
-                <span className="text-base font-medium">Theme</span>
+                <span className="text-base font-medium group-data-[collapsible=icon]:hidden">Theme</span>
                 <Switch
                   checked={theme === "dark"}
                   onCheckedChange={toggleTheme}
@@ -249,12 +251,12 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     size="lg"
                     tooltip={user.name || "User"}
                   >
-                    <Avatar className="size-10">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
+                    <Avatar className="size-8 shrink-0 group-data-[collapsible=icon]:!flex">
+                      <AvatarFallback className="bg-primary text-primary-foreground group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:text-sidebar-foreground">
                         <IconUser className="size-6" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col gap-0.5 leading-none">
+                    <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
                       <span className="text-sm font-semibold">{user.name || "User"}</span>
                       <span className="text-xs text-muted-foreground">{user.email || ""}</span>
                     </div>
@@ -274,7 +276,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="flex items-center">
-                      <IconSettings className="size-5 mr-2" />
+                      <IconSettings className="size-6 mr-2" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
@@ -283,7 +285,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                     onClick={handleLogout}
                     className="text-destructive focus:text-destructive"
                   >
-                    <IconLogout className="size-5 mr-2" />
+                    <IconLogout className="size-6 mr-2" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -301,8 +303,8 @@ export function AppSidebar({ items = defaultSidebarItems }: AppSidebarProps) {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
 
-  // Only hide on auth pages or if not authenticated
-  const shouldHideSidebar = pathname?.startsWith("/auth");
+  // Only hide on auth pages, homepage, or if not authenticated
+  const shouldHideSidebar = pathname?.startsWith("/auth") || pathname === "/";
 
   if (shouldHideSidebar || !isAuthenticated) {
     return null;
@@ -316,8 +318,8 @@ export function SidebarMobileTrigger() {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
 
-  // Only hide on auth pages or if not authenticated
-  const shouldHide = pathname?.startsWith("/auth");
+  // Only hide on auth pages, homepage, or if not authenticated
+  const shouldHide = pathname?.startsWith("/auth") || pathname === "/";
 
   if (shouldHide || !isAuthenticated) {
     return null;

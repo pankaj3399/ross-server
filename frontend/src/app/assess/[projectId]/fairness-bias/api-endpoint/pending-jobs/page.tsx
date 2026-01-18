@@ -104,6 +104,7 @@ export default function PendingJobsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
+                type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
                 className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
               >
@@ -121,6 +122,7 @@ export default function PendingJobsPage() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => fetchJobs(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
             >
@@ -153,6 +155,7 @@ export default function PendingJobsPage() {
               Start a new evaluation to see your jobs appear here.
             </p>
             <button
+              type="button"
               onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >

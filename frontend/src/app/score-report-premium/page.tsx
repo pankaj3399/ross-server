@@ -179,7 +179,8 @@ export default function ScoreReportPage() {
           <p className="text-muted-foreground mb-8 text-lg">Assessment results not found for this project.</p>
           <Button
             onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg"
+            disabled={!projectId}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Back to Assessment
           </Button>

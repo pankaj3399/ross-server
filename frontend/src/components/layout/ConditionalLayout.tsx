@@ -24,9 +24,9 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset {...(isHomePage ? { style: { marginLeft: 0 } } : {})}>
         {isHomePage && <Header />}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 bg-background">{children}</main>
         {isHomePage && <Footer />}
       </SidebarInset>
     </SidebarProvider>

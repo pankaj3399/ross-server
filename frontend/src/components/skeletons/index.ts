@@ -9,3 +9,4 @@ export * from "./SettingsSkeleton";
 export * from "./PremiumFeaturesSkeleton";
 export * from "./LandingSkeleton";
 export * from "./AuthSkeleton";
+export * from "./ApiEndpointSkeleton";

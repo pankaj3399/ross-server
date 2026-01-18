@@ -491,10 +491,14 @@ export default function FairnessBiasTest() {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                  <label
+                    htmlFor="responseTextarea"
+                    className="block text-sm font-medium text-foreground mb-2"
+                  >
                     Your Response
                   </label>
                   <textarea
+                    id="responseTextarea"
                     rows={8}
                     className="w-full rounded-xl border border-input bg-background p-4 text-foreground focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     value={responses[currentResKey] || ""}

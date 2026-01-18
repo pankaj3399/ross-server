@@ -11,6 +11,7 @@ import { useAssessmentNavigation } from "../../../../hooks/useAssessmentNavigati
 import { PREMIUM_STATUS } from "../../../../lib/constants";
 import { FeatureCard } from "./components/FeatureCard";
 import { IconArrowLeft, IconShield, IconBug, IconScale, IconClipboardCheck, IconCrown } from "@tabler/icons-react";
+import { PremiumFeaturesSkeleton } from "../../../../components/Skeleton";
 
 interface PracticeWithLevels extends Practice {
   levels: PracticeQuestionLevels;
@@ -148,11 +149,7 @@ export default function PremiumFeaturesPage() {
 
   // Combined loading check - render loading UI if any of these conditions are true
   if (authLoading || userLoading || loading || !isAuthenticated || !user || !isPremium) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
+    return <PremiumFeaturesSkeleton />;
   }
 
   return (

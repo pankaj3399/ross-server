@@ -13,6 +13,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
+import { ApiEndpointSkeleton } from "@/components/Skeleton";
 
 const DEFAULT_REQUEST_TEMPLATE = `{
   "contents": [
@@ -166,14 +167,7 @@ export default function ApiEndpointPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-lg text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <ApiEndpointSkeleton />;
   }
 
   return (

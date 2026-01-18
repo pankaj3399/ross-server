@@ -288,6 +288,7 @@ const DatasetTestingPage = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
               className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
             >
