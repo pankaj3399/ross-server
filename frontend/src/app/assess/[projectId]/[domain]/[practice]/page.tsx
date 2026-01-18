@@ -6,7 +6,7 @@ import { useAuth } from "../../../../../contexts/AuthContext";
 import { useRequireAuth } from "../../../../../hooks/useRequireAuth";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
-import { IconArrowLeft, IconDeviceFloppy, IconCircleCheck, IconClock, IconTarget } from "@tabler/icons-react";
+import { IconArrowLeft, IconDeviceFloppy, IconTarget } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../../../components/Skeleton";
 import { safeRenderHTML, stripHTML } from "../../../../../lib/htmlUtils";
 

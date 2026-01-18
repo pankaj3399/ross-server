@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Upload, Trash2, FileText, Loader2 } from "lucide-react";
+import { Upload, Trash2, FileText, Loader2 } from "lucide-react";
 import type { PreviewData } from "../types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

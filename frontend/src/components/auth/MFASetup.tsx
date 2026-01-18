@@ -7,7 +7,6 @@ import {
   IconDeviceMobile,
   IconDownload,
   IconCopy,
-  IconCheck,
   IconAlertCircle,
   IconEye,
   IconEyeOff,
