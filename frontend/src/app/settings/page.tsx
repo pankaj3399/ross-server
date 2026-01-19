@@ -366,7 +366,7 @@ export default function SettingsPage() {
   const handleResendVerification = async () => {
     setResendingVerification(true);
     try {
-      const response = await apiService.resendVerification();
+      const response = await apiService.resendVerification(user?.email);
       if (response.alreadySent) {
         showToast.info(response.message || "Verification email already sent. Please check your email.");
       } else if (response.emailSent) {

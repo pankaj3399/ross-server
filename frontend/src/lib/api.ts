@@ -748,11 +748,12 @@ class ApiService {
   }
 
 
-  async resendVerification(): Promise<{ message: string; emailSent: boolean; alreadySent?: boolean }> {
+  async resendVerification(email?: string): Promise<{ message: string; emailSent: boolean; alreadySent?: boolean }> {
     return this.request<{ message: string; emailSent: boolean; alreadySent?: boolean }>(
       "/auth/resend-verification",
       {
         method: "POST",
+        body: JSON.stringify({ email }),
       },
     );
   }

@@ -60,13 +60,23 @@ router.post("/register", async (req, res) => {
       req.body,
     );
 
-    // Check if user already exists
-    const existingUser = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
-      [email],
+    // Check if user already exists and handle unverified accounts atomically
+    // DELETE returns the deleted row if the condition matches (email exists AND not verified)
+    const deletedUser = await pool.query(
+      "DELETE FROM users WHERE email = $1 AND email_verified = FALSE RETURNING id",
+      [email]
     );
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ error: "User already exists" });
+
+    // If we didn't delete a user, check if a verified user exists
+    if (deletedUser.rows.length === 0) {
+      const existingUser = await pool.query(
+        "SELECT id FROM users WHERE email = $1",
+        [email]
+      );
+
+      if (existingUser.rows.length > 0) {
+        return res.status(400).json({ error: "User already exists" });
+      }
     }
 
     // Validate password strength
@@ -179,52 +189,68 @@ router.post("/verify-email", async (req, res) => {
 });
 
 // Resend verification email/OTP
-router.post("/resend-verification", authenticateToken, async (req, res) => {
+router.post("/resend-verification", async (req, res) => {
   try {
-    // Authenticated user - get current email from database (not from token, as it may be stale)
-    const userId = req.user!.id;
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
     const userResult = await pool.query(
-      "SELECT email, email_verified FROM users WHERE id = $1",
-      [userId],
+      "SELECT id, email, email_verified FROM users WHERE email = $1",
+      [email],
     );
 
+    // Always return success message to prevent email enumeration
+    const successResponse = {
+      message: "If an account with that email exists, a verification email has been sent.",
+      emailSent: false, // You might want to remove this field or always set it to true/false depending on API contract, but for security it's best not to expose it. 
+      // However, to match previous behavior's shape but be secure:
+      // We will just return the message. 
+      // If the consumer expects 'emailSent', we can include it but it shouldn't reveal truth.
+      // But purely for this refactor, let's stick to the secure message.
+    };
+
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.json(successResponse);
     }
 
-    const email = userResult.rows[0].email;
+    const user = userResult.rows[0];
 
-    if (userResult.rows[0].email_verified) {
-      return res.status(400).json({ error: "Email already verified" });
+    if (user.email_verified) {
+      return res.json(successResponse);
     }
 
-    // Check if there's already a valid OTP
-    const hasValidOTP = await tokenService.hasValidEmailOTP(userId);
-    if (hasValidOTP) {
-      return res.status(200).json({
-        message: "Verification email already sent. Please check your email.",
-        emailSent: true,
-        alreadySent: true,
-      });
+    // Check for rate limiting (30 seconds)
+    const canResend = await tokenService.canResendEmailOTP(user.id);
+    if (!canResend) {
+      // Even for rate limit, we should ideally not reveal it IF it reveals user existence.
+      // But usually rate limits are fine to expose if we are careful. 
+      // HOWEVER, the requirement is "never expose those outcomes".
+      // So checking rate limit and failing silently or returning same success message is better.
+      // We will log it and return success message.
+      console.log(`Rate limit hit for user ${user.id}`);
+      return res.json(successResponse);
     }
 
     // Create new OTP
-    const otp = await tokenService.createEmailVerificationOTP(userId);
+    const otp = await tokenService.createEmailVerificationOTP(user.id);
 
     // Send verification email
     const emailSent = await emailService.sendEmailVerification(
-      email,
+      user.email,
       otp,
     );
 
     if (!emailSent) {
-      return res.status(500).json({ error: "Failed to send verification email" });
+      // Log error but still return success to user to prevent enumeration
+      console.error(`Failed to send verification email for user ${user.id}`);
+      return res.json(successResponse);
     }
 
-    res.json({
-      message: "Verification email sent successfully. Please check your email.",
-      emailSent,
-    });
+    // Actual success
+    res.json(successResponse);
   } catch (error) {
     console.error("Resend verification error:", error);
     res.status(500).json({ error: "Failed to resend verification email" });

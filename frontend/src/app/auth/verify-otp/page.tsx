@@ -172,7 +172,7 @@ export default function VerifyOTPPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setResendCooldown(60); // 60 seconds cooldown
+        setResendCooldown(30); // 30 seconds cooldown
         setError(""); // Clear any previous errors
         showToast.success("OTP sent successfully! Please check your email.");
       } else {
@@ -365,13 +365,9 @@ export default function VerifyOTPPage() {
                     <Link href="/auth">
                       <span className="inline-flex items-center space-x-2">
                         <IconArrowLeft className="w-4 h-4" />
-                        <span>Back to Login</span>
+                        <span>Back to Sign Up</span>
                       </span>
                     </Link>
-                  </Button>
-
-                  <Button variant="ghost" asChild className="p-0">
-                    <Link href="/">Home</Link>
                   </Button>
                 </div>
               </div>
