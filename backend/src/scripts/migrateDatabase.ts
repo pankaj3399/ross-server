@@ -154,6 +154,38 @@ const migrations: Migration[] = [
         `);
       }
 
+      // Migrate legacy email_verification_tokens schema if needed (token -> otp)
+      const otpColumnCheck = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'email_verification_tokens' AND column_name = 'otp'
+      `);
+
+      if (otpColumnCheck.rows.length === 0) {
+        console.log("Migrating email_verification_tokens table from legacy schema (token -> otp)...");
+        
+        // Check if token column exists (legacy schema)
+        const tokenColumnCheck = await pool.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'email_verification_tokens' AND column_name = 'token'
+        `);
+
+        if (tokenColumnCheck.rows.length > 0) {
+          // Drop old index, rename column, and recreate constraints
+          await pool.query(`DROP INDEX IF EXISTS idx_email_verification_tokens_token`);
+          await pool.query(`ALTER TABLE email_verification_tokens RENAME COLUMN token TO otp`);
+          await pool.query(`ALTER TABLE email_verification_tokens ALTER COLUMN otp TYPE VARCHAR(10)`);
+          console.log("✅ Successfully migrated email_verification_tokens to new schema.");
+        } else {
+          // Table exists but has neither token nor otp column - add otp column
+          console.log("Adding otp column to email_verification_tokens table...");
+          await pool.query(`ALTER TABLE email_verification_tokens ADD COLUMN otp VARCHAR(10) UNIQUE NOT NULL DEFAULT ''`);
+          // Remove default after adding (PostgreSQL requires default for NOT NULL on existing rows)
+          await pool.query(`ALTER TABLE email_verification_tokens ALTER COLUMN otp DROP DEFAULT`);
+        }
+      }
+
       // Create indexes
       console.log("Creating indexes...");
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id)`);
