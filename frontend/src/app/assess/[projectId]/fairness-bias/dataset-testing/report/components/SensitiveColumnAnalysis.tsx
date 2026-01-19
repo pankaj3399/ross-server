@@ -118,6 +118,8 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                                     onClick={() => setShowDetails(!showDetails)}
                                     className="h-6 w-6 hide-in-pdf"
                                     title="What does this mean?"
+                                    aria-label="Toggle fairness score details"
+                                    aria-expanded={showDetails}
                                 >
                                     <Info className="w-4 h-4 text-muted-foreground" />
                                 </Button>
