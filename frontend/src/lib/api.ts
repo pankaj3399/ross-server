@@ -12,6 +12,20 @@ export interface User {
   updated_at?: string;
 }
 
+export interface PreviewData {
+  headers: string[];
+  rows: string[][];
+}
+
+export type MetricLabel = "low" | "moderate" | "high";
+
+export interface DatasetMetric {
+  score: number;
+  label: MetricLabel;
+  explanation: string[];
+  isEstimated?: boolean;
+}
+
 export interface AuthResponse {
   user: User;
   token: string;
@@ -447,6 +461,44 @@ class ApiService {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  async getDatasetReports(projectId: string): Promise<{
+    success: boolean;
+    reports: Array<{
+      id: string;
+      file_name: string;
+      file_size: number;
+      uploaded_at: string;
+      fairness_data: any;
+      fairness_result: DatasetMetric;
+      biasness_result: DatasetMetric;
+      toxicity_result: DatasetMetric;
+      relevance_result: DatasetMetric;
+      faithfulness_result: DatasetMetric;
+      csv_preview: PreviewData;
+      selections: any;
+      created_at: string;
+    }>;
+  }> {
+    return this.request<{
+      success: boolean;
+      reports: Array<{
+        id: string;
+        file_name: string;
+        file_size: number;
+        uploaded_at: string;
+        fairness_data: any;
+        fairness_result: DatasetMetric;
+        biasness_result: DatasetMetric;
+        toxicity_result: DatasetMetric;
+        relevance_result: DatasetMetric;
+        faithfulness_result: DatasetMetric;
+        csv_preview: PreviewData;
+        selections: any;
+        created_at: string;
+      }>;
+    }>(`/fairness/dataset-reports/${projectId}`);
   }
 
   async getThresholds(): Promise<Thresholds> {

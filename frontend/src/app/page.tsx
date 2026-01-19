@@ -16,6 +16,7 @@ import {
   IconCircleCheck,
   IconLogin,
   IconDashboard,
+  IconLayoutDashboard,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -151,7 +152,7 @@ export default function Home() {
                 <Link href="/dashboard">
                   <span className="inline-flex items-center gap-3">
                     <span className="bg-background dark:bg-black rounded-full p-2">
-                      <IconDashboard className="w-4 h-4 text-foreground dark:text-white" />
+                      <IconLayoutDashboard className="w-4 h-4 text-foreground dark:text-white" />
                     </span>
                     Go to Dashboard
                   </span>

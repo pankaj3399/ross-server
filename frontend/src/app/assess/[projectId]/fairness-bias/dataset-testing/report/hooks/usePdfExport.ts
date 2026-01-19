@@ -37,9 +37,12 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "850px";
-            clone.style.position = "absolute";
-            clone.style.left = "-9999px";
+            // Use fixed positioning off-screen to ensure it's "visible" to html2canvas
+            // but not visible to the user. z-index negative can cause it to be excluded.
+            clone.style.position = "fixed";
             clone.style.top = "0";
+            clone.style.left = "-10000px"; // Move far left
+            clone.style.zIndex = "1000";   // Ensure it's on top in its own context
             // Force light mode variables
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a"; // slate-900
@@ -82,6 +85,14 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             elem.style.backgroundColor = "#ffffff";
                         } else if (safeClass.includes("bg-slate-50")) {
                             elem.style.backgroundColor = "#f8fafc";
+                        } else if (safeClass.includes("bg-indigo-50")) {
+                            elem.style.backgroundColor = "#eef2ff"; // indigo-50
+                        } else if (safeClass.includes("bg-green-50")) {
+                            elem.style.backgroundColor = "#f0fdf4"; // green-50
+                        } else if (safeClass.includes("bg-amber-50") || safeClass.includes("bg-yellow-50")) {
+                            elem.style.backgroundColor = "#fffbeb"; // amber-50
+                        } else if (safeClass.includes("bg-red-50")) {
+                            elem.style.backgroundColor = "#fef2f2"; // red-50
                         } else {
                             // Default to checking if it's really dark
                             const bg = computed.backgroundColor;
@@ -94,6 +105,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                     const b = parseInt(bgMatch[3], 10);
                                     
                                     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                                        // If extremely dark (like gray-900), make it white
                                         if (r < 100 && g < 100 && b < 100) {
                                             elem.style.backgroundColor = "#ffffff";
                                         }
@@ -122,84 +134,316 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             };
 
             const styleForPdf = (root: HTMLElement) => {
-                // Header styling
+                // ===== HEADER STYLING =====
                 const header = root.querySelector("header");
                 if (header) {
                     const headerEl = header as HTMLElement;
                     headerEl.style.backgroundColor = "#ffffff";
-                    headerEl.style.borderBottom = "2px solid #e2e8f0";
-                    headerEl.style.padding = "0 0 20px 0";
-                    headerEl.style.marginBottom = "30px";
+                    headerEl.style.borderBottom = "3px solid #4f46e5"; // Indigo accent line
+                    headerEl.style.padding = "24px 0";
+                    headerEl.style.marginBottom = "32px";
+                    
+                    // Style header text
+                    const h1 = headerEl.querySelector("h1");
+                    if (h1) {
+                        (h1 as HTMLElement).style.fontSize = "28px";
+                        (h1 as HTMLElement).style.fontWeight = "700";
+                        (h1 as HTMLElement).style.color = "#0f172a";
+                        (h1 as HTMLElement).style.letterSpacing = "-0.02em";
+                    }
+                    
+                    // Style subtitle/label
+                    headerEl.querySelectorAll("p.text-xs").forEach((p) => {
+                        const pEl = p as HTMLElement;
+                        pEl.style.color = "#6366f1"; // indigo-500
+                        pEl.style.fontWeight = "600";
+                        pEl.style.textTransform = "uppercase";
+                        pEl.style.letterSpacing = "0.1em";
+                    });
                 }
 
-                // Grid fixes - flatten grids that shouldn't be grid in PDF if needed, 
-                // but for cards we might want to keep them or wrap them.
-                // Actually, let's keep the grid but ensure width is set
+                // ===== GRID LAYOUT =====
                 root.querySelectorAll(".grid").forEach((el) => {
                     const elem = el as HTMLElement;
                     elem.style.display = "grid";
-                    elem.style.gap = "16px";
+                    elem.style.gap = "24px";
                 });
 
-                // Ensure specific containers are white with border
-                root.querySelectorAll(".rounded-2xl, .rounded-xl").forEach((el) => {
+                // ===== CARD STYLING =====
+                root.querySelectorAll(".rounded-3xl, .rounded-2xl, .rounded-xl").forEach((el) => {
                     const elem = el as HTMLElement;
-                    // Ensure cards look like cards
                     elem.style.backgroundColor = "#ffffff";
                     elem.style.border = "1px solid #e2e8f0";
-                    elem.style.boxShadow = "none";
+                    elem.style.borderRadius = "16px";
+                    elem.style.boxShadow = "0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04)";
+                    elem.style.overflow = "hidden";
+                });
+
+                // ===== SECTION CARDS =====
+                root.querySelectorAll("section > .rounded-3xl").forEach((el) => {
+                    const elem = el as HTMLElement;
+                    elem.style.boxShadow = "0 8px 30px -8px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.06)";
+                });
+
+                // ===== UPLOAD INFO CARD =====
+                root.querySelectorAll(".bg-slate-50\\/60, .bg-slate-50").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#f8fafc";
+                    elem.style.border = "1px solid #e2e8f0";
+                    elem.style.borderRadius = "12px";
+                });
+
+                // ===== ANALYSIS PARAMETERS CARD =====
+                root.querySelectorAll("[class*='bg-indigo-50']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#eef2ff";
+                    elem.style.border = "1px solid #c7d2fe";
+                    elem.style.borderRadius = "12px";
+                });
+
+                // ===== VERDICT CARD STATUS COLORS =====
+                // Pass/Success colors
+                root.querySelectorAll("[class*='bg-green-50'], [class*='bg-success']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#f0fdf4";
+                    elem.style.border = "1px solid #86efac";
+                });
+                root.querySelectorAll("[class*='text-green'], [class*='text-success'], [class*='text-emerald']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.color = "#059669"; // emerald-600
+                });
+
+                // Warning/Caution colors
+                root.querySelectorAll("[class*='bg-amber-50'], [class*='bg-warning'], [class*='bg-yellow-50']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#fffbeb";
+                    elem.style.border = "1px solid #fcd34d";
+                });
+                root.querySelectorAll("[class*='text-amber'], [class*='text-warning'], [class*='text-yellow']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.color = "#d97706"; // amber-600
+                });
+
+                // Fail/Destructive colors
+                root.querySelectorAll("[class*='bg-red-50'], [class*='bg-destructive']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#fef2f2";
+                    elem.style.border = "1px solid #fca5a5";
+                });
+                root.querySelectorAll("[class*='text-red'], [class*='text-destructive']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.color = "#dc2626"; // red-600
+                });
+
+                // ===== BADGE STYLING =====
+                root.querySelectorAll("[class*='badge'], [class*='Badge']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.fontWeight = "600";
+                    elem.style.fontSize = "11px";
+                    elem.style.padding = "4px 10px";
+                    elem.style.borderRadius = "6px";
+                });
+
+                // ===== TYPOGRAPHY ENHANCEMENTS =====
+                // Section headings
+                root.querySelectorAll("h3, h4").forEach((el) => {
+                    const elem = el as HTMLElement;
+                    elem.style.fontWeight = "600";
+                    elem.style.color = "#0f172a";
+                    elem.style.letterSpacing = "-0.01em";
+                });
+
+                // Main content text
+                root.querySelectorAll("p").forEach((el) => {
+                    const elem = el as HTMLElement;
+                    if (!elem.style.color || elem.style.color === "inherit") {
+                        elem.style.color = "#374151"; // gray-700
+                    }
+                });
+
+                // Muted text
+                root.querySelectorAll("[class*='text-muted'], [class*='text-slate-500'], [class*='text-slate-600']").forEach(el => {
+                    (el as HTMLElement).style.color = "#64748b"; // slate-500
+                });
+
+                // ===== TABLE STYLING =====
+                root.querySelectorAll("table").forEach(table => {
+                    const tableEl = table as HTMLTableElement;
+                    tableEl.style.width = "100%";
+                    tableEl.style.borderCollapse = "collapse";
+                    tableEl.style.fontSize = "12px";
+                    
+                    // Header row
+                    tableEl.querySelectorAll("th").forEach(th => {
+                        const thEl = th as HTMLElement;
+                        thEl.style.backgroundColor = "#f1f5f9";
+                        thEl.style.color = "#334155";
+                        thEl.style.fontWeight = "600";
+                        thEl.style.padding = "12px 16px";
+                        thEl.style.textAlign = "left";
+                        thEl.style.borderBottom = "2px solid #e2e8f0";
+                    });
+                    
+                    // Data rows with alternating colors
+                    tableEl.querySelectorAll("tbody tr").forEach((tr, index) => {
+                        const trEl = tr as HTMLElement;
+                        trEl.style.backgroundColor = index % 2 === 0 ? "#ffffff" : "#f8fafc";
+                        trEl.style.borderBottom = "1px solid #e2e8f0";
+                    });
+                    
+                    // Data cells
+                    tableEl.querySelectorAll("td").forEach(td => {
+                        const tdEl = td as HTMLElement;
+                        tdEl.style.padding = "10px 16px";
+                        tdEl.style.color = "#374151";
+                    });
+                });
+
+                // ===== METRIC CARDS SPECIFIC =====
+                root.querySelectorAll(".pdf-metric-grid > *").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.style.backgroundColor = "#ffffff";
+                    elem.style.border = "1px solid #e2e8f0";
+                    elem.style.borderRadius = "12px";
+                    elem.style.padding = "16px";
+                });
+
+                // ===== ICON COLORS =====
+                root.querySelectorAll("[class*='text-primary']").forEach(el => {
+                    (el as HTMLElement).style.color = "#4f46e5"; // indigo-600
+                });
+
+                // ===== MUTED BACKGROUNDS =====
+                root.querySelectorAll("[class*='bg-muted']").forEach(el => {
+                    const elem = el as HTMLElement;
+                    const classes = elem.className || "";
+                    if (!classes.includes("bg-muted-foreground")) {
+                        elem.style.backgroundColor = "#f1f5f9"; // slate-100
+                    }
                 });
             };
 
             const fixProgressBars = (root: HTMLElement) => {
-                // Find all progress bar containers by their dedicated class or role
+                // ===== FAIRNESS SCORE PROGRESS BARS =====
                 root.querySelectorAll(".pdf-progress-bar, [role='progressbar']").forEach((container) => {
                     const containerEl = container as HTMLElement;
                     
                     containerEl.style.backgroundColor = "#e2e8f0";
                     containerEl.style.borderRadius = "9999px";
                     containerEl.style.overflow = "visible";
-                    containerEl.style.border = "1px solid #cbd5e1";
+                    containerEl.style.position = "relative";
 
-                    // Ensure height is respected but standardized for PDF visibility
+                    // Standardize heights
                     const classes = containerEl.className || "";
-                    if (classes.includes("h-1.5")) containerEl.style.height = "6px";
-                    else if (classes.includes("h-3")) containerEl.style.height = "12px";
+                    if (classes.includes("h-1.5")) containerEl.style.height = "8px";
+                    else if (classes.includes("h-3")) containerEl.style.height = "14px";
+                    else if (classes.includes("h-2.5")) containerEl.style.height = "12px";
                     else containerEl.style.height = "10px";
 
-                    const innerBar = containerEl.querySelector("div") as HTMLElement;
-                    if (innerBar) {
+                    // Style all inner bars
+                    containerEl.querySelectorAll(":scope > div").forEach(child => {
+                        const innerBar = child as HTMLElement;
+                        const innerClasses = innerBar.className || "";
+                        
+                        // Skip threshold markers
+                        if (innerClasses.includes("w-0.5") || innerBar.style.width === "2px") {
+                            // This is the threshold marker line
+                            innerBar.style.backgroundColor = "#1e293b";
+                            innerBar.style.width = "3px";
+                            innerBar.style.zIndex = "10";
+                            return;
+                        }
+                        
+                        // Inner progress bar
                         innerBar.style.height = "100%";
                         innerBar.style.borderRadius = "9999px";
                         innerBar.style.minWidth = "4px";
-                        innerBar.style.backgroundImage = "none";
+                        innerBar.style.position = "absolute";
+                        innerBar.style.left = "0";
+                        innerBar.style.top = "0";
 
-                        const innerClasses = innerBar.className || "";
-                        if (innerClasses.includes("amber") || innerClasses.includes("orange")) {
-                            innerBar.style.background = "linear-gradient(90deg, #f59e0b, #fb923c)";
-                        } else if (innerClasses.includes("emerald") || innerClasses.includes("teal")) {
-                            innerBar.style.background = "linear-gradient(90deg, #10b981, #14b8a6)";
-                        } else if (innerClasses.includes("rose") || innerClasses.includes("red")) {
-                            innerBar.style.background = "linear-gradient(90deg, #f43f5e, #fb7185)";
+                        // Set color based on status class
+                        if (innerClasses.includes("success") || innerClasses.includes("green") || innerClasses.includes("emerald")) {
+                            innerBar.style.background = "linear-gradient(90deg, #059669, #10b981)";
+                        } else if (innerClasses.includes("warning") || innerClasses.includes("amber") || innerClasses.includes("yellow") || innerClasses.includes("orange")) {
+                            innerBar.style.background = "linear-gradient(90deg, #d97706, #f59e0b)";
+                        } else if (innerClasses.includes("destructive") || innerClasses.includes("red") || innerClasses.includes("rose")) {
+                            innerBar.style.background = "linear-gradient(90deg, #dc2626, #ef4444)";
+                        } else if (innerClasses.includes("primary") || innerClasses.includes("indigo")) {
+                            innerBar.style.background = "linear-gradient(90deg, #4f46e5, #6366f1)";
                         } else {
-                            innerBar.style.background = "linear-gradient(90deg, #6366f1, #8b5cf6)";
+                            // Default to primary gradient
+                            innerBar.style.background = "linear-gradient(90deg, #4f46e5, #6366f1)";
+                        }
+                    });
+                });
+
+                // ===== GROUP SELECTION RATE BARS =====
+                // These are in the SensitiveColumnAnalysis component
+                root.querySelectorAll(".relative.h-2\\.5").forEach((container) => {
+                    const innerBg = container.querySelector(".absolute.inset-0.rounded-full") as HTMLElement;
+                    if (innerBg) {
+                        innerBg.style.backgroundColor = "#e2e8f0";
+                        innerBg.style.borderRadius = "9999px";
+                        innerBg.style.overflow = "hidden";
+                        
+                        const bar = innerBg.querySelector("div") as HTMLElement;
+                        if (bar) {
+                            bar.style.height = "100%";
+                            bar.style.borderRadius = "9999px";
+                            const barClasses = bar.className || "";
+                            
+                            if (barClasses.includes("warning") || barClasses.includes("from-warning")) {
+                                bar.style.background = "linear-gradient(90deg, #d97706, #fbbf24)";
+                            } else {
+                                bar.style.background = "linear-gradient(90deg, #4f46e5, #818cf8)";
+                            }
                         }
                     }
                 });
 
-                // Fix gradient bars (badges, alerts, etc)
+                // ===== METRIC CARD PROGRESS BARS =====
+                root.querySelectorAll(".h-1\\.5.rounded-full.bg-muted").forEach((container) => {
+                    const containerEl = container as HTMLElement;
+                    containerEl.style.backgroundColor = "#e2e8f0";
+                    containerEl.style.height = "8px";
+                    containerEl.style.borderRadius = "9999px";
+                    containerEl.style.overflow = "hidden";
+                    
+                    const innerBar = containerEl.querySelector("div") as HTMLElement;
+                    if (innerBar) {
+                        innerBar.style.height = "100%";
+                        innerBar.style.borderRadius = "9999px";
+                        
+                        const barClasses = innerBar.className || "";
+                        if (barClasses.includes("bg-destructive")) {
+                            innerBar.style.background = "#dc2626";
+                        } else if (barClasses.includes("bg-muted-foreground")) {
+                            innerBar.style.background = "#64748b";
+                        } else if (barClasses.includes("bg-primary")) {
+                            innerBar.style.background = "#4f46e5";
+                        } else {
+                            innerBar.style.background = "#4f46e5";
+                        }
+                    }
+                });
+
+                // ===== GRADIENT BACKGROUNDS =====
                 root.querySelectorAll("[class*='bg-gradient']").forEach((el) => {
                     const elem = el as HTMLElement;
                     const classes = elem.className || "";
                     elem.style.backgroundImage = "none";
-                    if (classes.includes("amber") || classes.includes("orange")) {
+                    if (classes.includes("amber") || classes.includes("orange") || classes.includes("warning")) {
                         elem.style.backgroundColor = "#f59e0b";
-                    } else if (classes.includes("emerald") || classes.includes("teal")) {
+                    } else if (classes.includes("emerald") || classes.includes("teal") || classes.includes("success") || classes.includes("green")) {
                         elem.style.backgroundColor = "#10b981";
-                    } else if (classes.includes("rose") || classes.includes("red")) {
-                        elem.style.backgroundColor = "#f43f5e";
+                    } else if (classes.includes("rose") || classes.includes("red") || classes.includes("destructive")) {
+                        elem.style.backgroundColor = "#ef4444";
+                    } else if (classes.includes("primary") || classes.includes("indigo")) {
+                        elem.style.backgroundColor = "#4f46e5";
                     }
                 });
+
             };
 
             const applyPdfStyles = (root: HTMLElement) => {
@@ -266,6 +510,12 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     }
                 });
 
+                // 5. Fallback: If we still have NO sections, capture the whole main or container
+                if (sections.length === 0) {
+                   console.warn("No separate sections found for PDF, capturing entire report container.");
+                   sections.push(clone);
+                }
+
                 // Sort sections by offsetTop
                 sections.sort((a, b) => {
                     return a.offsetTop - b.offsetTop;
@@ -285,8 +535,10 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             backgroundColor: "#ffffff",
                             logging: false,
                             windowWidth: 850,
+                            scrollX: 0,
+                            scrollY: 0,
                             onclone: (clonedDoc) => {
-                                // Double check light mode in the canvas clone
+                                // Remove elements that should be ignored
                                 const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
                                 if (el) el.remove();
                             }
@@ -305,6 +557,8 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                 backgroundColor: "#ffffff",
                                 logging: false,
                                 windowWidth: 850,
+                                scrollX: 0,
+                                scrollY: 0,
                                 onclone: (clonedDoc) => {
                                     const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
                                     if (el) el.remove();

@@ -248,6 +248,42 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const relevance = relevancyResult;
         const faithfulness = faithfulnessResult;
 
+        // Save evaluation results to database
+        try {
+            await pool.query(
+                `INSERT INTO dataset_fairness_reports 
+                 (user_id, project_id, file_name, file_size, uploaded_at, 
+                  fairness_data, fairness_result, biasness_result, toxicity_result, 
+                  relevance_result, faithfulness_result, csv_preview, selections)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                [
+                    userId,
+                    projectId,
+                    fileName,
+                    csvText.length, // Approximate file size from string length
+                    new Date(),
+                    JSON.stringify({
+                        overallVerdict: fairnessAssessment.overallVerdict,
+                        sensitiveColumns: fairnessAssessment.sensitiveColumns,
+                        outcomeColumn: fairnessAssessment.outcomeColumn,
+                        positiveOutcome: fairnessAssessment.positiveOutcome,
+                        datasetStats: fairnessAssessment.datasetStats,
+                        metricDefinitions: fairnessAssessment.metricDefinitions,
+                    }),
+                    JSON.stringify(fairnessResult),
+                    JSON.stringify(biasness),
+                    JSON.stringify(toxicity),
+                    JSON.stringify(relevance),
+                    JSON.stringify(faithfulness),
+                    JSON.stringify(parsed), // CSV preview
+                    null, // selections (not available in this endpoint)
+                ]
+            );
+        } catch (dbError) {
+            console.error("Failed to save fairness report to database:", dbError);
+            // Don't fail the request if saving fails, just log it
+        }
+
         res.json({
             fairness: {
                 overallVerdict: fairnessAssessment.overallVerdict,
@@ -641,6 +677,42 @@ router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
     } catch (error: any) {
         console.error("Error fetching evaluations:", error);
         res.status(500).json({ error: "Failed to fetch evaluations" });
+    }
+});
+
+// GET /fairness/dataset-reports/:projectId - Get all dataset reports for a project
+router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.user!.id;
+        
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+        
+        if (projectCheck.rows.length === 0) {
+            return res.status(403).json({ error: "Project not found or access denied" });
+        }
+        
+        // Fetch all reports for this project
+        const result = await pool.query(
+            `SELECT 
+                id, file_name, file_size, uploaded_at,
+                fairness_data, fairness_result, biasness_result,
+                toxicity_result, relevance_result, faithfulness_result,
+                csv_preview, selections, created_at
+             FROM dataset_fairness_reports
+             WHERE project_id = $1 AND user_id = $2
+             ORDER BY created_at DESC`,
+            [projectId, userId]
+        );
+        
+        res.json({ success: true, reports: result.rows });
+    } catch (error: any) {
+        console.error("Error fetching dataset reports:", error);
+        res.status(500).json({ error: "Failed to fetch dataset reports" });
     }
 });
 

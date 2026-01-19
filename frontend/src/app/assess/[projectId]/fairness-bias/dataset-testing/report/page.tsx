@@ -36,7 +36,6 @@ const DatasetTestingReportPage = () => {
 
     const THRESHOLDS = useMemo(() => getThresholds(), []);
 
-    // eslint-disable-next-line no-unused-vars
     const { exportPdf: handleExportPdf, isExporting } = usePdfExport({ reportRef, payload });
 
     useEffect(() => {
@@ -132,14 +131,24 @@ const DatasetTestingReportPage = () => {
                             <FileText className="w-4 h-4" />
                             Upload New CSV
                         </button>
-                        {/* 
-                            TODO: [ISSUE-FAIR-102] Re-enable PDF export once progress bar rendering issues are resolved.
-                            Owner: @frontend-team
-                            Follow-up: 
-                            1. Verify PDF canvas rendering of gradient progress bars in usePdfExport.
-                            2. Remove eslint-disable on line 40.
-                            3. Uncomment export button and wire to handleExportPdf.
-                        */}
+                        <button
+                            type="button"
+                            onClick={handleExportPdf}
+                            disabled={isExporting}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-gray-800 hide-in-pdf"
+                        >
+                            {isExporting ? (
+                                <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    <FileText className="w-4 h-4" />
+                                    Export PDF
+                                </>
+                            )}
+                        </button>
                     </div>
                 </div>
             </header>
