@@ -9,7 +9,7 @@ export const up = (pgm) => {
   pgm.sql(`
     DELETE FROM email_verification_tokens t
     USING email_verification_tokens d
-    WHERE t.created_at < d.created_at
+    WHERE (t.created_at < d.created_at OR (t.created_at = d.created_at AND t.id < d.id))
       AND t.user_id = d.user_id 
       AND t.otp = d.otp
   `);
