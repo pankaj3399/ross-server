@@ -14,7 +14,7 @@ export interface User {
 
 export interface PreviewData {
   headers: string[];
-  rows: string[][];
+  rows: (string[] | Record<string, string>)[];
 }
 
 export type MetricLabel = "low" | "moderate" | "high";

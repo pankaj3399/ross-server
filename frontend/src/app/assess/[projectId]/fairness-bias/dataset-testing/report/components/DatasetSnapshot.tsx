@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
     const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 50;
     const totalPages = Math.ceil(preview.rows.length / PAGE_SIZE);
 
     return (

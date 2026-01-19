@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Info, CheckCircle2, AlertTriangle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Info, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { FairnessColumn } from "../../types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,15 +56,8 @@ const getStatusConfig = (verdict: string) => {
 };
 
 export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: SensitiveColumnAnalysisProps) => {
-    const [isExpanded, setIsExpanded] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
-    const MAX_VISIBLE_GROUPS = 5;
     const MIN_PROGRESS_BAR_WIDTH = 5;
-
-    const showAll = isExporting || isExpanded;
-    const visibleGroups = showAll ? column.groups : column.groups.slice(0, MAX_VISIBLE_GROUPS);
-    const hiddenCount = column.groups.length - MAX_VISIBLE_GROUPS;
-    const hasMore = column.groups.length > MAX_VISIBLE_GROUPS;
 
     const status = getStatusConfig(column.verdict);
     const StatusIcon = status.icon;
@@ -169,8 +162,8 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                 <div className="space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Selection Rate by Group</p>
 
-                    <div className="space-y-2">
-                        {visibleGroups.map((group) => {
+                    <div className={`space-y-2 ${isExporting ? 'h-auto overflow-visible' : 'max-h-60 overflow-y-auto pr-2 custom-scrollbar'}`}>
+                        {column.groups.map((group) => {
                             const rate = group.positiveRate * 100;
                             const isBelowThreshold = rate < (threshold * 100);
 
@@ -206,27 +199,7 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                     </div>
                 </div>
 
-                {/* Show More Button */}
-                {hasMore && !isExporting && (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="w-full hide-in-pdf"
-                    >
-                        {isExpanded ? (
-                            <>
-                                <ChevronUp className="w-4 h-4" />
-                                Show Less
-                            </>
-                        ) : (
-                            <>
-                                <ChevronDown className="w-4 h-4" />
-                                Show {hiddenCount} More Groups
-                            </>
-                        )}
-                    </Button>
-                )}
+
 
                 {/* Summary Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">

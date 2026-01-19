@@ -3,6 +3,7 @@
 exports.shorthands = undefined;
 
 exports.up = (pgm) => {
+  pgm.createExtension("pgcrypto", { ifNotExists: true });
   pgm.createTable("dataset_fairness_reports", {
     id: {
       type: "uuid",

@@ -86,7 +86,7 @@ export type DatasetEvaluationResponse = {
 
 export type PreviewData = {
   headers: string[];
-  rows: string[][];
+  rows: (string[] | Record<string, string>)[];
 };
 
 export type DatasetReportPayload = {

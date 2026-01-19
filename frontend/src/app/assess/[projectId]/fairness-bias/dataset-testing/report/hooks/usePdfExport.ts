@@ -1,6 +1,12 @@
 
 import { useState, useCallback, RefObject } from "react";
 import type { DatasetReportPayload } from "../../types";
+import { 
+    styleHeader, styleGrid, styleCards, styleSectionCards, 
+    styleUploadInfo, styleAnalysisParams, styleVerdictColors, 
+    styleBadges, styleTypography, styleTables, styleMetricCards, 
+    styleIcons, styleMutedBackgrounds, fixProgressBars 
+} from "./pdfStyles";
 
 interface UsePdfExportProps {
     reportRef: RefObject<HTMLDivElement>;
@@ -36,7 +42,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
-            clone.style.width = "850px";
+            clone.style.width = "1200px";
             // Use fixed positioning off-screen to ensure it's "visible" to html2canvas
             // but not visible to the user. z-index negative can cause it to be excluded.
             clone.style.position = "fixed";
@@ -133,323 +139,24 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 });
             };
 
-            const styleForPdf = (root: HTMLElement) => {
-                // ===== HEADER STYLING =====
-                const header = root.querySelector("header");
-                if (header) {
-                    const headerEl = header as HTMLElement;
-                    headerEl.style.backgroundColor = "#ffffff";
-                    headerEl.style.borderBottom = "3px solid #4f46e5"; // Indigo accent line
-                    headerEl.style.padding = "24px 0";
-                    headerEl.style.marginBottom = "32px";
-                    
-                    // Style header text
-                    const h1 = headerEl.querySelector("h1");
-                    if (h1) {
-                        (h1 as HTMLElement).style.fontSize = "28px";
-                        (h1 as HTMLElement).style.fontWeight = "700";
-                        (h1 as HTMLElement).style.color = "#0f172a";
-                        (h1 as HTMLElement).style.letterSpacing = "-0.02em";
-                    }
-                    
-                    // Style subtitle/label
-                    headerEl.querySelectorAll("p.text-xs").forEach((p) => {
-                        const pEl = p as HTMLElement;
-                        pEl.style.color = "#6366f1"; // indigo-500
-                        pEl.style.fontWeight = "600";
-                        pEl.style.textTransform = "uppercase";
-                        pEl.style.letterSpacing = "0.1em";
-                    });
-                }
-
-                // ===== GRID LAYOUT =====
-                root.querySelectorAll(".grid").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    elem.style.display = "grid";
-                    elem.style.gap = "24px";
-                });
-
-                // ===== CARD STYLING =====
-                root.querySelectorAll(".rounded-3xl, .rounded-2xl, .rounded-xl").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#ffffff";
-                    elem.style.border = "1px solid #e2e8f0";
-                    elem.style.borderRadius = "16px";
-                    elem.style.boxShadow = "0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04)";
-                    elem.style.overflow = "hidden";
-                });
-
-                // ===== SECTION CARDS =====
-                root.querySelectorAll("section > .rounded-3xl").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    elem.style.boxShadow = "0 8px 30px -8px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.06)";
-                });
-
-                // ===== UPLOAD INFO CARD =====
-                root.querySelectorAll(".bg-slate-50\\/60, .bg-slate-50").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#f8fafc";
-                    elem.style.border = "1px solid #e2e8f0";
-                    elem.style.borderRadius = "12px";
-                });
-
-                // ===== ANALYSIS PARAMETERS CARD =====
-                root.querySelectorAll("[class*='bg-indigo-50']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#eef2ff";
-                    elem.style.border = "1px solid #c7d2fe";
-                    elem.style.borderRadius = "12px";
-                });
-
-                // ===== VERDICT CARD STATUS COLORS =====
-                // Pass/Success colors
-                root.querySelectorAll("[class*='bg-green-50'], [class*='bg-success']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#f0fdf4";
-                    elem.style.border = "1px solid #86efac";
-                });
-                root.querySelectorAll("[class*='text-green'], [class*='text-success'], [class*='text-emerald']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.color = "#059669"; // emerald-600
-                });
-
-                // Warning/Caution colors
-                root.querySelectorAll("[class*='bg-amber-50'], [class*='bg-warning'], [class*='bg-yellow-50']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#fffbeb";
-                    elem.style.border = "1px solid #fcd34d";
-                });
-                root.querySelectorAll("[class*='text-amber'], [class*='text-warning'], [class*='text-yellow']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.color = "#d97706"; // amber-600
-                });
-
-                // Fail/Destructive colors
-                root.querySelectorAll("[class*='bg-red-50'], [class*='bg-destructive']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#fef2f2";
-                    elem.style.border = "1px solid #fca5a5";
-                });
-                root.querySelectorAll("[class*='text-red'], [class*='text-destructive']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.color = "#dc2626"; // red-600
-                });
-
-                // ===== BADGE STYLING =====
-                root.querySelectorAll("[class*='badge'], [class*='Badge']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.fontWeight = "600";
-                    elem.style.fontSize = "11px";
-                    elem.style.padding = "4px 10px";
-                    elem.style.borderRadius = "6px";
-                });
-
-                // ===== TYPOGRAPHY ENHANCEMENTS =====
-                // Section headings
-                root.querySelectorAll("h3, h4").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    elem.style.fontWeight = "600";
-                    elem.style.color = "#0f172a";
-                    elem.style.letterSpacing = "-0.01em";
-                });
-
-                // Main content text
-                root.querySelectorAll("p").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    if (!elem.style.color || elem.style.color === "inherit") {
-                        elem.style.color = "#374151"; // gray-700
-                    }
-                });
-
-                // Muted text
-                root.querySelectorAll("[class*='text-muted'], [class*='text-slate-500'], [class*='text-slate-600']").forEach(el => {
-                    (el as HTMLElement).style.color = "#64748b"; // slate-500
-                });
-
-                // ===== TABLE STYLING =====
-                root.querySelectorAll("table").forEach(table => {
-                    const tableEl = table as HTMLTableElement;
-                    tableEl.style.width = "100%";
-                    tableEl.style.borderCollapse = "collapse";
-                    tableEl.style.fontSize = "12px";
-                    
-                    // Header row
-                    tableEl.querySelectorAll("th").forEach(th => {
-                        const thEl = th as HTMLElement;
-                        thEl.style.backgroundColor = "#f1f5f9";
-                        thEl.style.color = "#334155";
-                        thEl.style.fontWeight = "600";
-                        thEl.style.padding = "12px 16px";
-                        thEl.style.textAlign = "left";
-                        thEl.style.borderBottom = "2px solid #e2e8f0";
-                    });
-                    
-                    // Data rows with alternating colors
-                    tableEl.querySelectorAll("tbody tr").forEach((tr, index) => {
-                        const trEl = tr as HTMLElement;
-                        trEl.style.backgroundColor = index % 2 === 0 ? "#ffffff" : "#f8fafc";
-                        trEl.style.borderBottom = "1px solid #e2e8f0";
-                    });
-                    
-                    // Data cells
-                    tableEl.querySelectorAll("td").forEach(td => {
-                        const tdEl = td as HTMLElement;
-                        tdEl.style.padding = "10px 16px";
-                        tdEl.style.color = "#374151";
-                    });
-                });
-
-                // ===== METRIC CARDS SPECIFIC =====
-                root.querySelectorAll(".pdf-metric-grid > *").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.style.backgroundColor = "#ffffff";
-                    elem.style.border = "1px solid #e2e8f0";
-                    elem.style.borderRadius = "12px";
-                    elem.style.padding = "16px";
-                });
-
-                // ===== ICON COLORS =====
-                root.querySelectorAll("[class*='text-primary']").forEach(el => {
-                    (el as HTMLElement).style.color = "#4f46e5"; // indigo-600
-                });
-
-                // ===== MUTED BACKGROUNDS =====
-                root.querySelectorAll("[class*='bg-muted']").forEach(el => {
-                    const elem = el as HTMLElement;
-                    const classes = elem.className || "";
-                    if (!classes.includes("bg-muted-foreground")) {
-                        elem.style.backgroundColor = "#f1f5f9"; // slate-100
-                    }
-                });
-            };
-
-            const fixProgressBars = (root: HTMLElement) => {
-                // ===== FAIRNESS SCORE PROGRESS BARS =====
-                root.querySelectorAll(".pdf-progress-bar, [role='progressbar']").forEach((container) => {
-                    const containerEl = container as HTMLElement;
-                    
-                    containerEl.style.backgroundColor = "#e2e8f0";
-                    containerEl.style.borderRadius = "9999px";
-                    containerEl.style.overflow = "visible";
-                    containerEl.style.position = "relative";
-
-                    // Standardize heights
-                    const classes = containerEl.className || "";
-                    if (classes.includes("h-1.5")) containerEl.style.height = "8px";
-                    else if (classes.includes("h-3")) containerEl.style.height = "14px";
-                    else if (classes.includes("h-2.5")) containerEl.style.height = "12px";
-                    else containerEl.style.height = "10px";
-
-                    // Style all inner bars
-                    containerEl.querySelectorAll(":scope > div").forEach(child => {
-                        const innerBar = child as HTMLElement;
-                        const innerClasses = innerBar.className || "";
-                        
-                        // Skip threshold markers
-                        if (innerClasses.includes("w-0.5") || innerBar.style.width === "2px") {
-                            // This is the threshold marker line
-                            innerBar.style.backgroundColor = "#1e293b";
-                            innerBar.style.width = "3px";
-                            innerBar.style.zIndex = "10";
-                            return;
-                        }
-                        
-                        // Inner progress bar
-                        innerBar.style.height = "100%";
-                        innerBar.style.borderRadius = "9999px";
-                        innerBar.style.minWidth = "4px";
-                        innerBar.style.position = "absolute";
-                        innerBar.style.left = "0";
-                        innerBar.style.top = "0";
-
-                        // Set color based on status class
-                        if (innerClasses.includes("success") || innerClasses.includes("green") || innerClasses.includes("emerald")) {
-                            innerBar.style.background = "linear-gradient(90deg, #059669, #10b981)";
-                        } else if (innerClasses.includes("warning") || innerClasses.includes("amber") || innerClasses.includes("yellow") || innerClasses.includes("orange")) {
-                            innerBar.style.background = "linear-gradient(90deg, #d97706, #f59e0b)";
-                        } else if (innerClasses.includes("destructive") || innerClasses.includes("red") || innerClasses.includes("rose")) {
-                            innerBar.style.background = "linear-gradient(90deg, #dc2626, #ef4444)";
-                        } else if (innerClasses.includes("primary") || innerClasses.includes("indigo")) {
-                            innerBar.style.background = "linear-gradient(90deg, #4f46e5, #6366f1)";
-                        } else {
-                            // Default to primary gradient
-                            innerBar.style.background = "linear-gradient(90deg, #4f46e5, #6366f1)";
-                        }
-                    });
-                });
-
-                // ===== GROUP SELECTION RATE BARS =====
-                // These are in the SensitiveColumnAnalysis component
-                root.querySelectorAll(".relative.h-2\\.5").forEach((container) => {
-                    const innerBg = container.querySelector(".absolute.inset-0.rounded-full") as HTMLElement;
-                    if (innerBg) {
-                        innerBg.style.backgroundColor = "#e2e8f0";
-                        innerBg.style.borderRadius = "9999px";
-                        innerBg.style.overflow = "hidden";
-                        
-                        const bar = innerBg.querySelector("div") as HTMLElement;
-                        if (bar) {
-                            bar.style.height = "100%";
-                            bar.style.borderRadius = "9999px";
-                            const barClasses = bar.className || "";
-                            
-                            if (barClasses.includes("warning") || barClasses.includes("from-warning")) {
-                                bar.style.background = "linear-gradient(90deg, #d97706, #fbbf24)";
-                            } else {
-                                bar.style.background = "linear-gradient(90deg, #4f46e5, #818cf8)";
-                            }
-                        }
-                    }
-                });
-
-                // ===== METRIC CARD PROGRESS BARS =====
-                root.querySelectorAll(".h-1\\.5.rounded-full.bg-muted").forEach((container) => {
-                    const containerEl = container as HTMLElement;
-                    containerEl.style.backgroundColor = "#e2e8f0";
-                    containerEl.style.height = "8px";
-                    containerEl.style.borderRadius = "9999px";
-                    containerEl.style.overflow = "hidden";
-                    
-                    const innerBar = containerEl.querySelector("div") as HTMLElement;
-                    if (innerBar) {
-                        innerBar.style.height = "100%";
-                        innerBar.style.borderRadius = "9999px";
-                        
-                        const barClasses = innerBar.className || "";
-                        if (barClasses.includes("bg-destructive")) {
-                            innerBar.style.background = "#dc2626";
-                        } else if (barClasses.includes("bg-muted-foreground")) {
-                            innerBar.style.background = "#64748b";
-                        } else if (barClasses.includes("bg-primary")) {
-                            innerBar.style.background = "#4f46e5";
-                        } else {
-                            innerBar.style.background = "#4f46e5";
-                        }
-                    }
-                });
-
-                // ===== GRADIENT BACKGROUNDS =====
-                root.querySelectorAll("[class*='bg-gradient']").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    const classes = elem.className || "";
-                    elem.style.backgroundImage = "none";
-                    if (classes.includes("amber") || classes.includes("orange") || classes.includes("warning")) {
-                        elem.style.backgroundColor = "#f59e0b";
-                    } else if (classes.includes("emerald") || classes.includes("teal") || classes.includes("success") || classes.includes("green")) {
-                        elem.style.backgroundColor = "#10b981";
-                    } else if (classes.includes("rose") || classes.includes("red") || classes.includes("destructive")) {
-                        elem.style.backgroundColor = "#ef4444";
-                    } else if (classes.includes("primary") || classes.includes("indigo")) {
-                        elem.style.backgroundColor = "#4f46e5";
-                    }
-                });
-
-            };
-
             const applyPdfStyles = (root: HTMLElement) => {
                 fixVisibility(root);
                 forceLightMode(root);
-                styleForPdf(root);
+                
+                // Use extracted styling functions
+                styleHeader(root);
+                styleGrid(root);
+                styleCards(root);
+                styleSectionCards(root);
+                styleUploadInfo(root);
+                styleAnalysisParams(root);
+                styleVerdictColors(root);
+                styleBadges(root);
+                styleTypography(root);
+                styleTables(root);
+                styleMetricCards(root);
+                styleIcons(root);
+                styleMutedBackgrounds(root);
                 fixProgressBars(root);
             };
 
@@ -471,21 +178,36 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     // Capture the whole top section if it fits, or its children
                     // Let's capture the big cards inside the sections
                     topSection.querySelectorAll(".rounded-2xl, .rounded-3xl").forEach(el => {
+                         // Skip the metric grid container, we will capture it explicitly later
+                        if (el.querySelector(".pdf-metric-grid")) return;
                         if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
                     });
                 }
 
                 // 3. Sensitive Columns
-                // Capture each SensitiveColumnAnalysis card
-                clone.querySelectorAll(".grid > .rounded-2xl").forEach(el => {
+                // Capture each SensitiveColumnAnalysis card (which use Card component -> rounded-xl)
+                clone.querySelectorAll(".grid > .rounded-2xl, .grid > .rounded-xl").forEach(el => {
                     if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
                 });
 
-                // 4. Metric Cards (CAPTURE AS GRID)
-                // We look for the grid container of the metric cards
+                // 4. Metric Cards
+                // We explicitly want to capture the container of the metrics to include the Title
+                // MARKER: Identify this section as metrics grid for special handling later
                 const metricGrid = clone.querySelector(".pdf-metric-grid");
+                let metricSection: HTMLElement | null = null;
+
                 if (metricGrid) {
-                    sections.push(metricGrid as HTMLElement);
+                     // Try to find the wrapping container (rounded-2xl) to includes the "Overall Metrics" title
+                    const container = metricGrid.closest(".rounded-2xl");
+                    if (container) {
+                        metricSection = container as HTMLElement;
+                        metricSection.setAttribute("data-is-metric-grid", "true");
+                        sections.push(metricSection);
+                    } else {
+                        metricSection = metricGrid as HTMLElement;
+                        metricSection.setAttribute("data-is-metric-grid", "true");
+                        sections.push(metricSection);
+                    }
                 } else {
                     // Fallback to old selector or individual cards if class is missing
                     const fallbackGrid = clone.querySelector(".grid.lg\\:grid-cols-5");
@@ -521,6 +243,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     return a.offsetTop - b.offsetTop;
                 });
 
+                const footerHeight = 15; // Space for footer
+                const maxPageHeight = pageHeight - margin - footerHeight; // Maximum usable height per page
+
                 let currentY = margin;
 
                 for (const section of sections) {
@@ -534,7 +259,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             useCORS: true,
                             backgroundColor: "#ffffff",
                             logging: false,
-                            windowWidth: 850,
+                            windowWidth: 1200,
                             scrollX: 0,
                             scrollY: 0,
                             onclone: (clonedDoc) => {
@@ -556,7 +281,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 logging: false,
-                                windowWidth: 850,
+                                windowWidth: 1200,
                                 scrollX: 0,
                                 scrollY: 0,
                                 onclone: (clonedDoc) => {
@@ -574,21 +299,110 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                         const imgWidth = usableWidth;
                         const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        
+                        const isMetricGrid = section.getAttribute("data-is-metric-grid") === "true";
 
-                        // Check if this section fits on the current page
-                        if (currentY + imgHeight > pageHeight - margin) {
-                            // If it doesn't fit, add a new page
-                            pdf.addPage();
-                            currentY = margin;
+                        // Case 1: Image fits on the current page (or remainder of it)
+                        // SPECIAL CASE: If it's the metric grid, we prefer it to be on a new page if it doesn't fit comfortably
+                        // i.e. if it would take up more than 30% of the remaining space, just give it a fresh page?
+                        // Or simpler: if it's the metric grid, and we are NOT at the top of the page (margin + 10), force a page break.
+                        // This ensures the grid is never split unless it's genuinely taller than an entire page.
+                        
+                        let shouldPageBreak = false;
+
+                        if (isMetricGrid && currentY > margin + 20) {
+                             shouldPageBreak = true;
+                        } else if (currentY + imgHeight > maxPageHeight) {
+                             shouldPageBreak = true;
                         }
 
-                        const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                        pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                        currentY += imgHeight + 5; // Add gap between sections
+                        if (!shouldPageBreak) {
+                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                            currentY += imgHeight + 8; // Add gap
+                        } 
+                        // Case 2: Image fits on a NEW page (smaller than one full page)
+                        else if (imgHeight <= maxPageHeight || (isMetricGrid && imgHeight <= maxPageHeight)) {
+                            pdf.addPage();
+                            currentY = margin;
+                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                            currentY += imgHeight + 8;
+                        }
+                        // Case 3: Image is larger than a single page -> Slice it
+                        else {
+                            // First, if we are not at top of page, start a new one to maximize space
+                            if (currentY > margin + 10) { // Tolerance of 10mm
+                                pdf.addPage();
+                                currentY = margin;
+                            }
 
+                            // We need to slice the canvas source
+                            // We work with PDF units for page logic, but pixels for canvas slicing
+                            const pageHeightInPx = (maxPageHeight * canvas.width) / usableWidth; // How many source pixels fit in one max page height?
+                            
+                            let remainingHeightPx = canvas.height;
+                            let sourceY = 0;
+
+                            while (remainingHeightPx > 0) {
+                                // Calculate how much to take for this chunk
+                                // If currentY is > margin (only happens for first chunk if we didn't page break), careful
+                                // But we forced page break above if it didn't fit. 
+                                // So usually currentY is margin, ensuring full available height.
+                                // However, let's correspond current available PDF height to pixels.
+                                const availablePdfHeight = maxPageHeight - currentY;
+                                const availablePx = (availablePdfHeight * canvas.width) / usableWidth;
+
+                                const currentSliceHeightPx = Math.min(remainingHeightPx, availablePx);
+                                
+                                // Create a temp canvas for this slice
+                                const tempCanvas = document.createElement('canvas');
+                                tempCanvas.width = canvas.width;
+                                tempCanvas.height = currentSliceHeightPx;
+                                const tCtx = tempCanvas.getContext('2d');
+                                if (!tCtx) break;
+
+                                tCtx.fillStyle = "#ffffff";
+                                tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                tCtx.drawImage(
+                                    canvas, 
+                                    0, sourceY, canvas.width, currentSliceHeightPx, // Source
+                                    0, 0, tempCanvas.width, currentSliceHeightPx    // Dest
+                                );
+
+                                const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
+                                const slicePdfHeight = (currentSliceHeightPx * usableWidth) / canvas.width;
+
+                                pdf.addImage(sliceImgData, "JPEG", margin, currentY, imgWidth, slicePdfHeight);
+
+                                sourceY += currentSliceHeightPx;
+                                remainingHeightPx -= currentSliceHeightPx;
+                                
+                                // If we have more to print, add a new page
+                                if (remainingHeightPx > 0) {
+                                    pdf.addPage();
+                                    currentY = margin;
+                                } else {
+                                    currentY += slicePdfHeight + 8;
+                                }
+                            }
+                        }
                     } catch (sectionError) {
                         console.error("Error capturing section:", sectionError);
                     }
+                }
+
+                // Add page numbers
+                const pageCount = (pdf as any).internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    pdf.setPage(i);
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(100, 116, 139); // slate-500
+                    pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: "right" });
+                    
+                    // Add date/copyright on left
+                    const dateStr = new Date().toLocaleDateString();
+                    pdf.text(`Fairness Report - ${dateStr}`, margin, pageHeight - 5, { align: "left" });
                 }
 
                 const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";

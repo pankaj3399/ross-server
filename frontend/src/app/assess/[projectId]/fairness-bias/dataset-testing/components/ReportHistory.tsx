@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Eye, Clock, AlertTriangle, CheckCircle, XCircle, ChevronRight, Search } from "lucide-react";
+import { FileText, Eye, Clock, AlertTriangle, CheckCircle, XCircle, ChevronRight } from "lucide-react";
 import { apiService } from "@/lib/api";
 import { getDatasetTestingReportKey } from "../storage";
 import type { DatasetReportPayload, PreviewData, DatasetMetric } from "../types";
@@ -9,19 +9,28 @@ type ReportHistoryProps = {
     projectId: string;
 };
 
+interface FairnessData {
+    overallVerdict: "pass" | "caution" | "fail" | "insufficient";
+    sensitiveColumns: any[];
+    outcomeColumn: string | null;
+    positiveOutcome: string | null;
+    datasetStats: any;
+    metricDefinitions: any;
+}
+
 type Report = {
     id: string;
     file_name: string;
     file_size: number;
     uploaded_at: string;
-    fairness_data: any;
+    fairness_data: FairnessData;
     fairness_result: DatasetMetric;
     biasness_result: DatasetMetric;
     toxicity_result: DatasetMetric;
     relevance_result: DatasetMetric;
     faithfulness_result: DatasetMetric;
     csv_preview: PreviewData;
-    selections: any;
+    selections: Record<string, any> | null;
     created_at: string;
 };
 
@@ -67,7 +76,7 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
             preview: report.csv_preview,
             generatedAt: report.created_at,
             // Default selections if not stored (backwards compatibility or if not saved)
-            selections: report.selections || {
+            selections: (report.selections as any) || {
                 metric: "adverseImpact",
                 method: "selectionRate",
                 group: "genderRace",
@@ -124,9 +133,15 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
 
     const [isExpanded, setIsExpanded] = useState(false);
 
+    const parseBackendDate = (dateStr: string) => {
+        // Ensure the date is treated as UTC if it doesn't end with Z
+        const safeDateStr = dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
+        return new Date(safeDateStr);
+    };
+
     // Sort reports by date descending (just in case API didn't)
     const sortedReports = [...reports].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        parseBackendDate(b.created_at).getTime() - parseBackendDate(a.created_at).getTime()
     );
 
     const displayedReports = isExpanded ? sortedReports : sortedReports.slice(0, 5);
@@ -136,6 +151,21 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
         return (
             <div className="py-12 flex justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="py-8 text-center text-muted-foreground">
+                <p className="text-red-500 mb-2">{error}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="text-primary hover:underline text-sm"
+                    type="button"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
@@ -176,8 +206,8 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
                                         onClick={() => handleViewReport(report)}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                                            <div>{new Date(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
-                                            <div className="text-xs opacity-70">{new Date(report.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "numeric" })}</div>
+                                            <div>{parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                                            <div className="text-xs opacity-70">{parseBackendDate(report.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "numeric" })}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
@@ -191,7 +221,7 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {getVerdictBadge(report.fairness_data.overallVerdict)}
+                                            {getVerdictBadge(report.fairness_data?.overallVerdict ?? 'insufficient')}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button

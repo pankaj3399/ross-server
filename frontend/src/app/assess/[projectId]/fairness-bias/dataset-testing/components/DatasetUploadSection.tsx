@@ -183,19 +183,25 @@ export const DatasetUploadSection = ({
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {preview.rows.map((row: string[], rowIndex: number) => (
-                                            <tr key={rowIndex} className="border-t border-border">
-                                                {row.map((value: string, colIndex: number) => (
-                                                    <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground">
-                                                        {(value === null || value === undefined || value === '') ? (
-                                                            <span className="text-muted-foreground italic">—</span>
-                                                        ) : (
-                                                            value
-                                                        )}
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
+                                        {preview.rows.map((row: string[] | Record<string, string>, rowIndex: number) => {
+                                            const cellValues = Array.isArray(row)
+                                                ? row
+                                                : preview.headers.map(h => row[h] || "");
+
+                                            return (
+                                                <tr key={rowIndex} className="border-t border-border">
+                                                    {cellValues.map((value: string, colIndex: number) => (
+                                                        <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground">
+                                                            {(value === null || value === undefined || value === '') ? (
+                                                                <span className="text-muted-foreground italic">—</span>
+                                                            ) : (
+                                                                value
+                                                            )}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
