@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS question_notes (
 CREATE TABLE IF NOT EXISTS email_verification_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token VARCHAR(255) UNIQUE NOT NULL,
+  otp VARCHAR(10) UNIQUE NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   used BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -153,7 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_aima_questions_practice ON aima_questions(practic
 CREATE INDEX IF NOT EXISTS idx_question_notes_project_id ON question_notes(project_id);
 CREATE INDEX IF NOT EXISTS idx_question_notes_domain_practice ON question_notes(domain_id, practice_id);
 CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_user_id ON email_verification_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token ON email_verification_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_otp ON email_verification_tokens(otp);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_user_mfa_user_id ON user_mfa(user_id);

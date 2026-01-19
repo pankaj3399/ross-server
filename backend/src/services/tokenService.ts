@@ -184,6 +184,37 @@ class TokenService {
   }
 
   /**
+   * Check if user can resend OTP (30s rate limit)
+   */
+  async canResendEmailOTP(userId: string): Promise<boolean> {
+    try {
+      // Check the most recent token creation time
+      const result = await pool.query(
+        `SELECT created_at FROM email_verification_tokens 
+         WHERE user_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT 1`,
+        [userId],
+      );
+
+      if (result.rows.length === 0) {
+        return true; // No previous token
+      }
+
+      const lastCreated = new Date(result.rows[0].created_at).getTime();
+      const now = Date.now();
+      const timeDiff = now - lastCreated;
+
+      // Allow resend if more than 30 seconds have passed
+      return timeDiff > 30 * 1000;
+    } catch (error) {
+      console.error("Error checking resend limit:", error);
+      // Fail safe: allow resend if check fails, but log error
+      return true;
+    }
+  }
+
+  /**
    * Check if user has valid password reset token
    */
   async hasValidPasswordResetToken(userId: string): Promise<boolean> {
