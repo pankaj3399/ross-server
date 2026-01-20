@@ -35,10 +35,10 @@ export function Header() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              title={mounted && theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               aria-label="Toggle theme"
             >
-              {theme === "dark" ? (
+              {mounted && theme === "dark" ? (
                 <IconSun className="size-6" />
               ) : (
                 <IconMoon className="size-6" />

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 
 export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
     const [currentPage, setCurrentPage] = useState(1);
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 50;
     const totalPages = Math.ceil(preview.rows.length / PAGE_SIZE);
 
     return (
@@ -37,15 +37,22 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                         <tbody>
                             {preview.rows
                                 .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
-                                .map((row, rowIndex) => (
-                                    <tr key={rowIndex} className="border-t border-border">
-                                        {row.map((value, colIndex) => (
-                                            <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground whitespace-nowrap">
-                                                {(value === null || value === undefined || value === '') ? <span className="text-muted-foreground italic">—</span> : value}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
+                                .map((row: any, rowIndex) => {
+                                    // Handle rows whether they are arrays (frontend processed) or objects (backend processed)
+                                    const cells = Array.isArray(row)
+                                        ? row
+                                        : preview.headers.map(h => row[h]);
+
+                                    return (
+                                        <tr key={rowIndex} className="border-t border-border">
+                                            {cells.map((value: any, colIndex: number) => (
+                                                <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground whitespace-nowrap">
+                                                    {(value === null || value === undefined || value === '') ? <span className="text-muted-foreground italic">—</span> : value}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    );
+                                })}
                         </tbody>
                     </table>
                 </div>

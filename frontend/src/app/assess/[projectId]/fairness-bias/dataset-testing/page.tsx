@@ -7,6 +7,7 @@ import { apiService } from "@/lib/api";
 import { Lock } from "lucide-react";
 import { getDatasetTestingReportKey } from "./storage";
 import { DatasetUploadSection } from "./components/DatasetUploadSection";
+import { ReportHistory } from "./components/ReportHistory";
 import type { DatasetEvaluationResponse, PreviewData, DatasetReportPayload } from "./types";
 
 const PRIVACY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
@@ -401,6 +402,11 @@ const DatasetTestingPage = () => {
               fileMeta={fileMeta}
               preview={preview}
             />
+
+            <div className="max-w-7xl mx-auto px-6 pb-12">
+              <div className="h-px bg-border mb-8 mt-12" />
+              <ReportHistory projectId={projectId} />
+            </div>
           </>
         )
       }
@@ -408,21 +414,28 @@ const DatasetTestingPage = () => {
       {/* Premium tier - full access */}
       {
         !isCheckingSubscription && subscriptionStatus === 'premium' && (
-          <DatasetUploadSection
-            inputId="csv-upload"
-            fileInputRef={fileInputRef}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            handleFileChange={handleFileChange}
-            handleReset={handleReset}
-            handleEvaluate={handleEvaluate}
-            error={error}
-            isParsing={isParsing}
-            isEvaluating={isEvaluating}
-            hasFile={hasFile}
-            fileMeta={fileMeta}
-            preview={preview}
-          />
+          <div className="space-y-12 pb-12">
+            <DatasetUploadSection
+              inputId="csv-upload"
+              fileInputRef={fileInputRef}
+              handleDragOver={handleDragOver}
+              handleDrop={handleDrop}
+              handleFileChange={handleFileChange}
+              handleReset={handleReset}
+              handleEvaluate={handleEvaluate}
+              error={error}
+              isParsing={isParsing}
+              isEvaluating={isEvaluating}
+              hasFile={hasFile}
+              fileMeta={fileMeta}
+              preview={preview}
+            />
+
+            <div className="max-w-7xl mx-auto px-6">
+              <div className="h-px bg-border mb-8" />
+              <ReportHistory projectId={projectId} />
+            </div>
+          </div>
         )
       }
     </div>

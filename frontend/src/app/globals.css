@@ -241,7 +241,7 @@ button:enabled,
   --color-sidebar-ring: var(--sidebar-ring);
   
   /* Overlay */
-  --color-overlay: oklch(0 0 0);
+  --color-overlay: #000000;
 
   /* Animations */
   --animate-accordion-down: accordion-down 0.2s ease-out;
@@ -266,69 +266,69 @@ button:enabled,
   --radius: 0.75rem;
 
   /* Surfaces - Clean whites with subtle warmth */
-  --background: oklch(0.995 0.002 250);
-  --foreground: oklch(0.20 0.02 250);
+  --background: #fafbfc;
+  --foreground: #1a1f2e;
   
   /* Cards & Popovers */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.20 0.02 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.20 0.02 250);
+  --card: #ffffff;
+  --card-foreground: #1a1f2e;
+  --popover: #ffffff;
+  --popover-foreground: #1a1f2e;
 
   /* Primary - Google Blue */
-  --primary: oklch(0.62 0.19 260);
-  --primary-foreground: oklch(1 0 0);
-  --primary-dark: oklch(0.52 0.20 260);
-  --primary-light: oklch(0.72 0.16 260);
+  --primary: #4285f4;
+  --primary-foreground: #ffffff;
+  --primary-dark: #2b5cad;
+  --primary-light: #7aabf7;
   
   /* Secondary - Light blue tint */
-  --secondary: oklch(0.96 0.02 260);
-  --secondary-foreground: oklch(0.40 0.10 260);
-  --secondary-hover: oklch(0.93 0.03 260);
+  --secondary: #eef3fc;
+  --secondary-foreground: #3b5998;
+  --secondary-hover: #dfe8f7;
   
   /* Muted - Neutral grays */
-  --muted: oklch(0.96 0.005 260);
-  --muted-foreground: oklch(0.55 0.02 260);
+  --muted: #f1f3f5;
+  --muted-foreground: #6b7280;
   
   /* Accent - Subtle blue highlight */
-  --accent: oklch(0.94 0.03 260);
-  --accent-foreground: oklch(0.35 0.12 260);
+  --accent: #e8eef8;
+  --accent-foreground: #2c4a7c;
 
   /* Semantic Colors - Google Palette */
-  --destructive: oklch(0.60 0.22 25);      /* Google Red */
-  --destructive-foreground: oklch(1 0 0);  /* White text on red */
-  --success: oklch(0.58 0.16 145);          /* Google Green */
-  --success-foreground: oklch(1 0 0);       /* White text on green */
-  --warning: oklch(0.80 0.16 85);           /* Google Yellow */
-  --warning-foreground: oklch(0.20 0.10 85); /* Dark text on yellow */
+  --destructive: #ea4335;      /* Google Red */
+  --destructive-foreground: #ffffff;  /* White text on red */
+  --success: #34a853;          /* Google Green */
+  --success-foreground: #ffffff;       /* White text on green */
+  --warning: #fbbc04;           /* Google Yellow */
+  --warning-foreground: #3d2e00; /* Dark text on yellow */
   
   /* Difficulty Indicators */
-  --difficulty-easy: oklch(0.58 0.16 145);
-  --difficulty-medium: oklch(0.80 0.16 85);
-  --difficulty-hard: oklch(0.60 0.22 25);
-  --difficulty-completed: oklch(0.62 0.19 260);
+  --difficulty-easy: #34a853;
+  --difficulty-medium: #fbbc04;
+  --difficulty-hard: #ea4335;
+  --difficulty-completed: #4285f4;
 
   /* Borders & Inputs */
-  --border: oklch(0.92 0.01 260);
-  --input: oklch(0.92 0.01 260);
-  --ring: oklch(0.62 0.19 260);
+  --border: #e2e5e9;
+  --input: #e2e5e9;
+  --ring: #4285f4;
 
   /* Chart Colors - Google Brand Colors */
-  --chart-1: oklch(0.62 0.19 260);  /* Google Blue */
-  --chart-2: oklch(0.60 0.22 25);   /* Google Red */
-  --chart-3: oklch(0.80 0.16 85);   /* Google Yellow */
-  --chart-4: oklch(0.58 0.16 145);  /* Google Green */
-  --chart-5: oklch(0.55 0.18 300);  /* Purple accent */
+  --chart-1: #4285f4;  /* Google Blue */
+  --chart-2: #ea4335;   /* Google Red */
+  --chart-3: #fbbc04;   /* Google Yellow */
+  --chart-4: #34a853;  /* Google Green */
+  --chart-5: #9c27b0;  /* Purple accent */
 
   /* Sidebar */
-  --sidebar: oklch(0.99 0.002 260);
-  --sidebar-foreground: oklch(0.20 0.02 250);
-  --sidebar-primary: oklch(0.62 0.19 260);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.96 0.02 260);
-  --sidebar-accent-foreground: oklch(0.35 0.12 260);
-  --sidebar-border: oklch(0.94 0.01 260);
-  --sidebar-ring: oklch(0.62 0.19 260);
+  --sidebar: #fafbfd;
+  --sidebar-foreground: #1a1f2e;
+  --sidebar-primary: #4285f4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef3fc;
+  --sidebar-accent-foreground: #2c4a7c;
+  --sidebar-border: #e8ebef;
+  --sidebar-ring: #4285f4;
 }
 
 /* ======================
@@ -337,69 +337,69 @@ button:enabled,
 
 .dark {
   /* Surfaces - Dark grays with subtle blue tint */
-  --background: oklch(0.15 0.015 260);
-  --foreground: oklch(0.95 0.01 260);
+  --background: #1a1d24;
+  --foreground: #ebeef2;
   
   /* Cards & Popovers */
-  --card: oklch(0.20 0.02 260);
-  --card-foreground: oklch(0.95 0.01 260);
-  --popover: oklch(0.20 0.02 260);
-  --popover-foreground: oklch(0.95 0.01 260);
+  --card: #242830;
+  --card-foreground: #ebeef2;
+  --popover: #242830;
+  --popover-foreground: #ebeef2;
 
   /* Primary - Google Blue (lighter for dark mode) */
-  --primary: oklch(0.70 0.17 260);
-  --primary-foreground: oklch(1 0 0);
-  --primary-dark: oklch(0.62 0.19 260);
-  --primary-light: oklch(0.78 0.14 260);
+  --primary: #5c9cf5;
+  --primary-foreground: #ffffff;
+  --primary-dark: #4285f4;
+  --primary-light: #8bb8f8;
   
   /* Secondary */
-  --secondary: oklch(0.28 0.03 260);
-  --secondary-foreground: oklch(0.90 0.02 260);
-  --secondary-hover: oklch(0.32 0.04 260);
+  --secondary: #2d323c;
+  --secondary-foreground: #d8dce4;
+  --secondary-hover: #363c48;
   
   /* Muted */
-  --muted: oklch(0.25 0.02 260);
-  --muted-foreground: oklch(0.65 0.02 260);
+  --muted: #2a2e36;
+  --muted-foreground: #9ca3af;
   
   /* Accent */
-  --accent: oklch(0.28 0.04 260);
-  --accent-foreground: oklch(0.90 0.02 260);
+  --accent: #2d3340;
+  --accent-foreground: #d8dce4;
 
   /* Semantic Colors - Adjusted for dark mode */
-  --destructive: oklch(0.65 0.20 25);
-  --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.65 0.15 145);
-  --success-foreground: oklch(0.15 0.02 145);
-  --warning: oklch(0.82 0.15 85);
-  --warning-foreground: oklch(0.15 0.10 85);
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --success: #4ade80;
+  --success-foreground: #14532d;
+  --warning: #fcd34d;
+  --warning-foreground: #422006;
   
   /* Difficulty Indicators */
-  --difficulty-easy: oklch(0.65 0.15 145);
-  --difficulty-medium: oklch(0.82 0.15 85);
-  --difficulty-hard: oklch(0.65 0.20 25);
-  --difficulty-completed: oklch(0.70 0.17 260);
+  --difficulty-easy: #4ade80;
+  --difficulty-medium: #fcd34d;
+  --difficulty-hard: #f87171;
+  --difficulty-completed: #5c9cf5;
 
   /* Borders & Inputs */
-  --border: oklch(0.30 0.02 260);
-  --input: oklch(0.30 0.02 260);
-  --ring: oklch(0.70 0.17 260);
+  --border: #3d424d;
+  --input: #3d424d;
+  --ring: #5c9cf5;
 
   /* Chart Colors - Brightened for dark mode */
-  --chart-1: oklch(0.70 0.17 260);
-  --chart-2: oklch(0.65 0.20 25);
-  --chart-3: oklch(0.82 0.15 85);
-  --chart-4: oklch(0.65 0.15 145);
-  --chart-5: oklch(0.65 0.16 300);
+  --chart-1: #5c9cf5;
+  --chart-2: #f87171;
+  --chart-3: #fcd34d;
+  --chart-4: #4ade80;
+  --chart-5: #c084fc;
 
   /* Sidebar */
-  --sidebar: oklch(0.13 0.01 260);
-  --sidebar-foreground: oklch(0.95 0.01 260);
-  --sidebar-primary: oklch(0.70 0.17 260);
-  --sidebar-primary-foreground: oklch(0.15 0.02 260);
-  --sidebar-accent: oklch(0.25 0.03 260);
-  --sidebar-accent-foreground: oklch(0.90 0.02 260);
-  --sidebar-border: oklch(0.25 0.02 260);
-  --sidebar-ring: oklch(0.70 0.17 260);
+  --sidebar: #161920;
+  --sidebar-foreground: #ebeef2;
+  --sidebar-primary: #5c9cf5;
+  --sidebar-primary-foreground: #1a1d24;
+  --sidebar-accent: #282d36;
+  --sidebar-accent-foreground: #d8dce4;
+  --sidebar-border: #2a2e36;
+  --sidebar-ring: #5c9cf5;
 }
 
 /* ======================

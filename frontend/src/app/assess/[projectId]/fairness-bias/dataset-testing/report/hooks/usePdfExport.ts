@@ -1,6 +1,12 @@
 
 import { useState, useCallback, RefObject } from "react";
 import type { DatasetReportPayload } from "../../types";
+import { 
+    styleHeader, styleGrid, styleCards, styleSectionCards, 
+    styleUploadInfo, styleAnalysisParams, styleVerdictColors, 
+    styleBadges, styleTypography, styleTables, styleMetricCards, 
+    styleIcons, styleMutedBackgrounds, fixProgressBars 
+} from "./pdfStyles";
 
 interface UsePdfExportProps {
     reportRef: RefObject<HTMLDivElement>;
@@ -36,10 +42,13 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
-            clone.style.width = "850px";
-            clone.style.position = "absolute";
-            clone.style.left = "-9999px";
+            clone.style.width = "1200px";
+            // Use fixed positioning off-screen to ensure it's "visible" to html2canvas
+            // but not visible to the user. z-index negative can cause it to be excluded.
+            clone.style.position = "fixed";
             clone.style.top = "0";
+            clone.style.left = "-10000px"; // Move far left
+            clone.style.zIndex = "1000";   // Ensure it's on top in its own context
             // Force light mode variables
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a"; // slate-900
@@ -82,6 +91,14 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             elem.style.backgroundColor = "#ffffff";
                         } else if (safeClass.includes("bg-slate-50")) {
                             elem.style.backgroundColor = "#f8fafc";
+                        } else if (safeClass.includes("bg-indigo-50")) {
+                            elem.style.backgroundColor = "#eef2ff"; // indigo-50
+                        } else if (safeClass.includes("bg-green-50")) {
+                            elem.style.backgroundColor = "#f0fdf4"; // green-50
+                        } else if (safeClass.includes("bg-amber-50") || safeClass.includes("bg-yellow-50")) {
+                            elem.style.backgroundColor = "#fffbeb"; // amber-50
+                        } else if (safeClass.includes("bg-red-50")) {
+                            elem.style.backgroundColor = "#fef2f2"; // red-50
                         } else {
                             // Default to checking if it's really dark
                             const bg = computed.backgroundColor;
@@ -94,6 +111,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                     const b = parseInt(bgMatch[3], 10);
                                     
                                     if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                                        // If extremely dark (like gray-900), make it white
                                         if (r < 100 && g < 100 && b < 100) {
                                             elem.style.backgroundColor = "#ffffff";
                                         }
@@ -121,91 +139,24 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 });
             };
 
-            const styleForPdf = (root: HTMLElement) => {
-                // Header styling
-                const header = root.querySelector("header");
-                if (header) {
-                    const headerEl = header as HTMLElement;
-                    headerEl.style.backgroundColor = "#ffffff";
-                    headerEl.style.borderBottom = "2px solid #e2e8f0";
-                    headerEl.style.padding = "0 0 20px 0";
-                    headerEl.style.marginBottom = "30px";
-                }
-
-                // Grid fixes - flatten grids that shouldn't be grid in PDF if needed, 
-                // but for cards we might want to keep them or wrap them.
-                // Actually, let's keep the grid but ensure width is set
-                root.querySelectorAll(".grid").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    elem.style.display = "grid";
-                    elem.style.gap = "16px";
-                });
-
-                // Ensure specific containers are white with border
-                root.querySelectorAll(".rounded-2xl, .rounded-xl").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    // Ensure cards look like cards
-                    elem.style.backgroundColor = "#ffffff";
-                    elem.style.border = "1px solid #e2e8f0";
-                    elem.style.boxShadow = "none";
-                });
-            };
-
-            const fixProgressBars = (root: HTMLElement) => {
-                // Find all progress bar containers by their dedicated class or role
-                root.querySelectorAll(".pdf-progress-bar, [role='progressbar']").forEach((container) => {
-                    const containerEl = container as HTMLElement;
-                    
-                    containerEl.style.backgroundColor = "#e2e8f0";
-                    containerEl.style.borderRadius = "9999px";
-                    containerEl.style.overflow = "visible";
-                    containerEl.style.border = "1px solid #cbd5e1";
-
-                    // Ensure height is respected but standardized for PDF visibility
-                    const classes = containerEl.className || "";
-                    if (classes.includes("h-1.5")) containerEl.style.height = "6px";
-                    else if (classes.includes("h-3")) containerEl.style.height = "12px";
-                    else containerEl.style.height = "10px";
-
-                    const innerBar = containerEl.querySelector("div") as HTMLElement;
-                    if (innerBar) {
-                        innerBar.style.height = "100%";
-                        innerBar.style.borderRadius = "9999px";
-                        innerBar.style.minWidth = "4px";
-                        innerBar.style.backgroundImage = "none";
-
-                        const innerClasses = innerBar.className || "";
-                        if (innerClasses.includes("amber") || innerClasses.includes("orange")) {
-                            innerBar.style.background = "linear-gradient(90deg, #f59e0b, #fb923c)";
-                        } else if (innerClasses.includes("emerald") || innerClasses.includes("teal")) {
-                            innerBar.style.background = "linear-gradient(90deg, #10b981, #14b8a6)";
-                        } else if (innerClasses.includes("rose") || innerClasses.includes("red")) {
-                            innerBar.style.background = "linear-gradient(90deg, #f43f5e, #fb7185)";
-                        } else {
-                            innerBar.style.background = "linear-gradient(90deg, #6366f1, #8b5cf6)";
-                        }
-                    }
-                });
-
-                // Fix gradient bars (badges, alerts, etc)
-                root.querySelectorAll("[class*='bg-gradient']").forEach((el) => {
-                    const elem = el as HTMLElement;
-                    const classes = elem.className || "";
-                    elem.style.backgroundImage = "none";
-                    if (classes.includes("amber") || classes.includes("orange")) {
-                        elem.style.backgroundColor = "#f59e0b";
-                    } else if (classes.includes("emerald") || classes.includes("teal")) {
-                        elem.style.backgroundColor = "#10b981";
-                    } else if (classes.includes("rose") || classes.includes("red")) {
-                        elem.style.backgroundColor = "#f43f5e";
-                    }
-                });
-            };
-
             const applyPdfStyles = (root: HTMLElement) => {
                 fixVisibility(root);
                 forceLightMode(root);
-                styleForPdf(root);
+                
+                // Use extracted styling functions
+                styleHeader(root);
+                styleGrid(root);
+                styleCards(root);
+                styleSectionCards(root);
+                styleUploadInfo(root);
+                styleAnalysisParams(root);
+                styleVerdictColors(root);
+                styleBadges(root);
+                styleTypography(root);
+                styleTables(root);
+                styleMetricCards(root);
+                styleIcons(root);
+                styleMutedBackgrounds(root);
                 fixProgressBars(root);
             };
 
@@ -227,21 +178,36 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     // Capture the whole top section if it fits, or its children
                     // Let's capture the big cards inside the sections
                     topSection.querySelectorAll(".rounded-2xl, .rounded-3xl").forEach(el => {
+                         // Skip the metric grid container, we will capture it explicitly later
+                        if (el.querySelector(".pdf-metric-grid")) return;
                         if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
                     });
                 }
 
                 // 3. Sensitive Columns
-                // Capture each SensitiveColumnAnalysis card
-                clone.querySelectorAll(".grid > .rounded-2xl").forEach(el => {
+                // Capture each SensitiveColumnAnalysis card (which use Card component -> rounded-xl)
+                clone.querySelectorAll(".grid > .rounded-2xl, .grid > .rounded-xl").forEach(el => {
                     if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
                 });
 
-                // 4. Metric Cards (CAPTURE AS GRID)
-                // We look for the grid container of the metric cards
+                // 4. Metric Cards
+                // We explicitly want to capture the container of the metrics to include the Title
+                // MARKER: Identify this section as metrics grid for special handling later
                 const metricGrid = clone.querySelector(".pdf-metric-grid");
+                let metricSection: HTMLElement | null = null;
+
                 if (metricGrid) {
-                    sections.push(metricGrid as HTMLElement);
+                     // Try to find the wrapping container (rounded-2xl) to includes the "Overall Metrics" title
+                    const container = metricGrid.closest(".rounded-2xl");
+                    if (container) {
+                        metricSection = container as HTMLElement;
+                        metricSection.setAttribute("data-is-metric-grid", "true");
+                        sections.push(metricSection);
+                    } else {
+                        metricSection = metricGrid as HTMLElement;
+                        metricSection.setAttribute("data-is-metric-grid", "true");
+                        sections.push(metricSection);
+                    }
                 } else {
                     // Fallback to old selector or individual cards if class is missing
                     const fallbackGrid = clone.querySelector(".grid.lg\\:grid-cols-5");
@@ -266,10 +232,19 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     }
                 });
 
+                // 5. Fallback: If we still have NO sections, capture the whole main or container
+                if (sections.length === 0) {
+                   console.warn("No separate sections found for PDF, capturing entire report container.");
+                   sections.push(clone);
+                }
+
                 // Sort sections by offsetTop
                 sections.sort((a, b) => {
                     return a.offsetTop - b.offsetTop;
                 });
+
+                const footerHeight = 15; // Space for footer
+                const maxPageHeight = pageHeight - margin - footerHeight; // Maximum usable height per page
 
                 let currentY = margin;
 
@@ -284,9 +259,11 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             useCORS: true,
                             backgroundColor: "#ffffff",
                             logging: false,
-                            windowWidth: 850,
+                            windowWidth: 1200,
+                            scrollX: 0,
+                            scrollY: 0,
                             onclone: (clonedDoc) => {
-                                // Double check light mode in the canvas clone
+                                // Remove elements that should be ignored
                                 const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
                                 if (el) el.remove();
                             }
@@ -304,7 +281,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 logging: false,
-                                windowWidth: 850,
+                                windowWidth: 1200,
+                                scrollX: 0,
+                                scrollY: 0,
                                 onclone: (clonedDoc) => {
                                     const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
                                     if (el) el.remove();
@@ -320,21 +299,110 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                         const imgWidth = usableWidth;
                         const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        
+                        const isMetricGrid = section.getAttribute("data-is-metric-grid") === "true";
 
-                        // Check if this section fits on the current page
-                        if (currentY + imgHeight > pageHeight - margin) {
-                            // If it doesn't fit, add a new page
-                            pdf.addPage();
-                            currentY = margin;
+                        // Case 1: Image fits on the current page (or remainder of it)
+                        // SPECIAL CASE: If it's the metric grid, we prefer it to be on a new page if it doesn't fit comfortably
+                        // i.e. if it would take up more than 30% of the remaining space, just give it a fresh page?
+                        // Or simpler: if it's the metric grid, and we are NOT at the top of the page (margin + 10), force a page break.
+                        // This ensures the grid is never split unless it's genuinely taller than an entire page.
+                        
+                        let shouldPageBreak = false;
+
+                        if (isMetricGrid && currentY > margin + 20) {
+                             shouldPageBreak = true;
+                        } else if (currentY + imgHeight > maxPageHeight) {
+                             shouldPageBreak = true;
                         }
 
-                        const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                        pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                        currentY += imgHeight + 5; // Add gap between sections
+                        if (!shouldPageBreak) {
+                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                            currentY += imgHeight + 8; // Add gap
+                        } 
+                        // Case 2: Image fits on a NEW page (smaller than one full page)
+                        else if (imgHeight <= maxPageHeight || (isMetricGrid && imgHeight <= maxPageHeight)) {
+                            pdf.addPage();
+                            currentY = margin;
+                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
+                            currentY += imgHeight + 8;
+                        }
+                        // Case 3: Image is larger than a single page -> Slice it
+                        else {
+                            // First, if we are not at top of page, start a new one to maximize space
+                            if (currentY > margin + 10) { // Tolerance of 10mm
+                                pdf.addPage();
+                                currentY = margin;
+                            }
 
+                            // We need to slice the canvas source
+                            // We work with PDF units for page logic, but pixels for canvas slicing
+                            const pageHeightInPx = (maxPageHeight * canvas.width) / usableWidth; // How many source pixels fit in one max page height?
+                            
+                            let remainingHeightPx = canvas.height;
+                            let sourceY = 0;
+
+                            while (remainingHeightPx > 0) {
+                                // Calculate how much to take for this chunk
+                                // If currentY is > margin (only happens for first chunk if we didn't page break), careful
+                                // But we forced page break above if it didn't fit. 
+                                // So usually currentY is margin, ensuring full available height.
+                                // However, let's correspond current available PDF height to pixels.
+                                const availablePdfHeight = maxPageHeight - currentY;
+                                const availablePx = (availablePdfHeight * canvas.width) / usableWidth;
+
+                                const currentSliceHeightPx = Math.min(remainingHeightPx, availablePx);
+                                
+                                // Create a temp canvas for this slice
+                                const tempCanvas = document.createElement('canvas');
+                                tempCanvas.width = canvas.width;
+                                tempCanvas.height = currentSliceHeightPx;
+                                const tCtx = tempCanvas.getContext('2d');
+                                if (!tCtx) break;
+
+                                tCtx.fillStyle = "#ffffff";
+                                tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                tCtx.drawImage(
+                                    canvas, 
+                                    0, sourceY, canvas.width, currentSliceHeightPx, // Source
+                                    0, 0, tempCanvas.width, currentSliceHeightPx    // Dest
+                                );
+
+                                const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
+                                const slicePdfHeight = (currentSliceHeightPx * usableWidth) / canvas.width;
+
+                                pdf.addImage(sliceImgData, "JPEG", margin, currentY, imgWidth, slicePdfHeight);
+
+                                sourceY += currentSliceHeightPx;
+                                remainingHeightPx -= currentSliceHeightPx;
+                                
+                                // If we have more to print, add a new page
+                                if (remainingHeightPx > 0) {
+                                    pdf.addPage();
+                                    currentY = margin;
+                                } else {
+                                    currentY += slicePdfHeight + 8;
+                                }
+                            }
+                        }
                     } catch (sectionError) {
                         console.error("Error capturing section:", sectionError);
                     }
+                }
+
+                // Add page numbers
+                const pageCount = (pdf as any).internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    pdf.setPage(i);
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(100, 116, 139); // slate-500
+                    pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: "right" });
+                    
+                    // Add date/copyright on left
+                    const dateStr = new Date().toLocaleDateString();
+                    pdf.text(`Fairness Report - ${dateStr}`, margin, pageHeight - 5, { align: "left" });
                 }
 
                 const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";

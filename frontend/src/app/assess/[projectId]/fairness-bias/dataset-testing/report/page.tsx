@@ -36,7 +36,6 @@ const DatasetTestingReportPage = () => {
 
     const THRESHOLDS = useMemo(() => getThresholds(), []);
 
-    // eslint-disable-next-line no-unused-vars
     const { exportPdf: handleExportPdf, isExporting } = usePdfExport({ reportRef, payload });
 
     useEffect(() => {
@@ -132,79 +131,90 @@ const DatasetTestingReportPage = () => {
                             <FileText className="w-4 h-4" />
                             Upload New CSV
                         </button>
-                        {/* 
-                            TODO: [ISSUE-FAIR-102] Re-enable PDF export once progress bar rendering issues are resolved.
-                            Owner: @frontend-team
-                            Follow-up: 
-                            1. Verify PDF canvas rendering of gradient progress bars in usePdfExport.
-                            2. Remove eslint-disable on line 40.
-                            3. Uncomment export button and wire to handleExportPdf.
-                        */}
+                        <button
+                            type="button"
+                            onClick={handleExportPdf}
+                            disabled={isExporting}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-gray-700 px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-gray-800 hide-in-pdf"
+                        >
+                            {isExporting ? (
+                                <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                                    Exporting...
+                                </>
+                            ) : (
+                                <>
+                                    <FileText className="w-4 h-4" />
+                                    Export PDF
+                                </>
+                            )}
+                        </button>
                     </div>
                 </div>
             </header>
 
             <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
-                <section className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-6 grid gap-8 lg:grid-cols-1">
-                    <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-5 space-y-3 bg-slate-50/60 dark:bg-gray-800/60 page-break-avoid">
-                        <p className="text-xs uppercase tracking-wide text-slate-500">Upload Info</p>
-                        <div>
-                            <p className="text-sm text-slate-500">Filename</p>
-                            <p className="text-base font-semibold text-slate-900 dark:text-white">{fileMeta.name}</p>
+                <section className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-6 space-y-8">
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-5 space-y-3 bg-slate-50/60 dark:bg-gray-800/60 page-break-avoid">
+                            <p className="text-xs uppercase tracking-wide text-slate-500">Upload Info</p>
+                            <div>
+                                <p className="text-sm text-slate-500">Filename</p>
+                                <p className="text-base font-semibold text-slate-900 dark:text-white">{fileMeta.name}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-xs text-slate-500">Filesize</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">{formatBytes(Number(fileMeta.size ?? 0))}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Uploaded</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">
+                                        {new Date(fileMeta.uploadedAt).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Total Rows</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">{result.fairness.datasetStats?.totalRows?.toLocaleString() ?? "N/A"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500">Positives</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">
+                                        {result.fairness.datasetStats?.totalPositives?.toLocaleString() ?? "N/A"} ({formatPercent(result.fairness.datasetStats?.overallPositiveRate ?? 0)})
+                                    </p>
+                                </div>
+                            </div>
+                            {result.fairness.outcomeColumn && (
+                                <div className="pt-2 border-t border-slate-100 dark:border-gray-700">
+                                    <p className="text-xs text-slate-500">
+                                        Outcome: <span className="font-medium text-slate-700 dark:text-slate-300">{result.fairness.outcomeColumn}</span> (<span className="font-medium text-emerald-600">{result.fairness.positiveOutcome}</span>)
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                                <p className="text-xs text-slate-500">Filesize</p>
-                                <p className="font-medium text-slate-900 dark:text-white">{formatBytes(Number(fileMeta.size ?? 0))}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Uploaded</p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {new Date(fileMeta.uploadedAt).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Total Rows</p>
-                                <p className="font-medium text-slate-900 dark:text-white">{result.fairness.datasetStats?.totalRows?.toLocaleString() ?? "N/A"}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Positive Outcomes</p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {result.fairness.datasetStats?.totalPositives?.toLocaleString() ?? "N/A"} ({formatPercent(result.fairness.datasetStats?.overallPositiveRate ?? 0)})
-                                </p>
-                            </div>
-                        </div>
-                        {result.fairness.outcomeColumn && (
-                            <div className="pt-2 border-t border-slate-100 dark:border-gray-700">
-                                <p className="text-xs text-slate-500">
-                                    Outcome column: <span className="font-medium text-slate-700 dark:text-slate-300">{result.fairness.outcomeColumn}</span> (positive value: <span className="font-medium text-emerald-600">{result.fairness.positiveOutcome}</span>)
-                                </p>
-                            </div>
-                        )}
-                        <p className="text-xs text-slate-500">Generated {new Date(generatedAt).toLocaleString()}</p>
-                    </div>
 
-                    {/* Analysis Parameters Section */}
-                    <div className="rounded-2xl border border-indigo-100 dark:border-indigo-500/30 p-5 space-y-3 bg-indigo-50/50 dark:bg-indigo-500/5 page-break-avoid">
-                        <p className="text-xs uppercase tracking-wide text-indigo-600 dark:text-indigo-400 font-semibold">Analysis Parameters</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Fairness Threshold</p>
-                                <p className="font-bold text-slate-900 dark:text-white text-lg">{formatPercent(selections?.threshold ?? THRESHOLDS.FAIRNESS.HIGH)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Evaluation Method</p>
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                    {selections?.method === "selectionRate" ? "Selection Rate" : "Impact Ratio"}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Test Type</p>
-                                <p className="font-medium text-slate-900 dark:text-white capitalize">{selections?.testType || "Standard"}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Sensitive Attribute</p>
-                                <p className="font-medium text-slate-900 dark:text-white">{selections?.group || "All"}</p>
+                        {/* Analysis Parameters Section */}
+                        <div className="rounded-2xl border border-indigo-100 dark:border-indigo-500/30 p-5 space-y-3 bg-indigo-50/50 dark:bg-indigo-500/5 page-break-avoid">
+                            <p className="text-xs uppercase tracking-wide text-indigo-600 dark:text-indigo-400 font-semibold">Analysis Parameters</p>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Fairness Threshold</p>
+                                    <p className="font-bold text-slate-900 dark:text-white text-lg">{formatPercent(selections?.threshold ?? THRESHOLDS.FAIRNESS.HIGH)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Evaluation Method</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">
+                                        {selections?.method === "selectionRate" ? "Selection Rate" : "Impact Ratio"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Test Type</p>
+                                    <p className="font-medium text-slate-900 dark:text-white capitalize">{selections?.testType || "Standard"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Sensitive Attribute</p>
+                                    <p className="font-medium text-slate-900 dark:text-white">{selections?.group || "All"}</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -216,6 +226,16 @@ const DatasetTestingReportPage = () => {
                                 <p className="text-sm text-slate-600 dark:text-slate-300">Overall verdict</p>
                                 <p className={`text-xl font-semibold ${verdictStyle.color}`}>{verdictStyle.label}</p>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Metric Score Cards - Simplified Grid */}
+                    <div className="space-y-4 rounded-2xl bg-white dark:bg-gray-900">
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white px-1">Overall Metrics</h3>
+                        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 pdf-metric-grid">
+                            {metricCards.map((metric) => (
+                                <FairnessMetricCard key={metric.key} title={metric.title} data={metric.data} />
+                            ))}
                         </div>
                     </div>
                 </section>
@@ -245,16 +265,6 @@ const DatasetTestingReportPage = () => {
                             ))}
                         </div>
                     )}
-                </section>
-
-                {/* Metric Score Cards - Simplified Grid */}
-                <section className="space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Overall Metrics</h3>
-                    <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 pdf-metric-grid">
-                        {metricCards.map((metric) => (
-                            <FairnessMetricCard key={metric.key} title={metric.title} data={metric.data} />
-                        ))}
-                    </div>
                 </section>
 
                 {preview && (
