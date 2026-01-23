@@ -363,7 +363,7 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
 
     // Fetch current subscription ID from database
     const userResult = await pool.query(
-      "SELECT stripe_subscription_id, stripe_customer_id FROM users WHERE id = $1",
+      "SELECT stripe_subscription_id FROM users WHERE id = $1",
       [userId]
     );
     const user = userResult.rows[0];
@@ -380,7 +380,18 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
     }
 
     // Retrieve subscription to get item ID
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
+        console.error(`Stripe subscription not found: ${subscriptionId}`, error);
+        return res.status(400).json({ 
+          error: "Subscription not found in Stripe. Please contact support." 
+        });
+      }
+      throw error;
+    }
     const subscriptionItemId = subscription.items.data[0]?.id;
 
     if (!subscriptionItemId) {

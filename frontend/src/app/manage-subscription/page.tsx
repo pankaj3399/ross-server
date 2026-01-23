@@ -587,7 +587,7 @@ export default function ManageSubscriptionPage() {
               {/* Basic Plan Options */}
               {subscription_status === "basic_premium" && (
                 <>
-                  <Button onClick={handleUpgradeClick} size="lg" className="gap-2">
+                  <Button onClick={handleUpgradeToPro} size="lg" className="gap-2">
                     Upgrade to Pro
                     <IconArrowRight className="w-4 h-4" />
                   </Button>
