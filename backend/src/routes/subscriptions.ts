@@ -348,7 +348,7 @@ router.post("/prices", async (req, res) => {
   }
 });
 
-// Upgrade to Pro - Create Stripe Checkout Session
+// Upgrade to Pro - Update existing subscription
 router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -361,57 +361,76 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       });
     }
 
-    // Get or create Stripe customer
-    let customerId = req.user!.stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: req.user!.email,
-        metadata: { userId },
-      });
-      customerId = customer.id;
-      await pool.query(
-        "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
-        [customerId, userId]
-      );
-    }
-
     // Fetch current subscription ID from database
     const userResult = await pool.query(
-      "SELECT stripe_subscription_id FROM users WHERE id = $1",
+      "SELECT stripe_subscription_id, stripe_customer_id FROM users WHERE id = $1",
       [userId]
     );
-    const currentSubscriptionId = userResult.rows[0]?.stripe_subscription_id ?? null;
+    const user = userResult.rows[0];
 
+    if (!user || !user.stripe_subscription_id) {
+       return res.status(400).json({ error: "No active subscription found to upgrade" });
+    }
+
+    const subscriptionId = user.stripe_subscription_id;
     const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
+    
     if (!proPriceId) {
       return res.status(500).json({ error: "Pro price ID not configured" });
     }
 
-    // Create checkout session for upgrade
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ["card"],
-      line_items: [{ price: proPriceId, quantity: 1 }],
-      mode: "subscription",
-      success_url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro`,
-      cancel_url: `${process.env.FRONTEND_URL}/manage-subscription?canceled=true`,
-      metadata: { 
-        userId,
-        action: "upgrade_to_pro",
-        ...(currentSubscriptionId && { currentSubscriptionId }),
-      },
-      subscription_data: {
-        metadata: {
-          userId,
-          action: "upgrade_to_pro",
-        },
-      },
+    // Retrieve subscription to get item ID
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscriptionItemId = subscription.items.data[0]?.id;
+
+    if (!subscriptionItemId) {
+        return res.status(500).json({ error: "Could not identify subscription item to update" });
+    }
+
+    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
+      items: [{
+        id: subscriptionItemId,
+        price: proPriceId,
+      }],
+      proration_behavior: 'always_invoice',
+      payment_behavior: 'pending_if_incomplete', // Handle payment failures gracefully
     });
 
-    res.json({ sessionId: session.id, url: session.url });
-  } catch (error) {
-    console.error("Error creating upgrade checkout session:", error);
-    res.status(500).json({ error: "Failed to create upgrade session" });
+    // Check status and return appropriate URL
+    // If active, payment succeeded immediately
+    if (updatedSubscription.status === 'active') {
+       return res.json({ 
+         sessionId: "updated_direct", 
+         url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro` 
+       });
+    } 
+    
+    // If incomplete or past_due, payment failed or requires action (3DS)
+    if (updatedSubscription.status === 'past_due' || updatedSubscription.status === 'incomplete') {
+       const latestInvoiceId = updatedSubscription.latest_invoice;
+       if (typeof latestInvoiceId === 'string') {
+          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+           if (invoice.hosted_invoice_url) {
+               return res.json({ 
+                   sessionId: latestInvoiceId, 
+                   url: invoice.hosted_invoice_url 
+               });
+           }
+       }
+    }
+
+    // Fallback if state is unexpected
+    res.json({ 
+        sessionId: "manual_check", 
+        url: `${process.env.FRONTEND_URL}/manage-subscription?check_status=true` 
+    });
+
+  } catch (error: any) {
+    console.error("Error upgrading subscription:", error);
+    res.status(500).json({ 
+        error: "Failed to upgrade subscription",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+    });
   }
 });
 

@@ -149,7 +149,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 bg-transparent [&>button]:hidden">
+      <DialogContent className="max-w-4xl p-0 overflow-y-auto max-h-[90vh] border-0 bg-transparent [&>button]:hidden">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

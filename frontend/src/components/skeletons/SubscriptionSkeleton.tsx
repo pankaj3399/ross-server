@@ -4,8 +4,8 @@ import { Skeleton } from "./ui";
 
 export function ManageSubscriptionSkeleton() {
     return (
-        <div className="bg-background min-h-screen py-8 px-4">
-            <div className="max-w-7xl mx-auto">
+        <div className="min-h-full flex flex-col bg-background">
+            <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8">
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
                     <Skeleton variant="rounded" width="4rem" height="4rem" />

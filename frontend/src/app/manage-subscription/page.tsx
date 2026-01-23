@@ -487,8 +487,8 @@ export default function ManageSubscriptionPage() {
   // Invoices are now loaded separately via lazy loading
 
   return (
-    <div className="bg-background min-h-screen py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-full flex flex-col bg-background">
+      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -572,14 +572,43 @@ export default function ManageSubscriptionPage() {
                 </div>
               )}
             </div>
-            <Button
-              onClick={isPremium ? handleDowngradeToBasic : handleUpgradeClick}
-              size="lg"
-              className="gap-2"
-            >
-              {isPremium ? "Downgrade to Basic" : "Upgrade to Pro"}
-              <IconArrowRight className="w-4 h-4" />
-            </Button>
+
+            <div className="flex gap-3">
+              {/* Free Plan Options */}
+              {!isPremium && (
+                <>
+                  <Button onClick={() => setShowUpgradeModal(true)} size="lg" className="gap-2">
+                    Upgrade to Premium
+                    <IconArrowRight className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+
+              {/* Basic Plan Options */}
+              {subscription_status === "basic_premium" && (
+                <>
+                  <Button onClick={handleUpgradeClick} size="lg" className="gap-2">
+                    Upgrade to Pro
+                    <IconArrowRight className="w-4 h-4" />
+                  </Button>
+                  <Button onClick={handleCancelSubscription} variant="outline" size="lg" className="gap-2 text-destructive hover:bg-destructive/10">
+                    Cancel Subscription
+                  </Button>
+                </>
+              )}
+
+              {/* Pro Plan Options */}
+              {subscription_status === "pro_premium" && (
+                <>
+                  <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2">
+                    Downgrade to Basic
+                  </Button>
+                  <Button onClick={handleCancelSubscription} variant="ghost" size="lg" className="gap-2 text-destructive hover:bg-destructive/10">
+                    Cancel Subscription
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </motion.div>
 
