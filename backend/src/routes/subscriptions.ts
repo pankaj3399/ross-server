@@ -9,10 +9,16 @@ import { invoiceCache, default as InvoiceCache } from "../utils/invoiceCache";
 
 const router = Router();
 
+// Helper to normalize price IDs from environment variables (removes single/double quotes)
+const getPriceId = (envVar: string | undefined): string => {
+  if (!envVar) return "";
+  return envVar.replace(/['"]/g, "").trim();
+};
+
 const formatPlanName = (priceId?: string | null) => {
   if (!priceId) return "Unknown plan";
-  if (priceId === process.env.STRIPE_PRICE_ID_BASIC) return "Basic Premium";
-  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "Pro Premium";
+  if (priceId === getPriceId(process.env.STRIPE_PRICE_ID_BASIC)) return "Basic Premium";
+  if (priceId === getPriceId(process.env.STRIPE_PRICE_ID_PRO)) return "Pro Premium";
   return "Unknown plan";
 };
 
@@ -43,6 +49,62 @@ const buildDowngradePhases = (
   ];
 };
 
+const handleSuccessfulUpgrade = async (updatedSubscription: Stripe.Subscription, res: express.Response) => {
+    // SECURITY: Only consider upgrade successful if subscription is 'active' (payment confirmed)
+    if (updatedSubscription.status === 'active') {
+       return res.json({ 
+         sessionId: "updated_direct", 
+         url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro` 
+       });
+    } 
+    
+    // For incomplete, past_due, or unpaid subscriptions, REQUIRE payment via invoice
+    // This is a SECURITY requirement - do not bypass payment
+    if (['past_due', 'incomplete', 'unpaid'].includes(updatedSubscription.status)) {
+       const latestInvoice = updatedSubscription.latest_invoice;
+       
+       // Get the invoice URL for payment
+       if (latestInvoice && typeof latestInvoice !== 'string') {
+           const invoice = latestInvoice as Stripe.Invoice;
+           if (invoice.hosted_invoice_url) {
+               return res.json({ 
+                   sessionId: invoice.id, 
+                   url: invoice.hosted_invoice_url 
+               });
+           }
+       } else if (typeof latestInvoice === 'string') {
+           const invoice = await stripe.invoices.retrieve(latestInvoice);
+           if (invoice.hosted_invoice_url) {
+                return res.json({ 
+                    sessionId: latestInvoice, 
+                    url: invoice.hosted_invoice_url 
+                });
+            }
+       }
+       
+       // SECURITY: If no invoice URL found for incomplete/past_due, return error - do not grant access
+       return res.status(402).json({ 
+           error: "Payment required to complete upgrade. Please update your payment method.",
+           status: updatedSubscription.status
+       });
+    }
+
+    // For trialing subscriptions, allow access (trial period)
+    if (updatedSubscription.status === 'trialing') {
+       return res.json({ 
+           sessionId: "trial_started", 
+           url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro&trial=true` 
+       });
+    }
+
+    // For canceled or other unexpected statuses, return error
+    console.error(`Unexpected subscription status after upgrade: ${updatedSubscription.status}`);
+    return res.status(400).json({ 
+        error: "Upgrade could not be completed. Please contact support.",
+        status: updatedSubscription.status
+    });
+};
+
 // Create checkout session
 router.post("/create-checkout-session", authenticateToken, async (req, res) => {
   try {
@@ -71,6 +133,16 @@ router.post("/create-checkout-session", authenticateToken, async (req, res) => {
       );
     }
 
+    // Prevent duplicate subscriptions if user already has one
+    if (req.user!.stripe_subscription_id) {
+       // Optional: You could allow it if the status is 'canceled' or 'unpaid'
+       // But safer to send them to manage-subscription
+       return res.status(400).json({ 
+         error: "You already have an active subscription. Please manage it in the subscription portal.",
+         redirect: "/manage-subscription"
+       });
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -81,11 +153,12 @@ router.post("/create-checkout-session", authenticateToken, async (req, res) => {
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.FRONTEND_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}/dashboard?canceled=true`,
+      success_url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=${priceId === getPriceId(process.env.STRIPE_PRICE_ID_PRO) ? 'pro' : 'basic'}`,
+      cancel_url: `${process.env.FRONTEND_URL}/manage-subscription?canceled=true`,
       metadata: {
         userId: req.user!.id,
         priceId: priceId,
+        action: "subscription_created"
       },
     });
 
@@ -163,7 +236,9 @@ router.get("/details", authenticateToken, async (req, res) => {
     let subscription: Stripe.Subscription | null = null;
     if (user.stripe_subscription_id) {
       try {
-        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id, {
+          expand: ['schedule'],
+        });
       } catch (error: any) {
         // Handle missing or deleted Stripe subscription
         if (
@@ -180,6 +255,34 @@ router.get("/details", authenticateToken, async (req, res) => {
           throw error;
         }
       }
+    }
+
+    // SELF-HEALING: Sync DB status with Stripe status if they mismatch
+    if (subscription && ['active', 'trialing'].includes(subscription.status)) {
+        const priceId = subscription.items.data[0]?.price?.id;
+        const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+        const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+        
+        let correctStatus = 'free';
+        if (priceId === basicPriceId) {
+            correctStatus = 'basic_premium';
+        } else if (priceId === proPriceId) {
+            correctStatus = 'pro_premium';
+        }
+
+        // If DB status is free but Stripe is active, or if they just disagree on plan tier
+        if (correctStatus !== 'free' && user.subscription_status !== correctStatus) {
+            console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
+            
+            await pool.query(
+                "UPDATE users SET subscription_status = $1 WHERE id = $2",
+                [correctStatus, req.user!.id]
+            );
+            
+            // Update the local user object so the response is correct
+            user.subscription_status = correctStatus;
+            baseResponse.subscription_status = correctStatus;
+        }
     }
 
     // Only fetch invoices if explicitly requested (lazy loading)
@@ -221,6 +324,7 @@ router.get("/details", authenticateToken, async (req, res) => {
           cancel_at_period_end: cancelAtPeriodEnd,
           current_period_start: currentPeriodStart,
           current_period_end: currentPeriodEnd,
+          is_downgrading: !!subscription.schedule,
           start_date: subscription.start_date
             ? new Date(subscription.start_date * 1000).toISOString()
             : null,
@@ -230,6 +334,9 @@ router.get("/details", authenticateToken, async (req, res) => {
           days_remaining: daysRemaining,
           renewal_date: cancelAtPeriodEnd ? null : currentPeriodEnd,
           cancel_effective_date: cancelAtPeriodEnd ? currentPeriodEnd : null,
+          next_payment_amount: subscription.items.data[0]?.price?.unit_amount
+            ? subscription.items.data[0].price.unit_amount / 100
+            : null,
         }
       : null;
 
@@ -372,98 +479,47 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
        return res.status(400).json({ error: "No active subscription found to upgrade" });
     }
 
-    const subscriptionId = user.stripe_subscription_id;
-    const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
-    
+    // Retrieve current subscription to find the item ID
+    const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+    const currentItemId = subscription.items.data[0]?.id;
+
+    if (!currentItemId) {
+      return res.status(400).json({ error: "Invalid subscription structure" });
+    }
+
+    const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
     if (!proPriceId) {
-      return res.status(500).json({ error: "Pro price ID not configured" });
+       return res.status(500).json({ error: "Pro price ID not configured" });
     }
 
-    // Retrieve subscription to get item ID
-    let subscription: Stripe.Subscription;
-    try {
-      subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    } catch (error: any) {
-      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
-        console.error(`Stripe subscription not found: ${subscriptionId}`, error);
-        return res.status(400).json({ 
-          error: "Subscription not found in Stripe. Please contact support." 
-        });
-      }
-      throw error;
+    const customerId = req.user!.stripe_customer_id;
+    if (!customerId) {
+        return res.status(400).json({ error: "No Stripe customer found for this user" });
     }
 
-    // Find the item corresponding to the Basic plan
-    const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
-    if (!basicPriceId) {
-      return res.status(500).json({ error: "Basic price ID not configured" });
-    }
-
-    const subscriptionItem = subscription.items.data.find(
-      item => item.price.id === basicPriceId
-    );
-    const subscriptionItemId = subscriptionItem?.id;
-
-    if (!subscriptionItemId) {
-        // If we can't find a specific Basic item, and there's only one item, we might be safe to assume it's the one (legacy behavior fallback)
-        // BUT strict requirement is to find correct item. Let's return error if we can't be sure.
-        console.error(`Could not find item with price ${basicPriceId} in subscription ${subscriptionId}`);
-        return res.status(400).json({ error: "Could not identify the Basic subscription item to upgrade. Please contact support." });
-    }
-
-    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
-      items: [{
-        id: subscriptionItemId,
-        price: proPriceId,
-      }],
+    // Update subscription with prorations
+    // Using 'always_invoice' automatically creates and finalizes an invoice for the prorations
+    const updatedSubscription = await stripe.subscriptions.update(user.stripe_subscription_id, {
+      items: [
+        {
+          id: currentItemId,
+          price: proPriceId,
+        },
+      ],
+      payment_behavior: 'allow_incomplete',
       proration_behavior: 'always_invoice',
-      payment_behavior: 'pending_if_incomplete', // Handle payment failures gracefully
-      expand: ['latest_invoice'],
+      cancel_at_period_end: false,
+      metadata: {
+        action: "upgrade_to_pro",
+        userId: userId
+      }
     });
 
-    // Check status and return appropriate URL
-    // If active, payment succeeded immediately
-    if (updatedSubscription.status === 'active') {
-       return res.json({ 
-         sessionId: "updated_direct", 
-         url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro` 
-       });
-    } 
-    
-    // If incomplete, past_due, or trialing, we might need to show an invoice or just success (for trials)
-    if (['past_due', 'incomplete', 'trialing'].includes(updatedSubscription.status)) {
-       const latestInvoice = updatedSubscription.latest_invoice;
-       
-       // Because we expanded it, it should be an object
-       if (latestInvoice && typeof latestInvoice !== 'string') {
-           const invoice = latestInvoice as Stripe.Invoice;
-           if (invoice.hosted_invoice_url && updatedSubscription.status !== 'trialing') {
-               // Only redirect to invoice if we actually need payment (not strictly for trialing if no payment needed yet, but usually standard flow)
-               // However, if it's trialing, we often just want to show success unless there's an immediate charge failing?
-               // The request asked to treat trialing same as others for hosted_invoice_url fallbacks if present.
-               return res.json({ 
-                   sessionId: invoice.id, 
-                   url: invoice.hosted_invoice_url 
-               });
-           }
-       } else if (typeof latestInvoice === 'string') {
-           // Fallback if expansion failed for some reason
-           const invoice = await stripe.invoices.retrieve(latestInvoice);
-           if (invoice.hosted_invoice_url) {
-                return res.json({ 
-                    sessionId: latestInvoice, 
-                    url: invoice.hosted_invoice_url 
-                });
-            }
-       }
-    }
+    console.log(`User ${userId} upgraded to Pro. Subscription ${updatedSubscription.id} updated with status: ${updatedSubscription.status}`);
 
-    // Fallback if state is unexpected or no invoice url found (e.g. successful trial start without immediate payment)
-    const successUrlParam = updatedSubscription.status === 'trialing' ? '&upgraded=pro&trial=true' : '&check_status=true';
-    res.json({ 
-        sessionId: "manual_check", 
-        url: `${process.env.FRONTEND_URL}/manage-subscription?success=true${successUrlParam}` 
-    });
+    // Handle success, redirection or payment requirement
+    return handleSuccessfulUpgrade(updatedSubscription, res);
+
 
   } catch (error: any) {
     console.error("Error upgrading subscription:", error);
@@ -517,7 +573,7 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
       });
     }
 
-    const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
+    const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
     if (!basicPriceId) {
       return res.status(500).json({ error: "Basic price ID not configured" });
     }

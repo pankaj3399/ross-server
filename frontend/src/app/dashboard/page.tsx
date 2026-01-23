@@ -147,13 +147,38 @@ export default function DashboardPage() {
         return;
       }
 
-      setTimeout(async () => {
-        try {
-          await refreshUser();
-        } catch (error) {
-          console.error("Failed to refresh user:", error);
+      // Initial refresh
+      refreshUser().catch(console.error);
+
+      // Start polling for up to 30 seconds to catch async payment confirmation
+      let pollCount = 0;
+      const MAX_POLLS = 10; // 10 * 3s = 30s
+
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          clearInterval(pollInterval);
+          return;
         }
-      }, 2000);
+
+        try {
+          // Fetch fresh status directly from API to avoid closure staleness
+          const status = await apiService.getSubscriptionStatus();
+
+          // If we detect a premium status, we can assume success (since we started at free/unknown)
+          // Or we can just check if it's different from what we had initially if we captured it, 
+          // but simpler is to check for non-free if we expect an upgrade.
+          if (status.subscription_status !== 'free') {
+            console.log("Subscription status matches premium, refreshing user context...");
+            await refreshUser();
+            clearInterval(pollInterval);
+          }
+        } catch (error) {
+          console.error("Polling refresh failed:", error);
+        }
+      }, 3000);
+
+      // Cleanup on unmount handled by implicit useEffect dependency
     } else if (canceled === 'true') {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);

@@ -173,7 +173,7 @@ export default function UnlockPremium({
           <div className="grid md:grid-cols-2 gap-4 mb-6">
             {/* Basic Premium Plan */}
             <motion.div whileHover={{ scale: 1.02 }} className="h-full">
-              <Card className="h-full hover:border-primary transition-all">
+              <Card className="h-full flex flex-col hover:border-primary transition-all">
                 <CardHeader className="text-center pb-2">
                   <CardTitle className="text-lg">Basic Premium</CardTitle>
                   <div className="mt-2">
@@ -192,7 +192,7 @@ export default function UnlockPremium({
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pb-4">
+                <CardContent className="flex-1 pb-4">
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center gap-2">
                       <IconStar className="w-4 h-4 text-primary" />
@@ -234,7 +234,7 @@ export default function UnlockPremium({
               <Badge className="absolute -top-2 right-4 z-10">
                 POPULAR
               </Badge>
-              <Card className="h-full border-primary bg-accent hover:border-primary transition-all">
+              <Card className="h-full flex flex-col border-primary bg-accent hover:border-primary transition-all">
                 <CardHeader className="text-center pb-2">
                   <CardTitle className="text-lg">Pro Premium</CardTitle>
                   <div className="mt-2">
@@ -253,7 +253,7 @@ export default function UnlockPremium({
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="pb-4">
+                <CardContent className="flex-1 pb-4">
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center gap-2">
                       <IconStar className="w-4 h-4 text-primary" />

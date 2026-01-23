@@ -20,6 +20,7 @@ import {
   IconWallet,
   IconCoins,
   IconHelpCircle,
+  IconCrown,
 } from "@tabler/icons-react";
 import { ManageSubscriptionSkeleton, BillingHistorySkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
@@ -77,17 +78,25 @@ const FAQS: FAQItem[] = [
 // UI constants
 const MAX_DISPLAYED_INVOICES = 7;
 
-interface CancellationScheduledCardProps {
+interface StatusAlertCardProps {
   planDetails: SubscriptionPlanDetails | null | undefined;
   formatDate: (value: string | null | undefined) => string;
 }
 
-function CancellationScheduledCard({ planDetails, formatDate }: CancellationScheduledCardProps) {
+function StatusAlertCard({
+  planDetails,
+  formatDate,
+  isDowngrading
+}: StatusAlertCardProps & { isDowngrading: boolean }) {
+  const isCanceling = planDetails?.cancel_at_period_end;
+
+  if (!isCanceling && !isDowngrading) return null;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden bg-warning/10 border-2 border-warning/20 rounded-2xl p-6 shadow-lg"
+      className="relative overflow-hidden bg-warning/10 border-2 border-warning/20 rounded-2xl p-6 shadow-lg mb-6"
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-warning/5 rounded-full blur-2xl"></div>
       <div className="relative flex items-start gap-4">
@@ -96,16 +105,20 @@ function CancellationScheduledCard({ planDetails, formatDate }: CancellationSche
         </div>
         <div className="flex-1">
           <h3 className="text-lg font-bold text-foreground mb-1">
-            Cancellation Scheduled
+            {isCanceling ? "Cancellation Scheduled" : "Downgrade Scheduled"}
           </h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Your subscription will be canceled at the end of your current billing period. You&apos;ll continue to have access until then.
+            {isCanceling
+              ? "Your subscription will be canceled at the end of your current billing period. You'll continue to have access until then."
+              : "Your subscription will be downgraded to Basic Premium at the end of your current billing period. You'll continue to have Pro features until then."}
           </p>
-          {planDetails?.cancel_effective_date && (
+          {planDetails?.current_period_end && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Access until:</span>
+              <span className="text-muted-foreground">
+                {isCanceling ? "Access until:" : "Changing on:"}
+              </span>
               <span className="font-semibold text-foreground">
-                {formatDate(planDetails.cancel_effective_date)}
+                {formatDate(planDetails.current_period_end)}
               </span>
               {typeof planDetails.days_remaining === "number" && (
                 <>
@@ -142,12 +155,70 @@ export default function ManageSubscriptionPage() {
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [showUpgradeConfirmation, setShowUpgradeConfirmation] = useState(false);
 
   // Initialize openFaqIndex based on defaultOpen property using lazy initializer
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(() => {
     const defaultOpenIndex = FAQS.findIndex(faq => faq.defaultOpen === true);
     return defaultOpenIndex >= 0 ? defaultOpenIndex : null;
   });
+
+  const handleStripeReturn = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const upgraded = urlParams.get('upgraded');
+
+    if (success === 'true') {
+      const upgradeMsg = upgraded === 'pro' ? "Successfully upgraded to Pro Premium!" : "Subscription updated successfully!";
+      setSuccessMessage(upgradeMsg);
+      setTimeout(() => setSuccessMessage(null), 5000);
+
+      // Determine the target status we are waiting for
+      let targetStatus: string | null = null;
+      if (upgraded === 'pro') {
+        targetStatus = 'pro_premium';
+      } else if (upgraded === 'basic') {
+        targetStatus = 'basic_premium';
+      }
+
+      // Simple URL cleanup 
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+
+      // Poll for updates to catch the webhook
+      let pollCount = 0;
+      const MAX_POLLS = 20; // Increased to give webhook more time (60s total)
+
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          clearInterval(pollInterval);
+          // Even if we timed out, let's do one final reload just in case
+          await reloadSubscriptionData();
+          return;
+        }
+
+        try {
+          // Fetch fresh status
+          const freshStatus = await apiService.getSubscriptionStatus();
+
+          // Check if we reached our target status
+          const isTargetReached = targetStatus
+            ? freshStatus.subscription_status === targetStatus
+            : freshStatus.subscription_status !== subscriptionStatus?.subscription_status; // Fallback to "any change" if no target
+
+          if (isTargetReached) {
+            console.log(`Subscription status updated to ${freshStatus.subscription_status} via polling!`);
+            // Refresh everything now that we apply the update
+            await reloadSubscriptionData();
+            clearInterval(pollInterval);
+          }
+        } catch (error) {
+          console.error("Polling refresh failed:", error);
+        }
+      }, 3000);
+    }
+  };
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -163,12 +234,8 @@ export default function ManageSubscriptionPage() {
       try {
         setLoading(true);
         setError(null);
-        const [status, details] = await Promise.all([
-          apiService.getSubscriptionStatus(),
-          apiService.getSubscriptionDetails(),
-        ]);
-        setSubscriptionStatus(status);
-        setSubscriptionDetails(details);
+        await reloadSubscriptionData();
+        handleStripeReturn();
       } catch (err: any) {
         console.error("Error loading subscription status:", err);
         setError(err.message || "Failed to load subscription information.");
@@ -178,7 +245,7 @@ export default function ManageSubscriptionPage() {
     };
 
     loadData();
-  }, [isAuthenticated, authLoading, router]);
+  }, [isAuthenticated, authLoading]);
 
   // Lazy load invoices separately (only when subscription details are loaded)
   useEffect(() => {
@@ -353,6 +420,7 @@ export default function ManageSubscriptionPage() {
 
   const handleUpgradeToPro = async () => {
     try {
+      setShowUpgradeConfirmation(false);
       setProcessingAction("upgrade-pro");
       setError(null);
       setSuccessMessage(null);
@@ -360,7 +428,7 @@ export default function ManageSubscriptionPage() {
       const response = await apiService.upgradeToPro();
 
       if (response.url) {
-        // Redirect to Stripe checkout
+        // Redirect to Stripe portal / checkout
         window.location.href = response.url;
       } else {
         throw new Error("No checkout URL received");
@@ -484,7 +552,7 @@ export default function ManageSubscriptionPage() {
 
   const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
   const isCanceling = !!planDetails?.cancel_at_period_end;
-  // Invoices are now loaded separately via lazy loading
+  const isDowngrading = !!planDetails?.is_downgrading;
 
   return (
     <div className="min-h-full flex flex-col bg-background">
@@ -540,6 +608,12 @@ export default function ManageSubscriptionPage() {
             </div>
           </motion.div>
         )}
+        {/* Status Alert (Cancellation/Downgrade) */}
+        <StatusAlertCard
+          planDetails={planDetails}
+          formatDate={formatDate}
+          isDowngrading={isDowngrading}
+        />
 
         {/* Current Plan Section */}
         <motion.div
@@ -585,20 +659,40 @@ export default function ManageSubscriptionPage() {
               )}
 
               {/* Basic Plan Options */}
-              {subscription_status === "basic_premium" && (
+              {subscription_status === "basic_premium" && !isCanceling && (
                 <>
-                  <Button onClick={handleUpgradeToPro} size="lg" className="gap-2">
-                    Upgrade to Pro
-                    <IconArrowRight className="w-4 h-4" />
+                  <Button
+                    onClick={() => setShowUpgradeConfirmation(true)}
+                    size="lg"
+                    className="gap-2"
+                    disabled={processingAction === "upgrade-pro"}
+                  >
+                    {processingAction === "upgrade-pro" ? (
+                      <>
+                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Upgrade to Pro
+                        <IconArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </Button>
-                  <Button onClick={handleCancelSubscription} variant="outline" size="lg" className="gap-2 text-destructive hover:bg-destructive/10">
+                  <Button
+                    onClick={handleCancelSubscription}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2 text-destructive hover:bg-destructive/10"
+                    disabled={!!processingAction}
+                  >
                     Cancel Subscription
                   </Button>
                 </>
               )}
 
               {/* Pro Plan Options */}
-              {subscription_status === "pro_premium" && (
+              {subscription_status === "pro_premium" && !isCanceling && !isDowngrading && (
                 <>
                   <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2">
                     Downgrade to Basic
@@ -821,7 +915,7 @@ export default function ManageSubscriptionPage() {
 
         {/* Footer */}
         <div className="flex items-center justify-end pt-6">
-          {isPremium ? (
+          {isPremium && !isCanceling && !isDowngrading ? (
             <Button
               variant="ghost"
               onClick={handleCancelSubscription}
@@ -925,6 +1019,65 @@ export default function ManageSubscriptionPage() {
                 </>
               ) : (
                 "Yes, Cancel"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Upgrade to Pro Confirmation Dialog */}
+      <Dialog open={showUpgradeConfirmation} onOpenChange={setShowUpgradeConfirmation}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <IconCrown className="w-5 h-5 text-primary" />
+              Confirm Upgrade to Pro
+            </DialogTitle>
+            <DialogDescription>
+              You are about to upgrade your subscription to the Pro Premium plan.
+              You will be redirected to Stripe to confirm the changes and complete the payment for the prorated difference.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="bg-primary/5 rounded-lg p-4 space-y-2 border border-primary/10">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Current Plan:</span>
+                <span className="font-semibold">Basic Premium</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">New Plan:</span>
+                <span className="font-semibold text-primary">Pro Premium</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Your billing cycle will remain the same. The price difference for the remainder of the current month will be calculated by Stripe.
+            </p>
+          </div>
+          <DialogFooter className="flex sm:justify-between items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowUpgradeConfirmation(false)}
+              disabled={processingAction === "upgrade-pro"}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpgradeToPro}
+              disabled={processingAction === "upgrade-pro"}
+              className="gap-2"
+            >
+              {processingAction === "upgrade-pro" ? (
+                <>
+                  <IconLoader2 className="w-4 h-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Go to Checkout
+                  <IconArrowRight className="w-4 h-4" />
+                </>
               )}
             </Button>
           </DialogFooter>

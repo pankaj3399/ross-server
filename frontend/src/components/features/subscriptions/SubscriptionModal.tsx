@@ -119,9 +119,9 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
       saveReturnUrlForCheckout();
       const { url } = await apiService.createCheckoutSession(priceId);
       window.location.href = url;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create checkout session:", error);
-      showToast.error("Failed to start upgrade process. Please try again.");
+      showToast.error(error.message || "Failed to start upgrade process. Please try again.");
       setUpgradingPlan(null);
     }
   };
@@ -196,7 +196,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 Small Teams
               </Badge>
 
-              <Card className="h-full border-border hover:border-primary/50 transition-all duration-300 rounded-2xl">
+              <Card className="h-full flex flex-col border-border hover:border-primary/50 transition-all duration-300 rounded-2xl">
                 <CardHeader className="text-center pb-4">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -285,7 +285,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 </Badge>
               </motion.div>
 
-              <Card className="h-full border-border hover:border-primary/50 transition-all duration-300 rounded-2xl ring-1 ring-primary/10">
+              <Card className="h-full flex flex-col border-border hover:border-primary/50 transition-all duration-300 rounded-2xl ring-1 ring-primary/10">
                 <CardHeader className="text-center pb-4">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">

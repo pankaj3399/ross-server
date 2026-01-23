@@ -118,6 +118,7 @@ export interface SubscriptionPlanDetails {
   renewal_date: string | null;
   cancel_effective_date: string | null;
   next_payment_amount: number | null;
+  is_downgrading?: boolean;
 }
 
 export interface SubscriptionDetailsResponse {

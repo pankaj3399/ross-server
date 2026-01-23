@@ -11,6 +11,7 @@ declare module "express-serve-static-core" {
       role: string;
       subscription_status: string;
       stripe_customer_id?: string | null;
+      stripe_subscription_id?: string | null;
     };
   }
 }
@@ -31,7 +32,7 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
     const result = await pool.query(
-      "SELECT id, email, role, subscription_status, stripe_customer_id FROM users WHERE id = $1",
+      "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1",
       [decoded.userId],
     );
 
