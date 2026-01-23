@@ -395,8 +395,12 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
 
     // Find the item corresponding to the Basic plan
     const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
+    if (!basicPriceId) {
+      return res.status(500).json({ error: "Basic price ID not configured" });
+    }
+
     const subscriptionItem = subscription.items.data.find(
-      item => item.price.id === basicPriceId || item.price.product === basicPriceId
+      item => item.price.id === basicPriceId
     );
     const subscriptionItemId = subscriptionItem?.id;
 
