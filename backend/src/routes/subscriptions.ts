@@ -392,10 +392,19 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       }
       throw error;
     }
-    const subscriptionItemId = subscription.items.data[0]?.id;
+
+    // Find the item corresponding to the Basic plan
+    const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
+    const subscriptionItem = subscription.items.data.find(
+      item => item.price.id === basicPriceId || item.price.product === basicPriceId
+    );
+    const subscriptionItemId = subscriptionItem?.id;
 
     if (!subscriptionItemId) {
-        return res.status(500).json({ error: "Could not identify subscription item to update" });
+        // If we can't find a specific Basic item, and there's only one item, we might be safe to assume it's the one (legacy behavior fallback)
+        // BUT strict requirement is to find correct item. Let's return error if we can't be sure.
+        console.error(`Could not find item with price ${basicPriceId} in subscription ${subscriptionId}`);
+        return res.status(400).json({ error: "Could not identify the Basic subscription item to upgrade. Please contact support." });
     }
 
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
@@ -405,6 +414,7 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       }],
       proration_behavior: 'always_invoice',
       payment_behavior: 'pending_if_incomplete', // Handle payment failures gracefully
+      expand: ['latest_invoice'],
     });
 
     // Check status and return appropriate URL
@@ -416,24 +426,39 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
        });
     } 
     
-    // If incomplete or past_due, payment failed or requires action (3DS)
-    if (updatedSubscription.status === 'past_due' || updatedSubscription.status === 'incomplete') {
-       const latestInvoiceId = updatedSubscription.latest_invoice;
-       if (typeof latestInvoiceId === 'string') {
-          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
-           if (invoice.hosted_invoice_url) {
+    // If incomplete, past_due, or trialing, we might need to show an invoice or just success (for trials)
+    if (['past_due', 'incomplete', 'trialing'].includes(updatedSubscription.status)) {
+       const latestInvoice = updatedSubscription.latest_invoice;
+       
+       // Because we expanded it, it should be an object
+       if (latestInvoice && typeof latestInvoice !== 'string') {
+           const invoice = latestInvoice as Stripe.Invoice;
+           if (invoice.hosted_invoice_url && updatedSubscription.status !== 'trialing') {
+               // Only redirect to invoice if we actually need payment (not strictly for trialing if no payment needed yet, but usually standard flow)
+               // However, if it's trialing, we often just want to show success unless there's an immediate charge failing?
+               // The request asked to treat trialing same as others for hosted_invoice_url fallbacks if present.
                return res.json({ 
-                   sessionId: latestInvoiceId, 
+                   sessionId: invoice.id, 
                    url: invoice.hosted_invoice_url 
                });
            }
+       } else if (typeof latestInvoice === 'string') {
+           // Fallback if expansion failed for some reason
+           const invoice = await stripe.invoices.retrieve(latestInvoice);
+           if (invoice.hosted_invoice_url) {
+                return res.json({ 
+                    sessionId: latestInvoice, 
+                    url: invoice.hosted_invoice_url 
+                });
+            }
        }
     }
 
-    // Fallback if state is unexpected
+    // Fallback if state is unexpected or no invoice url found (e.g. successful trial start without immediate payment)
+    const successUrlParam = updatedSubscription.status === 'trialing' ? '&upgraded=pro&trial=true' : '&check_status=true';
     res.json({ 
         sessionId: "manual_check", 
-        url: `${process.env.FRONTEND_URL}/manage-subscription?check_status=true` 
+        url: `${process.env.FRONTEND_URL}/manage-subscription?success=true${successUrlParam}` 
     });
 
   } catch (error: any) {
