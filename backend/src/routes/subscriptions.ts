@@ -438,6 +438,23 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
 
   } catch (error: any) {
     console.error("Error upgrading subscription:", error);
+
+    if (error.type === 'StripeCardError') {
+      return res.status(402).json({
+        error: error.message,
+        payment_intent: error.payment_intent,
+        client_secret: error.payment_intent?.client_secret,
+        code: error.code,
+        decline_code: error.decline_code,
+      });
+    }
+
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: error.message,
+      });
+    }
+
     res.status(500).json({ 
         error: "Failed to upgrade subscription",
         details: process.env.NODE_ENV === "development" ? error.message : undefined
