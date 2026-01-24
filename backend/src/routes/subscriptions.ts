@@ -272,7 +272,6 @@ router.get("/details", authenticateToken, async (req, res) => {
     }
 
     // SELF-HEALING: Sync DB status with Stripe status if they mismatch
-    // SELF-HEALING: Sync DB status with Stripe status if they mismatch
     if (subscription) {
         // Check cooldown to avoid spamming updates on every request
         // Read user.last_subscription_sync. If it's undefined, it will be 0.
@@ -357,8 +356,8 @@ router.get("/details", authenticateToken, async (req, res) => {
                 const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
                 const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
                 
-                const nextPhasePrice = nextPhase.items[0]?.price as string | Stripe.Price;
-                const nextPhasePriceId = typeof nextPhasePrice === 'string' ? nextPhasePrice : nextPhasePrice.id;
+                const nextPhasePrice = nextPhase.items[0]?.price as string | Stripe.Price | undefined;
+                const nextPhasePriceId = typeof nextPhasePrice === 'string' ? nextPhasePrice : nextPhasePrice?.id ?? null;
                 
                 // Use imported getPriceId for current price too if available, or just map IDs
                 // Simpler: Just check if we are going from Pro (current) to Basic (next)
