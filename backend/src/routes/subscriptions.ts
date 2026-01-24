@@ -347,7 +347,11 @@ router.get("/details", authenticateToken, async (req, res) => {
         if (schedule.phases) {
             // Find current phase index
             const phases = schedule.phases;
-            const currentPhaseIndex = phases.findIndex(p => p.start_date <= Date.now() / 1000 && p.end_date > Date.now() / 1000);
+            const nowInSeconds = Math.floor(Date.now() / 1000);
+            const currentPhaseIndex = phases.findIndex(p => 
+                p.start_date <= nowInSeconds && 
+                (p.end_date === undefined || p.end_date === null || p.end_date > nowInSeconds)
+            );
             
             if (currentPhaseIndex !== -1 && currentPhaseIndex < phases.length - 1) {
                 const nextPhase = phases[currentPhaseIndex + 1];
@@ -535,7 +539,19 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
     }
 
     // Retrieve current subscription to find the item ID
-    const subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+    // Retrieve current subscription to find the item ID
+    let subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
+        console.error(`Stripe subscription not found: ${user.stripe_subscription_id}`, error);
+        return res.status(400).json({ 
+          error: "Subscription not found in Stripe. Please contact support." 
+        });
+      }
+      throw error;
+    }
     const currentItemId = subscription.items.data[0]?.id;
 
     if (!currentItemId) {
