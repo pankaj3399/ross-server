@@ -287,7 +287,13 @@ router.get("/details", authenticateToken, async (req, res) => {
 
         const isRecent = (now - lastSync) < COOLDOWN_MS;
         
-        if (!isRecent && correctStatus !== 'free' && user.subscription_status !== correctStatus) {
+        const terminalStatuses = ['canceled', 'unpaid', 'incomplete_expired'];
+        const shouldSync =
+          !isRecent &&
+          user.subscription_status !== correctStatus &&
+          (correctStatus !== 'free' || terminalStatuses.includes(subscription.status));
+
+        if (shouldSync) {
             console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
             
             // Emit metric

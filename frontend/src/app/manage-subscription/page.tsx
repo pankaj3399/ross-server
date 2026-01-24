@@ -482,7 +482,6 @@ export default function ManageSubscriptionPage() {
 
   const confirmDowngradeToBasic = async () => {
     try {
-      setShowDowngradeConfirmation(false);
       setProcessingAction("downgrade-basic");
       setError(null);
       setSuccessMessage(null);
@@ -509,12 +508,13 @@ export default function ManageSubscriptionPage() {
 
       // Reload subscription status from backend
       await reloadSubscriptionData();
-
-      setProcessingAction(null);
+      setShowDowngradeConfirmation(false);
     } catch (err: any) {
       console.error("Error downgrading to Basic:", err);
       const errorMessage = err.message || "Failed to downgrade to Basic. Please try again.";
       setError(errorMessage);
+      setShowDowngradeConfirmation(false);
+    } finally {
       setProcessingAction(null);
     }
   };
@@ -530,7 +530,6 @@ export default function ManageSubscriptionPage() {
 
   const confirmCancelSubscription = async () => {
     try {
-      setShowCancelConfirmation(false);
       setProcessingAction("cancel");
       setError(null);
       setSuccessMessage(null);
@@ -557,12 +556,13 @@ export default function ManageSubscriptionPage() {
 
       // Reload subscription status from backend
       await reloadSubscriptionData();
-
-      setProcessingAction(null);
+      setShowCancelConfirmation(false);
     } catch (err: any) {
       console.error("Error canceling subscription:", err);
       const errorMessage = err.message || "Failed to cancel subscription. Please try again.";
       setError(errorMessage);
+      setShowCancelConfirmation(false);
+    } finally {
       setProcessingAction(null);
     }
   };
@@ -728,10 +728,10 @@ export default function ManageSubscriptionPage() {
               {/* Pro Plan Options */}
               {subscription_status === "pro_premium" && !isCanceling && !isDowngrading && (
                 <>
-                  <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2">
+                  <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2" disabled={!!processingAction}>
                     Downgrade to Basic
                   </Button>
-                  <Button onClick={handleCancelSubscription} variant="ghost" size="lg" className="gap-2 text-destructive hover:bg-destructive/10">
+                  <Button onClick={handleCancelSubscription} variant="ghost" size="lg" className="gap-2 text-destructive hover:bg-destructive/10" disabled={!!processingAction}>
                     Cancel Subscription
                   </Button>
                 </>
@@ -954,6 +954,7 @@ export default function ManageSubscriptionPage() {
               variant="ghost"
               onClick={handleCancelSubscription}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              disabled={!!processingAction}
             >
               <IconX className="w-4 h-4 mr-2" />
               Cancel Subscription
