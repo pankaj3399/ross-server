@@ -3,11 +3,8 @@ import { Request, Response } from "express";
 import pool from "../config/database";
 import stripe from "../config/stripe";
 
-enum SubscriptionStatus {
-    FREE = "free",
-    BASIC_PREMIUM = "basic_premium",
-    PRO_PREMIUM = "pro_premium",
-}
+import { getPriceId, determineSubscriptionStatus } from "../utils/stripe";
+import { SubscriptionStatus } from "../config/subscriptionAccess";
 
 async function processSubscriptionDeletionAsync(
     deletedCustomerId: string,
@@ -36,7 +33,7 @@ async function processSubscriptionDeletionAsync(
         // Only set to free if no other active subscriptions exist
         const deleteResult = await pool.query(
             "UPDATE users SET subscription_status = $1, stripe_subscription_id = NULL WHERE stripe_customer_id = $2 RETURNING id",
-            [SubscriptionStatus.FREE, deletedCustomerId]
+            ['free', deletedCustomerId]
         );
 
         if (deleteResult.rows.length > 0) {
@@ -105,7 +102,7 @@ export default async function subscriptionsWebhookHandler(
     // Use setImmediate to ensure response is sent before processing begins
     setImmediate(async () => {
         try {
-            switch (event.type) {
+            switch (event.type as string) {
                 case "customer.subscription.created":
                 case "customer.subscription.updated": {
                     // Single source of truth for subscription status updates
@@ -113,12 +110,14 @@ export default async function subscriptionsWebhookHandler(
                     const customerId = subscription.customer as string;
                     const subscriptionId = subscription.id;
                     const priceId = subscription.items.data[0]?.price?.id;
+                    const stripeStatus = subscription.status;
 
                     console.log("Subscription event:", { 
                         type: event.type, 
                         customerId, 
                         subscriptionId, 
                         priceId,
+                        stripeStatus,
                         eventId: event.id
                     });
 
@@ -127,12 +126,18 @@ export default async function subscriptionsWebhookHandler(
                         break;
                     }
 
-                    // Determine subscription status based on price ID
-                    let subscriptionStatus = SubscriptionStatus.FREE;
-                    if (priceId === process.env.STRIPE_PRICE_ID_BASIC) {
-                        subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
-                    } else if (priceId === process.env.STRIPE_PRICE_ID_PRO) {
-                        subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
+                    // SECURITY: Only grant premium status for 'active' or 'trialing' subscriptions
+                    // For incomplete, past_due, unpaid, canceled - set to FREE to prevent bypass
+                    const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
+                    
+                    
+                    if (subscriptionStatus === 'free' && ['active', 'trialing'].includes(stripeStatus)) {
+                         // Only log if we expected it to be active but determineSubscriptionStatus returned FREE (meaning price ID mismatch)
+                         const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                         const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                         console.warn(`Unrecognized price ID: ${priceId}. Setting status to FREE. (Basic: ${basicPriceId}, Pro: ${proPriceId})`);
+                    } else if (subscriptionStatus === 'free') {
+                         console.log(`Subscription status is '${stripeStatus}' - not granting premium access until payment is confirmed`);
                     }
 
                     // Update user subscription status and subscription ID with logging
@@ -142,7 +147,7 @@ export default async function subscriptionsWebhookHandler(
                     );
 
                     if (updateResult.rows.length > 0) {
-                        console.log(`Updated user ${updateResult.rows[0].id} (customer ${customerId}) to ${subscriptionStatus} with subscription ${subscriptionId} (event: ${event.id})`);
+                        console.log(`Updated user ${updateResult.rows[0].id} (customer ${customerId}) to ${subscriptionStatus} with subscription ${subscriptionId} (stripe status: ${stripeStatus}, event: ${event.id})`);
                     } else {
                         console.warn(`No user found with stripe_customer_id ${customerId} (event: ${event.id})`);
                     }
@@ -175,27 +180,113 @@ export default async function subscriptionsWebhookHandler(
                     break;
                 }
 
+                case "invoice.payment_succeeded": {
+                    const invoice = event.data.object as Stripe.Invoice;
+                    const customerId = invoice.customer as string;
+                    const subscriptionId = invoice.subscription as string;
+
+                    console.log(`[Payment Succeeded] Invoice payment succeeded for customer ${customerId} (event: ${event.id})`, {
+                        invoice: invoice.id,
+                        subscriptionId,
+                        customerId,
+                        eventId: event.id
+                    });
+
+                    // If this is a subscription invoice, verify and update status
+                    if (customerId && subscriptionId) {
+                        try {
+                            // Retrieve the subscription to ensure we get the correct price/status
+                            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+                            const priceId = subscription.items.data[0]?.price?.id;
+                            const stripeStatus = subscription.status;
+
+                            console.log(`[Payment Succeeded] Retrieved subscription ${subscriptionId} for verification`, {
+                                status: stripeStatus,
+                                priceId
+                            });
+
+                            if (!priceId) {
+                                console.warn(`[Payment Succeeded] No price ID found in subscription ${subscriptionId}`);
+                                break;
+                            }
+
+                            // Determine status based on price using shared helper
+                            // For paid invoices, we generally assume active access if status is valid
+                            const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
+
+                            if (subscriptionStatus === 'free') {
+                                if (['active', 'trialing'].includes(stripeStatus)) {
+                                     console.warn(`[Payment Succeeded] Unrecognized price ID: ${priceId}`);
+                                } else {
+                                     console.log(`[Payment Succeeded] Subscription status is '${stripeStatus}' - not granting premium yet`);
+                                }
+                            }
+
+                            if (subscriptionStatus !== 'free') {
+                                const updateResult = await pool.query(
+                                    "UPDATE users SET subscription_status = $1, stripe_subscription_id = $2 WHERE stripe_customer_id = $3 RETURNING id",
+                                    [subscriptionStatus, subscriptionId, customerId]
+                                );
+
+                                if (updateResult.rows.length > 0) {
+                                    console.log(`[Payment Succeeded] Updated user ${updateResult.rows[0].id} to ${subscriptionStatus} (subscription: ${subscriptionId})`);
+                                } else {
+                                    console.warn(`[Payment Succeeded] No user found with customer ID ${customerId}`);
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`[Payment Succeeded] Error processing subscription update:`, err);
+                        }
+                    }
+                    break;
+                }
+
                 case "checkout.session.completed": {
                     const session = event.data.object as Stripe.Checkout.Session;
                     
-                    // Only handle subscription checkouts - link user with Stripe only
+                    // Only handle subscription checkouts
                     if (session.mode === "subscription") {
                         const sessionCustomerId = session.customer as string;
                         const sessionSubscriptionId = session.subscription as string;
                         const userId = session.metadata?.userId;
                         const action = session.metadata?.action;
 
-                        console.log("Checkout session completed:", { 
-                            customerId: sessionCustomerId, 
+                        console.log(`[Checkout Completed] Processing for user ${userId}, customer ${sessionCustomerId}`, { 
                             subscriptionId: sessionSubscriptionId,
-                            userId,
                             action,
                             eventId: event.id
                         });
 
                         if (!userId) {
-                            console.warn("No userId in session metadata");
+                            console.warn("[Checkout Completed] No userId in session metadata, skipping database update");
                             break;
+                        }
+
+                        // Determine the starting status by fetching the subscription proactively
+                        let subscriptionStatus: SubscriptionStatus = 'free';
+                        try {
+                            const subscription = await stripe.subscriptions.retrieve(sessionSubscriptionId);
+                            const priceId = subscription.items.data[0]?.price?.id;
+                            const stripeStatus = subscription.status;
+
+                            console.log(`[Checkout Completed] Retrieved subscription ${sessionSubscriptionId}`, {
+                                status: stripeStatus,
+                                priceId
+                            });
+
+                            // Logic to determine initial status - grant premium if active/trialing
+                            subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
+                            
+                            if (subscriptionStatus === 'free' && ['active', 'trialing'].includes(stripeStatus)) {
+                                 const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                                 const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                                 console.warn(`[Checkout Completed] Unrecognized price ID: ${priceId}. Expected Basic: ${basicPriceId} or Pro: ${proPriceId}`);
+                            } else if (subscriptionStatus === 'free') {
+                                 console.log(`[Checkout Completed] Subscription is in '${stripeStatus}' state, initializing as FREE until payment confirms`);
+                            }
+                        } catch (subError) {
+                            console.error("[Checkout Completed] Error fetching subscription details:", subError);
+                            // Fallback: stay as FREE, let other handlers fix it later
                         }
 
                         // If this is an upgrade, cancel the old subscription
@@ -203,44 +294,57 @@ export default async function subscriptionsWebhookHandler(
                             const oldSubscriptionId = session.metadata.currentSubscriptionId;
                             
                             try {
-                                // Retrieve the subscription to verify it belongs to the same customer
                                 const oldSubscription = await stripe.subscriptions.retrieve(oldSubscriptionId);
                                 const oldSubscriptionCustomerId = oldSubscription.customer as string;
                                 
-                                // Verify the subscription belongs to the same customer
-                                if (oldSubscriptionCustomerId !== sessionCustomerId) {
-                                    console.warn(`Skipping cancellation: old subscription ${oldSubscriptionId} belongs to customer ${oldSubscriptionCustomerId}, but current session is for customer ${sessionCustomerId} (event: ${event.id})`);
-                                } else {
-                                    // Customer IDs match, proceed with cancellation
-                                    try {
-                                        await stripe.subscriptions.cancel(oldSubscriptionId);
-                                        console.log(`Cancelled old subscription ${oldSubscriptionId} for upgrade (event: ${event.id})`);
-                                    } catch (cancelError) {
-                                        console.error(`Error cancelling old subscription ${oldSubscriptionId}:`, cancelError);
-                                        // Continue anyway - the new subscription is already created
-                                    }
+                                if (oldSubscriptionCustomerId === sessionCustomerId) {
+                                    await stripe.subscriptions.cancel(oldSubscriptionId);
+                                    console.log(`[Checkout Completed] Cancelled old subscription ${oldSubscriptionId} for upgrade`);
                                 }
-                            } catch (retrieveError) {
-                                console.error(`Error retrieving old subscription ${oldSubscriptionId} for verification:`, retrieveError);
-                                // Don't proceed with cancellation if we can't verify ownership
+                            } catch (cancelError) {
+                                console.error(`[Checkout Completed] Error handling old subscription cancellation:`, cancelError);
                             }
                         }
 
-                        // Link user with Stripe - save customer ID and subscription ID only
-                        // Do NOT update subscription_status here - that's handled by customer.subscription.updated
-                        const linkResult = await pool.query(
-                            "UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2 WHERE id = $3 RETURNING id",
-                            [sessionCustomerId, sessionSubscriptionId, userId]
-                        );
+                        // Link user with Stripe AND update status proactively
+                        // RACE CONDITION GUARD: If we are initializing as FREE (status incomplete), 
+                        // only update the status if the user IS currently 'free'. This prevents overwriting
+                        // a successful 'active' status from a previous invoice.payment_succeeded event.
+                        let linkResult;
+                        if (subscriptionStatus === 'free') {
+                            linkResult = await pool.query(
+                                "UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, subscription_status = CASE WHEN subscription_status = 'free' THEN 'free' ELSE subscription_status END WHERE id = $3 RETURNING id, subscription_status",
+                                [sessionCustomerId, sessionSubscriptionId, userId]
+                            );
+                        } else {
+                            linkResult = await pool.query(
+                                "UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, subscription_status = $3 WHERE id = $4 RETURNING id, subscription_status",
+                                [sessionCustomerId, sessionSubscriptionId, subscriptionStatus, userId]
+                            );
+                        }
 
                         if (linkResult.rows.length > 0) {
-                            console.log(`Linked user ${linkResult.rows[0].id} with Stripe customer ${sessionCustomerId} and subscription ${sessionSubscriptionId} (event: ${event.id})`);
+                            console.log(`[Checkout Completed] Successfully updated user ${linkResult.rows[0].id} status to ${linkResult.rows[0].subscription_status} (event: ${event.id})`);
                         } else {
-                            console.warn(`No user found with id ${userId} (event: ${event.id})`);
+                            console.warn(`[Checkout Completed] User ${userId} not found in database for update (event: ${event.id})`);
                         }
                     }
                     break;
                 }
+
+                case "invoiceitem.created":
+                case "invoice.created":
+                case "invoice.updated":
+                case "invoice.finalized":
+                case "payment_intent.created":
+                case "payment_intent.succeeded":
+                case "charge.succeeded":
+                case "invoice.paid":
+                case "invoice_payment.paid":
+                    // These events are informational or handled by other events (like invoice.payment_succeeded)
+                    // We acknowledge them to avoid cluttering logs with "Unhandled event type"
+                    console.log(`[Acknowledged] Event type: ${event.type} (event ID: ${event.id})`);
+                    break;
 
                 default:
                     console.log(`Unhandled event type: ${event.type} (event ID: ${event.id})`);

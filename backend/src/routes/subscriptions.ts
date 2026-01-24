@@ -6,13 +6,18 @@ import stripe from "../config/stripe";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { invoiceCache, default as InvoiceCache } from "../utils/invoiceCache";
+import { determineSubscriptionStatus, getPriceId } from "../utils/stripe";
+import { SubscriptionStatus } from "../config/subscriptionAccess";
 
 const router = Router();
 
 const formatPlanName = (priceId?: string | null) => {
   if (!priceId) return "Unknown plan";
-  if (priceId === process.env.STRIPE_PRICE_ID_BASIC) return "Basic Premium";
-  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "Pro Premium";
+  const basicId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+  const proId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+  
+  if (priceId === basicId) return "Basic Premium";
+  if (priceId === proId) return "Pro Premium";
   return "Unknown plan";
 };
 
@@ -43,6 +48,67 @@ const buildDowngradePhases = (
   ];
 };
 
+const handleSuccessfulUpgrade = async (updatedSubscription: Stripe.Subscription, res: express.Response) => {
+    // SECURITY: Only consider upgrade successful if subscription is 'active' (payment confirmed)
+    if (updatedSubscription.status === 'active') {
+       return res.json({ 
+         sessionId: "updated_direct", 
+         url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro` 
+       });
+    } 
+    
+    // For incomplete, past_due, or unpaid subscriptions, REQUIRE payment via invoice
+    // This is a SECURITY requirement - do not bypass payment
+    if (['past_due', 'incomplete', 'unpaid'].includes(updatedSubscription.status)) {
+       const latestInvoice = updatedSubscription.latest_invoice;
+       
+       // Get the invoice URL for payment
+       if (latestInvoice && typeof latestInvoice !== 'string') {
+           const invoice = latestInvoice as Stripe.Invoice;
+           if (invoice.hosted_invoice_url) {
+               return res.json({ 
+                   sessionId: invoice.id, 
+                   url: invoice.hosted_invoice_url 
+               });
+           }
+       } else if (typeof latestInvoice === 'string') {
+           try {
+               const invoice = await stripe.invoices.retrieve(latestInvoice);
+               if (invoice.hosted_invoice_url) {
+                    return res.json({ 
+                        sessionId: latestInvoice, 
+                        url: invoice.hosted_invoice_url 
+                    });
+                }
+           } catch (err) {
+               console.error(`Failed to retrieve invoice ${latestInvoice}:`, err);
+               // Fall through to 402 response below
+           }
+       }
+       
+       // SECURITY: If no invoice URL found for incomplete/past_due, return error - do not grant access
+       return res.status(402).json({ 
+           error: "Payment required to complete upgrade. Please update your payment method.",
+           status: updatedSubscription.status
+       });
+    }
+
+    // For trialing subscriptions, allow access (trial period)
+    if (updatedSubscription.status === 'trialing') {
+       return res.json({ 
+           sessionId: "trial_started", 
+           url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro&trial=true` 
+       });
+    }
+
+    // For canceled or other unexpected statuses, return error
+    console.error(`Unexpected subscription status after upgrade: ${updatedSubscription.status}`);
+    return res.status(400).json({ 
+        error: "Upgrade could not be completed. Please contact support.",
+        status: updatedSubscription.status
+    });
+};
+
 // Create checkout session
 router.post("/create-checkout-session", authenticateToken, async (req, res) => {
   try {
@@ -71,6 +137,26 @@ router.post("/create-checkout-session", authenticateToken, async (req, res) => {
       );
     }
 
+    // Prevent duplicate subscriptions if user already has one
+    if (req.user!.stripe_subscription_id) {
+       // Check if existing subscription is still active
+       try {
+         const existingSub = await stripe.subscriptions.retrieve(req.user!.stripe_subscription_id);
+         if (['active', 'trialing', 'past_due', 'incomplete'].includes(existingSub.status)) {
+           return res.status(400).json({ 
+             error: "You already have an active subscription. Please manage it in the subscription portal.",
+             redirect: "/manage-subscription"
+           });
+         }
+         // Subscription is canceled/unpaid, allow new checkout
+       } catch (err: any) {
+         // Subscription not found in Stripe, allow new checkout
+         if (err?.statusCode !== 404) {
+           throw err;
+         }
+       }
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -81,11 +167,12 @@ router.post("/create-checkout-session", authenticateToken, async (req, res) => {
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.FRONTEND_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.FRONTEND_URL}/dashboard?canceled=true`,
+      success_url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=${priceId === getPriceId(process.env.STRIPE_PRICE_ID_PRO) ? 'pro' : 'basic'}`,
+      cancel_url: `${process.env.FRONTEND_URL}/manage-subscription?canceled=true`,
       metadata: {
         userId: req.user!.id,
         priceId: priceId,
+        action: "subscription_created"
       },
     });
 
@@ -140,7 +227,7 @@ router.get("/status", authenticateToken, async (req, res) => {
 router.get("/details", authenticateToken, async (req, res) => {
   try {
     const userResult = await pool.query(
-      "SELECT id, subscription_status, stripe_customer_id, stripe_subscription_id, created_at FROM users WHERE id = $1",
+      "SELECT id, subscription_status, stripe_customer_id, stripe_subscription_id, created_at, last_subscription_sync FROM users WHERE id = $1",
       [req.user!.id],
     );
 
@@ -163,7 +250,9 @@ router.get("/details", authenticateToken, async (req, res) => {
     let subscription: Stripe.Subscription | null = null;
     if (user.stripe_subscription_id) {
       try {
-        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+        subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id, {
+          expand: ['schedule'],
+        });
       } catch (error: any) {
         // Handle missing or deleted Stripe subscription
         if (
@@ -180,6 +269,44 @@ router.get("/details", authenticateToken, async (req, res) => {
           throw error;
         }
       }
+    }
+
+    // SELF-HEALING: Sync DB status with Stripe status if they mismatch
+    if (subscription) {
+        // Check cooldown to avoid spamming updates on every request
+        // Read user.last_subscription_sync. If it's undefined, it will be 0.
+        const lastSync = user.last_subscription_sync ? new Date(user.last_subscription_sync).getTime() : 0;
+        const now = Date.now();
+        const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+        const priceId = subscription.items.data[0]?.price?.id;
+        
+        // Determine correct status using shared helper
+        const correctStatus = determineSubscriptionStatus(subscription.status, priceId);
+
+        const isRecent = (now - lastSync) < COOLDOWN_MS;
+        
+        const terminalStatuses = ['canceled', 'unpaid', 'incomplete_expired'];
+        const shouldSync =
+          !isRecent &&
+          user.subscription_status !== correctStatus &&
+          (correctStatus !== 'free' || terminalStatuses.includes(subscription.status));
+
+        if (shouldSync) {
+            console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
+            
+            // Emit metric
+            console.info(`[Metric] subscription_mismatch_detected for user ${req.user!.id} (stripe: ${correctStatus}, db: ${user.subscription_status})`);
+
+            await pool.query(
+                "UPDATE users SET subscription_status = $1, last_subscription_sync = NOW() WHERE id = $2",
+                [correctStatus, req.user!.id]
+            );
+
+            // Update the local user object so the response is correct
+            user.subscription_status = correctStatus;
+            baseResponse.subscription_status = correctStatus;
+        }
     }
 
     // Only fetch invoices if explicitly requested (lazy loading)
@@ -213,6 +340,41 @@ router.get("/details", authenticateToken, async (req, res) => {
     const daysRemaining = calculateDaysRemaining(subscription?.current_period_end);
     const cancelAtPeriodEnd = subscription?.cancel_at_period_end ?? false;
 
+    // Determine is_downgrading by inspecting schedule
+    let isDowngrading = false;
+    if (subscription?.schedule) {
+        const schedule = subscription.schedule as Stripe.SubscriptionSchedule;
+        if (schedule.phases) {
+            // Find current phase index
+            const phases = schedule.phases;
+            const nowInSeconds = Math.floor(Date.now() / 1000);
+            const currentPhaseIndex = phases.findIndex(p => 
+                p.start_date <= nowInSeconds && 
+                (p.end_date === undefined || p.end_date === null || p.end_date > nowInSeconds)
+            );
+            
+            if (currentPhaseIndex !== -1 && currentPhaseIndex < phases.length - 1) {
+                const nextPhase = phases[currentPhaseIndex + 1];
+                
+                // Compare prices to see if next phase is strictly lower tier
+                const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                
+                const nextPhasePrice = nextPhase.items[0]?.price as string | Stripe.Price | undefined;
+                const nextPhasePriceId = typeof nextPhasePrice === 'string' ? nextPhasePrice : nextPhasePrice?.id ?? null;
+                
+                // Use imported getPriceId for current price too if available, or just map IDs
+                // Simpler: Just check if we are going from Pro (current) to Basic (next)
+                
+                const currentPriceId = subscription.items.data[0]?.price?.id;
+                
+                if (currentPriceId === proPriceId && nextPhasePriceId === basicPriceId) {
+                    isDowngrading = true;
+                }
+            }
+        }
+    }
+
     const plan = subscription
       ? {
           id: subscription.items.data[0]?.price?.id ?? null,
@@ -221,6 +383,7 @@ router.get("/details", authenticateToken, async (req, res) => {
           cancel_at_period_end: cancelAtPeriodEnd,
           current_period_start: currentPeriodStart,
           current_period_end: currentPeriodEnd,
+          is_downgrading: isDowngrading,
           start_date: subscription.start_date
             ? new Date(subscription.start_date * 1000).toISOString()
             : null,
@@ -230,6 +393,9 @@ router.get("/details", authenticateToken, async (req, res) => {
           days_remaining: daysRemaining,
           renewal_date: cancelAtPeriodEnd ? null : currentPeriodEnd,
           cancel_effective_date: cancelAtPeriodEnd ? currentPeriodEnd : null,
+          next_payment_amount: subscription.items.data[0]?.price?.unit_amount
+            ? subscription.items.data[0].price.unit_amount / 100
+            : null,
         }
       : null;
 
@@ -348,7 +514,7 @@ router.post("/prices", async (req, res) => {
   }
 });
 
-// Upgrade to Pro - Create Stripe Checkout Session
+// Upgrade to Pro - Update existing subscription
 router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
@@ -361,57 +527,94 @@ router.post("/upgrade-to-pro", authenticateToken, async (req, res) => {
       });
     }
 
-    // Get or create Stripe customer
-    let customerId = req.user!.stripe_customer_id;
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: req.user!.email,
-        metadata: { userId },
-      });
-      customerId = customer.id;
-      await pool.query(
-        "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
-        [customerId, userId]
-      );
-    }
-
     // Fetch current subscription ID from database
     const userResult = await pool.query(
       "SELECT stripe_subscription_id FROM users WHERE id = $1",
       [userId]
     );
-    const currentSubscriptionId = userResult.rows[0]?.stripe_subscription_id ?? null;
+    const user = userResult.rows[0];
 
-    const proPriceId = process.env.STRIPE_PRICE_ID_PRO;
-    if (!proPriceId) {
-      return res.status(500).json({ error: "Pro price ID not configured" });
+    if (!user || !user.stripe_subscription_id) {
+       return res.status(400).json({ error: "No active subscription found to upgrade" });
     }
 
-    // Create checkout session for upgrade
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      payment_method_types: ["card"],
-      line_items: [{ price: proPriceId, quantity: 1 }],
-      mode: "subscription",
-      success_url: `${process.env.FRONTEND_URL}/manage-subscription?success=true&upgraded=pro`,
-      cancel_url: `${process.env.FRONTEND_URL}/manage-subscription?canceled=true`,
-      metadata: { 
-        userId,
-        action: "upgrade_to_pro",
-        ...(currentSubscriptionId && { currentSubscriptionId }),
-      },
-      subscription_data: {
-        metadata: {
-          userId,
-          action: "upgrade_to_pro",
+    // Retrieve current subscription to find the item ID
+    // Retrieve current subscription to find the item ID
+    let subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(user.stripe_subscription_id);
+    } catch (error: any) {
+      if (error?.statusCode === 404 || error?.type === 'StripeInvalidRequestError') {
+        console.error(`Stripe subscription not found: ${user.stripe_subscription_id}`, error);
+        return res.status(400).json({ 
+          error: "Subscription not found in Stripe. Please contact support." 
+        });
+      }
+      throw error;
+    }
+    const currentItemId = subscription.items.data[0]?.id;
+
+    if (!currentItemId) {
+      return res.status(400).json({ error: "Invalid subscription structure" });
+    }
+
+    const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+    if (!proPriceId) {
+       return res.status(500).json({ error: "Pro price ID not configured" });
+    }
+
+    const customerId = req.user!.stripe_customer_id;
+    if (!customerId) {
+        return res.status(400).json({ error: "No Stripe customer found for this user" });
+    }
+
+    // Update subscription with prorations
+    // Using 'always_invoice' automatically creates and finalizes an invoice for the prorations
+    const updatedSubscription = await stripe.subscriptions.update(user.stripe_subscription_id, {
+      items: [
+        {
+          id: currentItemId,
+          price: proPriceId,
         },
-      },
+      ],
+      payment_behavior: 'allow_incomplete',
+      proration_behavior: 'always_invoice',
+      cancel_at_period_end: false,
+      metadata: {
+        action: "upgrade_to_pro",
+        userId: userId
+      }
     });
 
-    res.json({ sessionId: session.id, url: session.url });
-  } catch (error) {
-    console.error("Error creating upgrade checkout session:", error);
-    res.status(500).json({ error: "Failed to create upgrade session" });
+    console.log(`User ${userId} upgraded to Pro. Subscription ${updatedSubscription.id} updated with status: ${updatedSubscription.status}`);
+
+    // Handle success, redirection or payment requirement
+    return handleSuccessfulUpgrade(updatedSubscription, res);
+
+
+  } catch (error: any) {
+    console.error("Error upgrading subscription:", error);
+
+    if (error.type === 'StripeCardError') {
+      return res.status(402).json({
+        error: error.message,
+        payment_intent: error.payment_intent,
+        client_secret: error.payment_intent?.client_secret,
+        code: error.code,
+        decline_code: error.decline_code,
+      });
+    }
+
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({
+        error: error.message,
+      });
+    }
+
+    res.status(500).json({ 
+        error: "Failed to upgrade subscription",
+        details: process.env.NODE_ENV === "development" ? error.message : undefined
+    });
   }
 });
 
@@ -441,7 +644,7 @@ router.post("/downgrade-to-basic", authenticateToken, async (req, res) => {
       });
     }
 
-    const basicPriceId = process.env.STRIPE_PRICE_ID_BASIC;
+    const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
     if (!basicPriceId) {
       return res.status(500).json({ error: "Basic price ID not configured" });
     }
@@ -647,5 +850,6 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 export default router;

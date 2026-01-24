@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -147,13 +148,46 @@ export default function DashboardPage() {
         return;
       }
 
-      setTimeout(async () => {
-        try {
-          await refreshUser();
-        } catch (error) {
-          console.error("Failed to refresh user:", error);
+      // Initial refresh
+      refreshUser().catch(console.error);
+
+      // Start polling for up to 30 seconds to catch async payment confirmation
+      let pollCount = 0;
+      const MAX_POLLS = 10; // 10 * 3s = 30s
+
+      // Clear any existing interval
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      pollIntervalRef.current = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
+          return;
         }
-      }, 2000);
+
+        try {
+          // Fetch fresh status directly from API to avoid closure staleness
+          const status = await apiService.getSubscriptionStatus();
+
+          // If we detect a premium status, we can assume success (since we started at free/unknown)
+          if (status.subscription_status !== 'free') {
+            console.log("Subscription status matches premium, refreshing user context...");
+            await refreshUser();
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }
+        } catch (error) {
+          console.error("Polling refresh failed:", error);
+        }
+      }, 3000);
+
     } else if (canceled === 'true') {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
@@ -162,6 +196,16 @@ export default function DashboardPage() {
       window.history.replaceState({}, document.title, newUrl);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup interval on unmount
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (authLoading) {
