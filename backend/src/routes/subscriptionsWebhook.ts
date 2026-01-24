@@ -3,7 +3,8 @@ import { Request, Response } from "express";
 import pool from "../config/database";
 import stripe from "../config/stripe";
 
-import { SubscriptionStatus, getPriceId, determineSubscriptionStatus } from "../utils/stripe";
+import { getPriceId, determineSubscriptionStatus } from "../utils/stripe";
+import { SubscriptionStatus } from "../config/subscriptionAccess";
 
 async function processSubscriptionDeletionAsync(
     deletedCustomerId: string,
@@ -32,7 +33,7 @@ async function processSubscriptionDeletionAsync(
         // Only set to free if no other active subscriptions exist
         const deleteResult = await pool.query(
             "UPDATE users SET subscription_status = $1, stripe_subscription_id = NULL WHERE stripe_customer_id = $2 RETURNING id",
-            [SubscriptionStatus.FREE, deletedCustomerId]
+            ['free', deletedCustomerId]
         );
 
         if (deleteResult.rows.length > 0) {
@@ -127,16 +128,15 @@ export default async function subscriptionsWebhookHandler(
 
                     // SECURITY: Only grant premium status for 'active' or 'trialing' subscriptions
                     // For incomplete, past_due, unpaid, canceled - set to FREE to prevent bypass
-                    // SECURITY: Only grant premium status for 'active' or 'trialing' subscriptions
-                    // For incomplete, past_due, unpaid, canceled - set to FREE to prevent bypass
                     const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
                     
-                    if (subscriptionStatus === SubscriptionStatus.FREE && ['active', 'trialing'].includes(stripeStatus)) {
+                    
+                    if (subscriptionStatus === 'free' && ['active', 'trialing'].includes(stripeStatus)) {
                          // Only log if we expected it to be active but determineSubscriptionStatus returned FREE (meaning price ID mismatch)
                          const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
                          const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
                          console.warn(`Unrecognized price ID: ${priceId}. Setting status to FREE. (Basic: ${basicPriceId}, Pro: ${proPriceId})`);
-                    } else if (subscriptionStatus === SubscriptionStatus.FREE) {
+                    } else if (subscriptionStatus === 'free') {
                          console.log(`Subscription status is '${stripeStatus}' - not granting premium access until payment is confirmed`);
                     }
 
@@ -214,7 +214,7 @@ export default async function subscriptionsWebhookHandler(
                             // For paid invoices, we generally assume active access if status is valid
                             const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
 
-                            if (subscriptionStatus === SubscriptionStatus.FREE) {
+                            if (subscriptionStatus === 'free') {
                                 if (['active', 'trialing'].includes(stripeStatus)) {
                                      console.warn(`[Payment Succeeded] Unrecognized price ID: ${priceId}`);
                                 } else {
@@ -222,7 +222,7 @@ export default async function subscriptionsWebhookHandler(
                                 }
                             }
 
-                            if (subscriptionStatus !== SubscriptionStatus.FREE) {
+                            if (subscriptionStatus !== 'free') {
                                 const updateResult = await pool.query(
                                     "UPDATE users SET subscription_status = $1, stripe_subscription_id = $2 WHERE stripe_customer_id = $3 RETURNING id",
                                     [subscriptionStatus, subscriptionId, customerId]
@@ -263,7 +263,7 @@ export default async function subscriptionsWebhookHandler(
                         }
 
                         // Determine the starting status by fetching the subscription proactively
-                        let subscriptionStatus = SubscriptionStatus.FREE;
+                        let subscriptionStatus: SubscriptionStatus = 'free';
                         try {
                             const subscription = await stripe.subscriptions.retrieve(sessionSubscriptionId);
                             const priceId = subscription.items.data[0]?.price?.id;
@@ -277,11 +277,11 @@ export default async function subscriptionsWebhookHandler(
                             // Logic to determine initial status - grant premium if active/trialing
                             subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
                             
-                            if (subscriptionStatus === SubscriptionStatus.FREE && ['active', 'trialing'].includes(stripeStatus)) {
+                            if (subscriptionStatus === 'free' && ['active', 'trialing'].includes(stripeStatus)) {
                                  const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
                                  const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
                                  console.warn(`[Checkout Completed] Unrecognized price ID: ${priceId}. Expected Basic: ${basicPriceId} or Pro: ${proPriceId}`);
-                            } else if (subscriptionStatus === SubscriptionStatus.FREE) {
+                            } else if (subscriptionStatus === 'free') {
                                  console.log(`[Checkout Completed] Subscription is in '${stripeStatus}' state, initializing as FREE until payment confirms`);
                             }
                         } catch (subError) {
@@ -311,7 +311,7 @@ export default async function subscriptionsWebhookHandler(
                         // only update the status if the user IS currently 'free'. This prevents overwriting
                         // a successful 'active' status from a previous invoice.payment_succeeded event.
                         let linkResult;
-                        if (subscriptionStatus === SubscriptionStatus.FREE) {
+                        if (subscriptionStatus === 'free') {
                             linkResult = await pool.query(
                                 "UPDATE users SET stripe_customer_id = $1, stripe_subscription_id = $2, subscription_status = CASE WHEN subscription_status = 'free' THEN 'free' ELSE subscription_status END WHERE id = $3 RETURNING id, subscription_status",
                                 [sessionCustomerId, sessionSubscriptionId, userId]

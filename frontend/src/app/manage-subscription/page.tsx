@@ -1109,7 +1109,7 @@ export default function ManageSubscriptionPage() {
                 </>
               ) : (
                 <>
-                  Go to Checkout
+                  Upgrade to Pro
                   <IconArrowRight className="w-4 h-4" />
                 </>
               )}
