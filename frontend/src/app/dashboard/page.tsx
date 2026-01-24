@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [showErrorMessage, setShowErrorMessage] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -154,10 +155,18 @@ export default function DashboardPage() {
       let pollCount = 0;
       const MAX_POLLS = 10; // 10 * 3s = 30s
 
-      const pollInterval = setInterval(async () => {
+      // Clear any existing interval
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      pollIntervalRef.current = setInterval(async () => {
         pollCount++;
         if (pollCount > MAX_POLLS) {
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
           return;
         }
 
@@ -166,19 +175,19 @@ export default function DashboardPage() {
           const status = await apiService.getSubscriptionStatus();
 
           // If we detect a premium status, we can assume success (since we started at free/unknown)
-          // Or we can just check if it's different from what we had initially if we captured it, 
-          // but simpler is to check for non-free if we expect an upgrade.
           if (status.subscription_status !== 'free') {
             console.log("Subscription status matches premium, refreshing user context...");
             await refreshUser();
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
           }
         } catch (error) {
           console.error("Polling refresh failed:", error);
         }
       }, 3000);
 
-      // Cleanup on unmount handled by implicit useEffect dependency
     } else if (canceled === 'true') {
       setShowErrorMessage(true);
       setTimeout(() => setShowErrorMessage(false), 5000);
@@ -187,6 +196,16 @@ export default function DashboardPage() {
       window.history.replaceState({}, document.title, newUrl);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup interval on unmount
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (authLoading) {

@@ -156,6 +156,7 @@ export default function ManageSubscriptionPage() {
   const [showDowngradeConfirmation, setShowDowngradeConfirmation] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [showUpgradeConfirmation, setShowUpgradeConfirmation] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize openFaqIndex based on defaultOpen property using lazy initializer
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(() => {
@@ -189,10 +190,18 @@ export default function ManageSubscriptionPage() {
       let pollCount = 0;
       const MAX_POLLS = 20; // Increased to give webhook more time (60s total)
 
-      const pollInterval = setInterval(async () => {
+      // Clear existing interval
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+
+      pollIntervalRef.current = setInterval(async () => {
         pollCount++;
         if (pollCount > MAX_POLLS) {
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
+          }
           // Even if we timed out, let's do one final reload just in case
           await reloadSubscriptionData();
           return;
@@ -203,15 +212,29 @@ export default function ManageSubscriptionPage() {
           const freshStatus = await apiService.getSubscriptionStatus();
 
           // Check if we reached our target status
-          const isTargetReached = targetStatus
-            ? freshStatus.subscription_status === targetStatus
-            : freshStatus.subscription_status !== subscriptionStatus?.subscription_status; // Fallback to "any change" if no target
+          // Note: using closure-captured subscriptionStatus would be stale, but we don't rely on it for target check
+          // If no targetStatus, we used to check vs subscriptionStatus?.subscription_status. 
+          // This is indeed stale. We should check against 'free' or assume any change is good if we don't have a target?
+          // The prompt says: "replace the stale closure check with a current ref ... or always compare against freshStatus by calling reloadSubscriptionData"
+
+          let isTargetReached = false;
+          if (targetStatus) {
+            isTargetReached = freshStatus.subscription_status === targetStatus;
+          } else {
+            // Fallback: If we don't have a target (e.g. generic success), check if not free?
+            // Or we can rely on just reloading after full timeout?
+            // Let's assume if we just upgraded, we expect it to be NOT free.
+            isTargetReached = freshStatus.subscription_status !== 'free';
+          }
 
           if (isTargetReached) {
             console.log(`Subscription status updated to ${freshStatus.subscription_status} via polling!`);
             // Refresh everything now that we apply the update
             await reloadSubscriptionData();
-            clearInterval(pollInterval);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
           }
         } catch (error) {
           console.error("Polling refresh failed:", error);
@@ -219,6 +242,17 @@ export default function ManageSubscriptionPage() {
       }, 3000);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      // Cleanup interval on unmount
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
+
 
   useEffect(() => {
     // Wait for auth to finish loading

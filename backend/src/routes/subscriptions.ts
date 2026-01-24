@@ -6,19 +6,17 @@ import stripe from "../config/stripe";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { invoiceCache, default as InvoiceCache } from "../utils/invoiceCache";
+import { determineSubscriptionStatus, getPriceId, SubscriptionStatus } from "../utils/stripe";
 
 const router = Router();
 
-// Helper to normalize price IDs from environment variables (removes single/double quotes)
-const getPriceId = (envVar: string | undefined): string => {
-  if (!envVar) return "";
-  return envVar.replace(/['"]/g, "").trim();
-};
-
 const formatPlanName = (priceId?: string | null) => {
   if (!priceId) return "Unknown plan";
-  if (priceId === getPriceId(process.env.STRIPE_PRICE_ID_BASIC)) return "Basic Premium";
-  if (priceId === getPriceId(process.env.STRIPE_PRICE_ID_PRO)) return "Pro Premium";
+  const basicId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+  const proId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+  
+  if (priceId === basicId) return "Basic Premium";
+  if (priceId === proId) return "Pro Premium";
   return "Unknown plan";
 };
 
@@ -73,13 +71,18 @@ const handleSuccessfulUpgrade = async (updatedSubscription: Stripe.Subscription,
                });
            }
        } else if (typeof latestInvoice === 'string') {
-           const invoice = await stripe.invoices.retrieve(latestInvoice);
-           if (invoice.hosted_invoice_url) {
-                return res.json({ 
-                    sessionId: latestInvoice, 
-                    url: invoice.hosted_invoice_url 
-                });
-            }
+           try {
+               const invoice = await stripe.invoices.retrieve(latestInvoice);
+               if (invoice.hosted_invoice_url) {
+                    return res.json({ 
+                        sessionId: latestInvoice, 
+                        url: invoice.hosted_invoice_url 
+                    });
+                }
+           } catch (err) {
+               console.error(`Failed to retrieve invoice ${latestInvoice}:`, err);
+               // Fall through to 402 response below
+           }
        }
        
        // SECURITY: If no invoice URL found for incomplete/past_due, return error - do not grant access
@@ -134,13 +137,24 @@ router.post("/create-checkout-session", authenticateToken, async (req, res) => {
     }
 
     // Prevent duplicate subscriptions if user already has one
+    // Prevent duplicate subscriptions if user already has one
     if (req.user!.stripe_subscription_id) {
-       // Optional: You could allow it if the status is 'canceled' or 'unpaid'
-       // But safer to send them to manage-subscription
-       return res.status(400).json({ 
-         error: "You already have an active subscription. Please manage it in the subscription portal.",
-         redirect: "/manage-subscription"
-       });
+       // Check if existing subscription is still active
+       try {
+         const existingSub = await stripe.subscriptions.retrieve(req.user!.stripe_subscription_id);
+         if (['active', 'trialing', 'past_due', 'incomplete'].includes(existingSub.status)) {
+           return res.status(400).json({ 
+             error: "You already have an active subscription. Please manage it in the subscription portal.",
+             redirect: "/manage-subscription"
+           });
+         }
+         // Subscription is canceled/unpaid, allow new checkout
+       } catch (err: any) {
+         // Subscription not found in Stripe, allow new checkout
+         if (err?.statusCode !== 404) {
+           throw err;
+         }
+       }
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -213,7 +227,7 @@ router.get("/status", authenticateToken, async (req, res) => {
 router.get("/details", authenticateToken, async (req, res) => {
   try {
     const userResult = await pool.query(
-      "SELECT id, subscription_status, stripe_customer_id, stripe_subscription_id, created_at FROM users WHERE id = $1",
+      "SELECT id, subscription_status, stripe_customer_id, stripe_subscription_id, created_at, last_subscription_sync FROM users WHERE id = $1",
       [req.user!.id],
     );
 
@@ -258,30 +272,93 @@ router.get("/details", authenticateToken, async (req, res) => {
     }
 
     // SELF-HEALING: Sync DB status with Stripe status if they mismatch
-    if (subscription && ['active', 'trialing'].includes(subscription.status)) {
-        const priceId = subscription.items.data[0]?.price?.id;
-        const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
-        const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
-        
-        let correctStatus = 'free';
-        if (priceId === basicPriceId) {
-            correctStatus = 'basic_premium';
-        } else if (priceId === proPriceId) {
-            correctStatus = 'pro_premium';
-        }
+    if (subscription) {
+        // Check cooldown to avoid spamming updates on every request
+        // Read user.last_subscription_sync. If it's undefined, it will be 0.
+        const lastSync = user.last_subscription_sync ? new Date(user.last_subscription_sync).getTime() : 0;
+        const now = Date.now();
+        const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 
-        // If DB status is free but Stripe is active, or if they just disagree on plan tier
-        if (correctStatus !== 'free' && user.subscription_status !== correctStatus) {
-            console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
-            
-            await pool.query(
-                "UPDATE users SET subscription_status = $1 WHERE id = $2",
-                [correctStatus, req.user!.id]
-            );
-            
-            // Update the local user object so the response is correct
-            user.subscription_status = correctStatus;
-            baseResponse.subscription_status = correctStatus;
+        const priceId = subscription.items.data[0]?.price?.id;
+        
+        // Determine correct status using shared helper
+        const correctStatus = determineSubscriptionStatus(subscription.status, priceId);
+
+        // Logic:
+        // 1. If we have a mismatch (stripe says X, DB says Y), we should verify. 
+        //    But to avoid spamming, we only do this if we haven't synced 'recently' OR if the mismatch is critical (e.g. DB says free, Stripe says active).
+        //    Actually, the instruction says "skip the UPDATE if last_subscription_sync is recent".
+        // 2. However, if the mismatch is critical (user paid but no access), we might want to bypass cooldown? 
+        //    The user prompt says: "skip the UPDATE if last_subscription_sync is recent... and when you do perform the subscription_status UPDATE also set last_subscription_sync = now()"
+        
+        // Let's stick to the prompt: Read last_subscription_sync, skip if recent.
+        
+        const isRecent = (now - lastSync) < COOLDOWN_MS;
+        
+        if (!isRecent) {
+             // If DB status is free but Stripe is active, or if they just disagree on plan tier
+            if (correctStatus !== 'free' && user.subscription_status !== correctStatus) {
+                console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
+                
+                // Emit metric
+                console.info(`[Metric] subscription_mismatch_detected for user ${req.user!.id} (stripe: ${correctStatus}, db: ${user.subscription_status})`);
+
+                await pool.query(
+                    "UPDATE users SET subscription_status = $1, last_subscription_sync = NOW() WHERE id = $2",
+                    [correctStatus, req.user!.id]
+                );
+
+                // Update the local user object so the response is correct
+                user.subscription_status = correctStatus;
+                baseResponse.subscription_status = correctStatus;
+            } else {
+                 // Even if no mismatch, update sync timestamp so we don't check constantly?
+                 // Prompt says "when you do perform the subscription_status UPDATE also set last_subscription_sync = now()".
+                 // It doesn't strictly say to update it otherwise, but it's good practice to mark we checked.
+                 // However, following strict prompt: "read user.last_subscription_sync ... skip the UPDATE if last_subscription_sync is recent"
+                 // This implies we check every time, but only WRITE if NOT recent AND mismatch.
+                 
+                 // Wait, if no mismatch, we should probably still update last_subscription_sync so we don't re-check actively? 
+                 // Actually, if there is NO mismatch, the cost is just the check in memory (cheap). The expensive part is the DB write.
+                 // So we only need to gate the DB write.
+                 
+                 // BUT, if we don't update last_subscription_sync on success, 'lastSync' stays old, so 'isRecent' checks will always pass (always false),
+                 // meaning we are always eligible to update. That is fine if we only update on mismatch. 
+                 
+                 // Actually, standard practice for "last sync": update it whenever we successfully sync (verification).
+                 // I'll update it if we haven't synced in a while, regardless of mismatch, to keep it fresh.
+                 
+                 // Actually, the prompt says: "when you do perform the subscription_status UPDATE also set last_subscription_sync = now()"
+                 // It implies the timestamp relates to the *update*. 
+                 // But let's look at the instruction again: "skip the UPDATE if last_subscription_sync is recent".
+                 
+                 // If I only update timestamp on mismatch fix, then for a normal user (no mismatch), last_sync is never updated.
+                 // So for normal user, isRecent is always false.
+                 // So we always check for mismatch. Checking for mismatch is cheap (in-memory comparison).
+                 // So effectively, we are always checking for mismatch, but we only DB Update if mismatch AND not recent.
+                 // Wait, if mismatch exists and it IS recent, we skip update? That means user stays improved for an hour?
+                 // That seems to be the request ("skip the UPDATE if last_subscription_sync is recent").
+                 // This acts as a throttle on the self-healing DB writes.
+                 
+                 // Correct logic:
+                 // Check mismatch.
+                 // If mismatch found:
+                 //    If recent: Log and skip.
+                 //    If not recent: Update DB and set last_subscription_sync = NOW().
+                 
+                 if (correctStatus !== 'free' && user.subscription_status !== correctStatus) {
+                     console.log(`[Self-Healing] Mismatch detected for user ${req.user!.id}. DB: ${user.subscription_status}, Stripe: ${correctStatus}. Updating DB...`);
+                     console.info(`[Metric] subscription_mismatch_detected for user ${req.user!.id}`);
+
+                     await pool.query(
+                        "UPDATE users SET subscription_status = $1, last_subscription_sync = NOW() WHERE id = $2",
+                        [correctStatus, req.user!.id]
+                     );
+
+                     user.subscription_status = correctStatus;
+                     baseResponse.subscription_status = correctStatus;
+                 }
+            }
         }
     }
 
@@ -316,6 +393,37 @@ router.get("/details", authenticateToken, async (req, res) => {
     const daysRemaining = calculateDaysRemaining(subscription?.current_period_end);
     const cancelAtPeriodEnd = subscription?.cancel_at_period_end ?? false;
 
+    // Determine is_downgrading by inspecting schedule
+    let isDowngrading = false;
+    if (subscription?.schedule) {
+        const schedule = subscription.schedule as Stripe.SubscriptionSchedule;
+        if (schedule.phases) {
+            // Find current phase index
+            const phases = schedule.phases;
+            const currentPhaseIndex = phases.findIndex(p => p.start_date <= Date.now() / 1000 && p.end_date > Date.now() / 1000);
+            
+            if (currentPhaseIndex !== -1 && currentPhaseIndex < phases.length - 1) {
+                const nextPhase = phases[currentPhaseIndex + 1];
+                
+                // Compare prices to see if next phase is strictly lower tier
+                const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                
+                const nextPhasePrice = nextPhase.items[0]?.price as string | Stripe.Price;
+                const nextPhasePriceId = typeof nextPhasePrice === 'string' ? nextPhasePrice : nextPhasePrice.id;
+                
+                // Use imported getPriceId for current price too if available, or just map IDs
+                // Simpler: Just check if we are going from Pro (current) to Basic (next)
+                
+                const currentPriceId = subscription.items.data[0]?.price?.id;
+                
+                if (currentPriceId === proPriceId && nextPhasePriceId === basicPriceId) {
+                    isDowngrading = true;
+                }
+            }
+        }
+    }
+
     const plan = subscription
       ? {
           id: subscription.items.data[0]?.price?.id ?? null,
@@ -324,7 +432,7 @@ router.get("/details", authenticateToken, async (req, res) => {
           cancel_at_period_end: cancelAtPeriodEnd,
           current_period_start: currentPeriodStart,
           current_period_end: currentPeriodEnd,
-          is_downgrading: !!subscription.schedule,
+          is_downgrading: isDowngrading,
           start_date: subscription.start_date
             ? new Date(subscription.start_date * 1000).toISOString()
             : null,
@@ -779,5 +887,6 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 export default router;

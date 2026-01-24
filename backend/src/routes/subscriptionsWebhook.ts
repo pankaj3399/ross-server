@@ -3,17 +3,7 @@ import { Request, Response } from "express";
 import pool from "../config/database";
 import stripe from "../config/stripe";
 
-enum SubscriptionStatus {
-    FREE = "free",
-    BASIC_PREMIUM = "basic_premium",
-    PRO_PREMIUM = "pro_premium",
-}
-
-// Helper to normalize price IDs from environment variables (removes single/double quotes)
-const getPriceId = (envVar: string | undefined): string => {
-    if (!envVar) return "";
-    return envVar.replace(/['"]/g, "").trim();
-};
+import { SubscriptionStatus, getPriceId, determineSubscriptionStatus } from "../utils/stripe";
 
 async function processSubscriptionDeletionAsync(
     deletedCustomerId: string,
@@ -137,24 +127,17 @@ export default async function subscriptionsWebhookHandler(
 
                     // SECURITY: Only grant premium status for 'active' or 'trialing' subscriptions
                     // For incomplete, past_due, unpaid, canceled - set to FREE to prevent bypass
-                    let subscriptionStatus = SubscriptionStatus.FREE;
+                    // SECURITY: Only grant premium status for 'active' or 'trialing' subscriptions
+                    // For incomplete, past_due, unpaid, canceled - set to FREE to prevent bypass
+                    const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
                     
-                    if (stripeStatus === 'active' || stripeStatus === 'trialing') {
-                        // Only grant premium access for paid/trial subscriptions
-                        const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
-                        const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
-
-                        if (priceId === basicPriceId) {
-                            subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
-                        } else if (priceId === proPriceId) {
-                            subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
-                        } else {
-                            console.warn(`Unrecognized price ID: ${priceId}. Setting status to FREE. (Basic: ${basicPriceId}, Pro: ${proPriceId})`);
-                        }
-                    } else {
-                        // For incomplete, past_due, unpaid, canceled - do NOT grant premium access
-                        console.log(`Subscription status is '${stripeStatus}' - not granting premium access until payment is confirmed`);
-                        subscriptionStatus = SubscriptionStatus.FREE;
+                    if (subscriptionStatus === SubscriptionStatus.FREE && ['active', 'trialing'].includes(stripeStatus)) {
+                         // Only log if we expected it to be active but determineSubscriptionStatus returned FREE (meaning price ID mismatch)
+                         const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                         const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                         console.warn(`Unrecognized price ID: ${priceId}. Setting status to FREE. (Basic: ${basicPriceId}, Pro: ${proPriceId})`);
+                    } else if (subscriptionStatus === SubscriptionStatus.FREE) {
+                         console.log(`Subscription status is '${stripeStatus}' - not granting premium access until payment is confirmed`);
                     }
 
                     // Update user subscription status and subscription ID with logging
@@ -227,26 +210,16 @@ export default async function subscriptionsWebhookHandler(
                                 break;
                             }
 
-                            // Determine status based on price
-                            let subscriptionStatus = SubscriptionStatus.FREE;
-                            
+                            // Determine status based on price using shared helper
                             // For paid invoices, we generally assume active access if status is valid
-                            // Note: We check against the same logic as subscription.updated for consistency
-                            if (['active', 'trialing'].includes(stripeStatus)) {
-                                const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
-                                const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                            const subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
 
-                                if (priceId === basicPriceId) {
-                                    subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
-                                } else if (priceId === proPriceId) {
-                                    subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
+                            if (subscriptionStatus === SubscriptionStatus.FREE) {
+                                if (['active', 'trialing'].includes(stripeStatus)) {
+                                     console.warn(`[Payment Succeeded] Unrecognized price ID: ${priceId}`);
                                 } else {
-                                    console.warn(`[Payment Succeeded] Unrecognized price ID: ${priceId}`);
+                                     console.log(`[Payment Succeeded] Subscription status is '${stripeStatus}' - not granting premium yet`);
                                 }
-                            } else {
-                                console.log(`[Payment Succeeded] Subscription status is '${stripeStatus}' - not granting premium yet`);
-                                // Maintain existing status or handle as needed - simpler to let subscription.updated handle non-active states
-                                // But if payment just SUCCEEDED, it really SHOULD be active soon.
                             }
 
                             if (subscriptionStatus !== SubscriptionStatus.FREE) {
@@ -302,19 +275,14 @@ export default async function subscriptionsWebhookHandler(
                             });
 
                             // Logic to determine initial status - grant premium if active/trialing
-                            if (['active', 'trialing'].includes(stripeStatus)) {
-                                const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
-                                const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
-
-                                if (priceId === basicPriceId) {
-                                    subscriptionStatus = SubscriptionStatus.BASIC_PREMIUM;
-                                } else if (priceId === proPriceId) {
-                                    subscriptionStatus = SubscriptionStatus.PRO_PREMIUM;
-                                } else {
-                                    console.warn(`[Checkout Completed] Unrecognized price ID: ${priceId}. Expected Basic: ${basicPriceId} or Pro: ${proPriceId}`);
-                                }
-                            } else {
-                                console.log(`[Checkout Completed] Subscription is in '${stripeStatus}' state, initializing as FREE until payment confirms`);
+                            subscriptionStatus = determineSubscriptionStatus(stripeStatus, priceId);
+                            
+                            if (subscriptionStatus === SubscriptionStatus.FREE && ['active', 'trialing'].includes(stripeStatus)) {
+                                 const basicPriceId = getPriceId(process.env.STRIPE_PRICE_ID_BASIC);
+                                 const proPriceId = getPriceId(process.env.STRIPE_PRICE_ID_PRO);
+                                 console.warn(`[Checkout Completed] Unrecognized price ID: ${priceId}. Expected Basic: ${basicPriceId} or Pro: ${proPriceId}`);
+                            } else if (subscriptionStatus === SubscriptionStatus.FREE) {
+                                 console.log(`[Checkout Completed] Subscription is in '${stripeStatus}' state, initializing as FREE until payment confirms`);
                             }
                         } catch (subError) {
                             console.error("[Checkout Completed] Error fetching subscription details:", subError);
