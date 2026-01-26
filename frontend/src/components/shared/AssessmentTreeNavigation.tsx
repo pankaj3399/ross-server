@@ -13,6 +13,8 @@ import {
   IconLock,
   IconCrown,
   IconScale,
+  IconShield,
+  IconClipboardCheck,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -437,54 +439,79 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             );
           })}
 
-          {/* Fairness & Bias Test Button */}
-          {projectId && onFairnessBiasClick && (
-            <div className="select-none mt-4">
-              <div
-                className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200 hover:opacity-90`}
-                onClick={onFairnessBiasClick}
-              >
-                <div className="flex justify-center items-center gap-3 flex-1 bg-primary rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <IconScale className="w-4 h-4 text-primary-foreground stroke-2" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-primary-foreground truncate">
-                      Fairness & Bias Test
-                    </h3>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        </div>
 
-          {/* Premium Features Section */}
-          {projectId && !hidePremiumFeaturesButton && (
-            <div className="select-none">
+        {/* Premium Features Section */}
+        {projectId && !hidePremiumFeaturesButton && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-4 px-2">
+              <IconCrown className="w-5 h-5 text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">
+                Premium Features
+              </h2>
+            </div>
+
+            <div className="space-y-1">
+              {/* AI Vulnerability Assessment */}
               <div
-                className={`flex items-center justify-center p-3 rounded-lg cursor-pointer transition-all duration-200`}
+                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
                 onClick={() => {
                   if (premiumStatus) {
-                    router.push(`/assess/${projectId}/premium-features`);
+                    router.push(`/assess/${projectId}/premium-domains`);
                   } else {
                     router.push(`/manage-subscription`);
                   }
                 }}
               >
-                <div className="flex justify-center items-center gap-3 flex-1 bg-primary rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <IconCrown className="w-4 h-4 text-primary-foreground stroke-2 fill-primary-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-primary-foreground truncate">
-                      Premium Features
-                    </h3>
-                  </div>
+                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
+                  <IconShield className="w-4 h-4" />
                 </div>
+                <span className="text-xs font-medium text-foreground">
+                  Vulnerability Assessment
+                </span>
+              </div>
+
+              {/* Bias & Fairness Testing */}
+              <div
+                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
+                onClick={() => {
+                  // Always allowing access to verify, handled by page logic or if actually premium required
+                  // The FeatureConfig said bias-fairness doesn't require premium domains, but usually requires sub?
+                  // The page logic for fairness-bias checks premium status too?
+                  // Checking the implementation_plan logic: "Bias & Fairness Testing" -> `/assess/${projectId}/fairness-bias/options`
+                  router.push(`/assess/${projectId}/fairness-bias/options`);
+                }}
+              >
+                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
+                  <IconScale className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium text-foreground">
+                  Bias & Fairness Testing
+                </span>
+              </div>
+
+              {/* Governance Controls */}
+              <div
+                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
+                onClick={() => {
+                  if (premiumStatus) {
+                    router.push(`/assess/${projectId}/premium-domains`);
+                  } else {
+                    router.push(`/manage-subscription`);
+                  }
+                }}
+              >
+                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
+                  <IconClipboardCheck className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium text-foreground">
+                  Governance Controls
+                </span>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
 
         {/* Overall Progress Summary */}
         <div className="mt-8 p-4 bg-muted/50 rounded-lg">
