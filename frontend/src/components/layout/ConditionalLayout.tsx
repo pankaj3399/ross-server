@@ -24,8 +24,10 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }
 
   // Show sidebar on all other pages (including home, assess, etc.)
+  const isDashboard = pathname === "/dashboard";
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={!isDashboard}>
       <AppSidebar />
       <SidebarInset {...(isHomePage ? { style: { marginLeft: 0 } } : {})}>
         {isHomePage && <Header />}
