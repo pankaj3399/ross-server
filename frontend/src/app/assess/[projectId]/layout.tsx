@@ -23,7 +23,6 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
 
     const {
         progressData,
-        navigateToDomain,
         navigateToPractice,
     } = useAssessmentNavigation({
         domains,
@@ -56,7 +55,8 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         setCurrentDomainId(domainId);
         setCurrentPracticeId(practiceId);
         setCurrentQuestionIndex(0);
-        navigateToPractice(domainId, practiceId);
+        setCurrentQuestionIndex(0);
+        // navigateToPractice(domainId, practiceId); // REMOVED: Redundant with router.push logic and internal state setters
         // Ensure we are on the main assessment page if clicking a practice
         // But if we are in premium-features, maybe we want to go back?
         // The previous logic pushed router to `/assess/${projectId}`.

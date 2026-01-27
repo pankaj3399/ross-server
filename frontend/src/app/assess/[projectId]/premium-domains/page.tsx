@@ -12,7 +12,6 @@ export default function PremiumDomainsPage() {
   const {
     projectId,
     loading,
-    answers,
     domains,
     isPremium,
     currentDomainId,

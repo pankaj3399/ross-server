@@ -117,6 +117,7 @@ const DomainTreeItem = ({
   toggleDomain,
   icon: Icon,
   premiumStatus = true,
+  activeQuestionRef,
 }: {
   domain: Domain;
   currentDomainId: string | undefined;
@@ -129,6 +130,7 @@ const DomainTreeItem = ({
   toggleDomain: (id: string) => void;
   icon: any;
   premiumStatus?: boolean;
+  activeQuestionRef?: React.RefObject<HTMLLIElement>;
 }) => {
   const isDomainActive = currentDomainId === domain.id;
   const isDomainExpanded = expandedDomainId === domain.id;
@@ -201,7 +203,7 @@ const DomainTreeItem = ({
                         {practice.questions.map((q, qIdx) => {
                           const isQuestionActive = isPracticeActive && currentQuestionIndex === qIdx;
                           return (
-                            <SidebarMenuSubItem key={qIdx}>
+                            <SidebarMenuSubItem key={qIdx} ref={isQuestionActive ? activeQuestionRef : undefined}>
                               <SidebarMenuSubButton
                                 onClick={() => onQuestionClick(domain.id, practice.id, qIdx)}
                                 isActive={isQuestionActive}
@@ -435,6 +437,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                         toggleDomain={toggleDomain}
                         icon={IconBrain}
                         premiumStatus={premiumStatus}
+                        activeQuestionRef={currentQuestionRef}
                       />
                     ))}
                   </SidebarMenu>
@@ -603,6 +606,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           toggleDomain={toggleDomain}
                                           icon={IconBrain}
                                           premiumStatus={premiumStatus}
+                                          activeQuestionRef={currentQuestionRef}
                                         />
                                       ))}
                                     </SidebarMenuSub>
