@@ -7,6 +7,8 @@ import type { DatasetReportPayload, PreviewData, DatasetMetric } from "../types"
 
 type ReportHistoryProps = {
     projectId: string;
+    projectName?: string;
+    aiSystemType?: string;
 };
 
 interface FairnessData {
@@ -34,7 +36,7 @@ type Report = {
     created_at: string;
 };
 
-export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
+export const ReportHistory = ({ projectId, projectName, aiSystemType }: ReportHistoryProps) => {
     const router = useRouter();
     const [reports, setReports] = useState<Report[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -84,6 +86,8 @@ export const ReportHistory = ({ projectId }: ReportHistoryProps) => {
                 threshold: 0.5,
                 testType: "userData",
             },
+            projectName,
+            aiSystemType,
         };
 
         if (typeof window !== "undefined") {

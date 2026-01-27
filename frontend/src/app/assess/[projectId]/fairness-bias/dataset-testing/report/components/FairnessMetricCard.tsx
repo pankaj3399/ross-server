@@ -175,7 +175,7 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-semibold text-muted-foreground">{title}</span>
-                    <Badge variant={config.badgeVariant} className={`${config.bgColor} ${config.color}`}>
+                    <Badge variant={config.badgeVariant} className={`${config.bgColor} ${config.color} pdf-badge`}>
                         {config.badgeLabel}
                     </Badge>
                 </div>

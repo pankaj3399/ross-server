@@ -7,27 +7,32 @@ export const styleHeader = (root: HTMLElement) => {
     const header = root.querySelector("header");
     if (header) {
         const headerEl = header as HTMLElement;
-        headerEl.style.backgroundColor = "#ffffff";
-        headerEl.style.borderBottom = "3px solid #4f46e5"; // Indigo accent line
-        headerEl.style.padding = "24px 0";
-        headerEl.style.marginBottom = "32px";
+        headerEl.style.backgroundColor = "#4285f4"; // Primary Blue
+        headerEl.style.padding = "20px 0";
+        headerEl.style.marginBottom = "24px";
+        headerEl.style.textAlign = "center";
+        
+        // Remove bottom border if any
+        headerEl.style.borderBottom = "none";
         
         // Style header text
         const h1 = headerEl.querySelector("h1");
         if (h1) {
-            (h1 as HTMLElement).style.fontSize = "28px";
+            (h1 as HTMLElement).style.fontSize = "24px"; // Slightly smaller for better fit
             (h1 as HTMLElement).style.fontWeight = "700";
-            (h1 as HTMLElement).style.color = "#0f172a";
-            (h1 as HTMLElement).style.letterSpacing = "-0.02em";
+            (h1 as HTMLElement).style.color = "#ffffff"; // White text
+            (h1 as HTMLElement).style.letterSpacing = "-0.01em";
+            (h1 as HTMLElement).style.margin = "0 0 4px 0";
         }
         
         // Style subtitle/label
         headerEl.querySelectorAll("p.text-xs").forEach((p) => {
             const pEl = p as HTMLElement;
-            pEl.style.color = "#6366f1"; // indigo-500
+            pEl.style.color = "#ffffff"; // White text
             pEl.style.fontWeight = "600";
             pEl.style.textTransform = "uppercase";
-            pEl.style.letterSpacing = "0.1em";
+            pEl.style.letterSpacing = "0.05em";
+            pEl.style.margin = "0";
         });
     }
 };
@@ -35,19 +40,58 @@ export const styleHeader = (root: HTMLElement) => {
 export const styleGrid = (root: HTMLElement) => {
     root.querySelectorAll(".grid").forEach((el) => {
         const elem = el as HTMLElement;
+        const classes = elem.className || "";
+        
         elem.style.display = "grid";
-        elem.style.gap = "24px";
+        
+        // Check for specific grid configurations
+        if (classes.includes("pdf-metric-grid") || classes.includes("lg:grid-cols-5")) {
+            // 3-column grid for metric cards - fits 3x3 layout on one page
+            elem.style.setProperty("grid-template-columns", "repeat(3, 1fr)", "important");
+            elem.style.gap = "12px";
+        } else if (classes.includes("lg:grid-cols-2")) {
+            // 2-column grid
+            elem.style.setProperty("grid-template-columns", "repeat(2, 1fr)", "important");
+            elem.style.gap = "16px";
+        } else if (classes.includes("md:grid-cols-3")) {
+            // 3-column grid on medium screens
+            elem.style.setProperty("grid-template-columns", "repeat(3, 1fr)", "important");
+            elem.style.gap = "12px";
+        } else if (classes.includes("grid-cols-2")) {
+            // 2-column grid
+            elem.style.setProperty("grid-template-columns", "repeat(2, 1fr)", "important");
+            elem.style.gap = "12px";
+        } else {
+            // Default gap
+            elem.style.gap = "16px";
+        }
     });
 };
 
 export const styleCards = (root: HTMLElement) => {
     root.querySelectorAll(".rounded-3xl, .rounded-2xl, .rounded-xl").forEach((el) => {
         const elem = el as HTMLElement;
+        const classes = elem.className || "";
+        
         elem.style.backgroundColor = "#ffffff";
         elem.style.border = "1px solid #e2e8f0";
-        elem.style.borderRadius = "16px";
-        elem.style.boxShadow = "0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04)";
         elem.style.overflow = "hidden";
+        
+        // Metric cards in the grid get tighter styling
+        if (elem.closest(".pdf-metric-grid")) {
+            elem.style.borderRadius = "6px";
+            elem.style.boxShadow = "0 1px 3px -1px rgba(0, 0, 0, 0.06)";
+            elem.style.padding = "6px";
+        } else if (classes.includes("rounded-3xl")) {
+            elem.style.borderRadius = "16px";
+            elem.style.boxShadow = "0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 8px -2px rgba(0, 0, 0, 0.04)";
+        } else if (classes.includes("rounded-2xl")) {
+            elem.style.borderRadius = "12px";
+            elem.style.boxShadow = "0 2px 12px -2px rgba(0, 0, 0, 0.06)";
+        } else {
+            elem.style.borderRadius = "8px";
+            elem.style.boxShadow = "0 1px 6px -1px rgba(0, 0, 0, 0.05)";
+        }
     });
 };
 
@@ -55,6 +99,22 @@ export const styleSectionCards = (root: HTMLElement) => {
     root.querySelectorAll("section > .rounded-3xl").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.boxShadow = "0 8px 30px -8px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.06)";
+        elem.style.padding = "16px"; // Compact padding for page fit
+    });
+    
+    // Make the main section with metrics more compact
+    root.querySelectorAll("section.rounded-3xl, section > .rounded-3xl").forEach((el) => {
+        const elem = el as HTMLElement;
+        // Reduce internal spacing
+        elem.querySelectorAll(".space-y-8").forEach(spacer => {
+            (spacer as HTMLElement).style.setProperty("gap", "16px", "important");
+        });
+        elem.querySelectorAll(".space-y-6").forEach(spacer => {
+            (spacer as HTMLElement).style.setProperty("gap", "12px", "important");
+        });
+        elem.querySelectorAll(".space-y-4").forEach(spacer => {
+            (spacer as HTMLElement).style.setProperty("gap", "8px", "important");
+        });
     });
 };
 
@@ -63,7 +123,24 @@ export const styleUploadInfo = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = "#f8fafc";
         elem.style.border = "1px solid #e2e8f0";
-        elem.style.borderRadius = "12px";
+        elem.style.borderRadius = "8px";
+        elem.style.padding = "12px"; // Compact padding
+        
+        // Reduce internal spacing
+        elem.querySelectorAll(".space-y-3").forEach(spacer => {
+            (spacer as HTMLElement).style.setProperty("gap", "6px", "important");
+        });
+        
+        // Smaller text
+        elem.querySelectorAll(".text-base").forEach(text => {
+            (text as HTMLElement).style.fontSize = "13px";
+        });
+        elem.querySelectorAll(".text-sm").forEach(text => {
+            (text as HTMLElement).style.fontSize = "11px";
+        });
+        elem.querySelectorAll(".text-xs").forEach(text => {
+            (text as HTMLElement).style.fontSize = "9px";
+        });
     });
 };
 
@@ -72,7 +149,24 @@ export const styleAnalysisParams = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = "#eef2ff";
         elem.style.border = "1px solid #c7d2fe";
-        elem.style.borderRadius = "12px";
+        elem.style.borderRadius = "8px";
+        elem.style.padding = "12px"; // Compact padding
+        
+        // Reduce internal spacing
+        elem.querySelectorAll(".space-y-3").forEach(spacer => {
+            (spacer as HTMLElement).style.setProperty("gap", "6px", "important");
+        });
+        
+        // Smaller text
+        elem.querySelectorAll(".text-lg").forEach(text => {
+            (text as HTMLElement).style.fontSize = "14px";
+        });
+        elem.querySelectorAll(".text-sm").forEach(text => {
+            (text as HTMLElement).style.fontSize = "11px";
+        });
+        elem.querySelectorAll(".text-xs").forEach(text => {
+            (text as HTMLElement).style.fontSize = "9px";
+        });
     });
 };
 
@@ -112,21 +206,34 @@ export const styleVerdictColors = (root: HTMLElement) => {
 };
 
 export const styleBadges = (root: HTMLElement) => {
-    root.querySelectorAll("[class*='badge'], [class*='Badge']").forEach(el => {
+    // Specifically target our new class and any other potential badges
+    root.querySelectorAll(".pdf-badge, [class*='badge'], [class*='Badge']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.fontWeight = "600";
-        elem.style.fontSize = "11px";
-        elem.style.padding = "2px 12px"; // Reduced vertical padding
-        elem.style.paddingTop = "2px";
-        elem.style.paddingBottom = "2px";
-        elem.style.borderRadius = "20px"; // More rounded
-        elem.style.display = "inline-flex";
-        elem.style.alignItems = "center";
-        elem.style.justifyContent = "center";
-        elem.style.lineHeight = "1"; // Reset line height for better centering
-        elem.style.height = "auto";
-        elem.style.minWidth = "60px"; // Minimum width for consistency
-        elem.style.boxSizing = "border-box";
+        
+        // Check if this badge is inside the metric grid for extra compact styling
+        const isInMetricGrid = elem.closest(".pdf-metric-grid") !== null;
+        
+        const fontSize = isInMetricGrid ? "9px" : "11px";
+        const hPadding = isInMetricGrid ? "6px" : "10px";
+        
+        // Asymmetrical vertical padding to shift text UP (more padding on bottom)
+        const vPaddingTop = isInMetricGrid ? "1px" : "1px";
+        const vPaddingBottom = isInMetricGrid ? "8px" : "10px";
+        
+        elem.style.setProperty("font-weight", "700", "important");
+        elem.style.setProperty("border-radius", "12px", "important");
+        elem.style.setProperty("display", "inline-block", "important");
+        elem.style.setProperty("font-size", fontSize, "important");
+        elem.style.setProperty("padding", `${vPaddingTop} ${hPadding} ${vPaddingBottom} ${hPadding}`, "important");
+        elem.style.setProperty("line-height", "1", "important");
+        elem.style.setProperty("vertical-align", "middle", "important");
+        elem.style.setProperty("box-sizing", "border-box", "important");
+        elem.style.setProperty("text-align", "center", "important");
+        elem.style.setProperty("min-width", isInMetricGrid ? "auto" : "55px", "important");
+        
+        // Force height to be auto based on padding + line-height (reliable for html2canvas)
+        elem.style.setProperty("height", "auto", "important");
+        elem.style.setProperty("margin", "0", "important");
     });
 };
 
@@ -191,14 +298,14 @@ export const styleMetricCards = (root: HTMLElement) => {
     const metricGrid = root.querySelector(".pdf-metric-grid") as HTMLElement;
     if (metricGrid) {
         metricGrid.style.display = "grid";
-        // Use 5 columns to fit more metrics per row
-        metricGrid.style.gridTemplateColumns = "repeat(5, 1fr)";
-        metricGrid.style.width = "100%";
-        // Use standard setProperty for priority
-        metricGrid.style.setProperty("grid-template-columns", "repeat(5, 1fr)", "important");
+        // Use 3 columns for a 3x3 grid layout that fits on one page
+        metricGrid.style.setProperty("grid-template-columns", "repeat(3, 1fr)", "important");
         metricGrid.style.setProperty("display", "grid", "important");
-        metricGrid.style.gap = "12px"; // Smaller gap for 5 columns
+        metricGrid.style.gap = "12px"; // Comfortable gap for 3-column layout
         metricGrid.style.setProperty("grid-auto-rows", "auto", "important");
+        metricGrid.style.width = "100%";
+        metricGrid.style.padding = "0";
+        metricGrid.style.margin = "0";
         // Ensure all children are visible
         metricGrid.querySelectorAll(":scope > *").forEach((child) => {
             const childEl = child as HTMLElement;
@@ -213,11 +320,12 @@ export const styleMetricCards = (root: HTMLElement) => {
         elem.style.backgroundColor = "#ffffff";
         elem.style.border = "1px solid #e2e8f0";
         elem.style.borderRadius = "8px";
-        elem.style.padding = "10px"; // Comfortable padding
+        elem.style.padding = "12px"; // Comfortable padding for 3x3 grid
         elem.style.breakInside = "avoid";
         elem.style.overflow = "hidden";
         elem.style.minWidth = "0"; // CRITICAL: Allows grid items to shrink below content size
         elem.style.width = "100%"; // Ensure it fills the grid cell
+        elem.style.boxSizing = "border-box";
 
         // Compact typography for children
         // Title
@@ -225,29 +333,32 @@ export const styleMetricCards = (root: HTMLElement) => {
         if (title) {
             title.style.fontSize = "11px";
             title.style.marginBottom = "4px";
-            title.style.fontWeight = "700";
+            title.style.fontWeight = "600";
+            title.style.lineHeight = "1.2";
         }
 
-        // Badge
-        const badge = elem.querySelector(".badge, .Badge") as HTMLElement;
-        if (badge) {
-            badge.style.display = "inline-flex";
-            badge.style.alignItems = "center";
-            badge.style.justifyContent = "center";
-            badge.style.fontSize = "9px";
-            badge.style.padding = "0 8px"; // Remove vertical padding to let flex center it
-            badge.style.paddingTop = "0";
-            badge.style.paddingBottom = "0";
-            badge.style.minWidth = "auto";
-            badge.style.height = "18px";
-            badge.style.lineHeight = "1"; // Ensure no extra line height
-            badge.style.boxSizing = "border-box";
-        }
+        // Badge - compact but readable for 3x3 grid
+        elem.querySelectorAll(".pdf-badge, [class*='badge'], [class*='Badge']").forEach(b => {
+            const badge = b as HTMLElement;
+            badge.style.setProperty("display", "inline-block", "important");
+            badge.style.setProperty("vertical-align", "middle", "important");
+            badge.style.setProperty("font-size", "9px", "important");
+            // Asymmetrical padding to shift text UP
+            badge.style.setProperty("padding", "1px 8px 3px 8px", "important");
+            badge.style.setProperty("line-height", "1", "important");
+            badge.style.setProperty("height", "auto", "important");
+            badge.style.setProperty("min-width", "auto", "important");
+            badge.style.setProperty("box-sizing", "border-box", "important");
+            badge.style.setProperty("border-radius", "10px", "important");
+            badge.style.setProperty("font-weight", "700", "important");
+            badge.style.setProperty("text-align", "center", "important");
+        });
 
         // Header row adjustment
         const headerRow = elem.querySelector(".flex.items-center.justify-between.mb-3") as HTMLElement;
         if (headerRow) {
             headerRow.style.marginBottom = "6px";
+            headerRow.style.gap = "6px";
         }
 
         // Score Display container
@@ -257,32 +368,37 @@ export const styleMetricCards = (root: HTMLElement) => {
             scoreRow.style.gap = "8px";
         }
 
-        // Score
+        // Score - readable for 3x3 grid
         const score = elem.querySelector("p.text-2xl") as HTMLElement;
         if (score) {
             score.style.fontSize = "18px";
             score.style.lineHeight = "1.2";
+            score.style.fontWeight = "700";
         }
 
         // Score subtext
-        const scoreSub = elem.querySelector(".text-xs.text-muted-foreground") as HTMLElement;
-        if (scoreSub && (scoreSub.innerText === "Lower is better" || scoreSub?.innerText === "Higher is better")) {
-            scoreSub.style.fontSize = "9px";
-        }
+        elem.querySelectorAll(".text-xs.text-muted-foreground").forEach(sub => {
+            const subEl = sub as HTMLElement;
+            const text = subEl.innerText || "";
+            if (text === "Lower is better" || text === "Higher is better") {
+                subEl.style.fontSize = "9px";
+                subEl.style.lineHeight = "1.2";
+            }
+        });
 
         // Icon container
         const iconBox = elem.querySelector(".p-2.rounded-lg") as HTMLElement;
         if (iconBox) {
-            iconBox.style.padding = "4px";
+            iconBox.style.padding = "6px";
             iconBox.style.borderRadius = "6px";
         }
         
         // Icon itself
-        const icon = elem.querySelector("svg") as unknown as HTMLElement;
-        if (icon) {
+        elem.querySelectorAll("svg").forEach(svg => {
+            const icon = svg as unknown as HTMLElement;
             icon.style.width = "16px";
             icon.style.height = "16px";
-        }
+        });
 
         // Progress bar container
         const progressContainer = elem.querySelector(".h-1\\.5") as HTMLElement;
@@ -291,36 +407,26 @@ export const styleMetricCards = (root: HTMLElement) => {
             progressContainer.style.height = "6px";
         }
 
-        // Explanation / Analysis box - HIDE for PDF to make cards compact
+        // Explanation / Analysis box - HIDE for PDF to make cards compact and fit on one page
         const analysisBox = elem.querySelector(".bg-muted\\/50") as HTMLElement;
         if (analysisBox) {
             analysisBox.style.display = "none";
         }
 
-        // Analysis header
-        const analysisHeader = elem.querySelector(".text-xs.font-medium") as HTMLElement;
-        if (analysisHeader) {
-            analysisHeader.style.fontSize = "10px";
-            analysisHeader.style.marginBottom = "4px";
-        }
-
-        // Analysis icon
-        const analysisIcon = analysisHeader?.querySelector("svg") as unknown as HTMLElement;
-        if (analysisIcon) {
-            analysisIcon.style.width = "12px";
-            analysisIcon.style.height = "12px";
-        }
-
-        // Analysis text
-        elem.querySelectorAll(".text-xs.text-muted-foreground.space-y-1\\.5").forEach(t => {
-            const div = t as HTMLElement;
-            div.style.lineHeight = "1.3";
-            // Remove space-y
-            div.style.display = "flex";
-            div.style.flexDirection = "column";
-            div.style.gap = "3px";
+        // Also hide any analysis sections by class pattern
+        elem.querySelectorAll("[class*='bg-muted']").forEach(box => {
+            const boxEl = box as HTMLElement;
+            if (boxEl.querySelector(".text-xs.font-medium")) {
+                boxEl.style.display = "none";
+            }
         });
 
+        // Hide the "Analysis" text and content entirely for compact cards
+        elem.querySelectorAll(".mt-1.p-3").forEach(analysisSection => {
+            (analysisSection as HTMLElement).style.display = "none";
+        });
+
+        // General text sizing for remaining elements
         elem.querySelectorAll(".text-xs").forEach(t => {
             const el = t as HTMLElement;
             if (!el.style.fontSize) el.style.fontSize = "10px";
