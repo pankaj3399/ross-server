@@ -38,9 +38,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "hsl(var(--background))",
-          "--normal-text": "hsl(var(--foreground))",
-          "--normal-border": "hsl(var(--border))",
+          "--normal-bg": "var(--background)",
+          "--normal-text": "var(--foreground)",
+          "--normal-border": "var(--border)",
           "--border-radius": "var(--radius)",
         } as CSSProperties
       }

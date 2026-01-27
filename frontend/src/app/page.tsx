@@ -130,7 +130,7 @@ export default function Home() {
             </h1>
             <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
               Comprehensive evaluation using the OWASP AIMA framework across domains.
-           </p>
+            </p>
           </motion.div>
 
           {isAuthenticated ? (
@@ -182,7 +182,7 @@ export default function Home() {
                 </Link>
               </Button>
               <Button asChild className="flex items-center gap-2 text-background font-medium hover:text-muted-background transition-colors group">
-                <Link href="/auth">
+                <Link href="/auth?isLogin=true">
                   Sign in{" "}
                   <IconLogin className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>

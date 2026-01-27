@@ -55,6 +55,10 @@ export interface Practice {
   title: string;
   description: string;
   levels?: PracticeQuestionLevels;
+  questionsAnswered?: number;
+  totalQuestions?: number;
+  isCompleted?: boolean;
+  isInProgress?: boolean;
 }
 
 export interface Question {
