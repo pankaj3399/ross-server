@@ -45,7 +45,10 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                 setCurrentQuestionIndex(0);
             }
         }
+
         navigateToDomain(domainId);
+        // Ensure we navigate to the base route to show the question view
+        router.push(`/assess/${projectId}`);
     };
 
     const handlePracticeClick = (domainId: string, practiceId: string) => {

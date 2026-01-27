@@ -27,6 +27,15 @@ export interface Question {
     description?: string | null;
 }
 
+export interface NoteResponse {
+    domain_id: string;
+    practice_id: string;
+    level: string;
+    stream: string;
+    question_index: number;
+    note: string;
+}
+
 export type LevelQuestionEntry =
     | string
     | {
@@ -272,7 +281,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 // Fetch Answers and Notes
                 const [answersData, notesData] = await Promise.all([
                     apiService.getAnswers(projectId).catch(() => ({ answers: {} })),
-                    apiService.getQuestionNotes(projectId).catch(() => []),
+                    apiService.getQuestionNotes(projectId).catch(() => []) as Promise<NoteResponse[]>,
                 ]);
 
                 if (controller.signal.aborted) return;
@@ -286,7 +295,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setAnswers(answersMap);
 
                 const notesMap: Record<string, string> = {};
-                notesData.forEach((note: any) => {
+                notesData.forEach((note: NoteResponse) => {
                     const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
                     notesMap[key] = note.note;
                 });
@@ -312,7 +321,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
         fetchData();
         return () => controller.abort();
-    }, [projectId, isAuthenticated, authLoading, currentDomainId, currentPracticeId, setProjectState]);
+    }, [projectId, isAuthenticated, authLoading, setProjectState]);
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {
@@ -360,7 +369,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setQuestions([]);
             }
         }
-    }, [loading, domains, currentDomainId, currentPracticeId, projectId]);
+    }, [loading, domains, currentDomainId, currentPracticeId, projectId, currentQuestionIndex, projectState, setProjectState]);
 
 
     // --- Actions ---

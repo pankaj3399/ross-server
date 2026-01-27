@@ -35,7 +35,7 @@ interface QuestionWithStatus {
 }
 
 export interface DomainWithProgress extends Omit<ApiDomain, 'practices'> {
-  practices: Record<string, ApiPractice> | PracticeWithProgress[];
+  practices: PracticeWithProgress[];
   questionsAnswered: number;
   totalQuestions: number;
   isCompleted: boolean;

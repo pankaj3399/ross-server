@@ -130,6 +130,7 @@ const DomainTreeItem = ({
   toggleDomain: (id: string) => void;
   icon: any;
   premiumStatus?: boolean;
+  currentQuestionRef?: React.RefObject<HTMLLIElement>;
 }) => {
   const isDomainActive = currentDomainId === domain.id;
   const isDomainExpanded = expandedDomainId === domain.id;
@@ -150,7 +151,7 @@ const DomainTreeItem = ({
             isDomainExpanded && "rotate-90"
           )}
         />
-        <Icon className={cn("ml-1 h-3.5 w-3.5", domain.id.includes('premium') ? "text-purple-500" : "text-primary")} />
+        <Icon className={cn("ml-1 h-3.5 w-3.5", domain.is_premium ? "text-purple-500" : "text-primary")} />
         <span className={cn(
           "font-semibold text-sm truncate ml-1",
           isDomainActive && !currentPracticeId ? "text-foreground" : "text-foreground/80"
@@ -162,7 +163,7 @@ const DomainTreeItem = ({
           total={domain.totalQuestions}
           isCompleted={domain.isCompleted}
         />
-        {!premiumStatus && domain.id.includes('premium') && <IconLock className="ml-1 h-3 w-3 text-muted-foreground/50" />}
+        {!premiumStatus && domain.is_premium && <IconLock className="ml-1 h-3 w-3 text-muted-foreground/50" />}
       </SidebarMenuButton>
 
       <AnimatePresence>
@@ -434,6 +435,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                         toggleDomain={toggleDomain}
                         icon={IconBrain}
                         premiumStatus={premiumStatus}
+                        currentQuestionRef={currentQuestionRef}
                       />
                     ))}
                   </SidebarMenu>
@@ -600,6 +602,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           toggleDomain={toggleDomain}
                                           icon={IconBrain}
                                           premiumStatus={premiumStatus}
+                                          currentQuestionRef={currentQuestionRef}
                                         />
                                       ))}
                                     </SidebarMenuSub>
