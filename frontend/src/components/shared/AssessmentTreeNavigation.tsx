@@ -453,8 +453,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
             <div className="space-y-1">
               {/* AI Vulnerability Assessment */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted text-left"
+                aria-label="Navigate to Vulnerability Assessment"
                 onClick={() => {
                   if (premiumStatus) {
                     router.push(`/assess/${projectId}/premium-domains`);
@@ -469,11 +471,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                 <span className="text-xs font-medium text-foreground">
                   Vulnerability Assessment
                 </span>
-              </div>
+              </button>
 
               {/* Bias & Fairness Testing */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted text-left"
+                aria-label="Navigate to Bias & Fairness Testing"
                 onClick={() => {
                   // Always allowing access to verify, handled by page logic or if actually premium required
                   // The FeatureConfig said bias-fairness doesn't require premium domains, but usually requires sub?
@@ -488,11 +492,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                 <span className="text-xs font-medium text-foreground">
                   Bias & Fairness Testing
                 </span>
-              </div>
+              </button>
 
               {/* Governance Controls */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted text-left"
+                aria-label="Navigate to Governance Controls"
                 onClick={() => {
                   if (premiumStatus) {
                     router.push(`/assess/${projectId}/premium-domains`);
@@ -507,7 +513,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                 <span className="text-xs font-medium text-foreground">
                   Governance Controls
                 </span>
-              </div>
+              </button>
             </div>
           </div>
         )}
