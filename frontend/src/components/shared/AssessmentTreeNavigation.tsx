@@ -60,7 +60,6 @@ interface AssessmentTreeNavigationProps {
   onQuestionClick: (domainId: string, practiceId: string, questionIndex: number) => void;
   projectId?: string;
   isPremium?: boolean;
-  onFairnessBiasClick?: () => void;
   hidePremiumFeaturesButton?: boolean;
 }
 
@@ -87,7 +86,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   onQuestionClick,
   projectId,
   isPremium,
-  onFairnessBiasClick,
   hidePremiumFeaturesButton = false,
 }) => {
   const { theme } = useTheme();
@@ -479,10 +477,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                 className="w-full flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted text-left"
                 aria-label="Navigate to Bias & Fairness Testing"
                 onClick={() => {
-                  // Always allowing access to verify, handled by page logic or if actually premium required
-                  // The FeatureConfig said bias-fairness doesn't require premium domains, but usually requires sub?
-                  // The page logic for fairness-bias checks premium status too?
-                  // Checking the implementation_plan logic: "Bias & Fairness Testing" -> `/assess/${projectId}/fairness-bias/options`
                   router.push(`/assess/${projectId}/fairness-bias/options`);
                 }}
               >

@@ -190,9 +190,6 @@ export default function PremiumFeaturesPage() {
         projectId={projectId}
         isPremium={isPremium}
         hidePremiumFeaturesButton={true}
-        onFairnessBiasClick={() => {
-          router.push(`/assess/${projectId}/fairness-bias/options`);
-        }}
       />
 
       {/* Main Content */}

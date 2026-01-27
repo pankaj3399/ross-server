@@ -585,9 +585,6 @@ export default function PremiumDomainsPage() {
           projectId={projectId}
           isPremium={isPremium}
           hidePremiumFeaturesButton={true}
-          onFairnessBiasClick={() => {
-            router.push(`/assess/${projectId}/fairness-bias/options`);
-          }}
         />
         <div className="flex-1 flex flex-col">
           {/* Header */}
@@ -668,9 +665,6 @@ export default function PremiumDomainsPage() {
         projectId={projectId}
         isPremium={isPremium}
         hidePremiumFeaturesButton={true}
-        onFairnessBiasClick={() => {
-          router.push(`/assess/${projectId}/fairness-bias/options`);
-        }}
       />
 
       {/* Main Content */}
