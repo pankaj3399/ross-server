@@ -2,13 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useAssessmentContext } from "../../../contexts/AssessmentContext";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import { IconAlertTriangle, IconBrain } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../components/Skeleton";
 import QuestionView from "../../../components/assess/QuestionView";
 
 export default function AssessmentPage() {
   const router = useRouter();
-  
+
   const {
     domains,
     loading,
@@ -85,10 +85,20 @@ export default function AssessmentPage() {
   }
 
   if (!questions || questions.length === 0) {
-      if (!loading && domains.length > 0) {
-          return <AssessmentSkeleton />;
-      }
-      return <AssessmentSkeleton />;
+    if (!loading && domains.length > 0) {
+      return (
+        <div className="flex flex-1 h-full flex-col items-center justify-center p-8 text-center bg-background/50 backdrop-blur-sm">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+            <IconBrain className="w-8 h-8 text-primary" />
+          </div>
+          <h3 className="text-xl font-semibold mb-2 text-foreground">Select a Practice</h3>
+          <p className="text-muted-foreground max-w-sm">
+            Navigate through the domains and practices in the sidebar to start answering questions.
+          </p>
+        </div>
+      );
+    }
+    return <AssessmentSkeleton />;
   }
 
   return <QuestionView />;

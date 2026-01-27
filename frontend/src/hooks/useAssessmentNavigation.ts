@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import type { PracticeQuestionLevels, PracticeQuestionDetail } from "../lib/api";
+import type { PracticeQuestionLevels, PracticeQuestionDetail, Domain as ApiDomain, Practice as ApiPractice } from "../lib/api";
 
 interface Question {
   level: string;
@@ -16,12 +16,14 @@ type LevelQuestionEntry =
       description?: string | null;
     };
 
-// Practice interface that accepts PracticeQuestionLevels from the API
-// PracticeQuestionDetail matches the object form of LevelQuestionEntry
-interface Practice {
-  title: string;
-  description: string;
-  levels: PracticeQuestionLevels;
+// Practice interface for the hook, aligning with what the UI/context expects
+export interface PracticeWithProgress extends ApiPractice {
+    id: string;
+    questionsAnswered: number;
+    totalQuestions: number;
+    isCompleted: boolean;
+    isInProgress: boolean;
+    questions?: QuestionWithStatus[];
 }
 
 interface QuestionWithStatus {
@@ -32,12 +34,12 @@ interface QuestionWithStatus {
   isAnswered: boolean;
 }
 
-export interface Domain {
-  id: string;
-  title: string;
-  description: string;
-  practices: Record<string, Practice>;
-  is_premium?: boolean;
+export interface DomainWithProgress extends Omit<ApiDomain, 'practices'> {
+  practices: Record<string, ApiPractice> | PracticeWithProgress[];
+  questionsAnswered: number;
+  totalQuestions: number;
+  isCompleted: boolean;
+  isInProgress: boolean;
 }
 
 interface AssessmentData {
@@ -55,7 +57,7 @@ const extractQuestionText = (
   return entry.question_text || null;
 };
 
-const getAllQuestions = (practice: Practice): Question[] => {
+const getAllQuestions = (practice: ApiPractice): Question[] => {
   const questions: Question[] = [];
   if (!practice?.levels) return questions;
 
@@ -82,7 +84,7 @@ const getAllQuestions = (practice: Practice): Question[] => {
 };
 
 interface UseAssessmentNavigationProps {
-  domains: Domain[];
+  domains: Array<Omit<ApiDomain, 'practices'> & { practices: Record<string, ApiPractice> }>;
   assessmentData: AssessmentData;
   currentDomainId?: string;
   currentPracticeId?: string;
@@ -105,16 +107,7 @@ export const useAssessmentNavigation = ({
     const domainProgress = domains.map((domain) => {
       let domainQuestionsAnswered = 0;
       let domainTotalQuestions = 0;
-      const practiceProgress: Array<{
-        id: string;
-        title: string;
-        description: string;
-        questionsAnswered: number;
-        totalQuestions: number;
-        isCompleted: boolean;
-        isInProgress: boolean;
-        questions: QuestionWithStatus[];
-      }> = [];
+      const practiceProgress: PracticeWithProgress[] = [];
 
       Object.entries(domain.practices).forEach(([practiceId, practice]) => {
         // Count answers for this practice by checking keys that match the pattern
@@ -127,40 +120,41 @@ export const useAssessmentNavigation = ({
         const questions: QuestionWithStatus[] = [];
         let questionIndex = 0;
 
-        Object.entries(practice.levels).forEach(
-          ([level, streams]) => {
-            Object.entries(streams).forEach(([stream, questionEntries]) => {
-              questionEntries.forEach((questionEntry, entryIndex) => {
-                const questionText = extractQuestionText(questionEntry);
-                if (!questionText) {
-                  return;
-                }
-                const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
-                const isAnswered = key in assessmentData;
+        if (practice.levels) {
+          Object.entries(practice.levels).forEach(
+            ([level, streams]) => {
+              Object.entries(streams).forEach(([stream, questionEntries]) => {
+                questionEntries.forEach((questionEntry) => {
+                  const questionText = extractQuestionText(questionEntry);
+                  if (!questionText) {
+                    return;
+                  }
+                  const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
+                  const isAnswered = key in assessmentData;
 
-                questions.push({
-                  level,
-                  stream,
-                  question: questionText,
-                  index: questionIndex,
-                  isAnswered,
+                  questions.push({
+                    level,
+                    stream,
+                    question: questionText,
+                    index: questionIndex,
+                    isAnswered,
+                  });
+
+                  questionIndex++;
+                  totalQuestions++;
                 });
-
-                questionIndex++;
-                totalQuestions++;
               });
-            });
-          },
-        );
+            },
+          );
+        }
 
         const questionsAnswered = practiceAnswers.length;
-        const isCompleted = questionsAnswered === totalQuestions;
+        const isCompleted = totalQuestions > 0 && questionsAnswered === totalQuestions;
         const isInProgress = questionsAnswered > 0 && !isCompleted;
 
         practiceProgress.push({
+          ...practice,
           id: practiceId,
-          title: practice.title,
-          description: practice.description,
           questionsAnswered,
           totalQuestions,
           isCompleted,
@@ -175,11 +169,12 @@ export const useAssessmentNavigation = ({
       return {
         id: domain.id,
         title: domain.title,
+        description: domain.description,
         is_premium: domain.is_premium,
         practices: practiceProgress,
         questionsAnswered: domainQuestionsAnswered,
         totalQuestions: domainTotalQuestions,
-        isCompleted: domainQuestionsAnswered === domainTotalQuestions,
+        isCompleted: domainTotalQuestions > 0 && domainQuestionsAnswered === domainTotalQuestions,
         isInProgress:
           domainQuestionsAnswered > 0 &&
           domainQuestionsAnswered < domainTotalQuestions,
@@ -249,7 +244,7 @@ export const useAssessmentNavigation = ({
       const nextPracticeId = Object.keys(nextDomain.practices)[0];
       return {
         domainId: nextDomain.id,
-        practiceId: nextPracticeId,
+        practiceId: nextPracticeId || '',
         questionIndex: 0,
       };
     }
@@ -309,6 +304,9 @@ export const useAssessmentNavigation = ({
     return null; // At the beginning
   }, [currentDomainId, currentPracticeId, currentQuestionIndex, domains]);
 
+  const hasNextQuestion = useMemo(() => getNextQuestion() !== null, [getNextQuestion]);
+  const hasPreviousQuestion = useMemo(() => getPreviousQuestion() !== null, [getPreviousQuestion]);
+
   const getFirstUnansweredQuestion = useCallback(() => {
     // Find the first unanswered question in the practice with the most progress
     let bestResumePosition = null;
@@ -321,27 +319,23 @@ export const useAssessmentNavigation = ({
         let firstUnansweredIndex: number | null = null;
 
         // Count answered questions and find first unanswered in this practice
-        for (const [level, streams] of Object.entries(practice.levels)) {
-          for (const [stream, questions] of Object.entries(streams)) {
-            questions.forEach((questionEntry) => {
-              const questionText = extractQuestionText(questionEntry);
-              if (!questionText) {
-                return;
-              }
-              const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
-              if (key in assessmentData) {
-                answeredCount++;
-                console.log(
-                  `Found answered question: ${key} at practice question index: ${questionIndex}`,
-                );
-              } else if (firstUnansweredIndex === null) {
-                firstUnansweredIndex = questionIndex;
-                console.log(
-                  `First unanswered question in this practice: ${key} at index: ${questionIndex}`,
-                );
-              }
-              questionIndex++;
-            });
+        if (practice.levels) {
+          for (const [level, streams] of Object.entries(practice.levels)) {
+            for (const [stream, questions] of Object.entries(streams)) {
+              questions.forEach((questionEntry) => {
+                const questionText = extractQuestionText(questionEntry);
+                if (!questionText) {
+                  return;
+                }
+                const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
+                if (key in assessmentData) {
+                  answeredCount++;
+                } else if (firstUnansweredIndex === null) {
+                  firstUnansweredIndex = questionIndex;
+                }
+                questionIndex++;
+              });
+            }
           }
         }
 
@@ -353,15 +347,11 @@ export const useAssessmentNavigation = ({
             practiceId,
             questionIndex: firstUnansweredIndex,
           };
-          console.log(
-            `New best resume position: ${domain.id}:${practiceId} at question ${firstUnansweredIndex} (${answeredCount} answered)`,
-          );
         }
       }
     }
 
     if (bestResumePosition) {
-      console.log(`Resuming from best position:`, bestResumePosition);
       return bestResumePosition;
     }
 
@@ -377,6 +367,9 @@ export const useAssessmentNavigation = ({
     navigateToQuestion,
     getNextQuestion,
     getPreviousQuestion,
+    hasNextQuestion,
+    hasPreviousQuestion,
     getFirstUnansweredQuestion,
   };
 };
+

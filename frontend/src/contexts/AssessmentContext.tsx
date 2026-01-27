@@ -69,7 +69,7 @@ interface AssessmentContextType {
     handleAnswerChange: (questionIndex: number, value: number) => Promise<void>;
     handleNoteChange: (questionIndex: number, note: string) => void;
     handleNoteSave: (questionIndex: number, note: string) => Promise<void>;
-    saveAllNotes: (isSubmitting?: boolean) => Promise<void>;
+    saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
 
     saving: boolean;
@@ -199,10 +199,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         setProjectState(projectId, { currentQuestionIndex: index });
     }, [projectId, setProjectState]);
 
-    // --- Data Fetching ---
     useEffect(() => {
         if (authLoading || !isAuthenticated) return;
 
+        const controller = new AbortController();
         const fetchData = async () => {
             try {
                 setError(null);
@@ -211,6 +211,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
                 // Fetch domains
                 const domainsData = await apiService.getDomainsFull(projectId);
+
+                if (controller.signal.aborted) return;
 
                 if (!domainsData.domains || domainsData.domains.length === 0) {
                     setError("No domains data available");
@@ -226,10 +228,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         practicesWithLevels[practiceId] = {
                             ...practice,
                             levels: practice.levels || {},
-                            questionsAnswered: (practice as any).questionsAnswered || 0,
-                            totalQuestions: (practice as any).totalQuestions || 0,
-                            isCompleted: (practice as any).isCompleted || false,
-                            isInProgress: (practice as any).isInProgress || false,
+                            questionsAnswered: practice.questionsAnswered || 0,
+                            totalQuestions: practice.totalQuestions || 0,
+                            isCompleted: practice.isCompleted || false,
+                            isInProgress: practice.isInProgress || false,
                         };
                     });
 
@@ -240,6 +242,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 });
 
                 const orderedDomains = sortDomainsByPriority(transformedDomains);
+                if (controller.signal.aborted) return;
                 setDomains(orderedDomains);
 
                 // Initialize state if needed
@@ -272,6 +275,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     apiService.getQuestionNotes(projectId).catch(() => []),
                 ]);
 
+                if (controller.signal.aborted) return;
+
                 const answersMap: Record<string, number> = {};
                 if (answersData && answersData.answers) {
                     Object.entries(answersData.answers).forEach(([key, value]) => {
@@ -288,6 +293,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setNotes(notesMap);
 
             } catch (error: any) {
+                if (controller.signal.aborted) return;
                 console.error("Failed to fetch data:", error);
                 if (error?.status === 400 || error?.status === 404 ||
                     error?.response?.status === 400 || error?.response?.status === 404) {
@@ -298,12 +304,15 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     showToast.error("Failed to load assessment data.");
                 }
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchData();
-    }, [projectId, isAuthenticated, authLoading]);
+        return () => controller.abort();
+    }, [projectId, isAuthenticated, authLoading, currentDomainId, currentPracticeId, setProjectState]);
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {
@@ -361,6 +370,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (!question) return;
 
         const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+        const previousValue = answers[key];
 
         setAnswers((prev) => ({ ...prev, [key]: value }));
 
@@ -379,6 +389,9 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             await apiService.updateProject(projectId, { status: "in_progress" });
         } catch (error) {
             console.error("Failed to save answer:", error);
+            // Rollback optimistic update
+            setAnswers((prev) => ({ ...prev, [key]: previousValue }));
+            showToast.error("Failed to save answer. Progress reverted.");
         } finally {
             setSaving(false);
         }
@@ -414,19 +427,21 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
-    const saveAllNotes = async (isSubmitting: boolean = false) => {
+    const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
         const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
-        if (noteEntries.length === 0) return;
+        if (noteEntries.length === 0) return true;
 
         const toastMessage = isSubmitting ? "Saving notes and submitting..." : "Saving notes...";
         const toastId = showToast.loading(toastMessage);
 
         const savePromises = noteEntries.map(async ([key, note]) => {
-            try {
-                const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
-                const questionIndex = parseInt(questionIndexStr, 10);
-                if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) return;
+            const [domainId, practiceId, level, stream, questionIndexStr] = key.split(":");
+            const questionIndex = parseInt(questionIndexStr, 10);
+            if (!domainId || !practiceId || !level || !stream || isNaN(questionIndex)) {
+                return { success: false, key, error: "Invalid note key" };
+            }
 
+            try {
                 const sanitizedNote = sanitizeNoteInput(note.trim());
                 await apiService.saveQuestionNote(projectId, {
                     domainId,
@@ -436,21 +451,39 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     questionIndex,
                     note: sanitizedNote,
                 });
-                return { success: true };
+                return { success: true, key };
             } catch (error) {
-                return { success: false, error };
+                return { success: false, key, error };
             }
         });
 
-        await Promise.allSettled(savePromises);
+        const results = await Promise.allSettled(savePromises);
         showToast.dismiss(toastId);
+
+        const failures = results.filter(
+            (res): res is PromiseFulfilledResult<{ success: boolean; key: string; error?: any }> =>
+                res.status === 'fulfilled' && !res.value.success
+        );
+
+        if (failures.length > 0) {
+            console.error("Some notes failed to save:", failures);
+            showToast.warning(`Failed to save ${failures.length} notes. Please try again.`);
+            return false;
+        }
+
+        return true;
     };
 
     const submitProject = async () => {
         setSubmitting(true);
         try {
             setSubmissionPhase('saving-notes');
-            await saveAllNotes(true);
+            const notesSaved = await saveAllNotes(true);
+            if (!notesSaved) {
+                setSubmitting(false);
+                setSubmissionPhase(null);
+                return;
+            }
 
             setSubmissionPhase('submitting');
             const response = await apiService.submitProject(projectId);

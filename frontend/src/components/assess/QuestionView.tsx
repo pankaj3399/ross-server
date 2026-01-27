@@ -8,7 +8,7 @@ import {
     IconArrowLeft,
     IconArrowRight,
     IconInfoCircle,
-    IconDeviceFloppy,
+    IconLoader2,
 } from "@tabler/icons-react";
 import { SecureTextarea } from "../shared/SecureTextarea";
 import { safeRenderHTML } from "../../lib/htmlUtils";
@@ -40,11 +40,13 @@ export default function QuestionView() {
     } = useAssessmentContext();
 
     const {
+        hasNextQuestion,
+        hasPreviousQuestion,
         getNextQuestion,
         getPreviousQuestion,
     } = useAssessmentNavigation({
-        domains: domains as any,
-        assessmentData: answers as any,
+        domains,
+        assessmentData: answers,
         currentDomainId,
         currentPracticeId,
         currentQuestionIndex,
@@ -69,8 +71,6 @@ export default function QuestionView() {
         }
     };
 
-    const hasNextQuestion = getNextQuestion() !== null;
-    const hasPreviousQuestion = getPreviousQuestion() !== null;
 
 
     if (loading || !questions) {
@@ -125,7 +125,7 @@ export default function QuestionView() {
                     <div className="flex items-center gap-4">
                         {saving && (
                             <div className="flex items-center gap-2 text-sm text-primary">
-                                <IconDeviceFloppy className="w-4 h-4 animate-spin" />
+                                <IconLoader2 className="w-4 h-4 animate-spin" />
                                 Saving...
                             </div>
                         )}

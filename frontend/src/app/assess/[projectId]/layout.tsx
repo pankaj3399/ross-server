@@ -26,8 +26,8 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         navigateToDomain,
         navigateToPractice,
     } = useAssessmentNavigation({
-        domains: domains as any,
-        assessmentData: answers as any,
+        domains,
+        assessmentData: answers,
         currentDomainId,
         currentPracticeId,
         currentQuestionIndex,
@@ -40,7 +40,6 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         if (domain) {
             const firstPracticeId = Object.keys(domain.practices)[0];
             if (firstPracticeId) {
-                const firstPractice = domain.practices[firstPracticeId];
                 setCurrentDomainId(domainId);
                 setCurrentPracticeId(firstPracticeId);
                 setCurrentQuestionIndex(0);
