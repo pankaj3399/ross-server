@@ -23,7 +23,6 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
 
     const {
         progressData,
-        navigateToDomain,
         navigateToPractice,
     } = useAssessmentNavigation({
         domains,
@@ -34,8 +33,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     });
 
     const handleDomainClick = (domainId: string) => {
-        // Logic to select first practice/question if needed, or just navigate
-        // Replicating logic from page.tsx roughly but trusting nav hook or doing simple selection
+        // Logic to select first practice/question if needed
         const domain = domains.find((d) => d.id === domainId);
         if (domain) {
             const firstPracticeId = Object.keys(domain.practices)[0];
@@ -46,7 +44,9 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
             }
         }
 
-        navigateToDomain(domainId);
+        // We rely on state setters (above) and router.push as the single source of truth.
+        // The expansion logic is handled within the navigation component itself based on active domain.
+
         // Ensure we navigate to the base route to show the question view
         router.push(`/assess/${projectId}`);
     };
@@ -55,7 +55,8 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         setCurrentDomainId(domainId);
         setCurrentPracticeId(practiceId);
         setCurrentQuestionIndex(0);
-        navigateToPractice(domainId, practiceId);
+        setCurrentQuestionIndex(0);
+        // navigateToPractice(domainId, practiceId); // REMOVED: Redundant with router.push logic and internal state setters
         // Ensure we are on the main assessment page if clicking a practice
         // But if we are in premium-features, maybe we want to go back?
         // The previous logic pushed router to `/assess/${projectId}`.

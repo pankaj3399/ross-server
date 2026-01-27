@@ -129,6 +129,7 @@ const DatasetTestingPage = () => {
   const [testType, setTestType] = useState("userData");
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'trial' | 'premium'>('unknown');
+  const [projectInfo, setProjectInfo] = useState<{ name: string; aiSystemType?: string } | null>(null);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -156,6 +157,23 @@ const DatasetTestingPage = () => {
     };
     checkAccess();
   }, []);
+
+  // Fetch project info for PDF report
+  useEffect(() => {
+    const fetchProjectInfo = async () => {
+      if (!projectId) return;
+      try {
+        const project = await apiService.getProject(projectId);
+        setProjectInfo({
+          name: project.name,
+          aiSystemType: project.ai_system_type,
+        });
+      } catch (err) {
+        console.error("Failed to fetch project info:", err);
+      }
+    };
+    fetchProjectInfo();
+  }, [projectId]);
 
   const hasFile = Boolean(csvText.length);
 
@@ -269,6 +287,8 @@ const DatasetTestingPage = () => {
           threshold,
           testType,
         },
+        projectName: projectInfo?.name,
+        aiSystemType: projectInfo?.aiSystemType,
       };
       if (typeof window !== "undefined") {
         const storageKey = getDatasetTestingReportKey(projectId);
@@ -405,7 +425,7 @@ const DatasetTestingPage = () => {
 
             <div className="max-w-7xl mx-auto px-6 pb-12">
               <div className="h-px bg-border mb-8 mt-12" />
-              <ReportHistory projectId={projectId} />
+              <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
             </div>
           </>
         )
@@ -433,7 +453,7 @@ const DatasetTestingPage = () => {
 
             <div className="max-w-7xl mx-auto px-6">
               <div className="h-px bg-border mb-8" />
-              <ReportHistory projectId={projectId} />
+              <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
             </div>
           </div>
         )

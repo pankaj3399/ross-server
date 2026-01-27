@@ -325,51 +325,59 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {
-        if (!loading && domains.length > 0 && currentDomainId && currentPracticeId) {
-            const domain = domains.find(d => d.id === currentDomainId);
-            const practice = domain?.practices[currentPracticeId];
+        if (!loading && domains.length > 0) {
+            // Fetch fresh state inside effect to avoid stale closures
+            const freshState = getProjectState(projectId);
+            const freshDomainId = freshState?.currentDomainId || '';
+            const freshPracticeId = freshState?.currentPracticeId || '';
+            const freshQuestionIndex = freshState?.currentQuestionIndex || 0;
 
-            if (practice && practice.levels && Object.keys(practice.levels).length > 0) {
-                const questionsList: Question[] = [];
-                Object.entries(practice.levels).forEach(([level, streams]) => {
-                    Object.entries(
-                        streams as Record<string, PracticeQuestionDetail[]>,
-                    ).forEach(([stream, questionEntries]) => {
-                        questionEntries.forEach((questionEntry) => {
-                            const normalized = normalizeQuestionEntry(questionEntry);
-                            if (!normalized) return;
-                            questionsList.push({
-                                level,
-                                stream,
-                                question: normalized.question,
-                                description: normalized.description ?? undefined,
+            if (freshDomainId && freshPracticeId) {
+                const domain = domains.find(d => d.id === freshDomainId);
+                const practice = domain?.practices[freshPracticeId];
+
+                if (practice && practice.levels && Object.keys(practice.levels).length > 0) {
+                    const questionsList: Question[] = [];
+                    Object.entries(practice.levels).forEach(([level, streams]) => {
+                        Object.entries(
+                            streams as Record<string, PracticeQuestionDetail[]>,
+                        ).forEach(([stream, questionEntries]) => {
+                            questionEntries.forEach((questionEntry) => {
+                                const normalized = normalizeQuestionEntry(questionEntry);
+                                if (!normalized) return;
+                                questionsList.push({
+                                    level,
+                                    stream,
+                                    question: normalized.question,
+                                    description: normalized.description ?? undefined,
+                                });
                             });
                         });
                     });
-                });
-                setQuestions(questionsList);
+                    setQuestions(questionsList);
 
-                // Validate index
-                if (questionsList.length > 0 && currentQuestionIndex >= questionsList.length) {
-                    setProjectState(projectId, { currentQuestionIndex: 0 });
+                    // Validate index
+                    if (questionsList.length > 0 && freshQuestionIndex >= questionsList.length) {
+                        setProjectState(projectId, { currentQuestionIndex: 0 });
+                    }
+
+                    // Update practice detail in store if needed
+                    if (freshState?.practice?.title !== practice.title) {
+                        setProjectState(projectId, {
+                            practice: {
+                                title: practice.title,
+                                description: practice.description,
+                                levels: practice.levels
+                            }
+                        });
+                    }
+
+                } else {
+                    setQuestions([]);
                 }
-
-                // Update practice detail in store if needed
-                if (projectState?.practice?.title !== practice.title) {
-                    setProjectState(projectId, {
-                        practice: {
-                            title: practice.title,
-                            description: practice.description,
-                            levels: practice.levels
-                        }
-                    });
-                }
-
-            } else {
-                setQuestions([]);
             }
         }
-    }, [loading, domains, currentDomainId, currentPracticeId, projectId, currentQuestionIndex, projectState, setProjectState]);
+    }, [loading, domains, projectId, getProjectState, setProjectState]);
 
 
     // --- Actions ---

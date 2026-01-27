@@ -102,5 +102,9 @@ export type DatasetReportPayload = {
     threshold: number;
     testType: string;
   };
+  /** Project/System name for the report header */
+  projectName?: string;
+  /** AI System type being evaluated */
+  aiSystemType?: string;
 };
 

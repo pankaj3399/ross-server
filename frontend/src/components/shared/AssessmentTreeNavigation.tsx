@@ -117,6 +117,7 @@ const DomainTreeItem = ({
   toggleDomain,
   icon: Icon,
   premiumStatus = true,
+  activeQuestionRef,
 }: {
   domain: Domain;
   currentDomainId: string | undefined;
@@ -129,7 +130,7 @@ const DomainTreeItem = ({
   toggleDomain: (id: string) => void;
   icon: any;
   premiumStatus?: boolean;
-  currentQuestionRef?: React.RefObject<HTMLLIElement>;
+  activeQuestionRef?: React.RefObject<HTMLLIElement>;
 }) => {
   const isDomainActive = currentDomainId === domain.id;
   const isDomainExpanded = expandedDomainId === domain.id;
@@ -202,7 +203,7 @@ const DomainTreeItem = ({
                         {practice.questions.map((q, qIdx) => {
                           const isQuestionActive = isPracticeActive && currentQuestionIndex === qIdx;
                           return (
-                            <SidebarMenuSubItem key={qIdx}>
+                            <SidebarMenuSubItem key={qIdx} ref={isQuestionActive ? activeQuestionRef : undefined}>
                               <SidebarMenuSubButton
                                 onClick={() => onQuestionClick(domain.id, practice.id, qIdx)}
                                 isActive={isQuestionActive}
@@ -333,7 +334,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       },
       preview: report.csv_preview,
       generatedAt: report.created_at,
-      selections: report.selections || {
+      selections: report.selections ?? {
         metric: "adverseImpact",
         method: "selectionRate",
         group: "genderRace",
@@ -395,17 +396,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       <SidebarContent>
         {/* SECTION 1: ASSESSMENT */}
         <SidebarGroup className="px-2 py-1">
-          <div
-            role="button"
-            tabIndex={0}
-            className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+          <button
+            type="button"
+            className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
             onClick={() => setIsAssessmentExpanded(!isAssessmentExpanded)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setIsAssessmentExpanded(!isAssessmentExpanded);
-              }
-            }}
             aria-expanded={isAssessmentExpanded}
           >
             <IconChevronsRight
@@ -417,7 +411,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
               Assessment Progress
             </span>
-          </div>
+          </button>
           <AnimatePresence>
             {isAssessmentExpanded && (
               <motion.div
@@ -443,7 +437,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                         toggleDomain={toggleDomain}
                         icon={IconBrain}
                         premiumStatus={premiumStatus}
-                        currentQuestionRef={currentQuestionRef}
+                        activeQuestionRef={currentQuestionRef}
                       />
                     ))}
                   </SidebarMenu>
@@ -458,17 +452,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         {/* SECTION 3: PREMIUM FEATURES */}
         {projectId && !hidePremiumFeaturesButton && (
           <SidebarGroup className="px-2 py-1">
-            <div
-              role="button"
-              tabIndex={0}
-              className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+            <button
+              type="button"
+              className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
               onClick={() => setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded);
-                }
-              }}
               aria-expanded={isPremiumFeaturesExpanded}
             >
               <IconChevronsRight
@@ -480,7 +467,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
               <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
                 Premium Features
               </span>
-            </div>
+            </button>
             <AnimatePresence>
               {isPremiumFeaturesExpanded && (
                 <motion.div
@@ -619,7 +606,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           toggleDomain={toggleDomain}
                                           icon={IconBrain}
                                           premiumStatus={premiumStatus}
-                                          currentQuestionRef={currentQuestionRef}
+                                          activeQuestionRef={currentQuestionRef}
                                         />
                                       ))}
                                     </SidebarMenuSub>

@@ -79,15 +79,7 @@ export default function QuestionView() {
 
     const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
 
-    // Sync sanitized index back to state if needed
-    if (currentQuestionIndex !== validQuestionIndex) {
-        // We need to use setTimeout to avoid "Cannot update during existing state transition"
-        // or effectively just rely on the effect in Context, but since we are rendering *now*,
-        // let's use validQuestionIndex for render and request update.
-        // However, updating state during render is bad. 
-        // The Context `useEffect` (lines 344) handles syncing if out of bounds, 
-        // but we should ensure we don't crash here.
-    }
+
 
     const currentQuestion = questions[validQuestionIndex];
 
