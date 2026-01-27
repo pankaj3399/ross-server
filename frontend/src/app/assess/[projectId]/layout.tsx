@@ -34,8 +34,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     });
 
     const handleDomainClick = (domainId: string) => {
-        // Logic to select first practice/question if needed, or just navigate
-        // Replicating logic from page.tsx roughly but trusting nav hook or doing simple selection
+        // Logic to select first practice/question if needed
         const domain = domains.find((d) => d.id === domainId);
         if (domain) {
             const firstPracticeId = Object.keys(domain.practices)[0];
@@ -46,7 +45,9 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
             }
         }
 
-        navigateToDomain(domainId);
+        // We rely on state setters (above) and router.push as the single source of truth.
+        // The expansion logic is handled within the navigation component itself based on active domain.
+
         // Ensure we navigate to the base route to show the question view
         router.push(`/assess/${projectId}`);
     };

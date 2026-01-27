@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAssessmentContext } from "../../../../contexts/AssessmentContext";
 import { IconCrown, IconScale, IconArrowLeft } from "@tabler/icons-react";
@@ -26,10 +26,14 @@ export default function PremiumDomainsPage() {
   const [initializing, setInitializing] = useState(true);
   const [noPremiumDomains, setNoPremiumDomains] = useState(false);
 
+  const hasInitializedRef = useRef(false);
+
   useEffect(() => {
+    if (hasInitializedRef.current) return;
     if (loading) return;
 
     if (!isPremium) {
+      hasInitializedRef.current = true;
       router.push(`/assess/${projectId}/premium-features`);
       return;
     }
@@ -40,6 +44,7 @@ export default function PremiumDomainsPage() {
     if (premiumDomains.length === 0) {
       setNoPremiumDomains(true);
       setInitializing(false);
+      hasInitializedRef.current = true;
       return;
     }
 
@@ -61,6 +66,7 @@ export default function PremiumDomainsPage() {
     }
 
     setInitializing(false);
+    hasInitializedRef.current = true;
   }, [loading, isPremium, domains, currentDomainId, projectId, router, setCurrentDomainId, setCurrentPracticeId, setCurrentQuestionIndex]);
 
   if (loading || initializing) {

@@ -27,7 +27,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isDashboard = pathname === "/dashboard";
 
   return (
-    <SidebarProvider defaultOpen={!isDashboard}>
+    <SidebarProvider defaultOpen={!isDashboard} key={isDashboard ? 'dashboard' : 'non-dashboard'}>
       <AppSidebar />
       <SidebarInset {...(isHomePage ? { style: { marginLeft: 0 } } : {})}>
         {isHomePage && <Header />}
