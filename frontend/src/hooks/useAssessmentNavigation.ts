@@ -37,6 +37,7 @@ export interface Domain {
   title: string;
   description: string;
   practices: Record<string, Practice>;
+  is_premium?: boolean;
 }
 
 interface AssessmentData {
@@ -174,6 +175,7 @@ export const useAssessmentNavigation = ({
       return {
         id: domain.id,
         title: domain.title,
+        is_premium: domain.is_premium,
         practices: practiceProgress,
         questionsAnswered: domainQuestionsAnswered,
         totalQuestions: domainTotalQuestions,

@@ -22,9 +22,9 @@ router.get("/domains", authenticateToken, async (req, res) => {
     let whereConditions: string[] = [];
     
     // Filter out premium domains for non-premium users
-    if (!isPremium) {
+    /* if (!isPremium) {
       whereConditions.push("COALESCE(d.is_premium, false) = false");
-    }
+    } */
     
     if (project_id) {
       const projectResult = await pool.query(
@@ -149,9 +149,9 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
     const whereConditions: string[] = [];
     
     // Filter out premium domains for non-premium users
-    if (!isPremium) {
+    /* if (!isPremium) {
       whereConditions.push("COALESCE(d.is_premium, false) = false");
-    }
+    } */
     
     // Apply version filtering using EXISTS subqueries 
     if (projectVersionId) {
@@ -248,9 +248,9 @@ router.get("/domains/:domainId", authenticateToken, async (req, res) => {
     let domainParams = [req.params.domainId];
     
     // Filter out premium domains for non-premium users
-    if (!isPremium) {
+    /* if (!isPremium) {
       domainQuery += " AND COALESCE(is_premium, false) = false";
-    }
+    } */
     
     if (project_id) {
       const projectResult = await pool.query(

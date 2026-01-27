@@ -4,22 +4,35 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   IconChevronRight,
-  IconChevronDown,
+  IconChevronsRight,
   IconCircleCheck,
   IconCircle,
-  IconClock,
   IconFileText,
   IconBrain,
-  IconLock,
-  IconCrown,
-  IconScale,
   IconShield,
+  IconScale,
   IconClipboardCheck,
+  IconLock,
+  IconClock,
 } from "@tabler/icons-react";
-import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
+import { apiService } from "../../lib/api";
+import { cn } from "@/lib/utils";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+} from "@/components/ui/sidebar";
 
 interface Question {
   level: string;
@@ -48,6 +61,7 @@ interface Domain {
   totalQuestions: number;
   isCompleted: boolean;
   isInProgress: boolean;
+  is_premium?: boolean;
 }
 
 interface AssessmentTreeNavigationProps {
@@ -87,16 +101,14 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   onQuestionClick,
   projectId,
   isPremium,
-  onFairnessBiasClick,
   hidePremiumFeaturesButton = false,
 }) => {
-  const { theme } = useTheme();
   const { user } = useAuth();
   const router = useRouter();
 
-  // Determine premium status from user data or prop
   const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
   const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
+
   const orderedDomains = useMemo(() => {
     const originalOrderMap = new Map<string, number>();
     domains.forEach((domain, index) => {
@@ -106,82 +118,115 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     const getPriority = (domain: Domain) => {
       const normalizedId = normalize(domain.id);
       const normalizedTitle = normalize(domain.title);
-
-      const idMatch = DOMAIN_PRIORITY.findIndex(
-        (entry) => normalize(entry.id) === normalizedId,
-      );
+      const idMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.id) === normalizedId);
       if (idMatch !== -1) return idMatch;
-
-      const titleMatch = DOMAIN_PRIORITY.findIndex(
-        (entry) => normalize(entry.title) === normalizedTitle,
-      );
+      const titleMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.title) === normalizedTitle);
       if (titleMatch !== -1) return titleMatch;
-
       return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
     };
 
     return [...domains].sort((a, b) => {
       const priorityA = getPriority(a);
       const priorityB = getPriority(b);
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-      return (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
+      return priorityA !== priorityB ? priorityA - priorityB : (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
     });
   }, [domains]);
 
-  const defaultDomainId = orderedDomains[0]?.id;
-  const activeDomainId = currentDomainId ?? defaultDomainId;
+  const activeDomainId = currentDomainId;
 
-  const [expandedDomainId, setExpandedDomainId] = useState<string | null>(
-    activeDomainId ?? null,
+  const { standardDomains, premiumDomains } = useMemo(() => {
+    return {
+      standardDomains: orderedDomains.filter(d => !d.is_premium),
+      premiumDomains: orderedDomains.filter(d => d.is_premium)
+    };
+  }, [orderedDomains]);
+
+  const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
+  const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
+    activeDomainId && currentPracticeId ? { [activeDomainId]: currentPracticeId } : {}
   );
-  const [expandedPractices, setExpandedPractices] = useState<
-    Record<string, string | null>
-  >(() =>
-    activeDomainId && currentPracticeId
-      ? { [activeDomainId]: currentPracticeId }
-      : {},
-  );
+  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
+  const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
+  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
+  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [isFairnessHistoryExpanded, setIsFairnessHistoryExpanded] = useState(false);
+  const [isGovernanceExpanded, setIsGovernanceExpanded] = useState(false);
 
-  // Refs for scrolling to current question
-  const currentQuestionRef = useRef<HTMLDivElement>(null);
-
-  // Keep the active domain expanded when navigation changes it
+  // Fetch recent reports when premium features are expanded
   useEffect(() => {
-    if (!activeDomainId) {
-      setExpandedDomainId(null);
-      return;
+    if (projectId && isPremiumFeaturesExpanded) {
+      const fetchReports = async () => {
+        try {
+          const response = await apiService.getDatasetReports(projectId);
+          if (response.success) {
+            setRecentReports(response.reports.slice(0, 3));
+          }
+        } catch (error) {
+          console.error("Failed to fetch recent reports:", error);
+        }
+      };
+      fetchReports();
     }
-    setExpandedDomainId((prev) =>
-      prev === activeDomainId ? prev : activeDomainId,
-    );
+  }, [projectId, isPremiumFeaturesExpanded]);
+
+  const handleReportClick = (report: any) => {
+    const payload = {
+      result: {
+        fairness: report.fairness_data,
+        fairnessResult: report.fairness_result,
+        biasness: report.biasness_result,
+        toxicity: report.toxicity_result,
+        relevance: report.relevance_result,
+        faithfulness: report.faithfulness_result,
+      },
+      fileMeta: {
+        name: report.file_name,
+        size: report.file_size,
+        uploadedAt: report.uploaded_at,
+      },
+      preview: report.csv_preview,
+      generatedAt: report.created_at,
+      selections: report.selections || {
+        metric: "adverseImpact",
+        method: "selectionRate",
+        group: "genderRace",
+        resumeFilter: "all",
+        threshold: 0.5,
+        testType: "userData",
+      },
+    };
+
+    if (typeof window !== "undefined") {
+      const storageKey = `dataset-testing-report:${projectId}`;
+      window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
+      router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report`);
+    }
+  };
+
+  const currentQuestionRef = useRef<HTMLLIElement>(null);
+
+  // Sync expansions with navigation
+  useEffect(() => {
+    if (activeDomainId) {
+      setExpandedDomainId((prev) => (prev === activeDomainId ? prev : activeDomainId));
+    }
   }, [activeDomainId]);
 
-  // Keep the active practice expanded when navigation changes it
   useEffect(() => {
-    if (!activeDomainId) return;
-    if (currentPracticeId === undefined) return;
-
-    setExpandedPractices((prev) => {
-      const current = prev[activeDomainId];
-      if (current === currentPracticeId) return prev;
-      return { ...prev, [activeDomainId]: currentPracticeId ?? null };
-    });
+    if (activeDomainId && currentPracticeId) {
+      setExpandedPractices((prev) => {
+        if (prev[activeDomainId] === currentPracticeId) return prev;
+        return { ...prev, [activeDomainId]: currentPracticeId };
+      });
+    }
   }, [activeDomainId, currentPracticeId]);
 
-  // Scroll the tree to keep the active question centered
+  // Scroll to active question
   useEffect(() => {
     if (!currentPracticeId) return;
     const timeoutId = window.setTimeout(() => {
-      if (currentQuestionRef.current) {
-        currentQuestionRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-      }
+      currentQuestionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
-
     return () => window.clearTimeout(timeoutId);
   }, [activeDomainId, currentPracticeId, currentQuestionIndex]);
 
@@ -190,359 +235,471 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   };
 
   const togglePractice = (domainId: string, practiceId: string) => {
-    setExpandedPractices((prev) => {
-      const current = prev[domainId];
-      return { ...prev, [domainId]: current === practiceId ? null : practiceId };
-    });
+    setExpandedPractices((prev) => ({
+      ...prev,
+      [domainId]: prev[domainId] === practiceId ? null : practiceId,
+    }));
   };
 
-  const safeProgressPercent = (answered: number, total: number) => {
-    if (total === 0) return 0;
-    return (answered / total) * 100;
-  };
-
-  const getProgressColor = (answered: number, total: number) => {
-    if (total === 0) return "text-muted-foreground";
-    if (answered === 0) return "text-muted-foreground";
-    if (answered === total) return "text-primary";
-    return "text-foreground";
-  };
-
-  const getProgressIcon = (
-    answered: number,
-    total: number,
-    isCompleted: boolean,
-  ) => {
-    if (isCompleted) return <IconCircleCheck className="w-4 h-4 text-primary" />;
-    if (answered > 0) return <IconClock className="w-4 h-4 text-foreground" />;
-    return <IconCircle className="w-4 h-4 text-muted-foreground" />;
+  const CompactProgress = ({ current, total, isCompleted }: { current: number; total: number; isCompleted: boolean }) => {
+    return (
+      <span
+        className={cn(
+          "text-[10px] font-mono ml-auto",
+          isCompleted ? "text-green-500" : current > 0 ? "text-blue-500" : "text-muted-foreground/60"
+        )}
+      >
+        {current}/{total}
+      </span>
+    );
   };
 
   return (
-    <div className="w-80 bg-background border-r border-border h-full overflow-y-auto">
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-6">
-          <IconBrain className="w-6 h-6 text-primary" />
-          <h2 className="text-lg font-semibold text-foreground">
-            Assessment Progress
-          </h2>
-        </div>
+    <Sidebar collapsible="none" className="w-80 border-r bg-sidebar" style={{ "--sidebar-width": "20rem" } as React.CSSProperties}>
+      <SidebarContent>
+        {/* SECTION 1: ASSESSMENT */}
+        <SidebarGroup className="px-2 py-1">
+          <div
+            className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent"
+            onClick={() => setIsAssessmentExpanded(!isAssessmentExpanded)}
+          >
+            <IconChevronsRight
+              className={cn(
+                "h-5 w-5 transition-transform text-foreground",
+                isAssessmentExpanded && "rotate-90"
+              )}
+            />
+            <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
+              Assessment Progress
+            </span>
+          </div>
+          <AnimatePresence>
+            {isAssessmentExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {standardDomains.map((domain) => {
+                      const isActive = activeDomainId === domain.id && !currentPracticeId;
+                      const isExpanded = expandedDomainId === domain.id;
 
-        <div className="space-y-2">
-          {orderedDomains.map((domain) => {
-            const isDomainActive = activeDomainId === domain.id;
-            const isDomainExpanded = expandedDomainId === domain.id;
-
-            return (
-              <div key={domain.id} className="select-none">
-                {/* Domain Header */}
-                <div
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all duration-200 ${isDomainActive
-                    ? "bg-accent border border-border"
-                    : "hover:bg-muted"
-                    }`}
-                  onClick={() => {
-                    onDomainClick(domain.id);
-                    toggleDomain(domain.id);
-                  }}
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex items-center gap-2">
-                      {isDomainExpanded ? (
-                        <IconChevronDown className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <IconChevronRight className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      {getProgressIcon(
-                        domain.questionsAnswered,
-                        domain.totalQuestions,
-                        domain.isCompleted,
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-foreground truncate">
-                        {domain.title}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 bg-muted rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full transition-all duration-300 ${domain.questionsAnswered === domain.totalQuestions
-                              ? "bg-primary"
-                              : domain.questionsAnswered > 0
-                                ? "bg-foreground/50"
-                                : "bg-muted-foreground/30"
-                              }`}
-                            style={{
-                              width: `${safeProgressPercent(
-                                domain.questionsAnswered,
-                                domain.totalQuestions
-                              )}%`,
+                      return (
+                        <SidebarMenuItem key={domain.id}>
+                          <SidebarMenuButton
+                            onClick={() => {
+                              onDomainClick(domain.id);
+                              toggleDomain(domain.id);
                             }}
-                          />
-                        </div>
-                        <span
-                          className={`text-xs font-medium ${getProgressColor(
-                            domain.questionsAnswered,
-                            domain.totalQuestions,
-                          )}`}
-                        >
-                          {domain.questionsAnswered}/{domain.totalQuestions}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                            isActive={isActive}
+                            className="group/domain h-9 px-2"
+                          >
+                            <IconChevronRight
+                              className={cn(
+                                "h-3.5 w-3.5 transition-transform text-muted-foreground group-hover/domain:text-foreground",
+                                isExpanded && "rotate-90"
+                              )}
+                            />
+                            <span className={cn(
+                              "font-semibold text-sm truncate ml-1",
+                              isActive ? "text-foreground" : "text-foreground/80"
+                            )}>
+                              {domain.title}
+                            </span>
+                            <CompactProgress
+                              current={domain.questionsAnswered}
+                              total={domain.totalQuestions}
+                              isCompleted={domain.isCompleted}
+                            />
+                          </SidebarMenuButton>
 
-                {/* Practices */}
-                <AnimatePresence>
-                  {isDomainExpanded && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="ml-6 mt-2 space-y-1"
-                    >
-                      {domain.practices.map((practice) => {
-                        const isPracticeActive =
-                          activeDomainId === domain.id &&
-                          currentPracticeId === practice.id;
-                        const isPracticeExpanded =
-                          isDomainExpanded &&
-                          expandedPractices[domain.id] === practice.id;
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <SidebarMenuSub>
+                                  {domain.practices.map((practice) => {
+                                    const isPracticeActive = activeDomainId === domain.id && currentPracticeId === practice.id;
+                                    const isPracticeExpanded = expandedPractices[domain.id] === practice.id;
 
-                        return (
-                          <div key={practice.id} className="space-y-1">
-                            {/* Practice Header */}
-                            <div
-                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 ${activeDomainId === domain.id &&
-                                currentPracticeId === practice.id
-                                ? "bg-accent/50 border border-border"
-                                : "hover:bg-muted"
-                                }`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onPracticeClick(domain.id, practice.id);
-                                togglePractice(domain.id, practice.id);
-                              }}
-                            >
-                              <div className="flex items-center gap-2">
-                                {practice.questions && practice.questions.length > 0 ? (
-                                  isPracticeExpanded ? (
-                                    <IconChevronDown className="w-3 h-3 text-muted-foreground" />
-                                  ) : (
-                                    <IconChevronRight className="w-3 h-3 text-muted-foreground" />
-                                  )
-                                ) : (
-                                  <IconFileText className="w-3 h-3 text-muted-foreground" />
-                                )}
-                                {getProgressIcon(
-                                  practice.questionsAnswered,
-                                  practice.totalQuestions,
-                                  practice.isCompleted,
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-xs font-medium text-foreground truncate">
-                                  {practice.title}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <div className="flex-1 bg-muted rounded-full h-1">
-                                    <div
-                                      className={`h-1 rounded-full transition-all duration-300 ${practice.questionsAnswered ===
-                                        practice.totalQuestions
-                                        ? "bg-primary"
-                                        : practice.questionsAnswered > 0
-                                          ? "bg-foreground/50"
-                                          : "bg-muted-foreground/30"
-                                        }`}
-                                      style={{
-                                        width: `${safeProgressPercent(
-                                          practice.questionsAnswered,
-                                          practice.totalQuestions
-                                        )}%`,
-                                      }}
-                                    />
-                                  </div>
-                                  <span
-                                    className={`text-xs ${getProgressColor(
-                                      practice.questionsAnswered,
-                                      practice.totalQuestions,
-                                    )}`}
-                                  >
-                                    {practice.questionsAnswered}/
-                                    {practice.totalQuestions}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Questions */}
-                            {practice.questions && practice.questions.length > 0 && (
-                              <AnimatePresence>
-                                {isPracticeExpanded && (
-                                  <motion.div
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: "auto" }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="ml-6 space-y-1"
-                                  >
-                                    {practice.questions.map((question, questionIndex) => {
-                                      const isCurrentQuestion =
-                                        activeDomainId === domain.id &&
-                                        currentPracticeId === practice.id &&
-                                        currentQuestionIndex === questionIndex;
-
-                                      return (
-                                        <div
-                                          key={questionIndex}
-                                          ref={isCurrentQuestion ? currentQuestionRef : null}
-                                          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all duration-200 ${isCurrentQuestion
-                                            ? "bg-accent/30 border border-border"
-                                            : "hover:bg-muted"
-                                            }`}
+                                    return (
+                                      <SidebarMenuSubItem key={practice.id}>
+                                        <SidebarMenuSubButton
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onQuestionClick(domain.id, practice.id, questionIndex);
+                                            onPracticeClick(domain.id, practice.id);
+                                            togglePractice(domain.id, practice.id);
                                           }}
+                                          isActive={isPracticeActive && !currentQuestionIndex && currentQuestionIndex !== 0}
+                                          className="group/practice h-8 px-2"
+                                        >
+                                          <IconChevronRight
+                                            className={cn(
+                                              "h-3 w-3 transition-transform opacity-60 group-hover/practice:opacity-100",
+                                              isPracticeExpanded && "rotate-90",
+                                              (!practice.questions || practice.questions.length === 0) && "invisible"
+                                            )}
+                                          />
+                                          <span className={cn(
+                                            "truncate ml-1 text-[13px]",
+                                            isPracticeActive ? "text-foreground font-medium" : "text-foreground/80"
+                                          )}>
+                                            {practice.title}
+                                          </span>
+                                          <CompactProgress
+                                            current={practice.questionsAnswered}
+                                            total={practice.totalQuestions}
+                                            isCompleted={practice.isCompleted}
+                                          />
+                                        </SidebarMenuSubButton>
+
+                                        {/* Questions nested inside practice */}
+                                        {isPracticeExpanded && practice.questions && practice.questions.length > 0 && (
+                                          <SidebarMenuSub className="border-l border-sidebar-border ml-2.5 pl-3 mt-1 gap-0.5">
+                                            {practice.questions.map((question, qIdx) => {
+                                              const isQActive = isPracticeActive && currentQuestionIndex === qIdx;
+                                              return (
+                                                <SidebarMenuSubItem key={qIdx} ref={isQActive ? currentQuestionRef : null}>
+                                                  <SidebarMenuSubButton
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      onQuestionClick(domain.id, practice.id, qIdx);
+                                                    }}
+                                                    isActive={isQActive}
+                                                    className="h-auto py-2 px-2"
+                                                  >
+                                                    <div className="flex items-start gap-2.5 w-full">
+                                                      <div className="mt-1 shrink-0">
+                                                        {question.isAnswered ?
+                                                          <IconCircleCheck className="h-3 w-3 text-green-500" /> :
+                                                          <IconCircle className="h-3 w-3 text-muted-foreground/30" />
+                                                        }
+                                                      </div>
+                                                      <span className={cn(
+                                                        "text-[12px] leading-snug line-clamp-2",
+                                                        isQActive ? "text-sidebar-foreground font-medium" : "text-muted-foreground/80"
+                                                      )}>
+                                                        {question.question}
+                                                      </span>
+                                                    </div>
+                                                  </SidebarMenuSubButton>
+                                                </SidebarMenuSubItem>
+                                              );
+                                            })}
+                                          </SidebarMenuSub>
+                                        )}
+                                      </SidebarMenuSubItem>
+                                    );
+                                  })}
+                                </SidebarMenuSub>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </SidebarGroup>
+
+
+
+        {/* SECTION 3: PREMIUM FEATURES */}
+        {projectId && !hidePremiumFeaturesButton && (
+          <SidebarGroup className="px-2 py-1">
+            <div
+              className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent"
+              onClick={() => setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded)}
+            >
+              <IconChevronsRight
+                className={cn(
+                  "h-5 w-5 transition-transform text-foreground",
+                  isPremiumFeaturesExpanded && "rotate-90"
+                )}
+              />
+              <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
+                Premium Features
+              </span>
+            </div>
+            <AnimatePresence>
+              {isPremiumFeaturesExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <SidebarGroupContent>
+                    <SidebarMenu className="gap-1">
+                      {[
+                        {
+                          id: "vulnerability",
+                          label: "AI Vulnerability Assessment",
+                          icon: IconShield,
+                          onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : router.push(`/manage-subscription`),
+                          locked: !premiumStatus,
+                          color: "text-blue-500"
+                        },
+                        {
+                          id: "fairness",
+                          label: "Automated Bias & Fairness Testing",
+                          icon: IconScale,
+                          onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
+                          locked: false,
+                          color: "text-amber-500"
+                        },
+                        {
+                          id: "governance",
+                          label: "Actionable Governance Controls",
+                          icon: IconClipboardCheck,
+                          onClick: () => { }, // Handled in the parent onClick
+                          locked: false,
+                          color: "text-green-500"
+                        }
+                      ].map((item, idx) => {
+                        const isFairness = item.id === "fairness";
+                        const isGovernance = item.id === "governance";
+
+                        // Expand logic
+                        const showHistoryToggle = isFairness;
+                        const showGovernanceToggle = isGovernance;
+
+                        let isExpanded = false;
+                        if (isFairness) isExpanded = isFairnessHistoryExpanded;
+                        if (isGovernance) isExpanded = isGovernanceExpanded;
+
+                        return (
+                          <SidebarMenuItem key={idx}>
+                            <SidebarMenuButton
+                              onClick={() => {
+                                if (isFairness) {
+                                  setIsFairnessHistoryExpanded(!isFairnessHistoryExpanded);
+                                } else if (isGovernance) {
+                                  setIsGovernanceExpanded(!isGovernanceExpanded);
+                                } else {
+                                  item.onClick();
+                                }
+                              }}
+                              className="group/premium-btn h-10 px-2"
+                            >
+                              <IconChevronRight
+                                className={cn(
+                                  "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
+                                  isExpanded && "rotate-90",
+                                  (!showHistoryToggle && !showGovernanceToggle) && "invisible"
+                                )}
+                              />
+                              <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
+                              <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
+                                {item.label}
+                              </span>
+                              {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
+                            </SidebarMenuButton>
+
+                            <AnimatePresence>
+                              {isExpanded && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="overflow-hidden"
+                                >
+                                  {isFairness && (
+                                    <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                      {recentReports.length > 0 ? (
+                                        recentReports.map((report) => (
+                                          <SidebarMenuSubItem key={report.id}>
+                                            <SidebarMenuSubButton
+                                              onClick={() => handleReportClick(report)}
+                                              className="h-auto py-2 px-2 group/history-item"
+                                            >
+                                              <div className="flex items-center gap-3 w-full">
+                                                <IconClock className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/history-item:text-foreground" />
+                                                <span className="text-[13px] leading-snug truncate text-muted-foreground/80 group-hover/history-item:text-foreground">
+                                                  {report.file_name}
+                                                </span>
+                                              </div>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                        ))
+                                      ) : (
+                                        <div className="px-2 py-2 text-[12px] text-muted-foreground/80 italic">
+                                          No evaluations yet
+                                        </div>
+                                      )}
+                                      <SidebarMenuSubItem>
+                                        <SidebarMenuSubButton
+                                          onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)}
+                                          className="h-auto py-2 px-2 mt-1 hover:bg-sidebar-accent/50"
                                         >
                                           <div className="flex items-center gap-2">
-                                            {question.isAnswered ? (
-                                              <IconCircleCheck className="w-3 h-3 text-primary" />
-                                            ) : (
-                                              <IconCircle className="w-3 h-3 text-muted-foreground" />
-                                            )}
+                                            <span className="text-[11px] uppercase tracking-wider font-bold text-primary/80 hover:text-primary">
+                                              View All History →
+                                            </span>
                                           </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-xs text-muted-foreground mb-1">
-                                              Level {question.level} • Stream {question.stream}
-                                            </div>
-                                            <div className="text-xs font-medium text-foreground line-clamp-2">
-                                              {question.question}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            )}
-                          </div>
+                                        </SidebarMenuSubButton>
+                                      </SidebarMenuSubItem>
+                                    </SidebarMenuSub>
+                                  )}
+
+                                  {isGovernance && premiumDomains.length > 0 && (
+                                    <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                      {premiumDomains.map((domain) => {
+                                        const isActive = activeDomainId === domain.id && !currentPracticeId;
+                                        const isExpanded = expandedDomainId === domain.id;
+
+                                        return (
+                                          <SidebarMenuSubItem key={domain.id}>
+                                            <SidebarMenuSubButton
+                                              onClick={() => {
+                                                onDomainClick(domain.id);
+                                                toggleDomain(domain.id);
+                                              }}
+                                              isActive={isActive}
+                                              className="group/domain h-9 px-2"
+                                            >
+                                              <IconChevronRight
+                                                className={cn(
+                                                  "h-3.5 w-3.5 transition-transform text-muted-foreground group-hover/domain:text-foreground",
+                                                  isExpanded && "rotate-90"
+                                                )}
+                                              />
+                                              <IconBrain className="ml-1 h-3.5 w-3.5 text-purple-500" />
+                                              <span className={cn(
+                                                "font-semibold text-sm truncate ml-1",
+                                                isActive ? "text-foreground" : "text-foreground/80"
+                                              )}>
+                                                {domain.title}
+                                              </span>
+                                              <CompactProgress
+                                                current={domain.questionsAnswered}
+                                                total={domain.totalQuestions}
+                                                isCompleted={domain.isCompleted}
+                                              />
+                                              {!premiumStatus && <IconLock className="ml-1 h-3 w-3 text-muted-foreground/50" />}
+                                            </SidebarMenuSubButton>
+
+                                            <AnimatePresence>
+                                              {isExpanded && (
+                                                <motion.div
+                                                  initial={{ height: 0, opacity: 0 }}
+                                                  animate={{ height: "auto", opacity: 1 }}
+                                                  exit={{ height: 0, opacity: 0 }}
+                                                  transition={{ duration: 0.2 }}
+                                                  className="overflow-hidden"
+                                                >
+                                                  <SidebarMenuSub className="border-l border-sidebar-border ml-2.5 pl-3 mt-1 gap-0.5">
+                                                    {domain.practices.map((practice) => {
+                                                      const isPracticeActive = activeDomainId === domain.id && currentPracticeId === practice.id;
+                                                      const isPracticeExpanded = expandedPractices[domain.id] === practice.id;
+
+                                                      return (
+                                                        <SidebarMenuSubItem key={practice.id}>
+                                                          <SidebarMenuSubButton
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              onPracticeClick(domain.id, practice.id);
+                                                              togglePractice(domain.id, practice.id);
+                                                            }}
+                                                            isActive={isPracticeActive && !currentQuestionIndex && currentQuestionIndex !== 0}
+                                                            className="group/practice h-8 px-2"
+                                                          >
+                                                            <IconChevronRight
+                                                              className={cn(
+                                                                "h-3 w-3 transition-transform opacity-60 group-hover/practice:opacity-100",
+                                                                isPracticeExpanded && "rotate-90",
+                                                                (!practice.questions || practice.questions.length === 0) && "invisible"
+                                                              )}
+                                                            />
+                                                            <span className={cn(
+                                                              "truncate ml-1 text-[13px]",
+                                                              isPracticeActive ? "text-foreground font-medium" : "text-foreground/80"
+                                                            )}>
+                                                              {practice.title}
+                                                            </span>
+                                                            <CompactProgress
+                                                              current={practice.questionsAnswered}
+                                                              total={practice.totalQuestions}
+                                                              isCompleted={practice.isCompleted}
+                                                            />
+                                                          </SidebarMenuSubButton>
+
+                                                          {/* Questions nested inside practice */}
+                                                          {isPracticeExpanded && practice.questions && practice.questions.length > 0 && (
+                                                            <SidebarMenuSub className="border-l border-sidebar-border ml-2.5 pl-3 mt-1 gap-0.5">
+                                                              {practice.questions.map((question, qIdx) => {
+                                                                const isQActive = isPracticeActive && currentQuestionIndex === qIdx;
+                                                                return (
+                                                                  <SidebarMenuSubItem key={qIdx} ref={isQActive ? currentQuestionRef : null}>
+                                                                    <SidebarMenuSubButton
+                                                                      onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onQuestionClick(domain.id, practice.id, qIdx);
+                                                                      }}
+                                                                      isActive={isQActive}
+                                                                      className="h-auto py-1.5"
+                                                                    >
+                                                                      <div className="flex items-start gap-2 w-full">
+                                                                        <div className="mt-0.5 shrink-0">
+                                                                          {question.isAnswered ?
+                                                                            <IconCircleCheck className="h-3.5 w-3.5 text-green-500" /> :
+                                                                            <IconCircle className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                                                          }
+                                                                        </div>
+                                                                        <span className={cn(
+                                                                          "text-xs leading-relaxed line-clamp-2",
+                                                                          isQActive ? "text-sidebar-foreground" : "text-muted-foreground/80"
+                                                                        )}>
+                                                                          {question.question}
+                                                                        </span>
+                                                                      </div>
+                                                                    </SidebarMenuSubButton>
+                                                                  </SidebarMenuSubItem>
+                                                                );
+                                                              })}
+                                                            </SidebarMenuSub>
+                                                          )}
+                                                        </SidebarMenuSubItem>
+                                                      );
+                                                    })}
+                                                  </SidebarMenuSub>
+                                                </motion.div>
+                                              )}
+                                            </AnimatePresence>
+                                          </SidebarMenuSubItem>
+                                        );
+                                      })}
+                                    </SidebarMenuSub>
+                                  )}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </SidebarMenuItem>
                         );
                       })}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-
-        </div>
-
-        {/* Premium Features Section */}
-        {projectId && !hidePremiumFeaturesButton && (
-          <div className="mt-8">
-            <div className="flex items-center gap-2 mb-4 px-2">
-              <IconCrown className="w-5 h-5 text-primary" />
-              <h2 className="text-sm font-semibold text-foreground">
-                Premium Features
-              </h2>
-            </div>
-
-            <div className="space-y-1">
-              {/* AI Vulnerability Assessment */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
-                onClick={() => {
-                  if (premiumStatus) {
-                    router.push(`/assess/${projectId}/premium-domains`);
-                  } else {
-                    router.push(`/manage-subscription`);
-                  }
-                }}
-              >
-                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
-                  <IconShield className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-medium text-foreground">
-                  Vulnerability Assessment
-                </span>
-              </div>
-
-              {/* Bias & Fairness Testing */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
-                onClick={() => {
-                  // Always allowing access to verify, handled by page logic or if actually premium required
-                  // The FeatureConfig said bias-fairness doesn't require premium domains, but usually requires sub?
-                  // The page logic for fairness-bias checks premium status too?
-                  // Checking the implementation_plan logic: "Bias & Fairness Testing" -> `/assess/${projectId}/fairness-bias/options`
-                  router.push(`/assess/${projectId}/fairness-bias/options`);
-                }}
-              >
-                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
-                  <IconScale className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-medium text-foreground">
-                  Bias & Fairness Testing
-                </span>
-              </div>
-
-              {/* Governance Controls */}
-              <div
-                className="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 hover:bg-muted"
-                onClick={() => {
-                  if (premiumStatus) {
-                    router.push(`/assess/${projectId}/premium-domains`);
-                  } else {
-                    router.push(`/manage-subscription`);
-                  }
-                }}
-              >
-                <div className="flex items-center justify-center w-6 h-6 rounded bg-primary/10 text-primary">
-                  <IconClipboardCheck className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-medium text-foreground">
-                  Governance Controls
-                </span>
-              </div>
-            </div>
-          </div>
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </SidebarGroup>
         )}
-
-
-        {/* Overall Progress Summary */}
-        <div className="mt-8 p-4 bg-muted/50 rounded-lg">
-          <h3 className="text-sm font-medium text-foreground mb-3">
-            Overall Progress
-          </h3>
-          <div className="space-y-2">
-            {orderedDomains.map((domain) => (
-              <div
-                key={domain.id}
-                className="flex items-center justify-between text-xs"
-              >
-                <span className="text-muted-foreground">
-                  {domain.title}
-                </span>
-                <span
-                  className={getProgressColor(
-                    domain.questionsAnswered,
-                    domain.totalQuestions,
-                  )}
-                >
-                  {domain.questionsAnswered}/{domain.totalQuestions}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+      </SidebarContent>
+    </Sidebar>
   );
 };
-
 
 export default AssessmentTreeNavigation;
