@@ -84,9 +84,6 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                 projectId={projectId}
                 isPremium={isPremium}
                 hidePremiumFeaturesButton={false} // Allow navigation to premium features
-                onFairnessBiasClick={() => {
-                    router.push(`/assess/${projectId}/fairness-bias/options`);
-                }}
             />
 
             {/* Main Content Area */}

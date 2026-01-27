@@ -241,12 +241,32 @@ export const useAssessmentNavigation = ({
     );
     if (currentDomainIndex < domains.length - 1) {
       const nextDomain = domains[currentDomainIndex + 1];
-      const nextPracticeId = Object.keys(nextDomain.practices)[0];
-      return {
-        domainId: nextDomain.id,
-        practiceId: nextPracticeId || '',
-        questionIndex: 0,
-      };
+      // Guard against domains with no practices
+      if (nextDomain && nextDomain.practices && Object.keys(nextDomain.practices).length > 0) {
+        const nextPracticeId = Object.keys(nextDomain.practices)[0];
+        return {
+          domainId: nextDomain.id,
+          practiceId: nextPracticeId || '',
+          questionIndex: 0,
+        };
+      }
+      
+      // If the immediate next domain has no practices, we should technically loop to find one that does.
+      // For now, let's look ahead.
+      for (let i = currentDomainIndex + 1; i < domains.length; i++) {
+         const d = domains[i];
+         if (d.practices && Object.keys(d.practices).length > 0) {
+             const pId = Object.keys(d.practices)[0];
+             return {
+                 domainId: d.id,
+                 practiceId: pId,
+                 questionIndex: 0
+             };
+         }
+      }
+      
+      // If we looked through all remaining domains and found nothing, assessment is complete.
+      return null;
     }
 
     return null; // Assessment complete

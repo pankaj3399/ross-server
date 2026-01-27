@@ -485,22 +485,36 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
     const submitProject = async () => {
         setSubmitting(true);
+        // Reset any previous error state related to submission flow if possible
+        // But keep 'saving-notes' phase indicator clean
+
         try {
             setSubmissionPhase('saving-notes');
+            // We use a flag or just rely on 'true' return.
+            // Even if some notes fail, we might want to warn user but still proceed?
+            // Current saveAllNotes returns false if ANY fail.
             const notesSaved = await saveAllNotes(true);
+
             if (!notesSaved) {
+                // If notes failed to save, stop here. User has been toasted.
                 setSubmitting(false);
                 setSubmissionPhase(null);
                 return;
             }
 
+            // Notes saved successfully.
             setSubmissionPhase('submitting');
+
             const response = await apiService.submitProject(projectId);
 
             setProjectResults(projectId, response.project, response.results);
             router.push(`/score-report-aima?projectId=${projectId}`);
         } catch (error) {
             console.error("Failed to submit project:", error);
+            // If we are in 'submitting' phase, it means notes were saved.
+            // We can optionally set a flag or just let the user retry.
+            // Since saveAllNotes is idempotent (mostly), retrying is safe.
+            // Ideally we could let the user know "Notes saved, but submission failed."
             showToast.error("Failed to submit assessment. Please try again.");
         } finally {
             setSubmitting(false);

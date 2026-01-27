@@ -75,7 +75,6 @@ interface AssessmentTreeNavigationProps {
   onQuestionClick: (domainId: string, practiceId: string, questionIndex: number) => void;
   projectId?: string;
   isPremium?: boolean;
-  onFairnessBiasClick?: () => void;
   hidePremiumFeaturesButton?: boolean;
 }
 
@@ -397,8 +396,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         {/* SECTION 1: ASSESSMENT */}
         <SidebarGroup className="px-2 py-1">
           <div
-            className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent"
+            role="button"
+            tabIndex={0}
+            className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
             onClick={() => setIsAssessmentExpanded(!isAssessmentExpanded)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setIsAssessmentExpanded(!isAssessmentExpanded);
+              }
+            }}
+            aria-expanded={isAssessmentExpanded}
           >
             <IconChevronsRight
               className={cn(
@@ -451,8 +459,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         {projectId && !hidePremiumFeaturesButton && (
           <SidebarGroup className="px-2 py-1">
             <div
-              className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent"
+              role="button"
+              tabIndex={0}
+              className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
               onClick={() => setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded);
+                }
+              }}
+              aria-expanded={isPremiumFeaturesExpanded}
             >
               <IconChevronsRight
                 className={cn(
