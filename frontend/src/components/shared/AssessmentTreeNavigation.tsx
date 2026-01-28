@@ -299,7 +299,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
 
-<<<<<<< HEAD
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -314,33 +313,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       // Limit constraints (min 200px, max 800px or 50% screen)
       const constrainedWidth = Math.max(200, Math.min(newWidth, window.innerWidth * 0.5));
       setSidebarWidth(constrainedWidth);
-=======
-  const handleReportClick = (report: any) => {
-    const payload = {
-      result: {
-        fairness: report.fairness_data,
-        fairnessResult: report.fairness_result,
-        biasness: report.biasness_result,
-        toxicity: report.toxicity_result,
-        relevance: report.relevance_result,
-        faithfulness: report.faithfulness_result,
-      },
-      fileMeta: {
-        name: report.file_name,
-        size: report.file_size,
-        uploadedAt: report.uploaded_at,
-      },
-      preview: report.csv_preview,
-      generatedAt: report.created_at,
-      selections: report.selections ?? {
-        metric: "adverseImpact",
-        method: "selectionRate",
-        group: "genderRace",
-        resumeFilter: "all",
-        threshold: 0.5,
-        testType: "userData",
-      },
->>>>>>> a3c1d77d6235fdca2326c5ee539186fe6cbb79d3
     };
 
     const handleMouseUp = () => {
