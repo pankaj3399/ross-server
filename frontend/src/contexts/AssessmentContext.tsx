@@ -377,7 +377,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 }
             }
         }
-    }, [loading, domains, projectId, getProjectState, setProjectState]);
+    }, [loading, domains, projectId, getProjectState, setProjectState, currentDomainId, currentPracticeId]);
 
 
     // --- Actions ---

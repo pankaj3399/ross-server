@@ -307,7 +307,217 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Pricing Section */}
+      <section className="py-20 px-4 bg-muted/30">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">
+              <span className="text-primary">Subscription Packages</span>
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Choose the right level of AI maturity assessment for your needs
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* SEED Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
+              className="flex"
+            >
+              <Card className="flex flex-col w-full bg-card hover:bg-muted/50 transition-all duration-300 border-border relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
+                <CardContent className="p-8 flex flex-col h-full">
+                  <div className="mb-6">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">SEED</h3>
+                    <p className="text-sm text-primary font-medium mb-4">AI Maturity Starter</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-foreground">$0</span>
+                      <span className="text-muted-foreground">/forever</span>
+                    </div>
+                  </div>
+
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    Perfect for individuals, students, early-stage startups, or anyone looking to understand the maturity level of a single AI system.
+                  </p>
+
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">1 AI Project (Single AI system)</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm font-medium">OWASP AIMA Assessment</span>
+                        <ul className="text-xs text-muted-foreground mt-1 ml-1 list-disc list-inside">
+                          <li>8 Domains</li>
+                          <li>24 Practices</li>
+                          <li>144 Questions</li>
+                        </ul>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Maturity scoring across all domains</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Basic report export</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Access to MATUR.ai dashboard</span>
+                    </li>
+                  </ul>
+
+                  <Button asChild className="w-full mt-auto" variant="outline">
+                    <Link href="/auth?isLogin=false">Get Started for Free</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* BLOOM Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="flex"
+            >
+              <Card className="flex flex-col w-full bg-card hover:bg-muted/50 transition-all duration-300 border-primary/50 ring-1 ring-primary/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-lg">
+                  POPULAR
+                </div>
+                <CardContent className="p-8 flex flex-col h-full">
+                  <div className="mb-6">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">BLOOM</h3>
+                    <p className="text-sm text-primary font-medium mb-4">Full Maturity, Testing & Automation</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-foreground">$100</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  </div>
+
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    Designed for organizations that need continuous monitoring, automation, and deeper governance insights across multiple AI systems.
+                  </p>
+
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm font-medium">Everything in SEED, plus:</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Unlimited AI Projects/Systems</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm">AI Vulnerability Assessment</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Identify security weaknesses</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm">Automated Bias & Fairness Testing</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Detect & flag bias (Manual/API/Dataset)</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm">Actionable Governance Controls</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Step-by-step actions & policy recs</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm">Advanced Exportable Reports</span>
+                    </li>
+                  </ul>
+
+                  <Button asChild className="w-full mt-auto">
+                    <Link href="/auth?isLogin=false">Start Free Trial</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* BLOOM PLUS Plan */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="flex"
+            >
+              <Card className="flex flex-col w-full bg-card hover:bg-muted/50 transition-all duration-300 border-border relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500/50 to-transparent opacity-50" />
+                <CardContent className="p-8 flex flex-col h-full">
+                  <div className="mb-6">
+                    <h3 className="text-2xl font-bold text-foreground mb-2">BLOOM PLUS</h3>
+                    <p className="text-sm text-primary font-medium mb-4">Expert AI Governance Support</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold text-foreground">$1000</span>
+                      <span className="text-muted-foreground">/month</span>
+                    </div>
+                  </div>
+
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    Ideal for organizations requiring expert involvement and professional guidance on Responsible AI, governance, and compliance.
+                  </p>
+
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <span className="text-sm font-medium">Everything in BLOOM, plus:</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm">10 Hours/Month Expert Consultation</span>
+                        <ul className="text-xs text-muted-foreground mt-1 ml-1 list-disc list-inside">
+                          <li>Assessment assistance</li>
+                          <li>Maturity score interpretation</li>
+                          <li>Implementation support</li>
+                          <li>Documentation & Policy help</li>
+                          <li>ISO 42001/NIST/EU AI Act guidance</li>
+                        </ul>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-sm">Priority Support</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">Faster response & direct access</p>
+                      </div>
+                    </li>
+                  </ul>
+
+                  <Button asChild className="w-full mt-auto" variant="outline">
+                    <Link href={`mailto:${process.env.NEXT_PUBLIC_SALES_EMAIL || "sales@yourdomain.com"}`}>Contact Sales</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+
+          <div className="text-center mt-12 text-muted-foreground">
+            <p className="text-sm font-medium">ALL PLANS CAN BE CANCELED AT ANY TIME.</p>
+          </div>
+        </div>
+      </section>
+
+
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <motion.div
