@@ -584,13 +584,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
               </AnimatePresence>
             </SidebarGroup>
           )}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </motion.div>
-  )
-}
-            </AnimatePresence >
-          </SidebarGroup >
+
 
 
 
