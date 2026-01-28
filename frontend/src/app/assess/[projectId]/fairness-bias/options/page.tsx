@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import SubscriptionModal from "../../../../../components/features/subscriptions/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
+import { apiService } from "../../../../../lib/api";
 
 type TestMethod =
   | "prompt-response"
@@ -93,6 +94,64 @@ export default function FairnessBiasOptions() {
     },
   ];
 
+  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [loadingReports, setLoadingReports] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (projectId && isPremium) {
+      const fetchReports = async () => {
+        setLoadingReports(true);
+        try {
+          const response = await apiService.getDatasetReports(projectId);
+          if (isMounted && response.success) {
+            setRecentReports(response.reports.slice(0, 5));
+          }
+        } catch (error) {
+          console.error("Failed to fetch recent reports:", error);
+        } finally {
+          if (isMounted) setLoadingReports(false);
+        }
+      };
+      fetchReports();
+    }
+    return () => { isMounted = false; };
+  }, [projectId, isPremium]);
+
+  const handleReportClick = (report: any) => {
+    const payload = {
+      result: {
+        fairness: report.fairness_data,
+        fairnessResult: report.fairness_result,
+        biasness: report.biasness_result,
+        toxicity: report.toxicity_result,
+        relevance: report.relevance_result,
+        faithfulness: report.faithfulness_result,
+      },
+      fileMeta: {
+        name: report.file_name,
+        size: report.file_size,
+        uploadedAt: report.uploaded_at,
+      },
+      preview: report.csv_preview,
+      generatedAt: report.created_at,
+      selections: report.selections ?? {
+        metric: "adverseImpact",
+        method: "selectionRate",
+        group: "genderRace",
+        resumeFilter: "all",
+        threshold: 0.5,
+        testType: "userData",
+      },
+    };
+
+    if (typeof window !== "undefined") {
+      const storageKey = `dataset-testing-report:${projectId}`;
+      window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
+      router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report`);
+    }
+  };
+
   if (loading || !user) {
     return <OptionsGridSkeleton />;
   }
@@ -137,7 +196,7 @@ export default function FairnessBiasOptions() {
           </div>
 
           {/* Options Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-5xl mx-auto">
             {options.map((option, index) => {
               const Icon = option.icon;
               const isSelected = selectedMethod === option.id;
@@ -189,7 +248,7 @@ export default function FairnessBiasOptions() {
           </div>
 
           {/* Continue Button */}
-          <div className="flex justify-center">
+          <div className="flex justify-center mb-16">
             <motion.button
               onClick={handleContinue}
               disabled={!selectedMethod || !isPremium}
@@ -206,6 +265,72 @@ export default function FairnessBiasOptions() {
               Continue
             </motion.button>
           </div>
+
+          {/* Recent Evaluations Section */}
+          {isPremium && (
+            <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-foreground">Recent Evaluations</h2>
+                {recentReports.length > 0 && (
+                  <button
+                    onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)}
+                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                  >
+                    View All
+                  </button>
+                )}
+              </div>
+
+              {loadingReports ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-16 bg-muted/40 rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : recentReports.length > 0 ? (
+                <div className="grid grid-cols-1 gap-3">
+                  {recentReports.map((report) => (
+                    <motion.div
+                      key={report.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="group flex items-center justify-between p-4 bg-card hover:bg-muted/50 border border-border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-sm"
+                      onClick={() => handleReportClick(report)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            {report.file_name}
+                          </h4>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <span>
+                              {new Date(report.created_at).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                            <span className="w-1 h-1 rounded-full bg-border" />
+                            <span>{(report.file_size / 1024).toFixed(1)} KB</span>
+                          </div>
+                        </div>
+                      </div>
+                      <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180 group-hover:translate-x-1 transition-transform" />
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 border-2 border-dashed border-border rounded-xl bg-muted/20">
+                  <p className="text-muted-foreground">No evaluations ran yet.</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

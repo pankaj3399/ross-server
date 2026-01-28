@@ -369,7 +369,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setQuestions([]);
             }
         }
-    }, [loading, domains, currentDomainId, currentPracticeId, projectId, currentQuestionIndex, projectState, setProjectState]);
+    }, [loading, domains, projectId, getProjectState, setProjectState, currentDomainId, currentPracticeId]);
 
 
     // --- Actions ---

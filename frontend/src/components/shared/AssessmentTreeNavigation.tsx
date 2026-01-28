@@ -115,7 +115,6 @@ const DomainTreeItem = ({
   onPracticeClick,
   onQuestionClick,
   toggleDomain,
-  icon: Icon,
   premiumStatus = true,
 }: {
   domain: Domain;
@@ -127,7 +126,6 @@ const DomainTreeItem = ({
   onPracticeClick: (domainId: string, practiceId: string) => void;
   onQuestionClick: (domainId: string, practiceId: string, index: number) => void;
   toggleDomain: (id: string) => void;
-  icon: any;
   premiumStatus?: boolean;
   currentQuestionRef?: React.RefObject<HTMLLIElement>;
 }) => {
@@ -150,7 +148,6 @@ const DomainTreeItem = ({
             isDomainExpanded && "rotate-90"
           )}
         />
-        <Icon className={cn("ml-1 h-3.5 w-3.5", domain.is_premium ? "text-purple-500" : "text-primary")} />
         <span className={cn(
           "font-semibold text-sm truncate ml-1",
           isDomainActive && !currentPracticeId ? "text-foreground" : "text-foreground/80"
@@ -293,62 +290,52 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
-  const [recentReports, setRecentReports] = useState<any[]>([]);
-  const [isFairnessHistoryExpanded, setIsFairnessHistoryExpanded] = useState(false);
+
   const [isGovernanceExpanded, setIsGovernanceExpanded] = useState(false);
 
-  // Fetch recent reports when premium features are expanded
-  useEffect(() => {
-    let isMounted = true;
-    if (projectId && isPremiumFeaturesExpanded) {
-      const fetchReports = async () => {
-        try {
-          const response = await apiService.getDatasetReports(projectId);
-          if (isMounted && response.success) {
-            setRecentReports(response.reports.slice(0, 3));
-          }
-        } catch (error) {
-          console.error("Failed to fetch recent reports:", error);
-        }
-      };
-      fetchReports();
-    }
-    return () => { isMounted = false; };
-  }, [projectId, isPremiumFeaturesExpanded]);
+  // Sidebar resize logic
+  const [sidebarWidth, setSidebarWidth] = useState(320); // Default 20rem = 320px
+  const [isResizing, setIsResizing] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
-  const handleReportClick = (report: any) => {
-    const payload = {
-      result: {
-        fairness: report.fairness_data,
-        fairnessResult: report.fairness_result,
-        biasness: report.biasness_result,
-        toxicity: report.toxicity_result,
-        relevance: report.relevance_result,
-        faithfulness: report.faithfulness_result,
-      },
-      fileMeta: {
-        name: report.file_name,
-        size: report.file_size,
-        uploadedAt: report.uploaded_at,
-      },
-      preview: report.csv_preview,
-      generatedAt: report.created_at,
-      selections: report.selections || {
-        metric: "adverseImpact",
-        method: "selectionRate",
-        group: "genderRace",
-        resumeFilter: "all",
-        threshold: 0.5,
-        testType: "userData",
-      },
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+
+      // Calculate new width: Since sidebar is on the right, moving mouse left (decreasing X) increases width
+      // We need to base it on the window width or the sidebar's right edge position
+      // Easier approach: The sidebar right edge is fixed at screen right (due to flex-row-reverse in layout)
+      // So new width = window.innerWidth - e.clientX
+
+      const newWidth = window.innerWidth - e.clientX;
+
+      // Limit constraints (min 200px, max 800px or 50% screen)
+      const constrainedWidth = Math.max(200, Math.min(newWidth, window.innerWidth * 0.5));
+      setSidebarWidth(constrainedWidth);
     };
 
-    if (typeof window !== "undefined") {
-      const storageKey = `dataset-testing-report:${projectId}`;
-      window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
-      router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report`);
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto'; // Re-enable text selection
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none'; // Prevent text selection while dragging
     }
-  };
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing]);
+
+
+
+
 
   const currentQuestionRef = useRef<HTMLLIElement>(null);
 
@@ -391,98 +378,46 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
 
   return (
-    <Sidebar collapsible="none" className="w-80 border-r bg-sidebar" style={{ "--sidebar-width": "20rem" } as React.CSSProperties}>
-      <SidebarContent>
-        {/* SECTION 1: ASSESSMENT */}
-        <SidebarGroup className="px-2 py-1">
-          <div
-            role="button"
-            tabIndex={0}
-            className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
-            onClick={() => setIsAssessmentExpanded(!isAssessmentExpanded)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setIsAssessmentExpanded(!isAssessmentExpanded);
-              }
-            }}
-            aria-expanded={isAssessmentExpanded}
-          >
-            <IconChevronsRight
-              className={cn(
-                "h-5 w-5 transition-transform text-foreground",
-                isAssessmentExpanded && "rotate-90"
-              )}
-            />
-            <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
-              Assessment Progress
-            </span>
-          </div>
-          <AnimatePresence>
-            {isAssessmentExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {standardDomains.map((domain) => (
-                      <DomainTreeItem
-                        key={domain.id}
-                        domain={domain}
-                        currentDomainId={activeDomainId}
-                        currentPracticeId={currentPracticeId}
-                        currentQuestionIndex={currentQuestionIndex}
-                        expandedDomainId={expandedDomainId}
-                        onDomainClick={onDomainClick}
-                        onPracticeClick={onPracticeClick}
-                        onQuestionClick={onQuestionClick}
-                        toggleDomain={toggleDomain}
-                        icon={IconBrain}
-                        premiumStatus={premiumStatus}
-                        currentQuestionRef={currentQuestionRef}
-                      />
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </SidebarGroup>
-
-
-
-        {/* SECTION 3: PREMIUM FEATURES */}
-        {projectId && !hidePremiumFeaturesButton && (
+    <div className="relative flex-shrink-0" style={{ width: sidebarWidth }}>
+      {/* Resize Handle - Positioned on the LEFT edge because layout is reversed */}
+      <div
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 z-50 transition-colors"
+        onMouseDown={(e) => {
+          e.preventDefault();
+          setIsResizing(true);
+        }}
+      />
+      <Sidebar
+        collapsible="none"
+        className="h-full border-r bg-sidebar"
+        style={{
+          width: "100%", // Fill the wrapper
+          "--sidebar-width": `${sidebarWidth}px`,
+          borderLeft: "1px solid hsl(var(--border))", // Add border to the left side since it faces content
+          borderRight: "none" // Remove default right border
+        } as React.CSSProperties}
+      >
+        <SidebarContent>
+          {/* SECTION 1: ASSESSMENT */}
           <SidebarGroup className="px-2 py-1">
-            <div
-              role="button"
-              tabIndex={0}
-              className="group/label flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
-              onClick={() => setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded);
-                }
-              }}
-              aria-expanded={isPremiumFeaturesExpanded}
+            <button
+              type="button"
+              className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+              onClick={() => setIsAssessmentExpanded(!isAssessmentExpanded)}
+              aria-expanded={isAssessmentExpanded}
             >
               <IconChevronsRight
                 className={cn(
                   "h-5 w-5 transition-transform text-foreground",
-                  isPremiumFeaturesExpanded && "rotate-90"
+                  isAssessmentExpanded && "rotate-90"
                 )}
               />
               <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
-                Premium Features
+                AI Maturity Assessment (AIMA)
               </span>
-            </div>
+            </button>
             <AnimatePresence>
-              {isPremiumFeaturesExpanded && (
+              {isAssessmentExpanded && (
                 <motion.div
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: "auto", opacity: 1 }}
@@ -491,154 +426,166 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   className="overflow-hidden"
                 >
                   <SidebarGroupContent>
-                    <SidebarMenu className="gap-1">
-                      {[
-                        {
-                          id: "vulnerability",
-                          label: "AI Vulnerability Assessment",
-                          icon: IconShield,
-                          onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : router.push(`/manage-subscription`),
-                          locked: !premiumStatus,
-                          color: "text-blue-500"
-                        },
-                        {
-                          id: "fairness",
-                          label: "Automated Bias & Fairness Testing",
-                          icon: IconScale,
-                          onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
-                          locked: false,
-                          color: "text-amber-500"
-                        },
-                        {
-                          id: "governance",
-                          label: "Actionable Governance Controls",
-                          icon: IconClipboardCheck,
-                          onClick: () => { /* Handled in the parent onClick */ },
-                          locked: false,
-                          color: "text-green-500"
-                        }
-                      ].map((item, idx) => {
-                        const isFairness = item.id === "fairness";
-                        const isGovernance = item.id === "governance";
-
-                        // Expand logic
-                        const showHistoryToggle = isFairness;
-                        const showGovernanceToggle = isGovernance;
-
-                        let isExpanded = false;
-                        if (isFairness) isExpanded = isFairnessHistoryExpanded;
-                        if (isGovernance) isExpanded = isGovernanceExpanded;
-
-                        return (
-                          <SidebarMenuItem key={idx}>
-                            <SidebarMenuButton
-                              onClick={() => {
-                                if (isFairness) {
-                                  setIsFairnessHistoryExpanded(!isFairnessHistoryExpanded);
-                                } else if (isGovernance) {
-                                  setIsGovernanceExpanded(!isGovernanceExpanded);
-                                } else {
-                                  item.onClick();
-                                }
-                              }}
-                              className="group/premium-btn h-10 px-2"
-                            >
-                              <IconChevronRight
-                                className={cn(
-                                  "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
-                                  isExpanded && "rotate-90",
-                                  (!showHistoryToggle && !showGovernanceToggle) && "invisible"
-                                )}
-                              />
-                              <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
-                              <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
-                                {item.label}
-                              </span>
-                              {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
-                            </SidebarMenuButton>
-
-                            <AnimatePresence>
-                              {isExpanded && (
-                                <motion.div
-                                  initial={{ height: 0, opacity: 0 }}
-                                  animate={{ height: "auto", opacity: 1 }}
-                                  exit={{ height: 0, opacity: 0 }}
-                                  className="overflow-hidden"
-                                >
-                                  {isFairness && (
-                                    <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                      {recentReports.length > 0 ? (
-                                        recentReports.map((report) => (
-                                          <SidebarMenuSubItem key={report.id}>
-                                            <SidebarMenuSubButton
-                                              onClick={() => handleReportClick(report)}
-                                              className="h-auto py-2 px-2 group/history-item"
-                                            >
-                                              <div className="flex items-center gap-3 w-full">
-                                                <IconClock className="h-3.5 w-3.5 text-muted-foreground/60 group-hover/history-item:text-foreground" />
-                                                <span className="text-[13px] leading-snug truncate text-muted-foreground/80 group-hover/history-item:text-foreground">
-                                                  {report.file_name}
-                                                </span>
-                                              </div>
-                                            </SidebarMenuSubButton>
-                                          </SidebarMenuSubItem>
-                                        ))
-                                      ) : (
-                                        <div className="px-2 py-2 text-[12px] text-muted-foreground/80 italic">
-                                          No evaluations yet
-                                        </div>
-                                      )}
-                                      <SidebarMenuSubItem>
-                                        <SidebarMenuSubButton
-                                          onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)}
-                                          className="h-auto py-2 px-2 mt-1 hover:bg-sidebar-accent/50"
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-[11px] uppercase tracking-wider font-bold text-primary/80 hover:text-primary">
-                                              View All History →
-                                            </span>
-                                          </div>
-                                        </SidebarMenuSubButton>
-                                      </SidebarMenuSubItem>
-                                    </SidebarMenuSub>
-                                  )}
-
-                                  {isGovernance && premiumDomains.length > 0 && (
-                                    <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                      {premiumDomains.map((domain) => (
-                                        <DomainTreeItem
-                                          key={domain.id}
-                                          domain={domain}
-                                          currentDomainId={activeDomainId}
-                                          currentPracticeId={currentPracticeId}
-                                          currentQuestionIndex={currentQuestionIndex}
-                                          expandedDomainId={expandedDomainId}
-                                          onDomainClick={onDomainClick}
-                                          onPracticeClick={onPracticeClick}
-                                          onQuestionClick={onQuestionClick}
-                                          toggleDomain={toggleDomain}
-                                          icon={IconBrain}
-                                          premiumStatus={premiumStatus}
-                                          currentQuestionRef={currentQuestionRef}
-                                        />
-                                      ))}
-                                    </SidebarMenuSub>
-                                  )}
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
-                          </SidebarMenuItem>
-                        );
-                      })}
+                    <SidebarMenu>
+                      {standardDomains.map((domain) => (
+                        <DomainTreeItem
+                          key={domain.id}
+                          domain={domain}
+                          currentDomainId={activeDomainId}
+                          currentPracticeId={currentPracticeId}
+                          currentQuestionIndex={currentQuestionIndex}
+                          expandedDomainId={expandedDomainId}
+                          onDomainClick={onDomainClick}
+                          onPracticeClick={onPracticeClick}
+                          onQuestionClick={onQuestionClick}
+                          toggleDomain={toggleDomain}
+                          premiumStatus={premiumStatus}
+                          currentQuestionRef={currentQuestionRef}
+                        />
+                      ))}
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </motion.div>
               )}
             </AnimatePresence>
           </SidebarGroup>
-        )}
-      </SidebarContent>
-    </Sidebar>
+
+
+
+          {/* SECTION 3: PREMIUM FEATURES */}
+          {projectId && !hidePremiumFeaturesButton && (
+            <SidebarGroup className="px-2 py-1">
+              <button
+                type="button"
+                className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+                onClick={() => setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded)}
+                aria-expanded={isPremiumFeaturesExpanded}
+              >
+                <IconChevronsRight
+                  className={cn(
+                    "h-5 w-5 transition-transform text-foreground",
+                    isPremiumFeaturesExpanded && "rotate-90"
+                  )}
+                />
+                <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
+                  Premium Features
+                </span>
+              </button>
+              <AnimatePresence>
+                {isPremiumFeaturesExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <SidebarGroupContent>
+                      <SidebarMenu className="gap-1">
+                        {[
+                          {
+                            id: "vulnerability",
+                            label: "AI Vulnerability Assessment",
+                            icon: IconShield,
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : router.push(`/manage-subscription`),
+                            locked: !premiumStatus,
+                            color: "text-blue-500"
+                          },
+                          {
+                            id: "fairness",
+                            label: "Automated Bias & Fairness Testing",
+                            icon: IconScale,
+                            onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
+                            locked: false,
+                            color: "text-amber-500"
+                          },
+                          {
+                            id: "governance",
+                            label: "Actionable Governance Controls",
+                            icon: IconClipboardCheck,
+                            onClick: () => { /* Handled in the parent onClick */ },
+                            locked: false,
+                            color: "text-green-500"
+                          }
+                        ].map((item, idx) => {
+                          const isGovernance = item.id === "governance";
+
+                          // Expand logic
+                          const showGovernanceToggle = isGovernance;
+
+                          let isExpanded = false;
+                          if (isGovernance) isExpanded = isGovernanceExpanded;
+
+                          return (
+                            <SidebarMenuItem key={idx}>
+                              <SidebarMenuButton
+                                onClick={() => {
+                                  if (isGovernance) {
+                                    setIsGovernanceExpanded(!isGovernanceExpanded);
+                                  } else {
+                                    item.onClick();
+                                  }
+                                }}
+                                className="group/premium-btn h-10 px-2"
+                              >
+                                <IconChevronRight
+                                  className={cn(
+                                    "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
+                                    isExpanded && "rotate-90",
+                                    (!showGovernanceToggle) && "invisible"
+                                  )}
+                                />
+                                <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
+                                <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
+                                  {item.label}
+                                </span>
+                                {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
+                              </SidebarMenuButton>
+
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden"
+                                  >
+                                    {isGovernance && premiumDomains.length > 0 && (
+                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                        {premiumDomains.map((domain) => (
+                                          <DomainTreeItem
+                                            key={domain.id}
+                                            domain={domain}
+                                            currentDomainId={activeDomainId}
+                                            currentPracticeId={currentPracticeId}
+                                            currentQuestionIndex={currentQuestionIndex}
+                                            expandedDomainId={expandedDomainId}
+                                            onDomainClick={onDomainClick}
+                                            onPracticeClick={onPracticeClick}
+                                            onQuestionClick={onQuestionClick}
+                                            toggleDomain={toggleDomain}
+                                            premiumStatus={premiumStatus}
+                                            currentQuestionRef={currentQuestionRef}
+                                          />
+                                        ))}
+                                      </SidebarMenuSub>
+                                    )}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </SidebarMenuItem>
+                          );
+                        })}
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+      </Sidebar>
+    </div >
   );
 };
 
