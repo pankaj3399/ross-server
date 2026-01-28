@@ -1,11 +1,10 @@
-
 import { useState, useCallback, RefObject } from "react";
 import type { DatasetReportPayload } from "../../types";
-import { 
-    styleHeader, styleGrid, styleCards, styleSectionCards, 
-    styleUploadInfo, styleAnalysisParams, styleVerdictColors, 
-    styleBadges, styleTypography, styleTables, styleMetricCards, 
-    styleIcons, styleMutedBackgrounds, fixProgressBars 
+import {
+    styleHeader, styleGrid, styleCards, styleSectionCards,
+    styleUploadInfo, styleAnalysisParams, styleVerdictColors,
+    styleBadges, styleTypography, styleTables, styleMetricCards,
+    styleIcons, styleMutedBackgrounds, fixProgressBars
 } from "./pdfStyles";
 
 interface UsePdfExportProps {
@@ -16,47 +15,390 @@ interface UsePdfExportProps {
 /** Time to wait for React re-render and chart rendering before PDF capture */
 const PDF_RENDERING_DELAY_MS = 1000;
 
+// PDF Constants
+const PDF_CONFIG = {
+    margin: 15,
+    headerHeight: 25,
+    footerHeight: 12,
+    contentGap: 8,
+} as const;
+
+type jsPDFType = InstanceType<typeof import("jspdf").jsPDF>;
+
 export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
     const [isExporting, setIsExporting] = useState(false);
 
     const exportPdf = useCallback(async () => {
         if (!reportRef.current || !payload) return;
-        if (isExporting) return; // Prevent concurrent exports
+        if (isExporting) return;
+
         try {
             setIsExporting(true);
-
-            // Wait for React to re-render with isExporting=true (which expands all rows)
-            // Increased timeout to ensure all components (especially charts) have fully successfully rendered
             await new Promise(resolve => setTimeout(resolve, PDF_RENDERING_DELAY_MS));
 
-            const [jsPDFModule, html2canvasModule] = await Promise.all([import("jspdf"), import("html2canvas")]);
+            const [jsPDFModule, html2canvasModule] = await Promise.all([
+                import("jspdf"),
+                import("html2canvas")
+            ]);
             const jsPDFConstructor = jsPDFModule.default;
             const html2canvas = html2canvasModule.default;
 
             const pdf = new jsPDFConstructor({ orientation: "p", unit: "mm", format: "a4" });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10;
+            const { margin, headerHeight, footerHeight } = PDF_CONFIG;
             const usableWidth = pageWidth - 2 * margin;
+            const contentTop = margin + headerHeight;
+            const contentBottom = pageHeight - footerHeight;
+            const usableHeight = contentBottom - contentTop;
 
+            // Helper: Add header to current page
+            const addPageHeader = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
+                const { margin, headerHeight } = PDF_CONFIG;
+                
+                // Header background - Primary Blue #4285F4
+                pdfDoc.setFillColor(66, 133, 244); 
+                pdfDoc.rect(0, 0, pageWidth, headerHeight, "F");
+
+                // Logo/Brand text - CENTERED
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(14);
+                pdfDoc.setTextColor(255, 255, 255); // White text
+                // Vertically centered: title at 11, subtitle at 18 (total height 25)
+                pdfDoc.text("MATUR.ai", pageWidth / 2, 11, { align: "center" });
+
+                // Report title
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setFontSize(9);
+                pdfDoc.setTextColor(255, 255, 255); // White text
+                pdfDoc.text("Fairness & Bias Evaluation Report", pageWidth / 2, 18, { align: "center" });
+
+                // Project name on right
+                if (payload.projectName) {
+                    pdfDoc.setFont("helvetica", "bold");
+                    pdfDoc.setFontSize(8);
+                    pdfDoc.setTextColor(255, 255, 255); // White text
+                    const projectText = `Project: ${payload.projectName}`;
+                    // Align with title for balance
+                    pdfDoc.text(projectText, pageWidth - margin, 11, { align: "right" });
+                }
+                
+                // Note: Removed separator line as the blue block serves as a cleaner separator
+            };
+
+            // Helper: Add footer to current page
+            const addPageFooter = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
+                const footerY = pageHeight - 8;
+
+                // Left side: Date and system info
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setFontSize(8);
+                pdfDoc.setTextColor(100, 116, 139); // slate-500
+
+                const dateStr = new Date().toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric"
+                });
+                pdfDoc.text(`Generated: ${dateStr}`, margin, footerY);
+
+                // Center: Confidential notice
+                pdfDoc.setFont("helvetica", "italic");
+                pdfDoc.setFontSize(7);
+                pdfDoc.text("Confidential - For Internal Use Only", pageWidth / 2, footerY, { align: "center" });
+
+                // Right side: Page number
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setFontSize(8);
+                pdfDoc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin, footerY, { align: "right" });
+
+                // Separator line above footer
+                pdfDoc.setDrawColor(226, 232, 240);
+                pdfDoc.setLineWidth(0.2);
+                pdfDoc.line(margin, footerY - 4, pageWidth - margin, footerY - 4);
+            };
+
+            // Helper: Create summary/cover page
+            const createSummaryPage = (pdfDoc: jsPDFType) => {
+                // Title area - more compact
+                pdfDoc.setFillColor(249, 250, 251); // gray-50
+                pdfDoc.rect(0, 20, pageWidth, 50, "F");
+
+                // Main title
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(24);
+                pdfDoc.setTextColor(15, 23, 42); // slate-900
+                pdfDoc.text("Fairness & Bias Evaluation Report", pageWidth / 2, 42, { align: "center" });
+
+                // Subtitle - Project name
+                if (payload.projectName) {
+                    pdfDoc.setFont("helvetica", "normal");
+                    pdfDoc.setFontSize(12);
+                    pdfDoc.setTextColor(79, 70, 229); // indigo-600
+                    pdfDoc.text(payload.projectName, pageWidth / 2, 55, { align: "center" });
+                }
+
+                // Start content after title area
+                let yPos = 78;
+                const leftCol = margin + 5;
+                const rightCol = pageWidth / 2 + 5;
+
+                // Report Summary - compact inline layout
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(11);
+                pdfDoc.setTextColor(15, 23, 42);
+                pdfDoc.text("Report Summary", margin, yPos);
+                yPos += 8;
+
+                // Draw compact summary box
+                pdfDoc.setFillColor(248, 250, 252);
+                pdfDoc.setDrawColor(226, 232, 240);
+                pdfDoc.roundedRect(margin, yPos, usableWidth, 32, 2, 2, "FD");
+
+                const boxY = yPos + 8;
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setFontSize(9);
+
+                // Row 1
+                pdfDoc.setTextColor(71, 85, 105);
+                pdfDoc.text("Dataset:", leftCol, boxY);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(15, 23, 42);
+                const fileName = payload.fileMeta.name || "N/A";
+                const truncatedFileName = fileName.length > 25 ? fileName.substring(0, 22) + "..." : fileName;
+                pdfDoc.text(truncatedFileName, leftCol + 20, boxY);
+
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setTextColor(71, 85, 105);
+                pdfDoc.text("Rows:", rightCol, boxY);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(15, 23, 42);
+                pdfDoc.text(payload.result.fairness.datasetStats?.totalRows?.toLocaleString() || "N/A", rightCol + 15, boxY);
+
+                // Row 2
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setTextColor(71, 85, 105);
+                pdfDoc.text("Generated:", leftCol, boxY + 8);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(15, 23, 42);
+                const generatedDate = new Date(payload.generatedAt).toLocaleDateString("en-US", {
+                    year: "numeric", month: "short", day: "numeric"
+                });
+                pdfDoc.text(generatedDate, leftCol + 24, boxY + 8);
+
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setTextColor(71, 85, 105);
+                pdfDoc.text("Threshold:", rightCol, boxY + 8);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(15, 23, 42);
+                pdfDoc.text(`${(payload.selections.threshold * 100).toFixed(0)}%`, rightCol + 24, boxY + 8);
+
+                // Row 3
+                pdfDoc.setFont("helvetica", "normal");
+                pdfDoc.setTextColor(71, 85, 105);
+                pdfDoc.text("Method:", leftCol, boxY + 16);
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setTextColor(15, 23, 42);
+                const method = payload.selections?.method === "selectionRate" ? "Selection Rate" : "Impact Ratio";
+                pdfDoc.text(method, leftCol + 18, boxY + 16);
+
+                yPos += 40;
+
+                // Overall Verdict - compact
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(11);
+                pdfDoc.setTextColor(15, 23, 42);
+                pdfDoc.text("Overall Verdict", margin, yPos);
+                yPos += 6;
+
+                const verdict = payload.result.fairness.overallVerdict;
+                let verdictColor: [number, number, number];
+                let verdictBgColor: [number, number, number];
+                let verdictLabel: string;
+
+                switch (verdict) {
+                    case "pass":
+                        verdictColor = [5, 150, 105];
+                        verdictBgColor = [240, 253, 244];
+                        verdictLabel = "PASS - Fair";
+                        break;
+                    case "caution":
+                        verdictColor = [217, 119, 6];
+                        verdictBgColor = [255, 251, 235];
+                        verdictLabel = "CAUTION - Review Recommended";
+                        break;
+                    case "fail":
+                        verdictColor = [220, 38, 38];
+                        verdictBgColor = [254, 242, 242];
+                        verdictLabel = "FAIL - Bias Detected";
+                        break;
+                    default:
+                        verdictColor = [100, 116, 139];
+                        verdictBgColor = [248, 250, 252];
+                        verdictLabel = "Insufficient Data";
+                }
+
+                pdfDoc.setFillColor(...verdictBgColor);
+                pdfDoc.setDrawColor(...verdictColor);
+                pdfDoc.setLineWidth(0.5);
+                pdfDoc.roundedRect(margin, yPos, usableWidth, 14, 2, 2, "FD");
+
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(12);
+                pdfDoc.setTextColor(...verdictColor);
+                pdfDoc.text(verdictLabel, pageWidth / 2, yPos + 9, { align: "center" });
+
+                yPos += 20;
+
+                // Metric scores - compact horizontal layout
+                pdfDoc.setFont("helvetica", "bold");
+                pdfDoc.setFontSize(11);
+                pdfDoc.setTextColor(15, 23, 42);
+                pdfDoc.text("Metric Scores", margin, yPos);
+                yPos += 6;
+
+                const metrics = [
+                    { name: "Fairness", data: payload.result.fairnessResult },
+                    { name: "Biasness", data: payload.result.biasness },
+                    { name: "Toxicity", data: payload.result.toxicity },
+                    { name: "Relevance", data: payload.result.relevance },
+                    { name: "Faithfulness", data: payload.result.faithfulness },
+                ];
+
+                const cardWidth = (usableWidth - 8) / 5;
+                const cardHeight = 24;
+
+                metrics.forEach((metric, idx) => {
+                    const x = margin + idx * (cardWidth + 2);
+
+                    pdfDoc.setFillColor(248, 250, 252);
+                    pdfDoc.setDrawColor(226, 232, 240);
+                    pdfDoc.setLineWidth(0.3);
+                    pdfDoc.roundedRect(x, yPos, cardWidth, cardHeight, 2, 2, "FD");
+
+                    pdfDoc.setFont("helvetica", "normal");
+                    pdfDoc.setFontSize(7);
+                    pdfDoc.setTextColor(100, 116, 139);
+                    pdfDoc.text(metric.name, x + cardWidth / 2, yPos + 7, { align: "center" });
+
+                    const score = (metric.data.score * 100).toFixed(0) + "%";
+                    let scoreColor: [number, number, number];
+                    switch (metric.data.label) {
+                        case "high": scoreColor = [5, 150, 105]; break;
+                        case "moderate": scoreColor = [217, 119, 6]; break;
+                        default: scoreColor = [220, 38, 38];
+                    }
+                    pdfDoc.setFont("helvetica", "bold");
+                    pdfDoc.setFontSize(12);
+                    pdfDoc.setTextColor(...scoreColor);
+                    pdfDoc.text(score, x + cardWidth / 2, yPos + 18, { align: "center" });
+                });
+
+                yPos += cardHeight + 8;
+
+                // Sensitive columns summary - only show if space available
+                const sensitiveColumns = payload.result.fairness.sensitiveColumns;
+                const footerStart = pageHeight - footerHeight - 8;
+                const remainingSpace = footerStart - yPos;
+
+                if (sensitiveColumns.length > 0 && remainingSpace > 30) {
+                    pdfDoc.setFont("helvetica", "bold");
+                    pdfDoc.setFontSize(11);
+                    pdfDoc.setTextColor(15, 23, 42);
+                    pdfDoc.text("Sensitive Columns Analyzed", margin, yPos);
+                    yPos += 8;
+
+                    // Calculate how many rows fit
+                    const rowHeight = 8;
+                    const headerRowHeight = 10;
+                    const availableForRows = remainingSpace - 20; // Space for title and header
+                    const maxRows = Math.max(1, Math.floor((availableForRows - headerRowHeight) / rowHeight));
+                    const displayColumns = sensitiveColumns.slice(0, maxRows);
+
+                    // Table header
+                    pdfDoc.setFillColor(241, 245, 249);
+                    pdfDoc.setDrawColor(226, 232, 240);
+                    pdfDoc.roundedRect(margin, yPos, usableWidth, headerRowHeight, 1, 1, "FD");
+                    
+                    pdfDoc.setFont("helvetica", "bold");
+                    pdfDoc.setFontSize(8);
+                    pdfDoc.setTextColor(51, 65, 85);
+                    
+                    const colWidths = [45, 35, 35, 45];
+                    let xPos = margin + 4;
+                    pdfDoc.text("Column", xPos, yPos + 7);
+                    xPos += colWidths[0];
+                    pdfDoc.text("Verdict", xPos, yPos + 7);
+                    xPos += colWidths[1];
+                    pdfDoc.text("Groups", xPos, yPos + 7);
+                    xPos += colWidths[2];
+                    pdfDoc.text("Disparity", xPos, yPos + 7);
+
+                    yPos += headerRowHeight;
+
+                    // Table rows
+                    displayColumns.forEach((col, idx) => {
+                        const rowY = yPos + (idx * rowHeight);
+                        
+                        if (idx % 2 === 0) {
+                            pdfDoc.setFillColor(248, 250, 252);
+                            pdfDoc.rect(margin, rowY, usableWidth, rowHeight, "F");
+                        }
+
+                        pdfDoc.setFont("helvetica", "normal");
+                        pdfDoc.setFontSize(8);
+                        pdfDoc.setTextColor(55, 65, 81);
+
+                        xPos = margin + 4;
+                        const colName = col.column.length > 12 ? col.column.substring(0, 10) + ".." : col.column;
+                        pdfDoc.text(colName, xPos, rowY + 6);
+                        
+                        xPos += colWidths[0];
+                        let textColor: [number, number, number];
+                        switch (col.verdict) {
+                            case "pass": textColor = [5, 150, 105]; break;
+                            case "caution": textColor = [217, 119, 6]; break;
+                            case "fail": textColor = [220, 38, 38]; break;
+                            default: textColor = [100, 116, 139];
+                        }
+                        pdfDoc.setTextColor(...textColor);
+                        pdfDoc.setFont("helvetica", "bold");
+                        pdfDoc.text(col.verdict.toUpperCase(), xPos, rowY + 6);
+
+                        pdfDoc.setTextColor(55, 65, 81);
+                        pdfDoc.setFont("helvetica", "normal");
+                        xPos += colWidths[1];
+                        pdfDoc.text(col.groups.length.toString(), xPos, rowY + 6);
+
+                        xPos += colWidths[2];
+                        pdfDoc.text((col.disparity * 100).toFixed(1) + "%", xPos, rowY + 6);
+                    });
+
+                    // Show truncation notice if needed
+                    if (displayColumns.length < sensitiveColumns.length) {
+                        const noticeY = yPos + (displayColumns.length * rowHeight) + 4;
+                        pdfDoc.setFont("helvetica", "italic");
+                        pdfDoc.setFontSize(7);
+                        pdfDoc.setTextColor(100, 116, 139);
+                        pdfDoc.text(`+ ${sensitiveColumns.length - displayColumns.length} more columns (see detailed analysis)`, margin, noticeY);
+                    }
+                }
+            };
 
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "1200px";
-            // Use fixed positioning off-screen to ensure it's "visible" to html2canvas
-            // but not visible to the user. z-index negative can cause it to be excluded.
             clone.style.position = "fixed";
             clone.style.top = "0";
-            clone.style.left = "-10000px"; // Move far left
-            clone.style.zIndex = "1000";   // Ensure it's on top in its own context
-            // Force light mode variables
+            clone.style.left = "-10000px";
+            clone.style.zIndex = "1000";
             clone.style.backgroundColor = "#ffffff";
-            clone.style.color = "#0f172a"; // slate-900
+            clone.style.color = "#0f172a";
             clone.style.padding = "24px";
             clone.style.fontFamily = "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif";
 
-            // Helper functions for PDF styling
-            const fixVisibility = (root: HTMLElement) => {
+            // Apply all PDF styling
+            const applyPdfStyles = (root: HTMLElement) => {
                 // Make all sections full width and visible
                 root.querySelectorAll("section, div").forEach((el) => {
                     const elem = el as HTMLElement;
@@ -68,82 +410,48 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 root.querySelectorAll(".hide-in-pdf").forEach((el) => {
                     (el as HTMLElement).style.display = "none";
                 });
-            };
 
-            const forceLightMode = (root: HTMLElement) => {
-                // 1. Reset backgrounds to white/light
+                // Force light mode
                 root.querySelectorAll("*").forEach((el) => {
                     const elem = el as HTMLElement;
-                    
-                    // Safe class check handling (SVG elements have SVGAnimatedString as className)
-                    const safeClass = typeof elem.className === 'string' 
-                        ? elem.className 
+                    const safeClass = typeof elem.className === 'string'
+                        ? elem.className
                         : (elem.getAttribute('class') || '');
-
                     const computed = window.getComputedStyle(elem);
                     if (!computed) return;
 
-                    // If it has a dark background class or computed dark color
                     if (safeClass.includes("dark:bg-gray") || safeClass.includes("dark:bg-slate")) {
-
-                        // Check if it's a card or main container
                         if (safeClass.includes("bg-white")) {
                             elem.style.backgroundColor = "#ffffff";
                         } else if (safeClass.includes("bg-slate-50")) {
                             elem.style.backgroundColor = "#f8fafc";
-                        } else if (safeClass.includes("bg-indigo-50")) {
-                            elem.style.backgroundColor = "#eef2ff"; // indigo-50
-                        } else if (safeClass.includes("bg-green-50")) {
-                            elem.style.backgroundColor = "#f0fdf4"; // green-50
-                        } else if (safeClass.includes("bg-amber-50") || safeClass.includes("bg-yellow-50")) {
-                            elem.style.backgroundColor = "#fffbeb"; // amber-50
-                        } else if (safeClass.includes("bg-red-50")) {
-                            elem.style.backgroundColor = "#fef2f2"; // red-50
                         } else {
-                            // Default to checking if it's really dark
                             const bg = computed.backgroundColor;
                             if (bg) {
                                 const bgMatch = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-                                
                                 if (bgMatch && bgMatch.length >= 4) {
                                     const r = parseInt(bgMatch[1], 10);
                                     const g = parseInt(bgMatch[2], 10);
                                     const b = parseInt(bgMatch[3], 10);
-                                    
-                                    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
-                                        // If extremely dark (like gray-900), make it white
-                                        if (r < 100 && g < 100 && b < 100) {
-                                            elem.style.backgroundColor = "#ffffff";
-                                        }
+                                    if (!isNaN(r) && !isNaN(g) && !isNaN(b) && r < 100 && g < 100 && b < 100) {
+                                        elem.style.backgroundColor = "#ffffff";
                                     }
                                 }
                             }
                         }
                     }
 
-                    // 2. Reset text to dark
-                    // Force standard text colors
                     if (safeClass.includes("text-white") || safeClass.includes("dark:text-white")) {
-                        // Only force to black if it's not on a dark badge/button (which we might want to keep, but buttons are hidden)
-                        // For report text, usually we want dark text
                         elem.style.color = "#0f172a";
                     }
                     if (safeClass.includes("dark:text-slate-300") || safeClass.includes("dark:text-slate-400")) {
                         elem.style.color = "#475569";
                     }
-
-                    // 3. Reset borders
                     if (safeClass.includes("dark:border")) {
                         elem.style.borderColor = "#e2e8f0";
                     }
                 });
-            };
 
-            const applyPdfStyles = (root: HTMLElement) => {
-                fixVisibility(root);
-                forceLightMode(root);
-                
-                // Use extracted styling functions
                 styleHeader(root);
                 styleGrid(root);
                 styleCards(root);
@@ -158,262 +466,263 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 styleIcons(root);
                 styleMutedBackgrounds(root);
                 fixProgressBars(root);
+
+                // Additional: Hide analysis boxes in detailed view for compactness
+                root.querySelectorAll(".pdf-metric-grid > *").forEach(el => {
+                    const elem = el as HTMLElement;
+                    elem.querySelectorAll(".bg-muted\\/50, .mt-1.p-3").forEach(box => {
+                        (box as HTMLElement).style.display = "none";
+                    });
+                });
             };
 
             applyPdfStyles(clone);
             document.body.appendChild(clone);
 
             try {
-                // Find all capturable sections (Cards)
-                // We want to capture each card individually to avoid splitting them
-                const sections: HTMLElement[] = [];
-
-                // 1. Header is a section
-                const header = clone.querySelector("header");
-                if (header) sections.push(header as HTMLElement);
-
-                // 2. Upload Info Card (Top Section)
-                const topSection = clone.querySelector("section:first-of-type");
-                if (topSection) {
-                    // Capture the whole top section if it fits, or its children
-                    // Let's capture the big cards inside the sections
-                    topSection.querySelectorAll(".rounded-2xl, .rounded-3xl").forEach(el => {
-                         // Skip the metric grid container, we will capture it explicitly later
-                        if (el.querySelector(".pdf-metric-grid")) return;
-                        if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
-                    });
+                // Hide original header - we'll use PDF native header
+                const headerEl = clone.querySelector("header");
+                if (headerEl) {
+                    (headerEl as HTMLElement).style.display = "none";
                 }
 
-                // 3. Sensitive Columns
-                // Capture each SensitiveColumnAnalysis card (which use Card component -> rounded-xl)
-                clone.querySelectorAll(".grid > .rounded-2xl, .grid > .rounded-xl").forEach(el => {
-                    if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
-                });
+                // Find sections to capture
+                const sections: { element: HTMLElement; label: string; scale?: number }[] = [];
 
-                // 4. Metric Cards
-                // We explicitly want to capture the container of the metrics to include the Title
-                // MARKER: Identify this section as metrics grid for special handling later
-                const metricGrid = clone.querySelector(".pdf-metric-grid");
-                let metricSection: HTMLElement | null = null;
+                // Get the main sections container
+                const mainContent = clone.querySelector("main");
+                if (mainContent) {
+                    // NOTE: We skip the first section (summary) since it's drawn natively on page 1
+                    // First section: Upload Info + Analysis Parameters + Verdict + Metrics - SKIP
+                    // const firstSection = mainContent.querySelector("section.rounded-3xl");
 
-                if (metricGrid) {
-                     // Try to find the wrapping container (rounded-2xl) to includes the "Overall Metrics" title
-                    const container = metricGrid.closest(".rounded-2xl");
-                    if (container) {
-                        metricSection = container as HTMLElement;
-                        metricSection.setAttribute("data-is-metric-grid", "true");
-                        sections.push(metricSection);
-                    } else {
-                        metricSection = metricGrid as HTMLElement;
-                        metricSection.setAttribute("data-is-metric-grid", "true");
-                        sections.push(metricSection);
-                    }
-                } else {
-                    // Fallback to old selector or individual cards if class is missing
-                    const fallbackGrid = clone.querySelector(".grid.lg\\:grid-cols-5");
-                    if (fallbackGrid) {
-                        sections.push(fallbackGrid as HTMLElement);
-                    } else {
-                        clone.querySelectorAll(".grid > .rounded-xl").forEach(el => {
-                            if (!sections.some(s => s.contains(el))) sections.push(el as HTMLElement);
+                    // Second section: Sensitive Columns (each card separately for better page breaks)
+                    const sensitiveSection = mainContent.querySelectorAll("section.space-y-6");
+                    sensitiveSection.forEach((section) => {
+                        // Get individual cards (skip the header - it will be drawn natively)
+                        section.querySelectorAll(".grid.lg\\:grid-cols-2 > *").forEach((card, cardIdx) => {
+                            sections.push({
+                                element: card as HTMLElement,
+                                label: `sensitive-card-${cardIdx}`,
+                                scale: 1.8
+                            });
+                        });
+                    });
+
+                    // Dataset preview section (if exists)
+                    const previewSection = mainContent.querySelector("[class*='Dataset']");
+                    if (previewSection) {
+                        sections.push({
+                            element: previewSection as HTMLElement,
+                            label: "dataset-preview",
+                            scale: 1.5
                         });
                     }
                 }
 
-                // Fallback: If we missed anything big, add main sections that aren't covered
-                clone.querySelectorAll("main > section").forEach((section) => {
-                    const sectionEl = section as HTMLElement;
-                    // If this section has NO children already in our list, add it
-                    const hasCapturedChildren = Array.from(sectionEl.querySelectorAll("*")).some(child =>
-                        sections.includes(child as HTMLElement)
-                    );
-                    if (!hasCapturedChildren) {
-                        sections.push(sectionEl);
-                    }
-                });
-
-                // 5. Fallback: If we still have NO sections, capture the whole main or container
+                // Fallback: capture main sections (skip first one as it's the summary, drawn natively)
                 if (sections.length === 0) {
-                   console.warn("No separate sections found for PDF, capturing entire report container.");
-                   sections.push(clone);
+                    const allSections = clone.querySelectorAll("main > section");
+                    allSections.forEach((section, idx) => {
+                        // Skip the first section (summary) since it's drawn natively on page 1
+                        if (idx === 0) return;
+                        sections.push({ element: section as HTMLElement, label: `section-${idx}`, scale: 1.8 });
+                    });
                 }
 
-                // Sort sections by offsetTop
-                sections.sort((a, b) => {
-                    return a.offsetTop - b.offsetTop;
+                // If still nothing (only 1 section in document), capture the whole thing minus header
+                if (sections.length === 0) {
+                    const mainEl = clone.querySelector("main");
+                    if (mainEl) {
+                        sections.push({ element: mainEl as HTMLElement, label: "full-report", scale: 1.5 });
+                    }
+                }
+
+                // Create PDF pages
+                // Page 1: Summary page (native PDF drawing)
+                createSummaryPage(pdf);
+
+                // Filter out empty or invalid sections before processing
+                const validSections = sections.filter(section => {
+                    if (section.element.style.display === "none") return false;
+                    if (section.element.offsetHeight === 0 || section.element.offsetWidth === 0) return false;
+                    return true;
                 });
 
-                const footerHeight = 15; // Space for footer
-                const maxPageHeight = pageHeight - margin - footerHeight; // Maximum usable height per page
+                // Only add detailed pages if there are valid sections
+                if (validSections.length > 0) {
+                    // Page 2+: Detailed sections
+                    pdf.addPage();
+                    let currentPage = 2;
+                    let currentY = contentTop;
 
-                let currentY = margin;
+                    // Add "Detailed Analysis" section title on page 2
+                    pdf.setFont("helvetica", "bold");
+                    pdf.setFontSize(16);
+                    pdf.setTextColor(15, 23, 42);
+                    pdf.text("Detailed Analysis", margin, currentY);
+                    currentY += 8;
 
-                for (const section of sections) {
-                    // Skip hidden elements or zero height
-                    if (section.style.display === "none" || section.offsetHeight === 0) continue;
+                    // Add subtitle for sensitive columns
+                    pdf.setFont("helvetica", "normal");
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(100, 116, 139);
+                    pdf.text("Fairness Analysis by Demographic Group", margin, currentY);
+                    
+                    const sensitiveColCount = payload.result.fairness.sensitiveColumns.length;
+                    pdf.text(`${sensitiveColCount} groups analyzed`, pageWidth - margin, currentY, { align: "right" });
+                    currentY += 12;
+
+                // Capture and add sections
+                for (const section of validSections) {
 
                     try {
-                        let scale = 2;
-                        let canvas = await html2canvas(section, {
-                            scale: scale,
+                        const scale = section.scale || 2;
+                        let canvas = await html2canvas(section.element, {
+                            scale,
                             useCORS: true,
                             backgroundColor: "#ffffff",
                             logging: false,
                             windowWidth: 1200,
                             scrollX: 0,
                             scrollY: 0,
-                            onclone: (clonedDoc) => {
-                                // Remove elements that should be ignored
-                                const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
-                                if (el) el.remove();
-                            }
                         });
 
-                        // Check limits (e.g. 15000px height or ~50MP total)
-                        const MAX_DIMENSION = 15000;
+                        // Check canvas size limits
                         const MAX_PIXELS = 50000000;
+                        const MAX_DIMENSION = 15000;
 
                         if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
-                            console.warn(`Canvas too large (${canvas.width}x${canvas.height}), retrying with scale 1`);
-                            scale = 1;
-                            canvas = await html2canvas(section, {
-                                scale: scale,
+                            canvas = await html2canvas(section.element, {
+                                scale: 1,
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 logging: false,
                                 windowWidth: 1200,
-                                scrollX: 0,
-                                scrollY: 0,
-                                onclone: (clonedDoc) => {
-                                    const el = clonedDoc.querySelector(`[data-html2canvas-ignore]`);
-                                    if (el) el.remove();
-                                }
                             });
 
-                            // If still too large, skip to avoid OOM
-                            if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
-                                console.error("Section still too large to export, skipping", section);
+                            if (canvas.width * canvas.height > MAX_PIXELS) {
+                                console.warn("Section too large, skipping:", section.label);
                                 continue;
                             }
                         }
 
+                        // Skip empty canvases
+                        if (canvas.width === 0 || canvas.height === 0) continue;
+
+                        // Skip very small captures (likely just whitespace or tiny fragments)
+                        if (canvas.height < 20) continue;
+
                         const imgWidth = usableWidth;
                         const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                        
-                        const isMetricGrid = section.getAttribute("data-is-metric-grid") === "true";
 
-                        // Case 1: Image fits on the current page (or remainder of it)
-                        // SPECIAL CASE: If it's the metric grid, we prefer it to be on a new page if it doesn't fit comfortably
-                        // i.e. if it would take up more than 30% of the remaining space, just give it a fresh page?
-                        // Or simpler: if it's the metric grid, and we are NOT at the top of the page (margin + 10), force a page break.
-                        // This ensures the grid is never split unless it's genuinely taller than an entire page.
-                        
-                        let shouldPageBreak = false;
+                        // Skip if the resulting image would be too small to be meaningful
+                        if (imgHeight < 5) continue;
 
-                        if (isMetricGrid && currentY > margin + 20) {
-                             shouldPageBreak = true;
-                        } else if (currentY + imgHeight > maxPageHeight) {
-                             shouldPageBreak = true;
-                        }
+                        // Scale down detailed sections to fit more content
+                        const scaleFactor = section.label.includes("sensitive") ? 0.9 : 1;
+                        const scaledHeight = imgHeight * scaleFactor;
+                        const scaledWidth = imgWidth * scaleFactor;
+                        const xOffset = (usableWidth - scaledWidth) / 2;
 
-                        if (!shouldPageBreak) {
-                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                            currentY += imgHeight + 8; // Add gap
-                        } 
-                        // Case 2: Image fits on a NEW page (smaller than one full page)
-                        else if (imgHeight <= maxPageHeight || (isMetricGrid && imgHeight <= maxPageHeight)) {
-                            pdf.addPage();
-                            currentY = margin;
-                            const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                            pdf.addImage(imgData, "JPEG", margin, currentY, imgWidth, imgHeight);
-                            currentY += imgHeight + 8;
-                        }
-                        // Case 3: Image is larger than a single page -> Slice it
-                        else {
-                            // First, if we are not at top of page, start a new one to maximize space
-                            if (currentY > margin + 10) { // Tolerance of 10mm
-                                pdf.addPage();
-                                currentY = margin;
-                            }
-
-                            // We need to slice the canvas source
-                            // We work with PDF units for page logic, but pixels for canvas slicing
-                            const pageHeightInPx = (maxPageHeight * canvas.width) / usableWidth; // How many source pixels fit in one max page height?
+                        // Check if we need a new page
+                        if (currentY + scaledHeight > contentBottom) {
+                            // Only create a new page if we've actually added content to the current one
+                            const hasContentOnCurrentPage = currentY > contentTop + 25; // Title takes about 20-25mm
                             
-                            let remainingHeightPx = canvas.height;
-                            let sourceY = 0;
-
-                            while (remainingHeightPx > 0) {
-                                // Calculate how much to take for this chunk
-                                // If currentY is > margin (only happens for first chunk if we didn't page break), careful
-                                // But we forced page break above if it didn't fit. 
-                                // So usually currentY is margin, ensuring full available height.
-                                // However, let's correspond current available PDF height to pixels.
-                                const availablePdfHeight = maxPageHeight - currentY;
-                                const availablePx = (availablePdfHeight * canvas.width) / usableWidth;
-
-                                const currentSliceHeightPx = Math.min(remainingHeightPx, availablePx);
-                                
-                                // Create a temp canvas for this slice
-                                const tempCanvas = document.createElement('canvas');
-                                tempCanvas.width = canvas.width;
-                                tempCanvas.height = currentSliceHeightPx;
-                                const tCtx = tempCanvas.getContext('2d');
-                                if (!tCtx) break;
-
-                                tCtx.fillStyle = "#ffffff";
-                                tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                                tCtx.drawImage(
-                                    canvas, 
-                                    0, sourceY, canvas.width, currentSliceHeightPx, // Source
-                                    0, 0, tempCanvas.width, currentSliceHeightPx    // Dest
-                                );
-
-                                const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.95);
-                                const slicePdfHeight = (currentSliceHeightPx * usableWidth) / canvas.width;
-
-                                pdf.addImage(sliceImgData, "JPEG", margin, currentY, imgWidth, slicePdfHeight);
-
-                                sourceY += currentSliceHeightPx;
-                                remainingHeightPx -= currentSliceHeightPx;
-                                
-                                // If we have more to print, add a new page
-                                if (remainingHeightPx > 0) {
+                            // Check if section fits on a fresh page
+                            if (scaledHeight > usableHeight) {
+                                // Section is larger than a page - need to slice
+                                if (hasContentOnCurrentPage) {
                                     pdf.addPage();
-                                    currentY = margin;
-                                } else {
-                                    currentY += slicePdfHeight + 8;
+                                    currentPage++;
+                                    currentY = contentTop;
                                 }
+
+                                const pageHeightInPx = (usableHeight * canvas.width) / imgWidth;
+                                let remainingHeightPx = canvas.height;
+                                let sourceY = 0;
+
+                                while (remainingHeightPx > 0) {
+                                    const currentSliceHeightPx = Math.min(remainingHeightPx, pageHeightInPx);
+
+                                    const tempCanvas = document.createElement('canvas');
+                                    tempCanvas.width = canvas.width;
+                                    tempCanvas.height = currentSliceHeightPx;
+                                    const tCtx = tempCanvas.getContext('2d');
+                                    if (!tCtx) break;
+
+                                    tCtx.fillStyle = "#ffffff";
+                                    tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                    tCtx.drawImage(
+                                        canvas,
+                                        0, sourceY, canvas.width, currentSliceHeightPx,
+                                        0, 0, tempCanvas.width, currentSliceHeightPx
+                                    );
+
+                                    const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
+                                    const slicePdfHeight = (currentSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
+
+                                    pdf.addImage(sliceImgData, "JPEG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
+
+                                    sourceY += currentSliceHeightPx;
+                                    remainingHeightPx -= currentSliceHeightPx;
+
+                                    if (remainingHeightPx > 0) {
+                                        pdf.addPage();
+                                        currentPage++;
+                                        currentY = contentTop;
+                                    } else {
+                                        currentY += slicePdfHeight + PDF_CONFIG.contentGap;
+                                    }
+                                }
+                            } else {
+                                // Section fits on a fresh page but not current - start new page
+                                if (hasContentOnCurrentPage) {
+                                    pdf.addPage();
+                                    currentPage++;
+                                    currentY = contentTop;
+                                }
+
+                                const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                                pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
+                                currentY += scaledHeight + PDF_CONFIG.contentGap;
                             }
+                        } else {
+                            // Fits on current page
+                            const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                            pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
+                            currentY += scaledHeight + PDF_CONFIG.contentGap;
                         }
                     } catch (sectionError) {
-                        console.error("Error capturing section:", sectionError);
+                        console.error("Error capturing section:", section.label, sectionError);
                     }
                 }
+                } // End of if (validSections.length > 0)
 
-                // Add page numbers
-                const pageCount = (pdf as any).internal.getNumberOfPages();
-                for (let i = 1; i <= pageCount; i++) {
+                // Add headers and footers to all pages
+                const totalPages = (pdf as any).internal.getNumberOfPages();
+                for (let i = 1; i <= totalPages; i++) {
                     pdf.setPage(i);
-                    pdf.setFontSize(10);
-                    pdf.setTextColor(100, 116, 139); // slate-500
-                    pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: "right" });
-                    
-                    // Add date/copyright on left
-                    const dateStr = new Date().toLocaleDateString();
-                    pdf.text(`Fairness Report - ${dateStr}`, margin, pageHeight - 5, { align: "left" });
+                    addPageHeader(pdf, i, totalPages);
+                    addPageFooter(pdf, i, totalPages);
                 }
 
+                // Save PDF
                 const baseName = payload.fileMeta.name?.replace(/\.[^/.]+$/, "") || "dataset-report";
+                const projectSlug = payload.projectName?.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase() || "";
                 let dateSuffix: string;
                 try {
                     dateSuffix = new Date(payload.generatedAt).toISOString().split("T")[0];
-                } catch (error) {
-                    // Fallback to current date if generatedAt is invalid
+                } catch {
                     dateSuffix = new Date().toISOString().split("T")[0];
                 }
-                pdf.save(`${baseName}-fairness-report-${dateSuffix}.pdf`);
+
+                const filename = projectSlug
+                    ? `${projectSlug}-fairness-report-${dateSuffix}.pdf`
+                    : `${baseName}-fairness-report-${dateSuffix}.pdf`;
+
+                pdf.save(filename);
             } finally {
                 if (clone && document.body.contains(clone)) {
                     document.body.removeChild(clone);
@@ -424,7 +733,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
         } finally {
             setIsExporting(false);
         }
-    }, [reportRef, payload]);
+    }, [reportRef, payload, isExporting]);
 
     return { exportPdf, isExporting };
 };

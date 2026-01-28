@@ -43,8 +43,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-// Increase body size limit for CSV uploads (10MB)
-app.use(express.json({ limit: '10mb' }));
+// Set a small global body size limit for JSON (e.g., 1MB)
+app.use(express.json({ limit: '1mb' }));
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {

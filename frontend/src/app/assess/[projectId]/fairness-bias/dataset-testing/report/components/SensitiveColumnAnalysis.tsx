@@ -90,7 +90,7 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                             </p>
                         </div>
                     </div>
-                    <Badge variant={status.badgeVariant} className={`${status.bgColor} ${status.color}`}>
+                    <Badge variant={status.badgeVariant} className={`${status.bgColor} ${status.color} pdf-badge`}>
                         {status.label}
                     </Badge>
                 </div>
@@ -162,41 +162,58 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                 <div className="space-y-3">
                     <p className="text-sm font-medium text-muted-foreground">Selection Rate by Group</p>
 
-                    <div className={`space-y-2 ${isExporting ? 'h-auto overflow-visible' : 'max-h-60 overflow-y-auto pr-2 custom-scrollbar'}`}>
-                        {column.groups.map((group) => {
-                            const rate = group.positiveRate * 100;
-                            const isBelowThreshold = rate < (threshold * 100);
+                    {/* Limit groups shown in PDF to prevent overflow - show max 8 groups */}
+                    {(() => {
+                        const MAX_GROUPS_IN_PDF = 8;
+                        const displayGroups = isExporting ? column.groups.slice(0, MAX_GROUPS_IN_PDF) : column.groups;
+                        const hiddenGroupsCount = isExporting ? Math.max(0, column.groups.length - MAX_GROUPS_IN_PDF) : 0;
 
-                            return (
-                                <div key={group.value} className="grid grid-cols-[140px_1fr_48px] items-center gap-4 group page-break-avoid">
-                                    <div className="text-sm font-medium text-muted-foreground truncate" title={group.value}>
-                                        {group.value}
-                                    </div>
-                                    <div className="relative h-2.5">
-                                        <div className="absolute inset-0 rounded-full bg-muted overflow-hidden">
-                                            <div
-                                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isBelowThreshold
-                                                    ? 'bg-gradient-to-r from-warning to-warning/80'
-                                                    : 'bg-gradient-to-r from-primary to-primary/80'
-                                                    }`}
-                                                style={{ width: `${Math.min(rate, 100)}%` }}
-                                            />
-                                        </div>
-                                        {/* Hover info tooltip wrapper */}
-                                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
-                                            <div className="bg-popover text-[10px] text-popover-foreground px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm border border-border">
-                                                {group.rows.toLocaleString()}
+                        return (
+                            <>
+                                <div className={`space-y-2 ${isExporting ? 'h-auto overflow-visible' : 'max-h-60 overflow-y-auto pr-2 custom-scrollbar'}`}>
+                                    {displayGroups.map((group) => {
+                                        const rate = group.positiveRate * 100;
+                                        const isBelowThreshold = rate < (threshold * 100);
+
+                                        return (
+                                            <div key={group.value} className="grid grid-cols-[140px_1fr_48px] items-center gap-4 group page-break-avoid">
+                                                <div className="text-sm font-medium text-muted-foreground truncate" title={group.value}>
+                                                    {group.value}
+                                                </div>
+                                                <div className="relative h-2.5">
+                                                    <div className="absolute inset-0 rounded-full bg-muted overflow-hidden">
+                                                        <div
+                                                            className={`absolute inset-y-0 left-0 rounded-full transition-all duration-500 ${isBelowThreshold
+                                                                ? 'bg-gradient-to-r from-warning to-warning/80'
+                                                                : 'bg-gradient-to-r from-primary to-primary/80'
+                                                                }`}
+                                                            style={{ width: `${Math.min(rate, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                    {/* Hover info tooltip wrapper */}
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none z-10">
+                                                        <div className="bg-popover text-[10px] text-popover-foreground px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm border border-border">
+                                                            {group.rows.toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`text-sm font-bold text-right tabular-nums ${isBelowThreshold ? 'text-warning' : 'text-muted-foreground'}`}>
+                                                    {formatPercent(group.positiveRate)}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className={`text-sm font-bold text-right tabular-nums ${isBelowThreshold ? 'text-warning' : 'text-muted-foreground'}`}>
-                                        {formatPercent(group.positiveRate)}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })}
-                    </div>
+                                {/* Show truncation notice in PDF if groups were hidden */}
+                                {hiddenGroupsCount > 0 && (
+                                    <p className="text-xs text-muted-foreground italic pt-1">
+                                        + {hiddenGroupsCount} more group{hiddenGroupsCount > 1 ? 's' : ''} (see full report for details)
+                                    </p>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
 
 
