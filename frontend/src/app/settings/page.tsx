@@ -937,9 +937,9 @@ export default function SettingsPage() {
                         CURRENT PLAN
                       </p>
                       <p className="text-xl font-bold text-foreground capitalize mb-3">
-                        {user?.subscription_status === 'basic_premium' ? 'Basic Premium' :
-                          user?.subscription_status === 'pro_premium' ? 'Pro Premium' :
-                            'Free Plan'}
+                        {user?.subscription_status === 'basic_premium' ? 'BLOOM' :
+                          user?.subscription_status === 'pro_premium' ? 'BLOOM PLUS' :
+                            'SEED'}
                       </p>
                       {subscriptionDetails?.plan && (
                         <div className="space-y-2">
