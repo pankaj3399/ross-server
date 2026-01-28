@@ -387,6 +387,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       <div
         role="separator"
         aria-orientation="vertical"
+        aria-label="Resize panel"
         aria-valuenow={sidebarWidth}
         aria-valuemin={200}
         aria-valuemax={typeof window !== "undefined" ? window.innerWidth * 0.5 : 800}
@@ -397,7 +398,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
           setIsResizing(true);
         }}
         onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsResizing(true);
+          } else if (e.key === "ArrowLeft") {
             e.preventDefault();
             setSidebarWidth(prev => Math.min(prev + 10, window.innerWidth * 0.5));
           } else if (e.key === "ArrowRight") {

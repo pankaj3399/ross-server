@@ -126,6 +126,7 @@ export default function FairnessBiasOptions() {
     let isMounted = true;
     if (projectId && isPremium) {
       const fetchReports = async () => {
+        setRecentReports([]);
         setLoadingReports(true);
         try {
           const response = await apiService.getDatasetReports(projectId);
@@ -145,6 +146,8 @@ export default function FairnessBiasOptions() {
         }
       };
       fetchReports();
+    } else {
+      setRecentReports([]);
     }
     return () => { isMounted = false; };
   }, [projectId, isPremium]);
