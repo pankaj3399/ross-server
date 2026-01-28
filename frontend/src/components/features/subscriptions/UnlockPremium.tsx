@@ -171,11 +171,11 @@ export default function UnlockPremium({
           </DialogHeader>
 
           <div className="grid md:grid-cols-2 gap-4 mb-6">
-            {/* Basic Premium Plan */}
+            {/* BLOOM Plan */}
             <motion.div whileHover={{ scale: 1.02 }} className="h-full">
               <Card className="h-full flex flex-col hover:border-primary transition-all">
                 <CardHeader className="text-center pb-2">
-                  <CardTitle className="text-lg">Basic Premium</CardTitle>
+                  <CardTitle className="text-lg">BLOOM</CardTitle>
                   <div className="mt-2">
                     {loadingPrices ? (
                       <div className="flex items-baseline justify-center gap-2">
@@ -210,11 +210,11 @@ export default function UnlockPremium({
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={() => handleSelectPlan(BASIC_PRICE_ID, "Basic Premium")}
+                    onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
                     disabled={upgradingPlan !== null || loadingPrices || !BASIC_PRICE_ID}
                     className="w-full"
                   >
-                    {upgradingPlan === "Basic Premium" ? (
+                    {upgradingPlan === "basic" ? (
                       <>
                         <IconLoader2 className="w-4 h-4 animate-spin" />
                         Processing...
@@ -222,21 +222,21 @@ export default function UnlockPremium({
                     ) : loadingPrices ? (
                       "Loading..."
                     ) : (
-                      "Choose Basic"
+                      "Choose BLOOM"
                     )}
                   </Button>
                 </CardFooter>
               </Card>
             </motion.div>
 
-            {/* Pro Premium Plan */}
+            {/* BLOOM PLUS Plan */}
             <motion.div whileHover={{ scale: 1.02 }} className="relative h-full">
               <Badge className="absolute -top-2 right-4 z-10">
                 POPULAR
               </Badge>
               <Card className="h-full flex flex-col border-primary bg-accent hover:border-primary transition-all">
                 <CardHeader className="text-center pb-2">
-                  <CardTitle className="text-lg">Pro Premium</CardTitle>
+                  <CardTitle className="text-lg">BLOOM PLUS</CardTitle>
                   <div className="mt-2">
                     {loadingPrices ? (
                       <div className="flex items-baseline justify-center gap-2">
@@ -257,7 +257,7 @@ export default function UnlockPremium({
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center gap-2">
                       <IconStar className="w-4 h-4 text-primary" />
-                      Everything in Basic
+                      Everything in BLOOM
                     </li>
                     <li className="flex items-center gap-2">
                       <IconStar className="w-4 h-4 text-primary" />
@@ -275,12 +275,12 @@ export default function UnlockPremium({
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={() => handleSelectPlan(PRO_PRICE_ID, "Pro Premium")}
+                    onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
                     disabled={upgradingPlan !== null || loadingPrices || !PRO_PRICE_ID}
                     className="w-full"
                     variant="secondary"
                   >
-                    {upgradingPlan === "Pro Premium" ? (
+                    {upgradingPlan === "pro" ? (
                       <>
                         <IconLoader2 className="w-4 h-4 animate-spin" />
                         Processing...
@@ -288,7 +288,7 @@ export default function UnlockPremium({
                     ) : loadingPrices ? (
                       "Loading..."
                     ) : (
-                      "Choose Pro"
+                      "Choose BLOOM PLUS"
                     )}
                   </Button>
                 </CardFooter>

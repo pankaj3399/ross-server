@@ -127,24 +127,23 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
   };
 
   const basicFeatures = [
-    "Unlimited AI assessments",
-    "Advanced reporting & analytics",
-    "Priority email support",
-    "PDF export capabilities",
-    "Team collaboration tools",
-    "Custom assessment templates",
-    "Data backup & security",
+    "Unlimited AI Projects/Systems",
+    "AI Vulnerability Assessment",
+    "Automated Bias & Fairness Testing (Manual/API/Dataset)",
+    "Actionable Governance Controls",
+    "Enhanced Reporting & Analytics",
+    "Advanced Exportable Reports (PDF/Excel)",
+    "Includes everything in SEED",
   ];
 
   const proFeatures = [
-    "Everything in Basic Premium",
-    "Custom assessment templates",
-    "Advanced API access",
-    "White-label options",
-    "Advanced analytics dashboard",
-    "24/7 phone & chat support",
-    "Dedicated account manager",
-    "Custom integrations",
+    "Everything in BLOOM",
+    "10 Hours/Month Expert Consultation",
+    "Assessment assistance & Score interpretation",
+    "Responsible AI implementation support",
+    "Documentation, policies, & controls help",
+    "ISO 42001/NIST/EU AI Act guidance",
+    "Priority Support (Faster response & direct access)",
   ];
 
   return (
@@ -175,14 +174,14 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
               transition={{ delay: 0.2 }}
             >
               <DialogTitle className="text-4xl font-bold">
-                Choose Your Premium Plan
+                Choose Your Plan
               </DialogTitle>
             </motion.div>
           </DialogHeader>
 
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Basic Premium Plan */}
+            {/* BLOOM Plan */}
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -203,7 +202,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                       <IconBuilding className="w-6 h-6 text-primary" />
                     </div>
                   </div>
-                  <CardTitle className="text-2xl">Premium Basic</CardTitle>
+                  <CardTitle className="text-2xl">BLOOM</CardTitle>
                   <div className="mt-3">
                     {loadingPrices ? (
                       <div className="flex items-center justify-center gap-2">
@@ -258,7 +257,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <>
                         <IconStar className="w-4 h-4" />
-                        Choose Basic Premium
+                        Choose BLOOM
                       </>
                     )}
                   </Button>
@@ -266,7 +265,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
               </Card>
             </motion.div>
 
-            {/* Pro Premium Plan */}
+            {/* BLOOM PLUS Plan */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
@@ -292,7 +291,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                       <IconAward className="w-6 h-6 text-primary" />
                     </div>
                   </div>
-                  <CardTitle className="text-2xl">Premium Pro</CardTitle>
+                  <CardTitle className="text-2xl">BLOOM PLUS</CardTitle>
                   <div className="mt-3">
                     {loadingPrices ? (
                       <div className="flex items-center justify-center gap-2">
@@ -347,7 +346,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <>
                         <IconAward className="w-5 h-5" />
-                        Choose Pro Premium
+                        Choose BLOOM PLUS
                       </>
                     )}
                   </Button>

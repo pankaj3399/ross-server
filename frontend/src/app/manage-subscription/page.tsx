@@ -55,7 +55,7 @@ const FAQS: FAQItem[] = [
   },
   {
     question: "What happens when I cancel my subscription?",
-    answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the Free plan.",
+    answer: "When you cancel, you'll maintain full access to all premium features until your current billing period ends. After cancellation, you'll be automatically downgraded to the SEED (Free) plan.",
     defaultOpen: false
   },
   {
@@ -110,7 +110,7 @@ function StatusAlertCard({
           <p className="text-sm text-muted-foreground mb-3">
             {isCanceling
               ? "Your subscription will be canceled at the end of your current billing period. You'll continue to have access until then."
-              : "Your subscription will be downgraded to Basic Premium at the end of your current billing period. You'll continue to have Pro features until then."}
+              : "Your subscription will be downgraded to BLOOM at the end of your current billing period. You'll continue to have BLOOM PLUS features until then."}
           </p>
           {planDetails?.current_period_end && (
             <div className="flex items-center gap-2 text-sm">
@@ -170,7 +170,7 @@ export default function ManageSubscriptionPage() {
     const upgraded = urlParams.get('upgraded');
 
     if (success === 'true') {
-      const upgradeMsg = upgraded === 'pro' ? "Successfully upgraded to Pro Premium!" : "Subscription updated successfully!";
+      const upgradeMsg = upgraded === 'pro' ? "Successfully upgraded to BLOOM PLUS!" : "Subscription updated successfully!";
       setSuccessMessage(upgradeMsg);
       setTimeout(() => setSuccessMessage(null), 5000);
 
@@ -468,8 +468,8 @@ export default function ManageSubscriptionPage() {
         throw new Error("No checkout URL received");
       }
     } catch (err: any) {
-      console.error("Error upgrading to Pro:", err);
-      const errorMessage = err.message || "Failed to upgrade to Pro. Please try again.";
+      console.error("Error upgrading to BLOOM PLUS:", err);
+      const errorMessage = err.message || "Failed to upgrade to BLOOM PLUS. Please try again.";
       setError(errorMessage);
       setProcessingAction(null);
     }
@@ -510,8 +510,8 @@ export default function ManageSubscriptionPage() {
       await reloadSubscriptionData();
       setShowDowngradeConfirmation(false);
     } catch (err: any) {
-      console.error("Error downgrading to Basic:", err);
-      const errorMessage = err.message || "Failed to downgrade to Basic. Please try again.";
+      console.error("Error downgrading to BLOOM:", err);
+      const errorMessage = err.message || "Failed to downgrade to BLOOM. Please try again.";
       setError(errorMessage);
       setShowDowngradeConfirmation(false);
     } finally {
@@ -579,9 +579,9 @@ export default function ManageSubscriptionPage() {
 
   // Determine plan display name
   const getPlanDisplayName = () => {
-    if (subscription_status === "basic_premium") return "Basic Premium";
-    if (subscription_status === "pro_premium") return "Pro Premium";
-    return "Free";
+    if (subscription_status === "basic_premium") return "BLOOM";
+    if (subscription_status === "pro_premium") return "BLOOM PLUS";
+    return "SEED (Free)";
   };
 
   const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
@@ -686,13 +686,13 @@ export default function ManageSubscriptionPage() {
               {!isPremium && (
                 <>
                   <Button onClick={() => setShowUpgradeModal(true)} size="lg" className="gap-2">
-                    Upgrade to Premium
+                    Upgrade to BLOOM
                     <IconArrowRight className="w-4 h-4" />
                   </Button>
                 </>
               )}
 
-              {/* Basic Plan Options */}
+              {/* BLOOM Plan Options */}
               {subscription_status === "basic_premium" && !isCanceling && (
                 <>
                   <Button
@@ -708,7 +708,7 @@ export default function ManageSubscriptionPage() {
                       </>
                     ) : (
                       <>
-                        Upgrade to Pro
+                        Upgrade to BLOOM PLUS
                         <IconArrowRight className="w-4 h-4" />
                       </>
                     )}
@@ -725,11 +725,11 @@ export default function ManageSubscriptionPage() {
                 </>
               )}
 
-              {/* Pro Plan Options */}
+              {/* BLOOM PLUS Plan Options */}
               {subscription_status === "pro_premium" && !isCanceling && !isDowngrading && (
                 <>
                   <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2" disabled={!!processingAction}>
-                    Downgrade to Basic
+                    Downgrade to BLOOM
                   </Button>
                   <Button onClick={handleCancelSubscription} variant="ghost" size="lg" className="gap-2 text-destructive hover:bg-destructive/10" disabled={!!processingAction}>
                     Cancel Subscription
@@ -1030,7 +1030,7 @@ export default function ManageSubscriptionPage() {
             )}
 
             <p className="text-xs text-muted-foreground">
-              After cancellation, you&apos;ll be downgraded to the Free plan and will lose access to premium features.
+              After cancellation, you&apos;ll be downgraded to the SEED plan and will lose access to premium features.
             </p>
           </div>
 
@@ -1060,16 +1060,13 @@ export default function ManageSubscriptionPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Upgrade to Pro Confirmation Dialog */}
+      {/* Upgrade to BLOOM PLUS Confirmation Dialog */}
       <Dialog open={showUpgradeConfirmation} onOpenChange={setShowUpgradeConfirmation}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <IconCrown className="w-5 h-5 text-primary" />
-              Confirm Upgrade to Pro
-            </DialogTitle>
+            <DialogTitle>Confirm Upgrade to BLOOM PLUS</DialogTitle>
             <DialogDescription>
-              You are about to upgrade your subscription to the Pro Premium plan.
+              You are about to upgrade your subscription to the BLOOM PLUS plan.
               You will be redirected to Stripe to confirm the changes and complete the payment for the prorated difference.
             </DialogDescription>
           </DialogHeader>
@@ -1077,16 +1074,18 @@ export default function ManageSubscriptionPage() {
             <div className="bg-primary/5 rounded-lg p-4 space-y-2 border border-primary/10">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">Current Plan:</span>
-                <span className="font-semibold">Basic Premium</span>
+                <span className="font-semibold">BLOOM</span>
               </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">New Plan:</span>
-                <span className="font-semibold text-primary">Pro Premium</span>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">New Plan:</span>
+                <div className="text-right">
+                  <span className="font-semibold text-primary">BLOOM PLUS</span>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Your billing cycle will remain the same. The price difference for the remainder of the current month will be calculated by Stripe.
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Your billing cycle will remain the same. The price difference for the remainder of the current month will be calculated by Stripe.
-            </p>
           </div>
           <DialogFooter className="flex sm:justify-between items-center gap-3">
             <Button
@@ -1110,7 +1109,7 @@ export default function ManageSubscriptionPage() {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro
+                  Upgrade to BLOOM PLUS
                   <IconArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -1123,9 +1122,9 @@ export default function ManageSubscriptionPage() {
       <Dialog open={showDowngradeConfirmation} onOpenChange={setShowDowngradeConfirmation}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Downgrade to Basic?</DialogTitle>
+            <DialogTitle>Downgrade to BLOOM?</DialogTitle>
             <DialogDescription>
-              Are you sure you want to downgrade from Pro Premium to Basic Premium? The change will take effect at the end of your current billing period.
+              Are you sure you want to downgrade from BLOOM PLUS to BLOOM? The change will take effect at the end of your current billing period.
             </DialogDescription>
           </DialogHeader>
 
@@ -1133,15 +1132,15 @@ export default function ManageSubscriptionPage() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <IconCircleCheck className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                <span>You&apos;ll keep Pro Premium features until the end of your billing period</span>
+                <span>You&apos;ll keep BLOOM PLUS features until the end of your billing period</span>
               </li>
               <li className="flex items-start gap-2">
                 <IconCircleCheck className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                <span>Your next billing will be at the Basic Premium rate</span>
+                <span>Your next billing will be at the BLOOM rate</span>
               </li>
               <li className="flex items-start gap-2">
                 <IconCircleCheck className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                <span>You can upgrade back to Pro Premium anytime</span>
+                <span>You can upgrade back to BLOOM PLUS anytime</span>
               </li>
             </ul>
 
@@ -1152,13 +1151,13 @@ export default function ManageSubscriptionPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-muted-foreground">Current plan</span>
                     <span className="text-sm font-semibold text-foreground">
-                      Pro Premium
+                      BLOOM PLUS
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Will change to</span>
-                    <span className="text-sm font-semibold text-foreground">
-                      Basic Premium
+                    <span className="text-muted-foreground">New Plan</span>
+                    <span className="font-semibold">
+                      BLOOM
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -1180,7 +1179,7 @@ export default function ManageSubscriptionPage() {
             )}
 
             <p className="text-xs text-muted-foreground">
-              You&apos;ll lose access to Pro Premium features after the downgrade takes effect.
+              You&apos;ll lose access to BLOOM PLUS features after the downgrade takes effect.
             </p>
           </div>
 
@@ -1190,7 +1189,7 @@ export default function ManageSubscriptionPage() {
               onClick={() => setShowDowngradeConfirmation(false)}
               disabled={processingAction === "downgrade-basic"}
             >
-              Keep Pro
+              Keep BLOOM PLUS
             </Button>
             <Button
               onClick={confirmDowngradeToBasic}

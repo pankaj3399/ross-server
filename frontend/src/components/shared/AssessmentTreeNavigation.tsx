@@ -331,7 +331,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
-      // Ensure cursor and selection state are reset when component unmounts
+      // Reset styles on cleanup to handle unmount during resize
       document.body.style.cursor = 'default';
       document.body.style.userSelect = 'auto';
     };
@@ -385,11 +385,14 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     <div className="relative flex-shrink-0" style={{ width: sidebarWidth }}>
       {/* Resize Handle - Positioned on the LEFT edge because layout is reversed */}
       <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 z-50 transition-colors focus:bg-primary focus:outline-none"
         role="separator"
         aria-orientation="vertical"
         aria-label="Resize panel"
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={200}
+        aria-valuemax={typeof window !== "undefined" ? window.innerWidth * 0.5 : 800}
         tabIndex={0}
+        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 z-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-primary/30"
         onMouseDown={(e) => {
           e.preventDefault();
           setIsResizing(true);
@@ -398,17 +401,15 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             setIsResizing(true);
-          } else if (e.key === "Escape") {
-            setIsResizing(false);
-          } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-            // Note: In this layout, moving mouse left (decreasing e.clientX) increases sidebar width
-            // So ArrowLeft should increase width, ArrowRight should decrease it
+          } else if (e.key === "ArrowLeft") {
             e.preventDefault();
-            const step = 10;
-            const delta = e.key === "ArrowLeft" ? step : -step;
-            const newWidth = sidebarWidth + delta;
-            const constrainedWidth = Math.max(200, Math.min(newWidth, window.innerWidth * 0.5));
-            setSidebarWidth(constrainedWidth);
+            setSidebarWidth(prev => Math.min(prev + 10, window.innerWidth * 0.5));
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            setSidebarWidth(prev => Math.max(200, prev - 10));
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            setIsResizing(false);
           }
         }}
       />

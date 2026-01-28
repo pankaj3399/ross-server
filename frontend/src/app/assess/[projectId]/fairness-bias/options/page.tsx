@@ -24,6 +24,31 @@ type TestMethod =
   | "github-repo"
   | null;
 
+export interface ReportSelections {
+  metric: string;
+  method: string;
+  group: string;
+  resumeFilter: string;
+  threshold: number;
+  testType: string;
+}
+
+export interface DatasetReport {
+  id: string;
+  file_name: string;
+  file_size: number;
+  created_at: string;
+  uploaded_at: string;
+  csv_preview: any;
+  fairness_data: any;
+  fairness_result: any;
+  biasness_result: any;
+  toxicity_result: any;
+  relevance_result: any;
+  faithfulness_result: any;
+  selections?: ReportSelections;
+}
+
 export default function FairnessBiasOptions() {
   const params = useParams();
   const router = useRouter();
@@ -94,7 +119,7 @@ export default function FairnessBiasOptions() {
     },
   ];
 
-  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [recentReports, setRecentReports] = useState<DatasetReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
   useEffect(() => {
@@ -107,16 +132,15 @@ export default function FairnessBiasOptions() {
           const response = await apiService.getDatasetReports(projectId);
           if (isMounted) {
             if (response.success) {
-              setRecentReports(response.reports.slice(0, 5));
+              const reports = Array.isArray(response.reports) ? response.reports : [];
+              setRecentReports(reports.slice(0, 5));
             } else {
               setRecentReports([]);
             }
           }
         } catch (error) {
           console.error("Failed to fetch recent reports:", error);
-          if (isMounted) {
-            setRecentReports([]);
-          }
+          if (isMounted) setRecentReports([]);
         } finally {
           if (isMounted) setLoadingReports(false);
         }
@@ -128,7 +152,7 @@ export default function FairnessBiasOptions() {
     return () => { isMounted = false; };
   }, [projectId, isPremium]);
 
-  const handleReportClick = (report: any) => {
+  const handleReportClick = (report: DatasetReport) => {
     const payload = {
       result: {
         fairness: report.fairness_data,
@@ -301,14 +325,16 @@ export default function FairnessBiasOptions() {
               ) : recentReports.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3">
                   {recentReports.map((report) => (
-                    <motion.div
+                    <motion.button
                       key={report.id}
+                      type="button"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="group flex items-center justify-between p-4 bg-card hover:bg-muted/50 border border-border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-sm"
+                      className="group flex w-full items-center justify-between p-4 bg-card hover:bg-muted/50 border border-border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       onClick={() => handleReportClick(report)}
+                      aria-label={`View report for ${report.file_name}`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 text-left">
                         <div className="p-2 bg-primary/10 rounded-lg text-primary">
                           <FileText className="w-5 h-5" />
                         </div>
@@ -327,12 +353,14 @@ export default function FairnessBiasOptions() {
                               })}
                             </span>
                             <span className="w-1 h-1 rounded-full bg-border" />
-                            <span>{(report.file_size / 1024).toFixed(1)} KB</span>
+                            <span>
+                              {report.file_size ? `${(report.file_size / 1024).toFixed(1)} KB` : "— KB"}
+                            </span>
                           </div>
                         </div>
                       </div>
                       <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180 group-hover:translate-x-1 transition-transform" />
-                    </motion.div>
+                    </motion.button>
                   ))}
                 </div>
               ) : (
