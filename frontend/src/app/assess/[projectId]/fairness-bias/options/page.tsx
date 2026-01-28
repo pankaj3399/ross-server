@@ -101,19 +101,29 @@ export default function FairnessBiasOptions() {
     let isMounted = true;
     if (projectId && isPremium) {
       const fetchReports = async () => {
+        setRecentReports([]);
         setLoadingReports(true);
         try {
           const response = await apiService.getDatasetReports(projectId);
-          if (isMounted && response.success) {
-            setRecentReports(response.reports.slice(0, 5));
+          if (isMounted) {
+            if (response.success) {
+              setRecentReports(response.reports.slice(0, 5));
+            } else {
+              setRecentReports([]);
+            }
           }
         } catch (error) {
           console.error("Failed to fetch recent reports:", error);
+          if (isMounted) {
+            setRecentReports([]);
+          }
         } finally {
           if (isMounted) setLoadingReports(false);
         }
       };
       fetchReports();
+    } else {
+      setRecentReports([]);
     }
     return () => { isMounted = false; };
   }, [projectId, isPremium]);
@@ -273,6 +283,7 @@ export default function FairnessBiasOptions() {
                 <h2 className="text-xl font-semibold text-foreground">Recent Evaluations</h2>
                 {recentReports.length > 0 && (
                   <button
+                    type="button"
                     onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)}
                     className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                   >
