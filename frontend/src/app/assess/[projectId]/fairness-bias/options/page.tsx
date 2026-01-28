@@ -24,6 +24,31 @@ type TestMethod =
   | "github-repo"
   | null;
 
+export interface ReportSelections {
+  metric: string;
+  method: string;
+  group: string;
+  resumeFilter: string;
+  threshold: number;
+  testType: string;
+}
+
+export interface DatasetReport {
+  id: string;
+  file_name: string;
+  file_size: number;
+  created_at: string;
+  uploaded_at: string;
+  csv_preview: any;
+  fairness_data: any;
+  fairness_result: any;
+  biasness_result: any;
+  toxicity_result: any;
+  relevance_result: any;
+  faithfulness_result: any;
+  selections?: ReportSelections;
+}
+
 export default function FairnessBiasOptions() {
   const params = useParams();
   const router = useRouter();
@@ -94,7 +119,7 @@ export default function FairnessBiasOptions() {
     },
   ];
 
-  const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [recentReports, setRecentReports] = useState<DatasetReport[]>([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
   useEffect(() => {
@@ -118,7 +143,7 @@ export default function FairnessBiasOptions() {
     return () => { isMounted = false; };
   }, [projectId, isPremium]);
 
-  const handleReportClick = (report: any) => {
+  const handleReportClick = (report: DatasetReport) => {
     const payload = {
       result: {
         fairness: report.fairness_data,
@@ -273,6 +298,7 @@ export default function FairnessBiasOptions() {
                 <h2 className="text-xl font-semibold text-foreground">Recent Evaluations</h2>
                 {recentReports.length > 0 && (
                   <button
+                    type="button"
                     onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)}
                     className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                   >
@@ -316,7 +342,9 @@ export default function FairnessBiasOptions() {
                               })}
                             </span>
                             <span className="w-1 h-1 rounded-full bg-border" />
-                            <span>{(report.file_size / 1024).toFixed(1)} KB</span>
+                            <span>
+                              {report.file_size ? `${(report.file_size / 1024).toFixed(1)} KB` : "— KB"}
+                            </span>
                           </div>
                         </div>
                       </div>

@@ -504,7 +504,7 @@ export default function Home() {
                   </div>
 
                   <Button asChild className="w-full mt-auto" variant="outline">
-                    <Link href="/auth?isLogin=false">Contact Sales</Link>
+                    <Link href="mailto:sales@yourdomain.com">Contact Sales</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -512,7 +512,7 @@ export default function Home() {
           </div>
 
           <div className="text-center mt-12 text-muted-foreground">
-            <p className="text-sm font-medium">ALL PLANS CAN BE CANCELED AT ANYTIME.</p>
+            <p className="text-sm font-medium">ALL PLANS CAN BE CANCELED AT ANY TIME.</p>
           </div>
         </div>
       </section>
