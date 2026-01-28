@@ -129,11 +129,17 @@ export default function FairnessBiasOptions() {
         setLoadingReports(true);
         try {
           const response = await apiService.getDatasetReports(projectId);
-          if (isMounted && response.success) {
-            setRecentReports(response.reports.slice(0, 5));
+          if (isMounted) {
+            if (response.success) {
+              const reports = Array.isArray(response.reports) ? response.reports : [];
+              setRecentReports(reports.slice(0, 5));
+            } else {
+              setRecentReports([]);
+            }
           }
         } catch (error) {
           console.error("Failed to fetch recent reports:", error);
+          if (isMounted) setRecentReports([]);
         } finally {
           if (isMounted) setLoadingReports(false);
         }
@@ -316,14 +322,16 @@ export default function FairnessBiasOptions() {
               ) : recentReports.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3">
                   {recentReports.map((report) => (
-                    <motion.div
+                    <motion.button
                       key={report.id}
+                      type="button"
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="group flex items-center justify-between p-4 bg-card hover:bg-muted/50 border border-border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-sm"
+                      className="group flex w-full items-center justify-between p-4 bg-card hover:bg-muted/50 border border-border rounded-xl cursor-pointer transition-all duration-200 hover:border-primary/30 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                       onClick={() => handleReportClick(report)}
+                      aria-label={`View report for ${report.file_name}`}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 text-left">
                         <div className="p-2 bg-primary/10 rounded-lg text-primary">
                           <FileText className="w-5 h-5" />
                         </div>
@@ -349,7 +357,7 @@ export default function FairnessBiasOptions() {
                         </div>
                       </div>
                       <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180 group-hover:translate-x-1 transition-transform" />
-                    </motion.div>
+                    </motion.button>
                   ))}
                 </div>
               ) : (

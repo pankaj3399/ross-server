@@ -348,12 +348,12 @@ export default function Home() {
                     Perfect for individuals, students, early-stage startups, or anyone looking to understand the maturity level of a single AI system.
                   </p>
 
-                  <div className="space-y-4 mb-8 flex-1">
-                    <div className="flex items-start gap-3">
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">1 AI Project (Single AI system)</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm font-medium">OWASP AIMA Assessment</span>
@@ -363,20 +363,20 @@ export default function Home() {
                           <li>144 Questions</li>
                         </ul>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">Maturity scoring across all domains</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">Basic report export</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">Access to MATUR.ai dashboard</span>
-                    </div>
-                  </div>
+                    </li>
+                  </ul>
 
                   <Button asChild className="w-full mt-auto" variant="outline">
                     <Link href="/auth?isLogin=false">Get Started for Free</Link>
@@ -410,41 +410,41 @@ export default function Home() {
                     Designed for organizations that need continuous monitoring, automation, and deeper governance insights across multiple AI systems.
                   </p>
 
-                  <div className="space-y-4 mb-8 flex-1">
-                    <div className="flex items-start gap-3">
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm font-medium">Everything in SEED, plus:</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">Unlimited AI Projects/Systems</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm">AI Vulnerability Assessment</span>
                         <p className="text-xs text-muted-foreground mt-0.5">Identify security weaknesses</p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm">Automated Bias & Fairness Testing</span>
                         <p className="text-xs text-muted-foreground mt-0.5">Detect & flag bias (Manual/API/Dataset)</p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm">Actionable Governance Controls</span>
                         <p className="text-xs text-muted-foreground mt-0.5">Step-by-step actions & policy recs</p>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm">Advanced Exportable Reports</span>
-                    </div>
-                  </div>
+                    </li>
+                  </ul>
 
                   <Button asChild className="w-full mt-auto">
                     <Link href="/auth?isLogin=false">Start Free Trial</Link>
@@ -476,12 +476,12 @@ export default function Home() {
                     Ideal for organizations requiring expert involvement and professional guidance on Responsible AI, governance, and compliance.
                   </p>
 
-                  <div className="space-y-4 mb-8 flex-1">
-                    <div className="flex items-start gap-3">
+                  <ul className="space-y-4 mb-8 flex-1">
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <span className="text-sm font-medium">Everything in BLOOM, plus:</span>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm">10 Hours/Month Expert Consultation</span>
@@ -493,18 +493,18 @@ export default function Home() {
                           <li>ISO 42001/NIST/EU AI Act guidance</li>
                         </ul>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
+                    </li>
+                    <li className="flex items-start gap-3">
                       <IconCircleCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div>
                         <span className="text-sm">Priority Support</span>
                         <p className="text-xs text-muted-foreground mt-0.5">Faster response & direct access</p>
                       </div>
-                    </div>
-                  </div>
+                    </li>
+                  </ul>
 
                   <Button asChild className="w-full mt-auto" variant="outline">
-                    <Link href="mailto:sales@yourdomain.com">Contact Sales</Link>
+                    <Link href={`mailto:${process.env.NEXT_PUBLIC_SALES_EMAIL || "sales@yourdomain.com"}`}>Contact Sales</Link>
                   </Button>
                 </CardContent>
               </Card>

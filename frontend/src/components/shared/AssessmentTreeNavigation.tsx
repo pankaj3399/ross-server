@@ -398,10 +398,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         }}
         onKeyDown={(e) => {
           if (e.key === "ArrowLeft") {
+            e.preventDefault();
             setSidebarWidth(prev => Math.min(prev + 10, window.innerWidth * 0.5));
           } else if (e.key === "ArrowRight") {
+            e.preventDefault();
             setSidebarWidth(prev => Math.max(200, prev - 10));
           } else if (e.key === "Escape") {
+            e.preventDefault();
             setIsResizing(false);
           }
         }}
