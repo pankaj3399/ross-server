@@ -217,8 +217,8 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                       </div>
                     )}
                   </div>
-                  <CardDescription className="mt-2">
-                    Everything you need to get started.
+                  <CardDescription className="mt-2 text-wrap h-14">
+                    Designed for organizations that need continuous monitoring, automation, and deeper governance insights across multiple AI systems.
                   </CardDescription>
                 </CardHeader>
 
@@ -306,8 +306,8 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                       </div>
                     )}
                   </div>
-                  <CardDescription className="mt-2">
-                    For growing organizations.
+                  <CardDescription className="mt-2 text-wrap h-14">
+                    Ideal for organizations requiring expert involvement and professional guidance on Responsible AI, governance, compliance, and implementation strategies.
                   </CardDescription>
                 </CardHeader>
 
