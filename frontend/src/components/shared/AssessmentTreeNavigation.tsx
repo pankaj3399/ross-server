@@ -291,6 +291,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
+  const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
 
   const [isGovernanceExpanded, setIsGovernanceExpanded] = useState(false);
 
@@ -535,12 +536,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                           }
                         ].map((item, idx) => {
                           const isGovernance = item.id === "governance";
-
-                          // Expand logic
-                          const showGovernanceToggle = isGovernance;
+                          const isFairness = item.id === "fairness";
+                          const showToggle = isGovernance || isFairness;
 
                           let isExpanded = false;
                           if (isGovernance) isExpanded = isGovernanceExpanded;
+                          if (isFairness) isExpanded = isFairnessExpanded;
 
                           return (
                             <SidebarMenuItem key={idx}>
@@ -548,6 +549,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                 onClick={() => {
                                   if (isGovernance) {
                                     setIsGovernanceExpanded(!isGovernanceExpanded);
+                                  } else if (isFairness) {
+                                    setIsFairnessExpanded(!isFairnessExpanded);
+                                    item.onClick();
                                   } else {
                                     item.onClick();
                                   }
@@ -558,7 +562,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                   className={cn(
                                     "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
                                     isExpanded && "rotate-90",
-                                    (!showGovernanceToggle) && "invisible"
+                                    (!showToggle) && "invisible"
                                   )}
                                 />
                                 <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
@@ -591,9 +595,27 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             onQuestionClick={onQuestionClick}
                                             toggleDomain={toggleDomain}
                                             premiumStatus={premiumStatus}
-                                            activeQuestionRef={currentQuestionRef}
                                           />
                                         ))}
+                                      </SidebarMenuSub>
+                                    )}
+                                    {isFairness && (
+                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                        <SidebarMenuSubItem>
+                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias`)} className="h-8 px-2">
+                                            <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
+                                          </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
+                                        <SidebarMenuSubItem>
+                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)} className="h-8 px-2">
+                                            <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
+                                          </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
+                                        <SidebarMenuSubItem>
+                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)} className="h-8 px-2">
+                                            <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
+                                          </SidebarMenuSubButton>
+                                        </SidebarMenuSubItem>
                                       </SidebarMenuSub>
                                     )}
                                   </motion.div>

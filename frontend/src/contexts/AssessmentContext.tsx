@@ -259,22 +259,29 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 let targetPracticeId = currentPracticeId;
 
                 // If no state or state invalid, set default
-                if (!targetDomainId || !orderedDomains.find(d => d.id === targetDomainId)) {
+                let domain = orderedDomains.find(d => d.id === targetDomainId);
+                if (!targetDomainId || !domain) {
                     // Default to first non-premium domain if possible, or just first domain
-                    const firstDomain = orderedDomains.find(d => d.is_premium !== true) || orderedDomains[0];
-                    if (firstDomain) {
-                        targetDomainId = firstDomain.id;
-                        const firstPracticeId = Object.keys(firstDomain.practices)[0];
-                        targetPracticeId = firstPracticeId || '';
+                    domain = orderedDomains.find(d => d.is_premium !== true) || orderedDomains[0];
+                    if (domain) {
+                        targetDomainId = domain.id;
+                        // Reset practice when domain changes/defaults
+                        targetPracticeId = Object.keys(domain.practices)[0] || '';
+                    }
+                }
 
-                        // Only update if we actually changed something to avoid loops/unnecessary writes
-                        if (targetDomainId !== currentDomainId || targetPracticeId !== currentPracticeId) {
-                            setProjectState(projectId, {
-                                currentDomainId: targetDomainId,
-                                currentPracticeId: targetPracticeId,
-                                currentQuestionIndex: 0
-                            });
-                        }
+                // Verify practice ID exists in the target domain
+                if (domain && (!targetPracticeId || !domain.practices[targetPracticeId])) {
+                    targetPracticeId = Object.keys(domain.practices)[0] || '';
+                }
+
+                if (domain && targetDomainId && targetPracticeId) {
+                    if (targetDomainId !== currentDomainId || targetPracticeId !== currentPracticeId) {
+                        setProjectState(projectId, {
+                            currentDomainId: targetDomainId,
+                            currentPracticeId: targetPracticeId,
+                            currentQuestionIndex: 0
+                        });
                     }
                 }
 
