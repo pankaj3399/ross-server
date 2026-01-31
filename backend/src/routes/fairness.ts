@@ -546,8 +546,15 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         const errors = payload.errors || [];
         const errorMessage = payload.error || null;
 
-        // Normalize status to lowercase for consistent API responses
-        const normalizedStatus = String(job.status).toLowerCase() as "queued" | "processing" | "running" | "completed" | "failed";
+        // Normalize status for consistent API responses
+        // statuses: queued | running | processing | collecting_responses | evaluating | completed | success | partial_success | failed
+        const rawStatus = String(job.status).toLowerCase();
+        let normalizedStatus: string = rawStatus;
+        
+        // Map backend internal statuses to standard frontend ones if needed
+        if (rawStatus === 'success' || rawStatus === 'partial_success' || rawStatus === 'completed') {
+            normalizedStatus = 'completed';
+        }
 
         res.json({
             jobId: job.job_id,
@@ -745,6 +752,110 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
     } catch (error: any) {
         console.error("Error fetching dataset reports:", error);
         res.status(500).json({ error: "Failed to fetch dataset reports" });
+    }
+});
+
+// GET /fairness/api-reports/:projectId - Get all API test reports for a project
+router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.user!.id;
+        
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+        
+        if (projectCheck.rows.length === 0) {
+            return res.status(403).json({ error: "Project not found or access denied" });
+        }
+        
+        // Parse pagination params
+        const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
+        const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
+
+        // Fetch reports for this project with pagination
+        const countResult = await pool.query(
+             `SELECT COUNT(*) as total
+              FROM api_test_reports
+              WHERE project_id = $1 AND user_id = $2`,
+             [projectId, userId]
+        );
+        const total = parseInt(countResult.rows[0].total || '0');
+
+        const result = await pool.query(
+            `SELECT 
+                id, job_id, total_prompts, success_count, failure_count,
+                average_scores, config, created_at
+             FROM api_test_reports
+             WHERE project_id = $1 AND user_id = $2
+             ORDER BY created_at DESC
+             LIMIT $3 OFFSET $4`,
+            [projectId, userId, limit, offset]
+        );
+        
+        res.json({ 
+            success: true, 
+            reports: result.rows,
+            pagination: {
+                total,
+                limit,
+                offset,
+                hasMore: offset + result.rows.length < total
+            }
+        });
+    } catch (error: any) {
+        console.error("Error fetching API test reports:", error);
+        res.status(500).json({ error: "Failed to fetch API test reports" });
+    }
+});
+
+// GET /fairness/api-reports/detail/:reportId - Get full detail of a specific API report
+router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userId = req.user!.id;
+        
+        const result = await pool.query(
+            `SELECT * FROM api_test_reports
+             WHERE id = $1 AND user_id = $2`,
+            [reportId, userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Report not found or access denied" });
+        }
+        
+        res.json({ 
+            success: true, 
+            report: result.rows[0],
+        });
+    } catch (error: any) {
+        console.error("Error fetching API test report details:", error);
+        res.status(500).json({ error: "Failed to fetch API test report details" });
+    }
+});
+
+// DELETE /fairness/api-reports/:reportId - Delete an API test report
+router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userId = req.user!.id;
+        
+        const result = await pool.query(
+            "DELETE FROM api_test_reports WHERE id = $1 AND user_id = $2 RETURNING id",
+            [reportId, userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Report not found or access denied" });
+        }
+        
+        res.json({ success: true, message: "Report deleted successfully" });
+    } catch (error: any) {
+        console.error("Error deleting API test report:", error);
+        res.status(500).json({ error: "Failed to delete API test report" });
     }
 });
 

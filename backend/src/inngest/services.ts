@@ -192,20 +192,25 @@ export function delay(ms: number) {
 }
 
 export function buildSummary(total: number, results: JobResult[], errors: JobError[]): JobSummary {
-  const successCount = results.length;
-  const failureCount = errors.length;
+  // Ensure we don't count the same prompt multiple times if results/errors arrays are somehow messy
+  // Although the aggregator should prevent this, this is a defensive measure.
+  const successCount = Math.min(results.length, total);
+  const failureCount = Math.min(errors.length, total - successCount);
 
   const average = (arr: number[]) =>
     arr.length === 0 ? 0 : arr.reduce((sum, value) => sum + value, 0) / arr.length;
 
   // Filter out null scores - only include successful evaluations in averaging
   const overallScores = results
+    .slice(0, successCount) // Only take up to 'total' items
     .map((r) => r.evaluation.overallScore)
     .filter((score): score is number => score !== null);
   const biasScores = results
+    .slice(0, successCount)
     .map((r) => r.evaluation.biasScore)
     .filter((score): score is number => score !== null);
   const toxicityScores = results
+    .slice(0, successCount)
     .map((r) => r.evaluation.toxicityScore)
     .filter((score): score is number => score !== null);
 
@@ -580,24 +585,73 @@ export async function markJobCompleted(
     finalStatus = "partial_success";
   }
   
+  const updatedPayload = {
+    ...payload,
+    summary: data.summary,
+    results: data.results,
+    errors: data.errors,
+  };
+
   await pool.query(
     `UPDATE evaluation_status
      SET status = $1,
          progress = $2,
          percent = 100,
-         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         payload = $3
      WHERE id = $4`,
     [
       finalStatus,
       `${data.summary.total}/${data.summary.total}`,
-      JSON.stringify({
-        summary: data.summary,
-        results: data.results,
-        errors: data.errors,
-      }),
+      JSON.stringify(updatedPayload),
       jobInternalId,
     ],
   );
+
+  // If this is an API test, save to persistent history table
+  if (payload.type === "FAIRNESS_API") {
+    try {
+        // Need to fetch user_id, project_id, job_id from the job record first to be safe,
+        // or we can rely on what we have if we passed it in. 
+        // But `jobInternalId` is just the ID.
+        // Let's fetch the full job details to ensure we have user_id/project_id
+        const jobResult = await pool.query(
+            `SELECT user_id, project_id, job_id FROM evaluation_status WHERE id = $1`,
+            [jobInternalId]
+        );
+        
+        if (jobResult.rows.length > 0) {
+            const { user_id, project_id, job_id } = jobResult.rows[0];
+            
+            await pool.query(
+                `INSERT INTO api_test_reports 
+                 (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [
+                    user_id,
+                    project_id,
+                    job_id,
+                    total,
+                    successful,
+                    failed,
+                    JSON.stringify({
+                        total,
+                        successful,
+                        failed,
+                        averageOverallScore: data.summary.averageOverallScore,
+                        averageBiasScore: data.summary.averageBiasScore,
+                        averageToxicityScore: data.summary.averageToxicityScore
+                    }),
+                    JSON.stringify(data.results),
+                    JSON.stringify(data.errors),
+                    JSON.stringify(payload.config || {})
+                ]
+            );
+        }
+    } catch (err) {
+        console.error("Failed to save API test report history:", err);
+        // Don't fail the job if history save fails
+    }
+  }
 }
 
 export async function failJob(jobInternalId: number, message: string) {
