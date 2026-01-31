@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
+import { ApiHistory } from "../api-history/components/ApiHistory";
 
 const DEFAULT_REQUEST_TEMPLATE = `{
   "contents": [
@@ -592,6 +593,11 @@ export default function ApiEndpointPage() {
             <li>As soon as the job is done we redirect you to the Fairness &amp; Bias report automatically.</li>
           </ul>
         </motion.div>
+
+        {/* History Section */}
+        <div className="mt-12 pt-24 border-t border-border">
+          <ApiHistory projectId={projectId} />
+        </div>
       </div>
     </div>
   );
