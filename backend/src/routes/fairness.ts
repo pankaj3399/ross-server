@@ -755,6 +755,23 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
     }
 });
 
+function sanitizeConfigResponse(config: any): any {
+    if (!config) return config;
+    try {
+        const parsed = typeof config === 'string' ? JSON.parse(config) : config;
+        const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
+        const sanitized = { ...parsed };
+        for (const key of Object.keys(sanitized)) {
+            if (sensitivePattern.test(key)) {
+                sanitized[key] = "[REDACTED]";
+            }
+        }
+        return sanitized;
+    } catch (e) {
+        return config; // Fallback for non-JSON or other issues
+    }
+}
+
 // GET /fairness/api-reports/:projectId - Get all API test reports for a project
 router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
     try {
@@ -797,7 +814,10 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         
         res.json({ 
             success: true, 
-            reports: result.rows,
+            reports: result.rows.map(row => ({
+                ...row,
+                config: sanitizeConfigResponse(row.config)
+            })),
             pagination: {
                 total,
                 limit,
@@ -835,7 +855,10 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
         
         res.json({ 
             success: true, 
-            report: result.rows[0],
+            report: {
+                ...result.rows[0],
+                config: sanitizeConfigResponse(result.rows[0].config)
+            },
         });
     } catch (error: any) {
         console.error("Error fetching API test report details:", error);

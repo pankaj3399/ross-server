@@ -33,9 +33,9 @@ type jsPDFType = InstanceType<typeof import("jspdf").jsPDF>;
  */
 const PDF_COLOR_RESET_CSS = `
     * {
-        color: inherit !important;
-        background-color: inherit !important;
-        border-color: inherit !important;
+        color: inherit;
+        background-color: inherit;
+        border-color: inherit;
         transition: none !important;
         animation: none !important;
     }
@@ -109,9 +109,12 @@ const applyPdfStyles = (clonedElement: HTMLElement) => {
     // Force visibility on all elements
     clonedElement.querySelectorAll("*").forEach((el) => {
         const elem = el as HTMLElement;
+        const isSvgElement = elem instanceof SVGElement || elem.closest('svg');
         elem.style.opacity = "1";
         elem.style.visibility = "visible";
-        elem.style.transform = "none";
+        if (!isSvgElement && !elem.hasAttribute('data-preserve-transform')) {
+            elem.style.transform = "none";
+        }
         elem.style.transition = "none";
         elem.style.animation = "none";
     });

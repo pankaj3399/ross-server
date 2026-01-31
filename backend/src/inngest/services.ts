@@ -585,6 +585,18 @@ export async function markJobCompleted(
     finalStatus = "partial_success";
   }
   
+  const sanitizeConfigForStorage = (config: any): any => {
+    if (!config || typeof config !== 'object') return config;
+    const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
+    const sanitized = { ...config };
+    for (const key of Object.keys(sanitized)) {
+      if (sensitivePattern.test(key)) {
+        sanitized[key] = "[REDACTED]";
+      }
+    }
+    return sanitized;
+  };
+
   const updatedPayload = {
     ...payload,
     summary: data.summary,
@@ -625,14 +637,23 @@ export async function markJobCompleted(
             await pool.query(
                 `INSERT INTO api_test_reports 
                  (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                 ON CONFLICT (job_id) DO UPDATE SET
+                   total_prompts = EXCLUDED.total_prompts,
+                   success_count = EXCLUDED.success_count,
+                   failure_count = EXCLUDED.failure_count,
+                   average_scores = EXCLUDED.average_scores,
+                   results = EXCLUDED.results,
+                   errors = EXCLUDED.errors,
+                   config = EXCLUDED.config,
+                   updated_at = CURRENT_TIMESTAMP`,
                 [
                     user_id,
                     project_id,
                     job_id,
-                    total,
-                    successful,
-                    failed,
+                    data.summary.total,
+                    data.summary.successful,
+                    data.summary.failed,
                     JSON.stringify({
                         averageOverallScore: data.summary.averageOverallScore,
                         averageBiasScore: data.summary.averageBiasScore,
@@ -640,7 +661,7 @@ export async function markJobCompleted(
                     }),
                     JSON.stringify(data.results),
                     JSON.stringify(data.errors),
-                    JSON.stringify(payload.config || {})
+                    JSON.stringify(sanitizeConfigForStorage(payload.config) || {})
                 ]
             );
         }

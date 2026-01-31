@@ -55,12 +55,16 @@ export default function ApiReportDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    const normalizedGeneratedAt = report?.created_at
+        ? new Date(report.created_at).toISOString()
+        : undefined;
+
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
         fileName: `api-fairness-report-${reportId}.pdf`,
         reportTitle: "API Fairness & Bias Report",
         projectName: projectId,
-        generatedAt: report?.created_at
+        generatedAt: normalizedGeneratedAt
     });
 
     useEffect(() => {
@@ -157,6 +161,7 @@ export default function ApiReportDetailPage() {
                             onClick={exportPdf}
                             disabled={isExporting}
                             className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors hide-in-pdf"
+                            type="button"
                         >
                             {isExporting ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -188,15 +193,15 @@ export default function ApiReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Avg Overall Score</div>
                         <div className={`text-2xl font-bold ${getScoreColor(report.average_scores?.averageOverallScore)}`}>
-                            {report.average_scores?.averageOverallScore
+                            {report.average_scores?.averageOverallScore != null
                                 ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
                                 : "N/A"}
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Avg Bias Score</div>
-                        <div className={`text-2xl font-bold ${getScoreColor(1 - (report.average_scores?.averageBiasScore || 0))}`}>
-                            {report.average_scores?.averageBiasScore
+                        <div className={`text-2xl font-bold ${getScoreColor(1 - (report.average_scores?.averageBiasScore ?? 0))}`}>
+                            {report.average_scores?.averageBiasScore != null
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                 : "N/A"}
                         </div>
