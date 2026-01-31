@@ -634,9 +634,6 @@ export async function markJobCompleted(
                     successful,
                     failed,
                     JSON.stringify({
-                        total,
-                        successful,
-                        failed,
                         averageOverallScore: data.summary.averageOverallScore,
                         averageBiasScore: data.summary.averageBiasScore,
                         averageToxicityScore: data.summary.averageToxicityScore

@@ -382,6 +382,21 @@ export const userApiCallAggregator = inngest.createFunction(
   }
 );
 
+// Helper to extract error message safely
+function extractErrorMessage(response: any, error: any): string {
+  if (response?.error) {
+    if (typeof response.error === 'string') return response.error;
+    if (typeof response.error === 'object' && response.error.message) return response.error.message;
+  }
+  
+  if (error) {
+    if (typeof error === 'string') return error;
+    if (error.message) return error.message;
+  }
+  
+  return "Unknown error";
+}
+
 export const evaluationAggregator = inngest.createFunction(
   { id: "evaluation-aggregator", name: "Evaluation Aggregator" },
   { event: "evaluation/single.completed" },
@@ -439,12 +454,13 @@ export const evaluationAggregator = inngest.createFunction(
           message: `Overall score ${(result.overallScore * 100).toFixed(1)}%`,
         }]);
       } else {
+        const errMessage = extractErrorMessage(response, error);
         errorEntry = JSON.stringify([{
           category: response?.category || "unknown",
           prompt: response?.prompt || "unknown",
           success: false,
-          error: (typeof (response as any)?.error === 'string' ? (response as any).error : ((response as any)?.error as any)?.message) || (typeof error === 'string' ? error : (error as any)?.message) || "Unknown error",
-          message: (typeof (response as any)?.error === 'string' ? (response as any).error : ((response as any)?.error as any)?.message) || (typeof error === 'string' ? error : (error as any)?.message) || "Unknown error",
+          error: errMessage,
+          message: errMessage,
         }]);
       }
 

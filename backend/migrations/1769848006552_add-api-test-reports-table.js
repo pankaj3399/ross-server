@@ -25,6 +25,7 @@ exports.up = (pgm) => {
     job_id: {
       type: "text",
       notNull: true,
+      unique: true,
     },
     
     // Test Statistics
@@ -72,9 +73,37 @@ exports.up = (pgm) => {
   pgm.createIndex("api_test_reports", ["user_id"]);
   pgm.createIndex("api_test_reports", ["project_id"]);
   pgm.createIndex("api_test_reports", ["created_at"]);
-  pgm.createIndex("api_test_reports", ["job_id"]);
+  // job_id index is implicitly created by unique constraint, but we can keep explicit if we want specific naming or just rely on unique
+  // pgm.createIndex("api_test_reports", ["job_id"]); // Unique constraint creates an index usually
+
+  // Create function to update updated_at timestamp
+  pgm.createFunction(
+    "update_updated_at_column",
+    [],
+    {
+      returns: "trigger",
+      language: "plpgsql",
+    },
+    `
+    BEGIN
+      NEW.updated_at = now();
+      RETURN NEW;
+    END;
+    `
+  );
+
+  // Create trigger to automatically update updated_at
+  pgm.createTrigger("api_test_reports", "update_api_test_reports_updated_at", {
+    when: "BEFORE",
+    operation: "UPDATE",
+    function: "update_updated_at_column",
+    level: "ROW",
+  });
+
 };
 
 exports.down = (pgm) => {
+  pgm.dropTrigger("api_test_reports", "update_api_test_reports_updated_at");
+  pgm.dropFunction("update_updated_at_column", []);
   pgm.dropTable("api_test_reports");
 };

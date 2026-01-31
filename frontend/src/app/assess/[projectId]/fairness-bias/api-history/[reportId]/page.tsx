@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Clock, Server, Terminal, FileJson } from "lucide-react";
-import { apiService, API_BASE_URL } from "@/lib/api";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type ApiReportDetail = {
     id: string;
@@ -103,6 +103,7 @@ export default function ApiReportDetailPage() {
                 <button
                     onClick={() => router.back()}
                     className="flex items-center gap-2 text-primary hover:underline"
+                    type="button"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     Go Back
@@ -122,6 +123,7 @@ export default function ApiReportDetailPage() {
                         <button
                             onClick={() => router.back()}
                             className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                            type="button"
                         >
                             <ArrowLeft className="w-4 h-4" />
                             Back
@@ -132,11 +134,6 @@ export default function ApiReportDetailPage() {
                                 API Report Details
                             </h1>
                             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                                {/* <span className="flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {new Date(report.created_at).toLocaleString()}
-                                </span>
-                                <span>•</span> */}
                                 <span className="flex items-center gap-1.5">
                                     <Server className="w-3.5 h-3.5" />
                                     {report.config?.apiUrl}
@@ -157,7 +154,7 @@ export default function ApiReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Success Rate</div>
                         <div className="text-2xl font-bold text-green-500">
-                            {((report.success_count / report.total_prompts) * 100).toFixed(1)}%
+                            {report.total_prompts > 0 ? ((report.success_count / report.total_prompts) * 100).toFixed(1) + "%" : "0.0%"}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                             {report.success_count} passed, {report.failure_count} failed
@@ -174,12 +171,6 @@ export default function ApiReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Avg Bias Score</div>
                         <div className={`text-2xl font-bold ${getScoreColor(1 - (report.average_scores?.averageBiasScore || 0))}`}>
-                            {/* Bias score: lower is better usually, so 1-score might be 'fairness'? 
-                                checking backend logic: getScoreFromVerdict usually maps high score to pass. 
-                                In services.ts we store averageBiasScore. 
-                                In datasetFairness, biasness score 0 is good (no bias).
-                                Let's assume lower is better for 'Bias Score', but for coloring we want green for low bias.
-                             */}
                             {report.average_scores?.averageBiasScore
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                 : "N/A"}
@@ -224,75 +215,93 @@ export default function ApiReportDetailPage() {
                 </div>
 
                 {/* Detailed Results */}
-                <div className="space-y-4">
+                <div className="space-y-6">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                         <FileJson className="w-5 h-5" />
                         Detailed Results
                     </h3>
 
-                    <div className="space-y-4">
-                        {allItems.map((item, idx) => (
-                            <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden">
-                                <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
-                                    }`}>
-                                    <div className="flex items-center gap-3">
-                                        {item.success ? (
-                                            <CheckCircle className="w-5 h-5 text-green-500" />
-                                        ) : (
-                                            <XCircle className="w-5 h-5 text-red-500" />
-                                        )}
-                                        <span className="font-medium">{item.category}</span>
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                        Prompt #{idx + 1}
-                                    </div>
-                                </div>
-                                <div className="p-6 space-y-4">
-                                    <div>
-                                        <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
-                                        <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
-                                    </div>
-
-                                    {(item as any).success ? (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div>
-                                                <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Evaluation</div>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span>Overall Score:</span>
-                                                        <span className={`font-bold ${getScoreColor((item as any).evaluation?.overallScore)}`}>
-                                                            {((item as any).evaluation?.overallScore * 100).toFixed(0)}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span>Bias Score:</span>
-                                                        <span className="font-mono">{((item as any).evaluation?.biasScore * 100).toFixed(1)}%</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center text-sm">
-                                                        <span>Toxicity Score:</span>
-                                                        <span className="font-mono">{((item as any).evaluation?.toxicityScore * 100).toFixed(1)}%</span>
-                                                    </div>
-                                                    <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                        {(item as any).evaluation?.overallVerdict}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Explanation</div>
-                                                <div className="text-sm text-foreground/80 leading-relaxed">
-                                                    {(item as any).evaluation?.explanation || "No explanation provided."}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/20 text-red-600 text-sm">
-                                            <strong>Error:</strong> {item.message || (item as any).error || "Unknown error occurred"}
-                                        </div>
-                                    )}
-                                </div>
+                    {Object.entries(
+                        allItems.reduce((acc, item) => {
+                            const cat = item.category || "Unknown";
+                            if (!acc[cat]) acc[cat] = [];
+                            acc[cat].push(item);
+                            return acc;
+                        }, {} as Record<string, typeof allItems>)
+                    ).map(([category, items], catIdx) => (
+                        <div key={category} className="space-y-4">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
+                                <span>{category}</span>
+                                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
+                                    {items.length}
+                                </span>
                             </div>
-                        ))}
-                    </div>
+
+                            {items.map((item, idx) => (
+                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4">
+                                    <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
+                                        }`}>
+                                        <div className="flex items-center gap-3">
+                                            {item.success ? (
+                                                <CheckCircle className="w-5 h-5 text-green-500" />
+                                            ) : (
+                                                <XCircle className="w-5 h-5 text-red-500" />
+                                            )}
+                                            <span className="font-medium text-foreground/80">
+                                                Prompt #{idx + 1}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                            {/* Status indicator or score could go here */}
+                                        </div>
+                                    </div>
+                                    <div className="p-6 space-y-4">
+                                        <div>
+                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
+                                            <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                        </div>
+
+                                        {(item as any).success ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Evaluation</div>
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span>Overall Score:</span>
+                                                            <span className={`font-bold ${getScoreColor((item as any).evaluation?.overallScore)}`}>
+                                                                {((item as any).evaluation?.overallScore * 100).toFixed(0)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span>Bias Score:</span>
+                                                            <span className="font-mono">{((item as any).evaluation?.biasScore * 100).toFixed(1)}%</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span>Toxicity Score:</span>
+                                                            <span className="font-mono">{((item as any).evaluation?.toxicityScore * 100).toFixed(1)}%</span>
+                                                        </div>
+                                                        <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
+                                                            {(item as any).evaluation?.overallVerdict}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Explanation</div>
+                                                    <div className="text-sm text-foreground/80 leading-relaxed">
+                                                        {(item as any).evaluation?.explanation || "No explanation provided."}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/20 text-red-600 text-sm">
+                                                <strong>Error:</strong> {item.message || (item as any).error || "Unknown error occurred"}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

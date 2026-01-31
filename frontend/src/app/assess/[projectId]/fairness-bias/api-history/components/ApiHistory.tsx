@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Play, Terminal, Trash2, Search } from "lucide-react";
-import { apiService, API_BASE_URL } from "@/lib/api";
+import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 type ApiReport = {
     id: string;
@@ -37,16 +37,6 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
     useEffect(() => {
         const fetchReports = async () => {
             try {
-                // We need to extend apiService to support this new endpoint, 
-                // or use fetch directly for now if apiService is not easily extensible in this context
-                // assuming apiService has a generic get or we add it.
-                // For now, let's use direct fetch to avoid modifying apiService types if not available
-                const token = sessionStorage.getItem("token"); // Assuming token is here or handled by a fetch wrapper
-                // Actually, let's check how apiService is implemented. 
-                // Since I can't check apiService easily right now without reading it, I'll rely on the pattern.
-                // But I should probably add it to apiService. For this artifact, I'll assume I can use a helper or direct fetch.
-
-                // Using a relative path which should be proxied or handled
                 const res = await fetch(`${API_BASE_URL}/fairness/api-reports/${projectId}`, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
@@ -219,6 +209,7 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                                     handleViewReport(report);
                                                 }}
                                                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                                type="button"
                                             >
                                                 View Details
                                                 <ChevronRight className="w-4 h-4" />
@@ -236,14 +227,19 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                                             });
                                                             if (res.ok) {
                                                                 setReports(prev => prev.filter(r => r.id !== report.id));
+                                                            } else {
+                                                                // Show feedback for failure
+                                                                alert("Failed to delete report. Please try again.");
                                                             }
                                                         } catch (err) {
                                                             console.error("Failed to delete report:", err);
+                                                            alert("An error occurred while deleting the report.");
                                                         }
                                                     }
                                                 }}
                                                 className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                                                 title="Delete report"
+                                                type="button"
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
@@ -259,6 +255,7 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                             <button
                                 onClick={() => setIsExpanded(true)}
                                 className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                type="button"
                             >
                                 <ChevronRight className="w-4 h-4 rotate-90" />
                                 Show complete history ({reports.length})
@@ -273,6 +270,7 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                     <button
                         onClick={() => setIsExpanded(false)}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        type="button"
                     >
                         Show less
                     </button>

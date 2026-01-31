@@ -815,8 +815,14 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
 router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) => {
     try {
         const { reportId } = req.params;
-        const userId = req.user!.id;
+        const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
         
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(reportId)) {
+            return res.status(400).json({ error: "Invalid reportId" });
+        }
+
         const result = await pool.query(
             `SELECT * FROM api_test_reports
              WHERE id = $1 AND user_id = $2`,
@@ -843,6 +849,12 @@ router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
         const { reportId } = req.params;
         const userId = req.user!.id;
         
+        // Validate UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(reportId)) {
+            return res.status(400).json({ error: "Invalid reportId" });
+        }
+
         const result = await pool.query(
             "DELETE FROM api_test_reports WHERE id = $1 AND user_id = $2 RETURNING id",
             [reportId, userId]
