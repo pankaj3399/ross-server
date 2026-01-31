@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, TrendingUp, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, TrendingUp, Clock, Download, Loader2 } from "lucide-react";
+import { usePdfReport } from "../../../../../hooks/usePdfReport";
 import { ReportSkeleton } from "../../../../../components/Skeleton";
 
 interface FairnessQuestion {
@@ -104,6 +105,7 @@ export default function FairnessBiasReport() {
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [evaluationsLoading, setEvaluationsLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const projectId = params.projectId as string;
 
@@ -111,6 +113,14 @@ export default function FairnessBiasReport() {
   evaluations.forEach((evaluation) => {
     const key = `${evaluation.category}:${evaluation.questionText}`;
     evaluationMap.set(key, evaluation);
+  });
+
+  const { exportPdf, isExporting } = usePdfReport({
+    reportRef,
+    fileName: `fairness-bias-report-${projectId}.pdf`,
+    reportTitle: "Fairness & Bias Report",
+    projectName: projectId, // Or fetch project name if available, projectId is fallback
+    generatedAt: new Date()
   });
 
   useEffect(() => {
@@ -181,7 +191,7 @@ export default function FairnessBiasReport() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div ref={reportRef} className="min-h-screen bg-background">
       {/* Compact Header */}
       <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -190,6 +200,7 @@ export default function FairnessBiasReport() {
               <button
                 type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
+                className="hide-in-pdf"
               >
                 <ArrowLeft className="w-5 h-5 text-muted-foreground" />
               </button>
@@ -200,19 +211,36 @@ export default function FairnessBiasReport() {
             </div>
 
             {/* Quick Stats */}
-            <div className="hidden md:flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">Completed</div>
-                <div className="text-lg font-bold text-primary">
-                  {evaluatedCount}/{totalQuestions}
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-4">
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Completed</div>
+                  <div className="text-lg font-bold text-primary">
+                    {evaluatedCount}/{totalQuestions}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Avg Score</div>
+                  <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
+                    {(avgOverall * 100).toFixed(0)}%
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">Avg Score</div>
-                <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
-                  {(avgOverall * 100).toFixed(0)}%
-                </div>
-              </div>
+
+              {/* PDF Download Button */}
+              <button
+                type="button"
+                onClick={exportPdf}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors hide-in-pdf"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium hidden sm:inline">{isExporting ? "Exporting..." : "PDF"}</span>
+              </button>
             </div>
           </div>
 

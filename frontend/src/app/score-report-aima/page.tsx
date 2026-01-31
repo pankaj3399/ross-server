@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
@@ -10,11 +10,14 @@ import { motion } from "framer-motion";
 import {
   IconArrowLeft,
   IconTrophy,
-  IconStar
+  IconStar,
+  IconDownload,
+  IconLoader
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
 import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
+import { usePdfReport } from "../../hooks/usePdfReport";
 
 // Performance variants mapped to Tailwind classes
 const PERFORMANCE_VARIANTS = {
@@ -54,11 +57,20 @@ export default function ScoreReportPage() {
   const { isAuthenticated } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const { getProjectResults } = useAssessmentResultsStore();
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string>>(new Set());
+
+  const { exportPdf, isExporting } = usePdfReport({
+    reportRef,
+    fileName: `aima-score-report-${projectId}.pdf`,
+    reportTitle: "AIMA Assessment Score Report",
+    projectName: results?.project?.name,
+    generatedAt: results?.submittedAt
+  });
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -154,7 +166,7 @@ export default function ScoreReportPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
+    <div ref={reportRef} className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <motion.div
@@ -163,16 +175,31 @@ export default function ScoreReportPage() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/assess/${projectId}`)}
-            className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 pl-0 hover:bg-transparent"
-          >
-            <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
-              <IconArrowLeft className="w-5 h-5" />
-            </div>
-            <span className="font-medium">Back to Assessment</span>
-          </Button>
+          <div className="flex justify-between items-center mb-8">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/assess/${projectId}`)}
+              className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors pl-0 hover:bg-transparent hide-in-pdf"
+            >
+              <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
+                <IconArrowLeft className="w-5 h-5" />
+              </div>
+              <span className="font-medium">Back to Assessment</span>
+            </Button>
+
+            <Button
+              onClick={exportPdf}
+              disabled={isExporting}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf"
+            >
+              {isExporting ? (
+                <IconLoader className="w-5 h-5 animate-spin" />
+              ) : (
+                <IconDownload className="w-5 h-5" />
+              )}
+              <span className="font-medium">{isExporting ? "Generating PDF..." : "Download Report"}</span>
+            </Button>
+          </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>

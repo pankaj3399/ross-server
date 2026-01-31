@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2 } from "lucide-react";
+import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
 
 type ApiReportDetail = {
@@ -48,10 +49,19 @@ export default function ApiReportDetailPage() {
     const router = useRouter();
     const projectId = params.projectId as string;
     const reportId = params.reportId as string;
+    const reportRef = useRef<HTMLDivElement>(null);
 
     const [report, setReport] = useState<ApiReportDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const { exportPdf, isExporting } = usePdfReport({
+        reportRef,
+        fileName: `api-fairness-report-${reportId}.pdf`,
+        reportTitle: "API Fairness & Bias Report",
+        projectName: projectId,
+        generatedAt: report?.created_at
+    });
 
     useEffect(() => {
         const fetchReport = async () => {
@@ -116,30 +126,45 @@ export default function ApiReportDetailPage() {
     const allItems = [...(results || []), ...(errors || [])];
 
     return (
-        <div className="min-h-screen bg-background">
+        <div ref={reportRef} className="min-h-screen bg-background">
             <div className="bg-card border-b border-border">
                 <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-                            type="button"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </button>
-                        <div className="h-6 w-px bg-border" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground">
-                                API Report Details
-                            </h1>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5">
-                                    <Server className="w-3.5 h-3.5" />
-                                    {report.config?.apiUrl}
-                                </span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => router.back()}
+                                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors hide-in-pdf"
+                                type="button"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                Back
+                            </button>
+                            <div className="h-6 w-px bg-border hide-in-pdf" />
+                            <div>
+                                <h1 className="text-2xl font-bold text-foreground">
+                                    API Report Details
+                                </h1>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                    <span className="flex items-center gap-1.5">
+                                        <Server className="w-3.5 h-3.5" />
+                                        {report.config?.apiUrl}
+                                    </span>
+                                </div>
                             </div>
                         </div>
+
+                        <button
+                            onClick={exportPdf}
+                            disabled={isExporting}
+                            className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors hide-in-pdf"
+                        >
+                            {isExporting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4" />
+                            )}
+                            <span className="text-sm font-medium hidden sm:inline">{isExporting ? "Exporting..." : "PDF"}</span>
+                        </button>
                     </div>
                 </div>
             </div>
