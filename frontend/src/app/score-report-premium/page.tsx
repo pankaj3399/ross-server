@@ -288,7 +288,7 @@ export default function ScoreReportPage() {
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 pb-1 leading-relaxed">
                 Premium Assessment Report
               </h1>
               <div className="flex items-center gap-4 text-muted-foreground">
@@ -357,28 +357,27 @@ export default function ScoreReportPage() {
                       </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-6xl font-bold text-foreground tracking-tight">
+                      <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal">
                         {premiumOverallPercentage.toFixed(0)}%
                       </span>
-                      <span className="text-sm font-medium text-muted-foreground mt-2">Total Score</span>
+                      <span className="text-sm font-medium text-muted-foreground mt-1">Total Score</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground">Performance Level</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
+                    <span className="text-muted-foreground font-medium">Performance Level</span>
                     <div
-                      className={`flex items-center gap-2 px-3 py-1 rounded-lg font-medium text-sm ${performance.bg} ${performance.text}`}
+                      className={`flex items-center font-medium text-sm ${performance.text} whitespace-nowrap`}
                     >
-                      <IconStar className={`w-4 h-4 fill-current`} />
                       {performance.level}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground">Correct Answers</span>
-                    <span className="font-semibold text-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
+                    <span className="text-muted-foreground font-medium">Correct Answers</span>
+                    <span className="font-semibold text-foreground whitespace-nowrap">
                       {premiumOverall.totalCorrectAnswers} <span className="text-muted-foreground">/ {premiumOverall.totalQuestions}</span>
                     </span>
                   </div>
@@ -417,7 +416,7 @@ export default function ScoreReportPage() {
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg text-foreground pr-2 line-clamp-1" title={domain.domainTitle}>
+                              <h3 className="font-semibold text-lg text-foreground pr-2 break-words" title={domain.domainTitle}>
                                 {domain.domainTitle}
                               </h3>
                               <div className="px-2 py-0.5 rounded-full bg-primary/10 text-xs font-medium text-primary border border-primary/30">
