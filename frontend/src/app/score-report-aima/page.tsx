@@ -258,11 +258,11 @@ export default function ScoreReportPage() {
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pdf-overall-score-container">
+                      <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal pdf-overall-score-value">
                         {results.results.overall.overallPercentage.toFixed(0)}%
                       </span>
-                      <span className="text-sm font-medium text-muted-foreground mt-1">Total Score</span>
+                      <span className="text-sm font-medium text-muted-foreground mt-1 pdf-overall-score-label">Total Score</span>
                     </div>
                   </div>
                 </div>
@@ -314,7 +314,7 @@ export default function ScoreReportPage() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4, delay: 0.1 * index }}
-                          className="group relative overflow-hidden rounded-3xl bg-card hover:bg-muted border border-border p-6 transition-all duration-300 shadow-sm hover:shadow-md"
+                          className="group relative overflow-hidden rounded-3xl bg-card hover:bg-muted border border-border p-6 transition-all duration-300 shadow-sm hover:shadow-md break-inside-avoid"
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-2">
@@ -323,7 +323,7 @@ export default function ScoreReportPage() {
                               </h3>
                             </div>
                             <div
-                              className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border ${domainPerformance.border} ${domainPerformance.text}`}
+                              className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border pdf-percentage-circle ${domainPerformance.border} ${domainPerformance.text}`}
                             >
                               {domain.percentage.toFixed(0)}%
                             </div>

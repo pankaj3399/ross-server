@@ -501,3 +501,172 @@ export const fixProgressBars = (root: HTMLElement) => {
         }
     });
 };
+
+export const styleCircleScores = (root: HTMLElement) => {
+    // Target the circular score indicators
+    root.querySelectorAll(".pdf-percentage-circle, .rounded-full").forEach(el => {
+        const elem = el as HTMLElement;
+        const text = elem.innerText || "";
+        
+        // Only target if it's explicitly marked or looks like a score
+        const isExplicit = elem.classList.contains("pdf-percentage-circle");
+        const isScoreLike = text.includes("%") || /^\d+$/.test(text.trim());
+
+        if (isExplicit || isScoreLike) {
+            elem.style.setProperty("display", "block", "important");
+            elem.style.setProperty("text-align", "center", "important");
+            
+            // Force dimensions to be stable
+            const size = "48px"; // w-12 is 48px
+            elem.style.setProperty("width", size, "important");
+            elem.style.setProperty("height", size, "important");
+            elem.style.setProperty("min-width", size, "important");
+            elem.style.setProperty("min-height", size, "important");
+            
+            // Use line-height for perfect vertical centering in PDF
+            // Set line-height equal to height for exact centering
+            elem.style.setProperty("line-height", "32px", "important"); 
+            elem.style.setProperty("padding", "0", "important");
+            
+            // Font adjustments
+            elem.style.setProperty("font-size", "14px", "important");
+            elem.style.setProperty("font-weight", "700", "important");
+            
+            // Ensure no flex interference
+            elem.style.setProperty("flex-shrink", "0", "important");
+            elem.style.setProperty("box-sizing", "border-box", "important");
+        }
+    });
+
+    // Also target the overall score large circle text
+    root.querySelectorAll(".pdf-overall-score-container").forEach(el => {
+        const container = el as HTMLElement;
+        const parent = container.parentElement as HTMLElement;
+        
+        if (parent) {
+            // Force the container of the pie chart and the absolute text to have fixed dimensions
+            // Matching w-64 (256px) for consistency with original layout
+            const size = "256px";
+            parent.style.setProperty("width", size, "important");
+            parent.style.setProperty("height", size, "important");
+            parent.style.setProperty("min-width", size, "important");
+            parent.style.setProperty("min-height", size, "important");
+            parent.style.setProperty("margin", "0 auto 20px auto", "important");
+            parent.style.setProperty("position", "relative", "important");
+            parent.style.setProperty("display", "block", "important");
+            
+            // Force the SVG wrapper and surface to match the parent exactly
+            parent.querySelectorAll(".recharts-wrapper, .recharts-surface, .recharts-responsive-container").forEach(chartEl => {
+                const cEl = chartEl as HTMLElement;
+                cEl.style.setProperty("width", size, "important");
+                cEl.style.setProperty("height", size, "important");
+                cEl.style.setProperty("position", "absolute", "important");
+                cEl.style.setProperty("top", "0", "important");
+                cEl.style.setProperty("left", "0", "important");
+            });
+        }
+
+        // Pin the text container to the absolute center of the parent
+        container.style.setProperty("display", "flex", "important");
+        container.style.setProperty("flex-direction", "column", "important");
+        container.style.setProperty("align-items", "center", "important");
+        container.style.setProperty("justify-content", "center", "important");
+        container.style.setProperty("height", "100%", "important");
+        container.style.setProperty("width", "100%", "important");
+        container.style.setProperty("position", "absolute", "important");
+        container.style.setProperty("top", "0", "important");
+        container.style.setProperty("left", "0", "important");
+        container.style.setProperty("z-index", "20", "important");
+        
+        const value = container.querySelector(".pdf-overall-score-value") as HTMLElement;
+        if (value) {
+            value.style.setProperty("font-size", "56px", "important"); // Large and bold
+            value.style.setProperty("font-weight", "800", "important");
+            value.style.setProperty("line-height", "1.2", "important");
+            value.style.setProperty("padding", "0", "important");
+            value.style.setProperty("margin", "0", "important");
+            value.style.setProperty("color", "#0f172a", "important");
+            value.style.setProperty("display", "block", "important");
+            value.style.setProperty("text-align", "center", "important");
+        }
+        
+        const label = container.querySelector(".pdf-overall-score-label") as HTMLElement;
+        if (label) {
+            label.style.setProperty("font-size", "14px", "important");
+            label.style.setProperty("font-weight", "600", "important");
+            label.style.setProperty("color", "#64748b", "important");
+            label.style.setProperty("margin-top", "14px", "important"); // Increased margin to prevent overlap
+            label.style.setProperty("text-transform", "uppercase", "important");
+            label.style.setProperty("letter-spacing", "0.05em", "important");
+            label.style.setProperty("display", "block", "important");
+            label.style.setProperty("text-align", "center", "important");
+        }
+    });
+};
+
+export const styleScoreBadges = (root: HTMLElement) => {
+    root.querySelectorAll(".pdf-score-badge").forEach(el => {
+        const badge = el as HTMLElement;
+        badge.style.setProperty("display", "flex", "important");
+        badge.style.setProperty("flex-direction", "row", "important");
+        badge.style.setProperty("align-items", "center", "important");
+        badge.style.setProperty("gap", "12px", "important");
+        badge.style.setProperty("box-sizing", "border-box", "important");
+        badge.style.setProperty("min-width", "135px", "important");
+        badge.style.setProperty("min-height", "50px", "important");
+        badge.style.setProperty("padding", "8px 14px", "important");
+        badge.style.setProperty("background", "#ffffff", "important");
+        badge.style.setProperty("height", "auto", "important"); // Allow content to dictate height
+        
+        // Target the icon container if it exists
+        const iconContainer = badge.querySelector(".flex-shrink-0") as HTMLElement;
+        if (iconContainer) {
+            iconContainer.style.setProperty("display", "flex", "important");
+            iconContainer.style.setProperty("align-items", "center", "important");
+            iconContainer.style.setProperty("justify-content", "center", "important");
+        }
+
+        // Target all icons
+        badge.querySelectorAll("svg").forEach(svg => {
+            const icon = svg as unknown as HTMLElement;
+            icon.style.setProperty("width", "18px", "important");
+            icon.style.setProperty("height", "18px", "important");
+            icon.style.setProperty("display", "block", "important");
+            icon.style.setProperty("flex-shrink", "0", "important");
+        });
+
+        // Target text container
+        const textCol = badge.querySelector(".flex-col") as HTMLElement;
+        if (textCol) {
+            textCol.style.setProperty("display", "flex", "important");
+            textCol.style.setProperty("flex-direction", "column", "important");
+            textCol.style.setProperty("justify-content", "center", "important");
+            textCol.style.setProperty("padding", "0", "important");
+            textCol.style.setProperty("margin", "0", "important");
+            textCol.style.setProperty("line-height", "normal", "important");
+        }
+
+        // Target label
+        badge.querySelectorAll(".pdf-label").forEach(l => {
+            const label = l as HTMLElement;
+            label.style.setProperty("font-size", "9px", "important");
+            label.style.setProperty("line-height", "1.6", "important"); // Balanced space for label
+            label.style.setProperty("margin", "0 0 2px 0", "important");
+            label.style.setProperty("display", "block", "important");
+            label.style.setProperty("font-weight", "700", "important");
+            label.style.setProperty("letter-spacing", "0.02em", "important");
+            label.style.setProperty("color", "#64748b", "important");
+        });
+
+        // Target value
+        badge.querySelectorAll(".pdf-value").forEach(v => {
+            const value = v as HTMLElement;
+            value.style.setProperty("font-size", "16px", "important");
+            value.style.setProperty("font-weight", "800", "important");
+            value.style.setProperty("line-height", "1.6", "important"); // Balanced space for value
+            value.style.setProperty("margin", "0 0 6px 0", "important"); // Added margin below percent
+            value.style.setProperty("display", "block", "important");
+            value.style.setProperty("color", "#0f172a", "important");
+        });
+    });
+};

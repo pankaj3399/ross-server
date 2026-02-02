@@ -254,16 +254,30 @@ export default function QuestionView() {
                                         : "border-border hover:border-primary/50 hover:bg-muted/50"
                                         }`}
                                 >
-                                    <input
-                                        type="radio"
-                                        name="answer"
-                                        value={option.value}
-                                        checked={currentAnswer === option.value}
-                                        onChange={() =>
-                                            handleAnswerChange(validQuestionIndex, option.value)
-                                        }
-                                        className="mt-1 w-4 h-4 text-primary bg-background border-border focus:ring-primary focus:ring-2"
-                                    />
+                                    <div className="relative flex items-center justify-center mt-1">
+                                        <input
+                                            type="radio"
+                                            name="answer"
+                                            value={option.value}
+                                            checked={currentAnswer === option.value}
+                                            onChange={() =>
+                                                handleAnswerChange(validQuestionIndex, option.value)
+                                            }
+                                            className="sr-only"
+                                        />
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${currentAnswer === option.value
+                                            ? "border-primary bg-primary"
+                                            : "border-border bg-transparent"
+                                            }`}>
+                                            {currentAnswer === option.value && (
+                                                <motion.div
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    className="w-2 h-2 rounded-full bg-white"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
                                     <div className="ml-3 flex-1">
                                         <div className="text-sm font-medium text-foreground">
                                             {option.label}

@@ -3,7 +3,8 @@ import {
     styleHeader, styleGrid, styleCards, styleSectionCards,
     styleUploadInfo, styleAnalysisParams, styleVerdictColors,
     styleBadges, styleTypography, styleTables, styleMetricCards,
-    styleIcons, styleMutedBackgrounds, fixProgressBars
+    styleIcons, styleMutedBackgrounds, fixProgressBars, styleCircleScores,
+    styleScoreBadges
 } from "../lib/pdfExport/pdfStyles";
 
 interface PdfExportOptions {
@@ -89,8 +90,15 @@ const PDF_COLOR_RESET_CSS = `
     /* Ensure charts and SVGs are visible */
     svg {
         overflow: visible !important;
+        display: block !important;
     }
     
+    .recharts-responsive-container {
+        width: 100% !important;
+        height: 220px !important;
+        min-height: 220px !important;
+    }
+
     /* Better print styling */
     .recharts-wrapper, .recharts-surface {
         overflow: visible !important;
@@ -133,6 +141,8 @@ const applyPdfStyles = (clonedElement: HTMLElement) => {
     styleMetricCards(clonedElement);
     styleIcons(clonedElement);
     styleMutedBackgrounds(clonedElement);
+    styleCircleScores(clonedElement);
+    styleScoreBadges(clonedElement);
     fixProgressBars(clonedElement);
 };
 
@@ -300,9 +310,22 @@ export const usePdfReport = ({
                     const imgData = canvas.toDataURL("image/jpeg", 0.8);
                     pdf.addImage(imgData, "JPEG", margin, contentTop, imgWidth, imgHeight);
                 } else {
-                    // Multi-page: Calculate proper slicing
+                    // Multi-page: Calculate proper slicing with break avoidance
                     const pxPerMm = canvas.width / imgWidth;
                     const pageHeightPx = usableHeight * pxPerMm;
+                    
+                    // Identify elements that should not be split across pages
+                    const cloneRect = clone.getBoundingClientRect();
+                    const cssToCanvasFactor = canvas.width / clone.offsetWidth;
+                    
+                    const breakAvoidElements = Array.from(clone.querySelectorAll(".break-inside-avoid, .page-break-avoid"));
+                    const breakPoints = breakAvoidElements.map(el => {
+                        const rect = (el as HTMLElement).getBoundingClientRect();
+                        return {
+                            top: (rect.top - cloneRect.top) * cssToCanvasFactor,
+                            bottom: (rect.bottom - cloneRect.top) * cssToCanvasFactor
+                        };
+                    }).sort((a, b) => a.top - b.top);
                     
                     let currentY = 0;
                     let pageNum = 0;
@@ -313,7 +336,23 @@ export const usePdfReport = ({
                         }
 
                         const remainingHeight = canvas.height - currentY;
-                        const sliceHeight = Math.min(pageHeightPx, remainingHeight);
+                        let sliceHeight = Math.min(pageHeightPx, remainingHeight);
+                        
+                        // Check if this slice cuts through any break-avoid element
+                        if (remainingHeight > pageHeightPx) {
+                            const sliceBottom = currentY + sliceHeight;
+                            
+                            // Find elements that span across this proposed slice line
+                            const brokenElement = breakPoints.find(bp => 
+                                bp.top < sliceBottom && bp.bottom > sliceBottom
+                            );
+                            
+                            // Only adjust if the element starts after the current page top 
+                            // (otherwise it's just too big to fit on any single page)
+                            if (brokenElement && brokenElement.top > currentY + (5 * pxPerMm)) { // 5mm buffer
+                                sliceHeight = brokenElement.top - currentY;
+                            }
+                        }
                         
                         // Create slice canvas
                         const sliceCanvas = document.createElement("canvas");

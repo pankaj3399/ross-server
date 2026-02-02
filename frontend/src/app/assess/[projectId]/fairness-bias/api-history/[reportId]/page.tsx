@@ -145,7 +145,7 @@ export default function ApiReportDetailPage() {
                             </button>
                             <div className="h-6 w-px bg-border hide-in-pdf" />
                             <div>
-                                <h1 className="text-2xl font-bold text-foreground">
+                                <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
                                     API Report Details
                                 </h1>
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
@@ -178,11 +178,11 @@ export default function ApiReportDetailPage() {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Total Prompts</div>
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
                         <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Success Rate</div>
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Success Rate</div>
                         <div className="text-2xl font-bold text-green-500">
                             {report.total_prompts > 0 ? ((report.success_count / report.total_prompts) * 100).toFixed(1) + "%" : "0.0%"}
                         </div>
@@ -191,24 +191,22 @@ export default function ApiReportDetailPage() {
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Avg Overall Score</div>
-                        <div className={`text-2xl font-bold ${
-                            report.average_scores?.averageOverallScore != null
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Overall Score</div>
+                        <div className={`text-2xl font-bold ${report.average_scores?.averageOverallScore != null
                                 ? getScoreColor(report.average_scores.averageOverallScore)
                                 : "text-muted-foreground"
-                        }`}>
+                            }`}>
                             {report.average_scores?.averageOverallScore != null
                                 ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
                                 : "N/A"}
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Avg Bias Score</div>
-                        <div className={`text-2xl font-bold ${
-                            report.average_scores?.averageBiasScore != null
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Bias Score</div>
+                        <div className={`text-2xl font-bold ${report.average_scores?.averageBiasScore != null
                                 ? getScoreColor(1 - report.average_scores.averageBiasScore)
                                 : "text-muted-foreground"
-                        }`}>
+                            }`}>
                             {report.average_scores?.averageBiasScore != null
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                 : "N/A"}
@@ -276,7 +274,7 @@ export default function ApiReportDetailPage() {
                             </div>
 
                             {items.map((item, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4">
+                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
                                     <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
                                         }`}>
                                         <div className="flex items-center gap-3">
@@ -295,14 +293,14 @@ export default function ApiReportDetailPage() {
                                     </div>
                                     <div className="p-6 space-y-4">
                                         <div>
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
+                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
                                             <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
                                         </div>
 
                                         {(item as any).success ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Evaluation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Overall Score:</span>
@@ -324,7 +322,7 @@ export default function ApiReportDetailPage() {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Explanation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Explanation</div>
                                                     <div className="text-sm text-foreground/80 leading-relaxed">
                                                         {(item as any).evaluation?.explanation || "No explanation provided."}
                                                     </div>
