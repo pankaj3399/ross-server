@@ -564,7 +564,7 @@ export const styleCircleScores = (root: HTMLElement) => {
             
             // Use line-height for perfect vertical centering in PDF
             // Set line-height equal to height for exact centering
-            elem.style.setProperty("line-height", "32px", "important"); 
+            elem.style.setProperty("line-height", size, "important"); 
             elem.style.setProperty("padding", "0", "important");
             
             // Font adjustments

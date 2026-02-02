@@ -109,25 +109,50 @@ export function sanitizeForPrompt(input: string): string {
  */
 export function sanitizeConfig(config: any): any {
     if (!config) return config;
+
+    // Expanded sensitive pattern
+    const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token|credentials|private[-_]?key|privatekey|bearer|auth/i;
+
     try {
         // If config is a string (JSON), parse it first
         const parsed = typeof config === 'string' ? JSON.parse(config) : config;
         
-        if (typeof parsed !== 'object' || parsed === null) {
-            return parsed;
-        }
-
-        const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
-        const sanitized = { ...parsed };
-        
-        for (const key of Object.keys(sanitized)) {
-            if (sensitivePattern.test(key)) {
-                sanitized[key] = "[REDACTED]";
+        // Recursive sanitization helper
+        const sanitizeRecursive = (obj: any): any => {
+            if (typeof obj !== 'object' || obj === null) {
+                return obj;
             }
-        }
-        return sanitized;
+
+            if (Array.isArray(obj)) {
+                return obj.map((item) => sanitizeRecursive(item));
+            }
+
+            const newObj: any = {};
+            for (const [key, value] of Object.entries(obj)) {
+                if (sensitivePattern.test(key)) {
+                    newObj[key] = "[REDACTED]";
+                } else {
+                    newObj[key] = sanitizeRecursive(value);
+                }
+            }
+            return newObj;
+        };
+
+        return sanitizeRecursive(parsed);
     } catch (e) {
-        // If parsing fails or any other error, return original or a safe fallback
-        return config; 
+        // Best-effort fallback on error: Return a structure where strings are redacted
+        // or just return "[REDACTED]" if it's too risky.
+        try {
+            if (typeof config === 'object' && config !== null) {
+                // Return a shallow copy where all values are redacted to be safe
+                const safe: any = {};
+                for (const key of Object.keys(config)) {
+                   safe[key] = "[REDACTED]";
+                }
+                return safe;
+            }
+        } catch (_) {}
+        // Ultimate fallback
+        return "[REDACTED]";
     }
 }

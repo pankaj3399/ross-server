@@ -70,32 +70,42 @@ export default function ApiReportDetailPage() {
     });
 
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchReport = async () => {
             try {
                 // Similarly using direct fetch as we assumed for the list
                 const res = await fetch(`${API_BASE_URL}/fairness/api-reports/detail/${reportId}`, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
-                    }
+                    },
+                    signal: controller.signal
                 });
 
                 if (!res.ok) throw new Error("Failed to fetch report details");
 
                 const data = await res.json();
-                if (data.success) {
+                if (!controller.signal.aborted && data.success) {
                     setReport(data.report);
                 }
-            } catch (err) {
+            } catch (err: any) {
+                if (err.name === 'AbortError' || controller.signal.aborted) return;
                 console.error("Failed to fetch API report details:", err);
                 setError("Failed to load report details");
             } finally {
-                setIsLoading(false);
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         if (reportId) {
             fetchReport();
         }
+
+        return () => {
+            controller.abort();
+        };
     }, [reportId]);
 
     const getScoreColor = (score: number) => {
@@ -299,27 +309,40 @@ export default function ApiReportDetailPage() {
                                             <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
                                         </div>
 
-                                        {(item as any).success ? (
+                                        {(item as any).success && (item as any).evaluation ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
                                                     <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Overall Score:</span>
-                                                            <span className={`font-bold ${getScoreColor((item as any).evaluation?.overallScore)}`}>
-                                                                {((item as any).evaluation?.overallScore * 100).toFixed(0)}%
+                                                            <span className={`font-bold ${Number.isFinite((item as any).evaluation?.overallScore)
+                                                                    ? getScoreColor((item as any).evaluation?.overallScore)
+                                                                    : "text-muted-foreground"
+                                                                }`}>
+                                                                {Number.isFinite((item as any).evaluation?.overallScore)
+                                                                    ? ((item as any).evaluation?.overallScore * 100).toFixed(0) + "%"
+                                                                    : "N/A"}
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Bias Score:</span>
-                                                            <span className="font-mono">{((item as any).evaluation?.biasScore * 100).toFixed(1)}%</span>
+                                                            <span className="font-mono">
+                                                                {Number.isFinite((item as any).evaluation?.biasScore)
+                                                                    ? ((item as any).evaluation?.biasScore * 100).toFixed(1) + "%"
+                                                                    : "N/A"}
+                                                            </span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Toxicity Score:</span>
-                                                            <span className="font-mono">{((item as any).evaluation?.toxicityScore * 100).toFixed(1)}%</span>
+                                                            <span className="font-mono">
+                                                                {Number.isFinite((item as any).evaluation?.toxicityScore)
+                                                                    ? ((item as any).evaluation?.toxicityScore * 100).toFixed(1) + "%"
+                                                                    : "N/A"}
+                                                            </span>
                                                         </div>
                                                         <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                            {(item as any).evaluation?.overallVerdict}
+                                                            {(item as any).evaluation?.overallVerdict || "No verdict"}
                                                         </div>
                                                     </div>
                                                 </div>

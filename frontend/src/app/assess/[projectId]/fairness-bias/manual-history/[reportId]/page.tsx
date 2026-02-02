@@ -80,9 +80,7 @@ export default function ManualReportDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const normalizedGeneratedAt = report?.created_at
-        ? new Date(report.created_at).toISOString()
-        : undefined;
+    const normalizedGeneratedAt = report?.created_at;
 
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,

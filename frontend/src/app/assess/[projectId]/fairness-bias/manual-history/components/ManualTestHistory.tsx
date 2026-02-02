@@ -249,7 +249,7 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                                 className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
                                                 title="Delete report"
                                                 type="button"
-                                                disabled={deletingReportId === report.id}
+                                                disabled={!!deletingReportId}
                                             >
                                                 {deletingReportId === report.id ? (
                                                     <Loader2 className="w-4 h-4 animate-spin text-red-500" />

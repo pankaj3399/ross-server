@@ -196,7 +196,13 @@ export function buildSummary(total: number, results: JobResult[], errors: JobErr
   // Ensure we don't count the same prompt multiple times if results/errors arrays are somehow messy
   // Although the aggregator should prevent this, this is a defensive measure.
   const successCount = Math.min(results.length, total);
-  const failureCount = Math.min(errors.length, total - successCount);
+  const failureCount = Math.min(errors.length, Math.max(0, total - successCount));
+
+  if (results.length + errors.length !== total || errors.length > total - successCount) {
+    console.warn(
+      `[buildSummary] Inconsistent state detected: results=${results.length}, errors=${errors.length}, total=${total}`
+    );
+  }
 
   const average = (arr: number[]) =>
     arr.length === 0 ? 0 : arr.reduce((sum, value) => sum + value, 0) / arr.length;

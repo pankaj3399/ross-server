@@ -24,6 +24,8 @@ import { sanitizeConfig } from "../utils/sanitize";
 
 const router = Router();
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Batch API evaluation schema
 const evaluateApiSchema = z.object({
     projectId: z.string().uuid(),
@@ -824,8 +826,9 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
         const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
@@ -859,8 +862,9 @@ router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
@@ -923,7 +927,10 @@ router.get("/manual-reports/:projectId", authenticateToken, async (req, res) => 
         
         res.json({ 
             success: true, 
-            reports: result.rows,
+            reports: result.rows.map(row => ({
+                ...row,
+                config: sanitizeConfig(row.config)
+            })),
             pagination: {
                 total,
                 limit,
@@ -944,8 +951,9 @@ router.get("/manual-reports/detail/:reportId", authenticateToken, async (req, re
         const userId = req.user!.id;
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
@@ -979,8 +987,9 @@ router.delete("/manual-reports/:reportId", authenticateToken, async (req, res) =
         const userId = req.user!.id;
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
