@@ -1,4 +1,4 @@
-import { useState, useCallback, RefObject } from "react";
+import { useState, useCallback, RefObject, useRef } from "react";
 import {
     styleHeader, styleGrid, styleCards, styleSectionCards,
     styleUploadInfo, styleAnalysisParams, styleVerdictColors,
@@ -154,13 +154,15 @@ export const usePdfReport = ({
     generatedAt = new Date()
 }: PdfExportOptions) => {
     const [isExporting, setIsExporting] = useState(false);
+    const isExportingRef = useRef(false);
 
     const exportPdf = useCallback(async () => {
         if (!reportRef.current) return;
-        if (isExporting) return;
+        if (isExportingRef.current) return;
 
         try {
             setIsExporting(true);
+            isExportingRef.current = true;
             
             // Wait for charts and animations to complete
             await new Promise(resolve => setTimeout(resolve, PDF_RENDERING_DELAY_MS));
@@ -412,8 +414,9 @@ export const usePdfReport = ({
             console.error("Failed to export PDF", error);
         } finally {
             setIsExporting(false);
+            isExportingRef.current = false;
         }
-    }, [reportRef, fileName, reportTitle, projectName, generatedAt, isExporting]);
+    }, [reportRef, fileName, reportTitle, projectName, generatedAt]);
 
     return { exportPdf, isExporting };
 };
