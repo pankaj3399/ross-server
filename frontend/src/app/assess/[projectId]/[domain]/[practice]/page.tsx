@@ -239,9 +239,9 @@ export default function AssessmentPage() {
                           value={value}
                           checked={currentAnswer === value}
                           onChange={() => handleAnswerChange(index, value)}
-                          className="sr-only"
+                          className="sr-only peer"
                         />
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${currentAnswer === value
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 ${currentAnswer === value
                           ? "border-primary bg-primary"
                           : "border-border bg-transparent group-hover:border-primary/50"
                           }`}>

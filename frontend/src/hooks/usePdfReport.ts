@@ -226,7 +226,19 @@ export const usePdfReport = ({
                 pdfDoc.setFontSize(7);
                 pdfDoc.setTextColor(100, 116, 139);
 
-                const dateObj = typeof generatedAt === 'string' ? new Date(generatedAt) : generatedAt;
+                let dateObj: Date;
+                if (generatedAt instanceof Date) {
+                    dateObj = generatedAt;
+                } else if (typeof generatedAt === 'string') {
+                    dateObj = new Date(generatedAt);
+                    // Check if the string resulted in an invalid date
+                    if (isNaN(dateObj.getTime())) {
+                        dateObj = new Date();
+                    }
+                } else {
+                    dateObj = new Date();
+                }
+
                 const dateStr = dateObj.toLocaleDateString("en-US", {
                     year: "numeric",
                     month: "short",

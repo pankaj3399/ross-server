@@ -263,9 +263,9 @@ export default function QuestionView() {
                                             onChange={() =>
                                                 handleAnswerChange(validQuestionIndex, option.value)
                                             }
-                                            className="sr-only"
+                                            className="sr-only peer"
                                         />
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${currentAnswer === option.value
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring peer-focus-visible:ring-primary/50 peer-focus-visible:ring-offset-1 ${currentAnswer === option.value
                                             ? "border-primary bg-primary"
                                             : "border-border bg-transparent"
                                             }`}>
