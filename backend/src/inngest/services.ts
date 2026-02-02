@@ -619,8 +619,8 @@ export async function markJobCompleted(
     ],
   );
 
-  // If this is an API test, save to persistent history table
-  if (payload.type === "FAIRNESS_API") {
+  // If this is an API test or Manual Prompt test, save to persistent history table
+  if (payload.type === "FAIRNESS_API" || payload.type === "FAIRNESS_PROMPTS") {
     try {
         // Need to fetch user_id, project_id, job_id from the job record first to be safe,
         // or we can rely on what we have if we passed it in. 
@@ -634,6 +634,12 @@ export async function markJobCompleted(
         if (jobResult.rows.length > 0) {
             const { user_id, project_id, job_id } = jobResult.rows[0];
             
+            // For manual tests, config is empty/minimal, but we need to identify it
+            // For API tests, we sanitize the existing config
+            const configToSave = payload.type === "FAIRNESS_API" 
+                ? (sanitizeConfigForStorage(payload.config) || {})
+                : { testType: "MANUAL_PROMPT_TEST" };
+
             await pool.query(
                 `INSERT INTO api_test_reports 
                  (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
@@ -661,7 +667,7 @@ export async function markJobCompleted(
                     }),
                     JSON.stringify(data.results),
                     JSON.stringify(data.errors),
-                    JSON.stringify(sanitizeConfigForStorage(payload.config) || {})
+                    JSON.stringify(configToSave)
                 ]
             );
         }
