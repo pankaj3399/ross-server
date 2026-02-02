@@ -192,7 +192,11 @@ export default function ApiReportDetailPage() {
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Avg Overall Score</div>
-                        <div className={`text-2xl font-bold ${getScoreColor(report.average_scores?.averageOverallScore)}`}>
+                        <div className={`text-2xl font-bold ${
+                            report.average_scores?.averageOverallScore != null
+                                ? getScoreColor(report.average_scores.averageOverallScore)
+                                : "text-muted-foreground"
+                        }`}>
                             {report.average_scores?.averageOverallScore != null
                                 ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
                                 : "N/A"}
@@ -200,7 +204,11 @@ export default function ApiReportDetailPage() {
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1">Avg Bias Score</div>
-                        <div className={`text-2xl font-bold ${getScoreColor(1 - (report.average_scores?.averageBiasScore ?? 0))}`}>
+                        <div className={`text-2xl font-bold ${
+                            report.average_scores?.averageBiasScore != null
+                                ? getScoreColor(1 - report.average_scores.averageBiasScore)
+                                : "text-muted-foreground"
+                        }`}>
                             {report.average_scores?.averageBiasScore != null
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                 : "N/A"}
