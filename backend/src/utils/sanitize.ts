@@ -98,3 +98,36 @@ export function sanitizeForPrompt(input: string): string {
   return sanitized.trim();
 }
 
+/**
+ * Sanitizes a configuration object by redacting sensitive keys.
+ * Recursively checking is not performed, it only redacts top-level keys 
+ * unless the object implementation is changed. 
+ * Based on the previous implementation, it iterates over keys.
+ * 
+ * @param config - The value to sanitize (usually a config object or stringified JSON)
+ * @returns The sanitized object or original value
+ */
+export function sanitizeConfig(config: any): any {
+    if (!config) return config;
+    try {
+        // If config is a string (JSON), parse it first
+        const parsed = typeof config === 'string' ? JSON.parse(config) : config;
+        
+        if (typeof parsed !== 'object' || parsed === null) {
+            return parsed;
+        }
+
+        const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
+        const sanitized = { ...parsed };
+        
+        for (const key of Object.keys(sanitized)) {
+            if (sensitivePattern.test(key)) {
+                sanitized[key] = "[REDACTED]";
+            }
+        }
+        return sanitized;
+    } catch (e) {
+        // If parsing fails or any other error, return original or a safe fallback
+        return config; 
+    }
+}

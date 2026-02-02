@@ -1,5 +1,6 @@
 import pool from "../config/database";
 import type { EvaluationPayload } from "../services/evaluateFairness";
+import { sanitizeConfig } from "../utils/sanitize";
 
 // Types 
 // Extended payload types that include runtime fields added during job processing
@@ -585,17 +586,7 @@ export async function markJobCompleted(
     finalStatus = "partial_success";
   }
   
-  const sanitizeConfigForStorage = (config: any): any => {
-    if (!config || typeof config !== 'object') return config;
-    const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
-    const sanitized = { ...config };
-    for (const key of Object.keys(sanitized)) {
-      if (sensitivePattern.test(key)) {
-        sanitized[key] = "[REDACTED]";
-      }
-    }
-    return sanitized;
-  };
+
 
   const updatedPayload = {
     ...payload,
@@ -637,7 +628,7 @@ export async function markJobCompleted(
             // For manual tests, config is empty/minimal, but we need to identify it
             // For API tests, we sanitize the existing config
             const configToSave = payload.type === "FAIRNESS_API" 
-                ? (sanitizeConfigForStorage(payload.config) || {})
+                ? (sanitizeConfig(payload.config) || {})
                 : { testType: "MANUAL_PROMPT_TEST" };
 
             await pool.query(

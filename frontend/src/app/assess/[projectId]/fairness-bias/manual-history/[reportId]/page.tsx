@@ -44,6 +44,31 @@ type ManualReportDetail = {
     created_at: string;
 };
 
+type SuccessItem = {
+    category: string;
+    prompt: string;
+    success: true;
+    evaluation: {
+        overallVerdict: string;
+        overallScore: number;
+        biasScore: number;
+        toxicityScore: number;
+        explanation: string;
+    };
+    userResponse?: string;
+    message: string;
+};
+
+type ErrorItem = {
+    category: string;
+    prompt: string;
+    success: false;
+    error: string;
+    message: string;
+};
+
+type AllItem = SuccessItem | ErrorItem;
+
 export default function ManualReportDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -126,7 +151,10 @@ export default function ManualReportDetailPage() {
     }
 
     const { results, errors } = report;
-    const allItems = [...(results || []), ...(errors || [])];
+    const allItems: AllItem[] = [...(results as any[] || []), ...(errors as any[] || [])].map(item => ({
+        ...item,
+        success: !!item.success
+    })) as AllItem[];
 
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
@@ -263,38 +291,38 @@ export default function ManualReportDetailPage() {
                                             </div>
                                             <div>
                                                 <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Your Response</div>
-                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm whitespace-pre-wrap">{(item as any).response || (item as any).userResponse || "N/A"}</div>
+                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm whitespace-pre-wrap">{(item as any).userResponse || (item as any).response || "N/A"}</div>
                                             </div>
                                         </div>
 
-                                        {(item as any).success ? (
+                                        {item.success ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border">
                                                 <div>
                                                     <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Score Metrics</div>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Overall Score:</span>
-                                                            <span className={`font-bold ${getScoreColor((item as any).evaluation?.overallScore)}`}>
-                                                                {((item as any).evaluation?.overallScore * 100).toFixed(0)}%
+                                                            <span className={`font-bold ${getScoreColor(item.evaluation.overallScore)}`}>
+                                                                {(item.evaluation.overallScore * 100).toFixed(0)}%
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Bias Score:</span>
-                                                            <span className="font-mono">{((item as any).evaluation?.biasScore * 100).toFixed(1)}%</span>
+                                                            <span className="font-mono">{(item.evaluation.biasScore * 100).toFixed(1)}%</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Toxicity Score:</span>
-                                                            <span className="font-mono">{((item as any).evaluation?.toxicityScore * 100).toFixed(1)}%</span>
+                                                            <span className="font-mono">{(item.evaluation.toxicityScore * 100).toFixed(1)}%</span>
                                                         </div>
                                                         <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                            {(item as any).evaluation?.overallVerdict}
+                                                            {item.evaluation.overallVerdict}
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div>
                                                     <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">AI Feedback</div>
                                                     <div className="text-sm text-foreground/80 leading-relaxed">
-                                                        {(item as any).evaluation?.explanation || "No explanation provided."}
+                                                        {item.evaluation.explanation || "No explanation provided."}
                                                     </div>
                                                 </div>
                                             </div>

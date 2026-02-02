@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, XCircle, AlertTriangle, ChevronRight, FileEdit, Trash2, Search } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, ChevronRight, FileEdit, Trash2, Search, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
 type ManualReport = {
@@ -31,7 +31,9 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
     const [reports, setReports] = useState<ManualReport[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
     const [isExpanded, setIsExpanded] = useState(false);
+    const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchReports = async () => {
@@ -72,9 +74,11 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
         return new Date(normalized);
     };
 
-    const sortedReports = [...reports].sort((a, b) =>
-        parseBackendDate(b.created_at).getTime() - parseBackendDate(a.created_at).getTime()
-    );
+    const sortedReports = useMemo(() => {
+        return [...reports].sort((a, b) =>
+            parseBackendDate(b.created_at).getTime() - parseBackendDate(a.created_at).getTime()
+        );
+    }, [reports]);
 
     const displayedReports = isExpanded ? sortedReports : sortedReports.slice(0, 5);
     const hasMore = reports.length > 5;
@@ -219,7 +223,9 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                             <button
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
+                                                    if (deletingReportId) return; // Prevent double clicks
                                                     if (confirm("Are you sure you want to delete this report?")) {
+                                                        setDeletingReportId(report.id);
                                                         try {
                                                             const res = await fetch(`${API_BASE_URL}/fairness/manual-reports/${report.id}`, {
                                                                 method: 'DELETE',
@@ -235,14 +241,21 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                                         } catch (err) {
                                                             console.error("Failed to delete report:", err);
                                                             alert("An error occurred while deleting the report.");
+                                                        } finally {
+                                                            setDeletingReportId(null);
                                                         }
                                                     }
                                                 }}
-                                                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
                                                 title="Delete report"
                                                 type="button"
+                                                disabled={deletingReportId === report.id}
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {deletingReportId === report.id ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
                                             </button>
                                         </td>
                                     </tr>

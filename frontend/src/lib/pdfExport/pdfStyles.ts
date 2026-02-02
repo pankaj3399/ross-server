@@ -3,11 +3,50 @@
  * Shared styles for all report PDF exports
  */
 
+const PDF_COLORS = {
+    primary: "#4285f4",
+    primaryDark: "#4f46e5", // Indigo-600 used in icons
+    white: "#ffffff",
+    text: {
+        foreground: "#0f172a", // slate-900
+        muted: "#64748b",      // slate-500
+        default: "#374151",    // gray-700
+        header: "#334155",     // slate-700
+    },
+    background: {
+        white: "#ffffff",
+        muted: "#f8fafc",      // slate-50
+        slate100: "#f1f5f9",
+        indigo50: "#eef2ff",
+        green50: "#f0fdf4",
+        amber50: "#fffbeb",
+        red50: "#fef2f2",
+        slate200: "#e2e8f0",
+        slate800: "#1e293b",
+        slate400: "#94a3b8",
+    },
+    border: {
+        default: "#e2e8f0",
+        indigo: "#c7d2fe",
+        green: "#86efac",
+        amber: "#fcd34d",
+        red: "#fca5a5",
+    },
+    status: {
+        success: "#059669",    // emerald-600
+        successBright: "#10b981",
+        warning: "#d97706",    // amber-600
+        warningBright: "#f59e0b",
+        destructive: "#dc2626", // red-600
+        destructiveBright: "#ef4444",
+    }
+};
+
 export const styleHeader = (root: HTMLElement) => {
     const header = root.querySelector("header");
     if (header) {
         const headerEl = header as HTMLElement;
-        headerEl.style.backgroundColor = "#4285f4"; // Primary Blue
+        headerEl.style.backgroundColor = PDF_COLORS.primary; // Primary Blue
         headerEl.style.padding = "20px 0";
         headerEl.style.marginBottom = "24px";
         headerEl.style.textAlign = "center";
@@ -20,7 +59,7 @@ export const styleHeader = (root: HTMLElement) => {
         if (h1) {
             (h1 as HTMLElement).style.fontSize = "24px"; // Slightly smaller for better fit
             (h1 as HTMLElement).style.fontWeight = "700";
-            (h1 as HTMLElement).style.color = "#ffffff"; // White text
+            (h1 as HTMLElement).style.color = PDF_COLORS.white; // White text
             (h1 as HTMLElement).style.letterSpacing = "-0.01em";
             (h1 as HTMLElement).style.margin = "0 0 4px 0";
         }
@@ -28,7 +67,7 @@ export const styleHeader = (root: HTMLElement) => {
         // Style subtitle/label
         headerEl.querySelectorAll("p.text-xs").forEach((p) => {
             const pEl = p as HTMLElement;
-            pEl.style.color = "#ffffff"; // White text
+            pEl.style.color = PDF_COLORS.white; // White text
             pEl.style.fontWeight = "600";
             pEl.style.textTransform = "uppercase";
             pEl.style.letterSpacing = "0.05em";
@@ -73,8 +112,8 @@ export const styleCards = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         const classes = elem.className || "";
         
-        elem.style.backgroundColor = "#ffffff";
-        elem.style.border = "1px solid #e2e8f0";
+        elem.style.backgroundColor = PDF_COLORS.background.white;
+        elem.style.border = `1px solid ${PDF_COLORS.border.default}`;
         elem.style.overflow = "hidden";
         
         // Metric cards in the grid get tighter styling
@@ -121,8 +160,8 @@ export const styleSectionCards = (root: HTMLElement) => {
 export const styleUploadInfo = (root: HTMLElement) => {
     root.querySelectorAll(".bg-slate-50\\/60, .bg-slate-50").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#f8fafc";
-        elem.style.border = "1px solid #e2e8f0";
+        elem.style.backgroundColor = PDF_COLORS.background.muted;
+        elem.style.border = `1px solid ${PDF_COLORS.border.default}`;
         elem.style.borderRadius = "8px";
         elem.style.padding = "12px"; // Compact padding
         
@@ -147,8 +186,8 @@ export const styleUploadInfo = (root: HTMLElement) => {
 export const styleAnalysisParams = (root: HTMLElement) => {
     root.querySelectorAll("[class*='bg-indigo-50']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#eef2ff";
-        elem.style.border = "1px solid #c7d2fe";
+        elem.style.backgroundColor = PDF_COLORS.background.indigo50;
+        elem.style.border = `1px solid ${PDF_COLORS.border.indigo}`;
         elem.style.borderRadius = "8px";
         elem.style.padding = "12px"; // Compact padding
         
@@ -174,34 +213,34 @@ export const styleVerdictColors = (root: HTMLElement) => {
     // Pass/Success colors
     root.querySelectorAll("[class*='bg-green-50'], [class*='bg-success']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#f0fdf4";
-        elem.style.border = "1px solid #86efac";
+        elem.style.backgroundColor = PDF_COLORS.background.green50;
+        elem.style.border = `1px solid ${PDF_COLORS.border.green}`;
     });
     root.querySelectorAll("[class*='text-green'], [class*='text-success'], [class*='text-emerald']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.color = "#059669"; // emerald-600
+        elem.style.color = PDF_COLORS.status.success; // emerald-600
     });
 
     // Warning/Caution colors
     root.querySelectorAll("[class*='bg-amber-50'], [class*='bg-warning'], [class*='bg-yellow-50']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#fffbeb";
-        elem.style.border = "1px solid #fcd34d";
+        elem.style.backgroundColor = PDF_COLORS.background.amber50;
+        elem.style.border = `1px solid ${PDF_COLORS.border.amber}`;
     });
     root.querySelectorAll("[class*='text-amber'], [class*='text-warning'], [class*='text-yellow']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.color = "#d97706"; // amber-600
+        elem.style.color = PDF_COLORS.status.warning; // amber-600
     });
 
     // Fail/Destructive colors
     root.querySelectorAll("[class*='bg-red-50'], [class*='bg-destructive']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#fef2f2";
-        elem.style.border = "1px solid #fca5a5";
+        elem.style.backgroundColor = PDF_COLORS.background.red50;
+        elem.style.border = `1px solid ${PDF_COLORS.border.red}`;
     });
     root.querySelectorAll("[class*='text-red'], [class*='text-destructive']").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.color = "#dc2626"; // red-600
+        elem.style.color = PDF_COLORS.status.destructive; // red-600
     });
 };
 
@@ -242,7 +281,7 @@ export const styleTypography = (root: HTMLElement) => {
     root.querySelectorAll("h3, h4").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.fontWeight = "600";
-        elem.style.color = "#0f172a";
+        elem.style.color = PDF_COLORS.text.foreground;
         elem.style.letterSpacing = "-0.01em";
     });
 
@@ -250,13 +289,13 @@ export const styleTypography = (root: HTMLElement) => {
     root.querySelectorAll("p").forEach((el) => {
         const elem = el as HTMLElement;
         if (!elem.style.color || elem.style.color === "inherit") {
-            elem.style.color = "#374151"; // gray-700
+            elem.style.color = PDF_COLORS.text.default; // gray-700
         }
     });
 
     // Muted text
     root.querySelectorAll("[class*='text-muted'], [class*='text-slate-500'], [class*='text-slate-600']").forEach(el => {
-        (el as HTMLElement).style.color = "#64748b"; // slate-500
+        (el as HTMLElement).style.color = PDF_COLORS.text.muted; // slate-500
     });
 };
 
@@ -270,26 +309,26 @@ export const styleTables = (root: HTMLElement) => {
         // Header row
         tableEl.querySelectorAll("th").forEach(th => {
             const thEl = th as HTMLElement;
-            thEl.style.backgroundColor = "#f1f5f9";
-            thEl.style.color = "#334155";
+            thEl.style.backgroundColor = PDF_COLORS.background.slate100;
+            thEl.style.color = PDF_COLORS.text.header;
             thEl.style.fontWeight = "600";
             thEl.style.padding = "12px 16px";
             thEl.style.textAlign = "left";
-            thEl.style.borderBottom = "2px solid #e2e8f0";
+            thEl.style.borderBottom = `2px solid ${PDF_COLORS.border.default}`;
         });
         
         // Data rows with alternating colors
         tableEl.querySelectorAll("tbody tr").forEach((tr, index) => {
             const trEl = tr as HTMLElement;
-            trEl.style.backgroundColor = index % 2 === 0 ? "#ffffff" : "#f8fafc";
-            trEl.style.borderBottom = "1px solid #e2e8f0";
+            trEl.style.backgroundColor = index % 2 === 0 ? PDF_COLORS.background.white : PDF_COLORS.background.muted;
+            trEl.style.borderBottom = `1px solid ${PDF_COLORS.border.default}`;
         });
         
         // Data cells
         tableEl.querySelectorAll("td").forEach(td => {
             const tdEl = td as HTMLElement;
             tdEl.style.padding = "10px 16px";
-            tdEl.style.color = "#374151";
+            tdEl.style.color = PDF_COLORS.text.default;
         });
     });
 };
@@ -317,8 +356,8 @@ export const styleMetricCards = (root: HTMLElement) => {
 
     root.querySelectorAll(".pdf-metric-grid > *").forEach(el => {
         const elem = el as HTMLElement;
-        elem.style.backgroundColor = "#ffffff";
-        elem.style.border = "1px solid #e2e8f0";
+        elem.style.backgroundColor = PDF_COLORS.background.white;
+        elem.style.border = `1px solid ${PDF_COLORS.border.default}`;
         elem.style.borderRadius = "8px";
         elem.style.padding = "12px"; // Comfortable padding for 3x3 grid
         elem.style.breakInside = "avoid";
@@ -416,7 +455,7 @@ export const styleMetricCards = (root: HTMLElement) => {
 export const styleIcons = (root: HTMLElement) => {
     // Icon colors
     root.querySelectorAll("[class*='text-primary']").forEach(el => {
-        (el as HTMLElement).style.color = "#4f46e5"; // indigo-600
+        (el as HTMLElement).style.color = PDF_COLORS.primaryDark; // indigo-600
     });
 };
 
@@ -426,7 +465,7 @@ export const styleMutedBackgrounds = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         const classes = elem.className || "";
         if (!classes.includes("bg-muted-foreground")) {
-            elem.style.backgroundColor = "#f1f5f9"; // slate-100
+            elem.style.backgroundColor = PDF_COLORS.background.slate100; // slate-100
         }
     });
 };
@@ -436,7 +475,7 @@ export const fixProgressBars = (root: HTMLElement) => {
     root.querySelectorAll(".pdf-progress-bar, [role='progressbar']").forEach((container) => {
         const containerEl = container as HTMLElement;
         
-        containerEl.style.backgroundColor = "#e2e8f0";
+        containerEl.style.backgroundColor = PDF_COLORS.background.slate200;
         containerEl.style.borderRadius = "9999px";
         containerEl.style.overflow = "visible";
         containerEl.style.position = "relative";
@@ -456,7 +495,7 @@ export const fixProgressBars = (root: HTMLElement) => {
             // Skip threshold markers
             if (innerClasses.includes("w-0.5") || innerBar.style.width === "2px") {
                 // This is the threshold marker line
-                innerBar.style.backgroundColor = "#1e293b";
+                innerBar.style.backgroundColor = PDF_COLORS.background.slate800;
                 innerBar.style.width = "3px";
                 innerBar.style.zIndex = "10";
                 return;
@@ -472,15 +511,15 @@ export const fixProgressBars = (root: HTMLElement) => {
 
             // Set color based on status class
             if (innerClasses.includes("success") || innerClasses.includes("green") || innerClasses.includes("emerald")) {
-                innerBar.style.background = "linear-gradient(90deg, #059669, #10b981)";
+                innerBar.style.background = `linear-gradient(90deg, ${PDF_COLORS.status.success}, ${PDF_COLORS.status.successBright})`;
             } else if (innerClasses.includes("warning") || innerClasses.includes("amber") || innerClasses.includes("yellow") || innerClasses.includes("orange")) {
-                innerBar.style.background = "linear-gradient(90deg, #d97706, #f59e0b)";
+                innerBar.style.background = `linear-gradient(90deg, ${PDF_COLORS.status.warning}, ${PDF_COLORS.status.warningBright})`;
             } else if (innerClasses.includes("destructive") || innerClasses.includes("red") || innerClasses.includes("rose")) {
-                innerBar.style.background = "linear-gradient(90deg, #dc2626, #ef4444)";
+                innerBar.style.background = `linear-gradient(90deg, ${PDF_COLORS.status.destructive}, ${PDF_COLORS.status.destructiveBright})`;
             } else if (innerClasses.includes("primary") || innerClasses.includes("indigo")) {
-                innerBar.style.background = "#94a3b8"; 
+                innerBar.style.background = PDF_COLORS.background.slate400; 
             } else {
-                innerBar.style.background = "#94a3b8";
+                innerBar.style.background = PDF_COLORS.background.slate400;
             }
         });
     });
@@ -491,13 +530,13 @@ export const fixProgressBars = (root: HTMLElement) => {
         const classes = elem.className || "";
         elem.style.backgroundImage = "none";
         if (classes.includes("amber") || classes.includes("orange") || classes.includes("warning")) {
-            elem.style.backgroundColor = "#f59e0b";
+            elem.style.backgroundColor = PDF_COLORS.status.warningBright;
         } else if (classes.includes("emerald") || classes.includes("teal") || classes.includes("success") || classes.includes("green")) {
-            elem.style.backgroundColor = "#10b981";
+            elem.style.backgroundColor = PDF_COLORS.status.successBright;
         } else if (classes.includes("rose") || classes.includes("red") || classes.includes("destructive")) {
-            elem.style.backgroundColor = "#ef4444";
+            elem.style.backgroundColor = PDF_COLORS.status.destructiveBright;
         } else if (classes.includes("primary") || classes.includes("indigo")) {
-            elem.style.backgroundColor = "#94a3b8"; // slate-400
+            elem.style.backgroundColor = PDF_COLORS.background.slate400; // slate-400
         }
     });
 };
@@ -585,7 +624,7 @@ export const styleCircleScores = (root: HTMLElement) => {
             value.style.setProperty("line-height", "1.2", "important");
             value.style.setProperty("padding", "0", "important");
             value.style.setProperty("margin", "0", "important");
-            value.style.setProperty("color", "#0f172a", "important");
+            value.style.setProperty("color", PDF_COLORS.text.foreground, "important");
             value.style.setProperty("display", "block", "important");
             value.style.setProperty("text-align", "center", "important");
         }
@@ -594,7 +633,7 @@ export const styleCircleScores = (root: HTMLElement) => {
         if (label) {
             label.style.setProperty("font-size", "14px", "important");
             label.style.setProperty("font-weight", "600", "important");
-            label.style.setProperty("color", "#64748b", "important");
+            label.style.setProperty("color", PDF_COLORS.text.muted, "important");
             label.style.setProperty("margin-top", "14px", "important"); // Increased margin to prevent overlap
             label.style.setProperty("text-transform", "uppercase", "important");
             label.style.setProperty("letter-spacing", "0.05em", "important");
@@ -615,7 +654,7 @@ export const styleScoreBadges = (root: HTMLElement) => {
         badge.style.setProperty("min-width", "135px", "important");
         badge.style.setProperty("min-height", "50px", "important");
         badge.style.setProperty("padding", "8px 14px", "important");
-        badge.style.setProperty("background", "#ffffff", "important");
+        badge.style.setProperty("background", PDF_COLORS.background.white, "important");
         badge.style.setProperty("height", "auto", "important"); // Allow content to dictate height
         
         // Target the icon container if it exists
@@ -655,7 +694,7 @@ export const styleScoreBadges = (root: HTMLElement) => {
             label.style.setProperty("display", "block", "important");
             label.style.setProperty("font-weight", "700", "important");
             label.style.setProperty("letter-spacing", "0.02em", "important");
-            label.style.setProperty("color", "#64748b", "important");
+            label.style.setProperty("color", PDF_COLORS.text.muted, "important");
         });
 
         // Target value
@@ -666,7 +705,7 @@ export const styleScoreBadges = (root: HTMLElement) => {
             value.style.setProperty("line-height", "1.6", "important"); // Balanced space for value
             value.style.setProperty("margin", "0 0 6px 0", "important"); // Added margin below percent
             value.style.setProperty("display", "block", "important");
-            value.style.setProperty("color", "#0f172a", "important");
+            value.style.setProperty("color", PDF_COLORS.text.foreground, "important");
         });
     });
 };

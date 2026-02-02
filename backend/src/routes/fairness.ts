@@ -20,6 +20,7 @@ import {
     getPositiveMetricLabel,
     THRESHOLDS
 } from "../utils/fairnessThresholds";
+import { sanitizeConfig } from "../utils/sanitize";
 
 const router = Router();
 
@@ -755,22 +756,7 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
     }
 });
 
-function sanitizeConfigResponse(config: any): any {
-    if (!config) return config;
-    try {
-        const parsed = typeof config === 'string' ? JSON.parse(config) : config;
-        const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
-        const sanitized = { ...parsed };
-        for (const key of Object.keys(sanitized)) {
-            if (sensitivePattern.test(key)) {
-                sanitized[key] = "[REDACTED]";
-            }
-        }
-        return sanitized;
-    } catch (e) {
-        return config; // Fallback for non-JSON or other issues
-    }
-}
+
 
 // GET /fairness/api-reports/:projectId - Get all API test reports for a project
 router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
@@ -816,7 +802,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
             success: true, 
             reports: result.rows.map(row => ({
                 ...row,
-                config: sanitizeConfigResponse(row.config)
+                config: sanitizeConfig(row.config)
             })),
             pagination: {
                 total,
@@ -857,7 +843,7 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
             success: true, 
             report: {
                 ...result.rows[0],
-                config: sanitizeConfigResponse(result.rows[0].config)
+                config: sanitizeConfig(result.rows[0].config)
             },
         });
     } catch (error: any) {
@@ -975,7 +961,10 @@ router.get("/manual-reports/detail/:reportId", authenticateToken, async (req, re
         
         res.json({ 
             success: true, 
-            report: result.rows[0],
+            report: {
+                ...result.rows[0],
+                config: sanitizeConfig(result.rows[0].config)
+            }
         });
     } catch (error: any) {
         console.error("Error fetching manual test report details:", error);
@@ -1011,16 +1000,6 @@ router.delete("/manual-reports/:reportId", authenticateToken, async (req, res) =
     }
 });
 
-// Update standard API reports endpoint to filter OUT manual tests
-// We want to update the existing route handler for /api-reports/:projectId logic
-// But since we can't easily replace just logic inside a function without replacing the whole function block and it's large,
-// I'll leave the existing one alone as it will just show manual tests mixed in if we don't filter.
-// However, the existing route is GET /api-reports/:projectId
-// We should probably update it to filter out manual tests to keep them separate.
-// But given tool limitations on replacing blocks, and that mixing them might be okay or I can filter in frontend,
-// wait, the prompt asks to "show it in frontend", likely in a separate section or tab.
-// It's safer if I update the existing route too, but I'll do it as a separate replacement if needed.
-// For now let's just add the manual routes.
-// Wait, I should also update the API reports route to NOT include manual tests.
+
 
 export default router;

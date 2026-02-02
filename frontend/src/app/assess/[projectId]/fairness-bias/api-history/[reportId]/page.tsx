@@ -55,9 +55,11 @@ export default function ApiReportDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const normalizedGeneratedAt = report?.created_at
-        ? new Date(report.created_at).toISOString()
-        : undefined;
+    const normalizedGeneratedAt = (() => {
+        if (!report?.created_at) return undefined;
+        const d = new Date(report.created_at);
+        return isNaN(d.getTime()) ? undefined : d.toISOString();
+    })();
 
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
@@ -193,8 +195,8 @@ export default function ApiReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Overall Score</div>
                         <div className={`text-2xl font-bold ${report.average_scores?.averageOverallScore != null
-                                ? getScoreColor(report.average_scores.averageOverallScore)
-                                : "text-muted-foreground"
+                            ? getScoreColor(report.average_scores.averageOverallScore)
+                            : "text-muted-foreground"
                             }`}>
                             {report.average_scores?.averageOverallScore != null
                                 ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
@@ -204,8 +206,8 @@ export default function ApiReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Bias Score</div>
                         <div className={`text-2xl font-bold ${report.average_scores?.averageBiasScore != null
-                                ? getScoreColor(1 - report.average_scores.averageBiasScore)
-                                : "text-muted-foreground"
+                            ? getScoreColor(1 - report.average_scores.averageBiasScore)
+                            : "text-muted-foreground"
                             }`}>
                             {report.average_scores?.averageBiasScore != null
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
