@@ -1,4 +1,4 @@
-import { useState, useCallback, RefObject } from "react";
+import { useState, useCallback, RefObject, useRef } from "react";
 import type { DatasetReportPayload } from "../../types";
 import {
     styleHeader, styleGrid, styleCards, styleSectionCards,
@@ -27,13 +27,15 @@ type jsPDFType = InstanceType<typeof import("jspdf").jsPDF>;
 
 export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
     const [isExporting, setIsExporting] = useState(false);
+    const isExportingRef = useRef(false);
 
     const exportPdf = useCallback(async () => {
         if (!reportRef.current || !payload) return;
-        if (isExporting) return;
+        if (isExportingRef.current) return;
 
         try {
             setIsExporting(true);
+            isExportingRef.current = true;
             await new Promise(resolve => setTimeout(resolve, PDF_RENDERING_DELAY_MS));
 
             const [jsPDFModule, html2canvasModule] = await Promise.all([
@@ -732,8 +734,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             console.error("Failed to export PDF", error);
         } finally {
             setIsExporting(false);
+            isExportingRef.current = false;
         }
-    }, [reportRef, payload, isExporting]);
+    }, [reportRef, payload]);
 
     return { exportPdf, isExporting };
 };

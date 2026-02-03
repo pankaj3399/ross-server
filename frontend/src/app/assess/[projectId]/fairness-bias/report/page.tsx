@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { apiService } from "../../../../../lib/api";
 import { motion } from "framer-motion";
-import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, TrendingUp, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, AlertCircle, TrendingUp, Clock, Download, Loader2 } from "lucide-react";
+import { usePdfReport } from "../../../../../hooks/usePdfReport";
 import { ReportSkeleton } from "../../../../../components/Skeleton";
 
 interface FairnessQuestion {
@@ -39,17 +40,19 @@ const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; v
   const isMedium = score >= 0.4 && score < 0.7;
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px]">
-      {isGood ? (
-        <CheckCircle2 className="w-4 h-4 text-success" />
-      ) : isMedium ? (
-        <AlertCircle className="w-4 h-4 text-warning" />
-      ) : (
-        <XCircle className="w-4 h-4 text-destructive" />
-      )}
-      <div className="flex flex-col">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="text-sm font-semibold text-foreground">{percentage}%</span>
+    <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px] pdf-score-badge">
+      <div className="flex-shrink-0">
+        {isGood ? (
+          <CheckCircle2 className="w-4 h-4 text-success" />
+        ) : isMedium ? (
+          <AlertCircle className="w-4 h-4 text-warning" />
+        ) : (
+          <XCircle className="w-4 h-4 text-destructive" />
+        )}
+      </div>
+      <div className="flex flex-col justify-center">
+        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider leading-none mb-1 pdf-label">{label}</span>
+        <span className="text-sm font-bold text-foreground leading-none pdf-value">{percentage}%</span>
       </div>
     </div>
   );
@@ -104,6 +107,7 @@ export default function FairnessBiasReport() {
   const [questionsLoading, setQuestionsLoading] = useState(true);
   const [evaluationsLoading, setEvaluationsLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const projectId = params.projectId as string;
 
@@ -111,6 +115,14 @@ export default function FairnessBiasReport() {
   evaluations.forEach((evaluation) => {
     const key = `${evaluation.category}:${evaluation.questionText}`;
     evaluationMap.set(key, evaluation);
+  });
+
+  const { exportPdf, isExporting } = usePdfReport({
+    reportRef,
+    fileName: `fairness-bias-report-${projectId}.pdf`,
+    reportTitle: "Fairness & Bias Report",
+    projectName: projectId, // Or fetch project name if available, projectId is fallback
+    generatedAt: new Date()
   });
 
   useEffect(() => {
@@ -181,7 +193,7 @@ export default function FairnessBiasReport() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div ref={reportRef} className="min-h-screen bg-background">
       {/* Compact Header */}
       <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
@@ -190,29 +202,47 @@ export default function FairnessBiasReport() {
               <button
                 type="button"
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
+                className="hide-in-pdf"
               >
                 <ArrowLeft className="w-5 h-5 text-muted-foreground" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-foreground">Fairness & Bias Report</h1>
+                <h1 className="text-xl font-bold text-foreground pb-1 leading-relaxed">Fairness & Bias Report</h1>
                 <p className="text-sm text-muted-foreground">Evaluation Results</p>
               </div>
             </div>
 
             {/* Quick Stats */}
-            <div className="hidden md:flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">Completed</div>
-                <div className="text-lg font-bold text-primary">
-                  {evaluatedCount}/{totalQuestions}
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-4">
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground pb-1 leading-normal">Completed</div>
+                  <div className="text-lg font-bold text-primary">
+                    {evaluatedCount}/{totalQuestions}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground pb-1 leading-normal">Avg Score</div>
+                  <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
+                    {(avgOverall * 100).toFixed(0)}%
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-xs text-muted-foreground">Avg Score</div>
-                <div className={`text-lg font-bold ${avgOverall >= 0.7 ? 'text-success' : avgOverall >= 0.4 ? 'text-warning' : 'text-destructive'}`}>
-                  {(avgOverall * 100).toFixed(0)}%
-                </div>
-              </div>
+
+              {/* PDF Download Button */}
+              <button
+                type="button"
+                onClick={exportPdf}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors hide-in-pdf"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium hidden sm:inline">{isExporting ? "Exporting..." : "PDF"}</span>
+              </button>
             </div>
           </div>
 
@@ -239,7 +269,7 @@ export default function FairnessBiasReport() {
             <div key={category.label} className="mb-12">
               {/* Category Title */}
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2">
+                <h2 className="text-2xl font-bold text-foreground mb-2 pb-1 leading-relaxed">
                   {category.label}
                 </h2>
                 <div className="h-1 w-20 bg-primary rounded-full" />
@@ -258,7 +288,7 @@ export default function FairnessBiasReport() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: promptIdx * 0.05 }}
-                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow"
+                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow break-inside-avoid"
                     >
                       {/* Question */}
                       <div className="p-6 border-b border-border">
@@ -281,11 +311,11 @@ export default function FairnessBiasReport() {
                         <div className="p-6 space-y-6">
                           {/* Scores Row */}
                           <div className="flex flex-wrap gap-3">
-                            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20">
+                            <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20 pdf-score-badge pdf-overall-badge">
                               <TrendingUp className="w-5 h-5 text-primary" />
-                              <div>
-                                <div className="text-xs text-primary/80 font-medium">Overall</div>
-                                <div className="text-xl font-bold text-primary">
+                              <div className="flex flex-col justify-center">
+                                <div className="text-[10px] text-primary/80 font-bold uppercase tracking-wider leading-none mb-1 pdf-label">Overall</div>
+                                <div className="text-xl font-extrabold text-primary leading-none pdf-value">
                                   {((evaluation.overallScore || 0) * 100).toFixed(0)}%
                                 </div>
                               </div>

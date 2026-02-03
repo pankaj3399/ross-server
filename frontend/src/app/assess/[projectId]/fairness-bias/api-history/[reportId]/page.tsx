@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2 } from "lucide-react";
+import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
 
 type ApiReportDetail = {
@@ -48,10 +49,23 @@ export default function ApiReportDetailPage() {
     const router = useRouter();
     const projectId = params.projectId as string;
     const reportId = params.reportId as string;
+    const reportRef = useRef<HTMLDivElement>(null);
 
     const [report, setReport] = useState<ApiReportDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const normalizedGeneratedAt = report?.created_at
+        ? new Date(report.created_at).toISOString()
+        : undefined;
+
+    const { exportPdf, isExporting } = usePdfReport({
+        reportRef,
+        fileName: `api-fairness-report-${reportId}.pdf`,
+        reportTitle: "API Fairness & Bias Report",
+        projectName: projectId,
+        generatedAt: normalizedGeneratedAt
+    });
 
     useEffect(() => {
         const fetchReport = async () => {
@@ -116,30 +130,46 @@ export default function ApiReportDetailPage() {
     const allItems = [...(results || []), ...(errors || [])];
 
     return (
-        <div className="min-h-screen bg-background">
+        <div ref={reportRef} className="min-h-screen bg-background">
             <div className="bg-card border-b border-border">
                 <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-                            type="button"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </button>
-                        <div className="h-6 w-px bg-border" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground">
-                                API Report Details
-                            </h1>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5">
-                                    <Server className="w-3.5 h-3.5" />
-                                    {report.config?.apiUrl}
-                                </span>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => router.back()}
+                                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors hide-in-pdf"
+                                type="button"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                Back
+                            </button>
+                            <div className="h-6 w-px bg-border hide-in-pdf" />
+                            <div>
+                                <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
+                                    API Report Details
+                                </h1>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                    <span className="flex items-center gap-1.5">
+                                        <Server className="w-3.5 h-3.5" />
+                                        {report.config?.apiUrl}
+                                    </span>
+                                </div>
                             </div>
                         </div>
+
+                        <button
+                            onClick={exportPdf}
+                            disabled={isExporting}
+                            className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors hide-in-pdf"
+                            type="button"
+                        >
+                            {isExporting ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <Download className="w-4 h-4" />
+                            )}
+                            <span className="text-sm font-medium hidden sm:inline">{isExporting ? "Exporting..." : "PDF"}</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -148,11 +178,11 @@ export default function ApiReportDetailPage() {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Total Prompts</div>
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
                         <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Success Rate</div>
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Success Rate</div>
                         <div className="text-2xl font-bold text-green-500">
                             {report.total_prompts > 0 ? ((report.success_count / report.total_prompts) * 100).toFixed(1) + "%" : "0.0%"}
                         </div>
@@ -161,17 +191,23 @@ export default function ApiReportDetailPage() {
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Avg Overall Score</div>
-                        <div className={`text-2xl font-bold ${getScoreColor(report.average_scores?.averageOverallScore)}`}>
-                            {report.average_scores?.averageOverallScore
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Overall Score</div>
+                        <div className={`text-2xl font-bold ${report.average_scores?.averageOverallScore != null
+                                ? getScoreColor(report.average_scores.averageOverallScore)
+                                : "text-muted-foreground"
+                            }`}>
+                            {report.average_scores?.averageOverallScore != null
                                 ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
                                 : "N/A"}
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1">Avg Bias Score</div>
-                        <div className={`text-2xl font-bold ${getScoreColor(1 - (report.average_scores?.averageBiasScore || 0))}`}>
-                            {report.average_scores?.averageBiasScore
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Bias Score</div>
+                        <div className={`text-2xl font-bold ${report.average_scores?.averageBiasScore != null
+                                ? getScoreColor(1 - report.average_scores.averageBiasScore)
+                                : "text-muted-foreground"
+                            }`}>
+                            {report.average_scores?.averageBiasScore != null
                                 ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                 : "N/A"}
                         </div>
@@ -238,7 +274,7 @@ export default function ApiReportDetailPage() {
                             </div>
 
                             {items.map((item, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4">
+                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
                                     <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
                                         }`}>
                                         <div className="flex items-center gap-3">
@@ -257,14 +293,14 @@ export default function ApiReportDetailPage() {
                                     </div>
                                     <div className="p-6 space-y-4">
                                         <div>
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
+                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
                                             <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
                                         </div>
 
                                         {(item as any).success ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Evaluation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Overall Score:</span>
@@ -286,7 +322,7 @@ export default function ApiReportDetailPage() {
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Explanation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Explanation</div>
                                                     <div className="text-sm text-foreground/80 leading-relaxed">
                                                         {(item as any).evaluation?.explanation || "No explanation provided."}
                                                     </div>

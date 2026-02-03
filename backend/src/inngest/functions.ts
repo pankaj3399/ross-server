@@ -420,7 +420,9 @@ export const evaluationAggregator = inngest.createFunction(
       
       // Bounds check for responseIndex
       if (responseIndex < 0 || responseIndex >= responses.length) {
-        const outOfBoundsError = `Response index ${responseIndex} is out of bounds (valid range: 0-${responses.length - 1})`;
+        const outOfBoundsError = responses.length === 0
+          ? `Response index ${responseIndex} is out of bounds (no valid indices - responses array is empty)`
+          : `Response index ${responseIndex} is out of bounds (valid range: 0-${responses.length - 1})`;
         console.error(`[evaluationAggregator] ${outOfBoundsError} for jobId: ${jobId}`);
         // If out of bounds, we should NOT process this result as it was likely a stray or manual error event
         // We still need to return a status but allComplete check should be based on real indices

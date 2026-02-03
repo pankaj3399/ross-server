@@ -65,8 +65,12 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
     };
 
     const parseBackendDate = (dateStr: string) => {
-        const safeDateStr = dateStr.endsWith("Z") ? dateStr : `${dateStr}Z`;
-        return new Date(safeDateStr);
+        const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(dateStr);
+        let normalized = dateStr.replace(' ', 'T');
+        if (!hasTimezone) {
+            normalized = `${normalized}Z`;
+        }
+        return new Date(normalized);
     };
 
     const sortedReports = [...reports].sort((a, b) =>
@@ -198,7 +202,7 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                             {getStatusBadge(report.success_count, report.failure_count)}
                                         </td>
                                         <td className="px-6 py-4 font-medium">
-                                            {report.average_scores?.averageOverallScore ?
+                                            {report.average_scores?.averageOverallScore != null ?
                                                 `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%` :
                                                 "N/A"}
                                         </td>

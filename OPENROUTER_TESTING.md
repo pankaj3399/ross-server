@@ -46,6 +46,13 @@ choices[0].message.content
 - **Placement**: Select `Header - Authorization: Bearer <API_KEY>`
   - *(This sets the generic `Authorization` header with the Bearer scheme)*
 
+> [!CAUTION]
+> **Secret Handling Best Practices**
+> - **Never commit API keys** to source control or logs
+> - **Store keys in environment variables** or a secrets manager
+> - **Avoid printing keys** in logs or error messages
+> - **Rotate keys regularly** and revoke compromised keys immediately
+
 ### 🔹 (Recommended) Extra Headers
 
 If your tool allows custom headers, add these to identify your app to OpenRouter:

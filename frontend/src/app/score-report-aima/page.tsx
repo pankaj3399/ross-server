@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
@@ -10,11 +10,14 @@ import { motion } from "framer-motion";
 import {
   IconArrowLeft,
   IconTrophy,
-  IconStar
+  IconStar,
+  IconDownload,
+  IconLoader
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
 import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
+import { usePdfReport } from "../../hooks/usePdfReport";
 
 // Performance variants mapped to Tailwind classes
 const PERFORMANCE_VARIANTS = {
@@ -54,11 +57,20 @@ export default function ScoreReportPage() {
   const { isAuthenticated } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const { getProjectResults } = useAssessmentResultsStore();
+  const reportRef = useRef<HTMLDivElement>(null);
 
   const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string>>(new Set());
+
+  const { exportPdf, isExporting } = usePdfReport({
+    reportRef,
+    fileName: `aima-score-report-${projectId}.pdf`,
+    reportTitle: "AIMA Assessment Score Report",
+    projectName: results?.project?.name,
+    generatedAt: results?.submittedAt
+  });
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -154,7 +166,7 @@ export default function ScoreReportPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
+    <div ref={reportRef} className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <motion.div
@@ -163,20 +175,35 @@ export default function ScoreReportPage() {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <Button
-            variant="ghost"
-            onClick={() => router.push(`/assess/${projectId}`)}
-            className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8 pl-0 hover:bg-transparent"
-          >
-            <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
-              <IconArrowLeft className="w-5 h-5" />
-            </div>
-            <span className="font-medium">Back to Assessment</span>
-          </Button>
+          <div className="flex justify-between items-center mb-8">
+            <Button
+              variant="ghost"
+              onClick={() => router.push(`/assess/${projectId}`)}
+              className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors pl-0 hover:bg-transparent hide-in-pdf"
+            >
+              <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
+                <IconArrowLeft className="w-5 h-5" />
+              </div>
+              <span className="font-medium">Back to Assessment</span>
+            </Button>
+
+            <Button
+              onClick={exportPdf}
+              disabled={isExporting}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf"
+            >
+              {isExporting ? (
+                <IconLoader className="w-5 h-5 animate-spin" />
+              ) : (
+                <IconDownload className="w-5 h-5" />
+              )}
+              <span className="font-medium">{isExporting ? "Generating PDF..." : "Download Report"}</span>
+            </Button>
+          </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 pb-1 leading-relaxed">
                 Assessment Report
               </h1>
               <div className="flex items-center gap-4 text-muted-foreground">
@@ -231,29 +258,28 @@ export default function ScoreReportPage() {
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-6xl font-bold text-foreground tracking-tight">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pdf-overall-score-container">
+                      <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal pdf-overall-score-value">
                         {results.results.overall.overallPercentage.toFixed(0)}%
                       </span>
-                      <span className="text-sm font-medium text-muted-foreground mt-2">Total Score</span>
+                      <span className="text-sm font-medium text-muted-foreground mt-1 pdf-overall-score-label">Total Score</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground">Performance Level</span>
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
+                    <span className="text-muted-foreground font-medium">Performance Level</span>
                     <div
-                      className={`flex items-center gap-2 px-3 py-1 rounded-lg font-medium text-sm ${performance.bg} ${performance.text}`}
+                      className={`flex items-center font-medium text-sm ${performance.text} whitespace-nowrap`}
                     >
-                      <IconStar className={`w-4 h-4 fill-current`} />
                       {performance.level}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground">Correct Answers</span>
-                    <span className="font-semibold text-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
+                    <span className="text-muted-foreground font-medium">Correct Answers</span>
+                    <span className="font-semibold text-foreground whitespace-nowrap">
                       {results.results.overall.totalCorrectAnswers} <span className="text-muted-foreground">/ {results.results.overall.totalQuestions}</span>
                     </span>
                   </div>
@@ -288,16 +314,16 @@ export default function ScoreReportPage() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.4, delay: 0.1 * index }}
-                          className="group relative overflow-hidden rounded-3xl bg-card hover:bg-muted border border-border p-6 transition-all duration-300 shadow-sm hover:shadow-md"
+                          className="group relative overflow-hidden rounded-3xl bg-card hover:bg-muted border border-border p-6 transition-all duration-300 shadow-sm hover:shadow-md break-inside-avoid"
                         >
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg text-foreground pr-2 line-clamp-1" title={domain.domainTitle}>
+                              <h3 className="font-semibold text-lg text-foreground pr-2 break-words" title={domain.domainTitle}>
                                 {domain.domainTitle}
                               </h3>
                             </div>
                             <div
-                              className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border ${domainPerformance.border} ${domainPerformance.text}`}
+                              className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border pdf-percentage-circle ${domainPerformance.border} ${domainPerformance.text}`}
                             >
                               {domain.percentage.toFixed(0)}%
                             </div>
