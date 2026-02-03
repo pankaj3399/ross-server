@@ -382,6 +382,21 @@ export const userApiCallAggregator = inngest.createFunction(
   }
 );
 
+// Helper to extract error message safely
+function extractErrorMessage(response: any, error: any): string {
+  if (response?.error) {
+    if (typeof response.error === 'string') return response.error;
+    if (typeof response.error === 'object' && response.error.message) return response.error.message;
+  }
+  
+  if (error) {
+    if (typeof error === 'string') return error;
+    if (error.message) return error.message;
+  }
+  
+  return "Unknown error";
+}
+
 export const evaluationAggregator = inngest.createFunction(
   { id: "evaluation-aggregator", name: "Evaluation Aggregator" },
   { event: "evaluation/single.completed" },
@@ -404,20 +419,17 @@ export const evaluationAggregator = inngest.createFunction(
       const total = job.total_prompts || responses.length;
       
       // Bounds check for responseIndex
-      let response: any = null;
-      if (responseIndex >= 0 && responseIndex < responses.length) {
-        response = responses[responseIndex];
-      } else {
-        // Handle out-of-bounds case with safe defaults
+      if (responseIndex < 0 || responseIndex >= responses.length) {
         const outOfBoundsError = `Response index ${responseIndex} is out of bounds (valid range: 0-${responses.length - 1})`;
-        response = {
-          category: "unknown",
-          prompt: "unknown",
-          error: outOfBoundsError,
-        };
-        // Log the anomaly
         console.error(`[evaluationAggregator] ${outOfBoundsError} for jobId: ${jobId}`);
+        // If out of bounds, we should NOT process this result as it was likely a stray or manual error event
+        // We still need to return a status but allComplete check should be based on real indices
+        const itemStatuses = ("itemStatuses" in payload ? payload.itemStatuses : undefined) || {};
+        const completed = Object.keys(itemStatuses).length;
+        return { allComplete: completed >= total, total, completed };
       }
+
+      const response = responses[responseIndex];
 
       // Check if already processed (read-only check for early return)
       const itemStatuses = ("itemStatuses" in payload ? payload.itemStatuses : undefined) || {};
@@ -442,12 +454,13 @@ export const evaluationAggregator = inngest.createFunction(
           message: `Overall score ${(result.overallScore * 100).toFixed(1)}%`,
         }]);
       } else {
+        const errMessage = extractErrorMessage(response, error);
         errorEntry = JSON.stringify([{
           category: response?.category || "unknown",
           prompt: response?.prompt || "unknown",
           success: false,
-          error: response?.error || error || "Unknown error",
-          message: response?.error || error || "Unknown error",
+          error: errMessage,
+          message: errMessage,
         }]);
       }
 
