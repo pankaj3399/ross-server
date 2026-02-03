@@ -11,14 +11,14 @@ type ManualReport = {
     total_prompts: number;
     success_count: number;
     failure_count: number;
-    average_scores: {
+    average_scores?: {
         total: number;
         successful: number;
         failed: number;
         averageOverallScore: number;
         averageBiasScore: number;
         averageToxicityScore: number;
-    };
+    } | null;
     created_at: string;
 };
 
@@ -36,29 +36,37 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
     const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
     useEffect(() => {
+        const controller = new AbortController();
         const fetchReports = async () => {
             try {
                 const res = await fetch(`${API_BASE_URL}/fairness/manual-reports/${projectId}`, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
-                    }
+                    },
+                    signal: controller.signal
                 });
 
                 if (!res.ok) throw new Error("Failed to fetch");
 
                 const data = await res.json();
-                if (data.success) {
+                if (data.success && !controller.signal.aborted) {
                     setReports(data.reports);
                 }
-            } catch (err) {
+            } catch (err: any) {
+                if (err.name === 'AbortError') return;
                 console.error("Failed to fetch manual reports:", err);
-                setError("Failed to load manual test history");
+                if (!controller.signal.aborted) {
+                    setError("Failed to load manual test history");
+                }
             } finally {
-                setIsLoading(false);
+                if (!controller.signal.aborted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchReports();
+        return () => controller.abort();
     }, [projectId]);
 
     const handleViewReport = (report: ManualReport) => {
@@ -111,6 +119,14 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
     }
 
     const getStatusBadge = (success: number, failure: number) => {
+        if (success === 0 && failure === 0) {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">
+                    <Loader2 className="w-3.5 h-3.5" />
+                    Pending
+                </span>
+            );
+        }
         if (failure === 0 && success > 0) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">

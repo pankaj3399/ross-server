@@ -117,8 +117,38 @@ export function sanitizeConfig(config: any): any {
         // If config is a string (JSON), parse it first
         const parsed = typeof config === 'string' ? JSON.parse(config) : config;
         
+        // Helper to scrub a string value for URL params or embedded secrets
+        const scrubString = (str: string): string => {
+             // 1. Try treating as URL
+             try {
+                 const url = new URL(str);
+                 let changed = false;
+                 url.searchParams.forEach((val, key) => {
+                     if (sensitivePattern.test(key)) {
+                         url.searchParams.set(key, "[REDACTED]");
+                         changed = true;
+                     }
+                 });
+                 if (changed) {
+                     return url.toString();
+                 }
+                 // If valid URL but no query params matched, fall through to check other patterns
+             } catch (e) {
+                 // Not a URL, ignore
+             }
+
+             // 2. Fallback check for "Bearer <token>" style patterns or direct sensitive keys in template strings
+             // This is a simple heuristic.
+             // Redact patterns like "Bearer eyJ..." -> "Bearer [REDACTED]"
+             return str.replace(/(bearer\s+)([a-zA-Z0-9\-\._~+\/]+)/gi, "$1[REDACTED]");
+        };
+
         // Recursive sanitization helper
         const sanitizeRecursive = (obj: any): any => {
+            if (typeof obj === 'string') {
+                return scrubString(obj);
+            }
+
             if (typeof obj !== 'object' || obj === null) {
                 return obj;
             }
@@ -140,8 +170,7 @@ export function sanitizeConfig(config: any): any {
 
         return sanitizeRecursive(parsed);
     } catch (e) {
-        // Best-effort fallback on error: Return a structure where strings are redacted
-        // or just return "[REDACTED]" if it's too risky.
+        // Best-effort fallback on error
         try {
             if (typeof config === 'object' && config !== null) {
                 // Return a shallow copy where all values are redacted to be safe
