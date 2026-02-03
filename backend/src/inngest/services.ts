@@ -594,8 +594,7 @@ export async function markJobCompleted(
   
 
 
-  const updatedPayload = {
-    ...payload,
+  const partialPayload = {
     summary: data.summary,
     results: data.results,
     errors: data.errors,
@@ -606,12 +605,12 @@ export async function markJobCompleted(
      SET status = $1,
          progress = $2,
          percent = 100,
-         payload = $3
+         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
      WHERE id = $4`,
     [
       finalStatus,
       `${data.summary.total}/${data.summary.total}`,
-      JSON.stringify(updatedPayload),
+      JSON.stringify(partialPayload),
       jobInternalId,
     ],
   );

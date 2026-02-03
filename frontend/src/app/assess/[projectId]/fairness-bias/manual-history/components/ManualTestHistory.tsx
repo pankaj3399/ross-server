@@ -66,18 +66,22 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
     };
 
     const parseBackendDate = (dateStr: string) => {
+        if (!dateStr) return null;
         const hasTimezone = /Z$|[+-]\d{2}:\d{2}$/.test(dateStr);
         let normalized = dateStr.replace(' ', 'T');
         if (!hasTimezone) {
             normalized = `${normalized}Z`;
         }
-        return new Date(normalized);
+        const date = new Date(normalized);
+        return isNaN(date.getTime()) ? null : date;
     };
 
     const sortedReports = useMemo(() => {
-        return [...reports].sort((a, b) =>
-            parseBackendDate(b.created_at).getTime() - parseBackendDate(a.created_at).getTime()
-        );
+        return [...reports].sort((a, b) => {
+            const dateA = parseBackendDate(a.created_at)?.getTime() ?? 0;
+            const dateB = parseBackendDate(b.created_at)?.getTime() ?? 0;
+            return dateB - dateA;
+        });
     }, [reports]);
 
     const displayedReports = isExpanded ? sortedReports : sortedReports.slice(0, 5);
@@ -183,7 +187,7 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                         onClick={() => handleViewReport(report)}
                                     >
                                         <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                                            <div>{parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                                            <div>{parseBackendDate(report.created_at)?.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) || "Invalid Date"}</div>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
