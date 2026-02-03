@@ -100,12 +100,20 @@ export function sanitizeForPrompt(input: string): string {
 
 /**
  * Sanitizes a configuration object by redacting sensitive keys.
- * Recursively checking is not performed, it only redacts top-level keys 
- * unless the object implementation is changed. 
- * Based on the previous implementation, it iterates over keys.
+ * Performs recursive redaction on nested objects and arrays.
+ * Also attempts to scrub sensitive information (like API keys or passwords) from string values,
+ * including URL query parameters and Basic Auth credentials.
  * 
- * @param config - The value to sanitize (usually a config object or stringified JSON)
- * @returns The sanitized object or original value
+ * Sensitive keys targeted (case-insensitive):
+ * - api-key, api_key, apikey
+ * - token, access-token, access_token
+ * - secret, password
+ * - credentials
+ * - private-key, private_key, privatekey
+ * - bearer, auth
+ * 
+ * @param config - The value to sanitize (recursive object, array, or stringified JSON)
+ * @returns A new object/array/string with sensitive values redacted, or the original value if no changes needed.
  */
 export function sanitizeConfig(config: any): any {
     if (!config) return config;
@@ -115,7 +123,17 @@ export function sanitizeConfig(config: any): any {
 
     try {
         // If config is a string (JSON), parse it first
-        const parsed = typeof config === 'string' ? JSON.parse(config) : config;
+        let parsed: any;
+        try {
+            parsed = typeof config === 'string' ? JSON.parse(config) : config;
+        } catch (e) {
+            // If parsing fails but it is a string, treat as raw string to scrub
+            if (typeof config === 'string') {
+                parsed = config;
+            } else {
+                throw e;
+            }
+        }
         
         // Helper to scrub a string value for URL params or embedded secrets
         const scrubString = (str: string): string => {
@@ -123,6 +141,14 @@ export function sanitizeConfig(config: any): any {
              try {
                  const url = new URL(str);
                  let changed = false;
+
+                 // Redact Basic Auth
+                 if (url.username || url.password) {
+                     url.username = "[REDACTED]";
+                     url.password = "[REDACTED]";
+                     changed = true;
+                 }
+
                  url.searchParams.forEach((val, key) => {
                      if (sensitivePattern.test(key)) {
                          url.searchParams.set(key, "[REDACTED]");
