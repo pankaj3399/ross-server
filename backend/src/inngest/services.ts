@@ -1,5 +1,6 @@
 import pool from "../config/database";
 import type { EvaluationPayload } from "../services/evaluateFairness";
+import { sanitizeConfig } from "../utils/sanitize";
 
 // Types 
 // Extended payload types that include runtime fields added during job processing
@@ -195,7 +196,13 @@ export function buildSummary(total: number, results: JobResult[], errors: JobErr
   // Ensure we don't count the same prompt multiple times if results/errors arrays are somehow messy
   // Although the aggregator should prevent this, this is a defensive measure.
   const successCount = Math.min(results.length, total);
-  const failureCount = Math.min(errors.length, total - successCount);
+  const failureCount = Math.min(errors.length, Math.max(0, total - successCount));
+
+  if (results.length + errors.length !== total || errors.length > total - successCount) {
+    console.warn(
+      `[buildSummary] Inconsistent state detected: results=${results.length}, errors=${errors.length}, total=${total}`
+    );
+  }
 
   const average = (arr: number[]) =>
     arr.length === 0 ? 0 : arr.reduce((sum, value) => sum + value, 0) / arr.length;
@@ -585,20 +592,9 @@ export async function markJobCompleted(
     finalStatus = "partial_success";
   }
   
-  const sanitizeConfigForStorage = (config: any): any => {
-    if (!config || typeof config !== 'object') return config;
-    const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
-    const sanitized = { ...config };
-    for (const key of Object.keys(sanitized)) {
-      if (sensitivePattern.test(key)) {
-        sanitized[key] = "[REDACTED]";
-      }
-    }
-    return sanitized;
-  };
 
-  const updatedPayload = {
-    ...payload,
+
+  const partialPayload = {
     summary: data.summary,
     results: data.results,
     errors: data.errors,
@@ -609,18 +605,18 @@ export async function markJobCompleted(
      SET status = $1,
          progress = $2,
          percent = 100,
-         payload = $3
+         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
      WHERE id = $4`,
     [
       finalStatus,
       `${data.summary.total}/${data.summary.total}`,
-      JSON.stringify(updatedPayload),
+      JSON.stringify(partialPayload),
       jobInternalId,
     ],
   );
 
-  // If this is an API test, save to persistent history table
-  if (payload.type === "FAIRNESS_API") {
+  // If this is an API test or Manual Prompt test, save to persistent history table
+  if (payload.type === "FAIRNESS_API" || payload.type === "FAIRNESS_PROMPTS") {
     try {
         // Need to fetch user_id, project_id, job_id from the job record first to be safe,
         // or we can rely on what we have if we passed it in. 
@@ -634,6 +630,12 @@ export async function markJobCompleted(
         if (jobResult.rows.length > 0) {
             const { user_id, project_id, job_id } = jobResult.rows[0];
             
+            // For manual tests, config is empty/minimal, but we need to identify it
+            // For API tests, we sanitize the existing config
+            const configToSave = payload.type === "FAIRNESS_API" 
+                ? (sanitizeConfig(payload.config) || {})
+                : { testType: "MANUAL_PROMPT_TEST" };
+
             await pool.query(
                 `INSERT INTO api_test_reports 
                  (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
@@ -661,7 +663,7 @@ export async function markJobCompleted(
                     }),
                     JSON.stringify(data.results),
                     JSON.stringify(data.errors),
-                    JSON.stringify(sanitizeConfigForStorage(payload.config) || {})
+                    JSON.stringify(configToSave)
                 ]
             );
         }

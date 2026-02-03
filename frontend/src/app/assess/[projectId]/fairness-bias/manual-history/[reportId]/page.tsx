@@ -2,11 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, FileEdit, FileJson, Download, Loader2 } from "lucide-react";
 import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
 
-type ApiReportDetail = {
+type ManualReportDetail = {
     id: string;
     job_id: string;
     total_prompts: number;
@@ -31,6 +31,7 @@ type ApiReportDetail = {
             toxicityScore: number;
             explanation: string;
         };
+        userResponse?: string;
         message: string;
     }>;
     errors: Array<{
@@ -40,72 +41,81 @@ type ApiReportDetail = {
         error: string;
         message: string;
     }>;
-    config: any;
     created_at: string;
 };
 
-export default function ApiReportDetailPage() {
+type SuccessItem = {
+    category: string;
+    prompt: string;
+    success: true;
+    evaluation: {
+        overallVerdict: string;
+        overallScore: number;
+        biasScore: number;
+        toxicityScore: number;
+        explanation: string;
+    };
+    userResponse?: string;
+    message: string;
+};
+
+type ErrorItem = {
+    category: string;
+    prompt: string;
+    success: false;
+    error: string;
+    message: string;
+};
+
+type AllItem = SuccessItem | ErrorItem;
+
+export default function ManualReportDetailPage() {
     const params = useParams();
     const router = useRouter();
     const projectId = params.projectId as string;
     const reportId = params.reportId as string;
     const reportRef = useRef<HTMLDivElement>(null);
 
-    const [report, setReport] = useState<ApiReportDetail | null>(null);
+    const [report, setReport] = useState<ManualReportDetail | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const normalizedGeneratedAt = (() => {
-        if (!report?.created_at) return undefined;
-        const d = new Date(report.created_at);
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
-    })();
+    const normalizedGeneratedAt = report?.created_at;
 
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
-        fileName: `api-fairness-report-${reportId}.pdf`,
-        reportTitle: "API Fairness & Bias Report",
+        fileName: `manual-fairness-report-${reportId}.pdf`,
+        reportTitle: "Manual Fairness & Bias Report",
         projectName: projectId,
         generatedAt: normalizedGeneratedAt
     });
 
     useEffect(() => {
-        const controller = new AbortController();
-
         const fetchReport = async () => {
             try {
-                // Similarly using direct fetch as we assumed for the list
-                const res = await fetch(`${API_BASE_URL}/fairness/api-reports/detail/${reportId}`, {
+                const res = await fetch(`${API_BASE_URL}/fairness/manual-reports/detail/${reportId}`, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
-                    },
-                    signal: controller.signal
+                    }
                 });
 
                 if (!res.ok) throw new Error("Failed to fetch report details");
 
                 const data = await res.json();
-                if (!controller.signal.aborted && data.success) {
+                if (data.success) {
                     setReport(data.report);
                 }
-            } catch (err: any) {
-                if (err.name === 'AbortError' || controller.signal.aborted) return;
-                console.error("Failed to fetch API report details:", err);
+            } catch (err) {
+                console.error("Failed to fetch manual report details:", err);
                 setError("Failed to load report details");
             } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoading(false);
-                }
+                setIsLoading(false);
             }
         };
 
         if (reportId) {
             fetchReport();
         }
-
-        return () => {
-            controller.abort();
-        };
     }, [reportId]);
 
     const getScoreColor = (score: number) => {
@@ -139,7 +149,10 @@ export default function ApiReportDetailPage() {
     }
 
     const { results, errors } = report;
-    const allItems = [...(results || []), ...(errors || [])];
+    const allItems: AllItem[] = [...(results as any[] || []), ...(errors as any[] || [])].map(item => ({
+        ...item,
+        success: !!item.success
+    })) as AllItem[];
 
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
@@ -158,12 +171,12 @@ export default function ApiReportDetailPage() {
                             <div className="h-6 w-px bg-border hide-in-pdf" />
                             <div>
                                 <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
-                                    API Report Details
+                                    Manual Test Report Details
                                 </h1>
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                                     <span className="flex items-center gap-1.5">
-                                        <Server className="w-3.5 h-3.5" />
-                                        {report.config?.apiUrl}
+                                        <FileEdit className="w-3.5 h-3.5" />
+                                        Manual Evaluation
                                     </span>
                                 </div>
                             </div>
@@ -227,41 +240,6 @@ export default function ApiReportDetailPage() {
                     </div>
                 </div>
 
-                {/* Configuration */}
-                <div className="bg-card border border-border rounded-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-border bg-secondary/10">
-                        <h3 className="font-semibold flex items-center gap-2">
-                            <Terminal className="w-4 h-4" />
-                            Test Configuration
-                        </h3>
-                    </div>
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <div className="text-sm font-medium text-muted-foreground mb-2">Request Template</div>
-                                <pre className="bg-secondary/20 p-4 rounded-lg text-xs font-mono overflow-auto max-h-[200px]">
-                                    {report.config?.requestTemplate}
-                                </pre>
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1">Response Key</div>
-                                    <div className="bg-secondary/20 px-3 py-2 rounded-lg text-sm font-mono">
-                                        {report.config?.responseKey}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium text-muted-foreground mb-1">API Key Strategy</div>
-                                    <div className="bg-secondary/20 px-3 py-2 rounded-lg text-sm">
-                                        {report.config?.apiKeyPlacement || "None"}
-                                        {report.config?.apiKeyFieldName ? ` (${report.config.apiKeyFieldName})` : ""}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Detailed Results */}
                 <div className="space-y-6">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -304,52 +282,45 @@ export default function ApiReportDetailPage() {
                                         </div>
                                     </div>
                                     <div className="p-6 space-y-4">
-                                        <div>
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
-                                            <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
+                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Your Response</div>
+                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm whitespace-pre-wrap">{(item as any).userResponse || (item as any).response || "N/A"}</div>
+                                            </div>
                                         </div>
 
-                                        {(item as any).success && (item as any).evaluation ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {item.success ? (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border">
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Score Metrics</div>
                                                     <div className="space-y-2">
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Overall Score:</span>
-                                                            <span className={`font-bold ${Number.isFinite((item as any).evaluation?.overallScore)
-                                                                    ? getScoreColor((item as any).evaluation?.overallScore)
-                                                                    : "text-muted-foreground"
-                                                                }`}>
-                                                                {Number.isFinite((item as any).evaluation?.overallScore)
-                                                                    ? ((item as any).evaluation?.overallScore * 100).toFixed(0) + "%"
-                                                                    : "N/A"}
+                                                            <span className={`font-bold ${getScoreColor(item.evaluation.overallScore)}`}>
+                                                                {(item.evaluation.overallScore * 100).toFixed(0)}%
                                                             </span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Bias Score:</span>
-                                                            <span className="font-mono">
-                                                                {Number.isFinite((item as any).evaluation?.biasScore)
-                                                                    ? ((item as any).evaluation?.biasScore * 100).toFixed(1) + "%"
-                                                                    : "N/A"}
-                                                            </span>
+                                                            <span className="font-mono">{(item.evaluation.biasScore * 100).toFixed(1)}%</span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Toxicity Score:</span>
-                                                            <span className="font-mono">
-                                                                {Number.isFinite((item as any).evaluation?.toxicityScore)
-                                                                    ? ((item as any).evaluation?.toxicityScore * 100).toFixed(1) + "%"
-                                                                    : "N/A"}
-                                                            </span>
+                                                            <span className="font-mono">{(item.evaluation.toxicityScore * 100).toFixed(1)}%</span>
                                                         </div>
                                                         <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                            {(item as any).evaluation?.overallVerdict || "No verdict"}
+                                                            {item.evaluation.overallVerdict}
                                                         </div>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Explanation</div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">AI Feedback</div>
                                                     <div className="text-sm text-foreground/80 leading-relaxed">
-                                                        {(item as any).evaluation?.explanation || "No explanation provided."}
+                                                        {item.evaluation.explanation || "No explanation provided."}
                                                     </div>
                                                 </div>
                                             </div>

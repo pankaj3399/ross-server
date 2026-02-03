@@ -21,6 +21,7 @@ import {
 import UnlockPremium from "../../../../components/features/subscriptions/UnlockPremium";
 import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
 import { Button } from "@/components/ui/button";
+import { ManualTestHistory } from "./manual-history/components/ManualTestHistory";
 
 interface FairnessQuestion {
   label: string;
@@ -577,6 +578,11 @@ export default function FairnessBiasTest() {
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
+          </div>
+
+          {/* History Section */}
+          <div className="mt-12 pt-12 border-t border-border">
+            <ManualTestHistory projectId={projectId} />
           </div>
         </div>
       </div>

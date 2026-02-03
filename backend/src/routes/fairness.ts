@@ -20,8 +20,11 @@ import {
     getPositiveMetricLabel,
     THRESHOLDS
 } from "../utils/fairnessThresholds";
+import { sanitizeConfig } from "../utils/sanitize";
 
 const router = Router();
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Batch API evaluation schema
 const evaluateApiSchema = z.object({
@@ -755,22 +758,7 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
     }
 });
 
-function sanitizeConfigResponse(config: any): any {
-    if (!config) return config;
-    try {
-        const parsed = typeof config === 'string' ? JSON.parse(config) : config;
-        const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token/i;
-        const sanitized = { ...parsed };
-        for (const key of Object.keys(sanitized)) {
-            if (sensitivePattern.test(key)) {
-                sanitized[key] = "[REDACTED]";
-            }
-        }
-        return sanitized;
-    } catch (e) {
-        return config; // Fallback for non-JSON or other issues
-    }
-}
+
 
 // GET /fairness/api-reports/:projectId - Get all API test reports for a project
 router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
@@ -796,7 +784,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const countResult = await pool.query(
              `SELECT COUNT(*) as total
               FROM api_test_reports
-              WHERE project_id = $1 AND user_id = $2`,
+              WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')`,
              [projectId, userId]
         );
         const total = parseInt(countResult.rows[0].total || '0');
@@ -806,7 +794,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                 id, job_id, total_prompts, success_count, failure_count,
                 average_scores, config, created_at
              FROM api_test_reports
-             WHERE project_id = $1 AND user_id = $2
+             WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')
              ORDER BY created_at DESC
              LIMIT $3 OFFSET $4`,
             [projectId, userId, limit, offset]
@@ -816,7 +804,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
             success: true, 
             reports: result.rows.map(row => ({
                 ...row,
-                config: sanitizeConfigResponse(row.config)
+                config: sanitizeConfig(row.config)
             })),
             pagination: {
                 total,
@@ -838,8 +826,9 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
         const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
@@ -857,7 +846,7 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
             success: true, 
             report: {
                 ...result.rows[0],
-                config: sanitizeConfigResponse(result.rows[0].config)
+                config: sanitizeConfig(result.rows[0].config)
             },
         });
     } catch (error: any) {
@@ -873,8 +862,9 @@ router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
         
         // Validate UUID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!uuidRegex.test(reportId)) {
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
             return res.status(400).json({ error: "Invalid reportId" });
         }
 
@@ -893,5 +883,132 @@ router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Failed to delete API test report" });
     }
 });
+
+// GET /fairness/manual-reports/:projectId - Get all Manual test reports for a project
+router.get("/manual-reports/:projectId", authenticateToken, async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.user!.id;
+        
+        // Verify project belongs to user
+        const projectCheck = await pool.query(
+            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+        
+        if (projectCheck.rows.length === 0) {
+            return res.status(403).json({ error: "Project not found or access denied" });
+        }
+        
+        // Parse pagination params
+        const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
+        const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
+
+        // Fetch reports for this project with pagination
+        // Filter by config having testType = MANUAL_PROMPT_TEST
+        const countResult = await pool.query(
+             `SELECT COUNT(*) as total
+              FROM api_test_reports
+              WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' = 'MANUAL_PROMPT_TEST')`,
+             [projectId, userId]
+        );
+        const total = parseInt(countResult.rows[0].total || '0');
+
+        const result = await pool.query(
+            `SELECT 
+                id, job_id, total_prompts, success_count, failure_count,
+                average_scores, config, created_at
+             FROM api_test_reports
+             WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' = 'MANUAL_PROMPT_TEST')
+             ORDER BY created_at DESC
+             LIMIT $3 OFFSET $4`,
+            [projectId, userId, limit, offset]
+        );
+        
+        res.json({ 
+            success: true, 
+            reports: result.rows.map(row => ({
+                ...row,
+                config: sanitizeConfig(row.config)
+            })),
+            pagination: {
+                total,
+                limit,
+                offset,
+                hasMore: offset + result.rows.length < total
+            }
+        });
+    } catch (error: any) {
+        console.error("Error fetching manual test reports:", error);
+        res.status(500).json({ error: "Failed to fetch manual test reports" });
+    }
+});
+
+// GET /fairness/manual-reports/detail/:reportId - Get full detail of a specific Manual report
+router.get("/manual-reports/detail/:reportId", authenticateToken, async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userId = req.user!.id;
+        
+        // Validate UUID format
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
+            return res.status(400).json({ error: "Invalid reportId" });
+        }
+
+        const result = await pool.query(
+            `SELECT * FROM api_test_reports
+             WHERE id = $1 AND user_id = $2 AND (config->>'testType' = 'MANUAL_PROMPT_TEST')`,
+            [reportId, userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Report not found or access denied" });
+        }
+        
+        res.json({ 
+            success: true, 
+            report: {
+                ...result.rows[0],
+                config: sanitizeConfig(result.rows[0].config)
+            }
+        });
+    } catch (error: any) {
+        console.error("Error fetching manual test report details:", error);
+        res.status(500).json({ error: "Failed to fetch manual test report details" });
+    }
+});
+
+// DELETE /fairness/manual-reports/:reportId - Delete a Manual test report
+router.delete("/manual-reports/:reportId", authenticateToken, async (req, res) => {
+    try {
+        const { reportId } = req.params;
+        const userId = req.user!.id;
+        
+        // Validate UUID format
+
+        // Validate UUID format
+        if (!UUID_REGEX.test(reportId)) {
+            return res.status(400).json({ error: "Invalid reportId" });
+        }
+
+        const result = await pool.query(
+            "DELETE FROM api_test_reports WHERE id = $1 AND user_id = $2 AND (config->>'testType' = 'MANUAL_PROMPT_TEST') RETURNING id",
+            [reportId, userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Report not found or access denied" });
+        }
+        
+        res.json({ success: true, message: "Report deleted successfully" });
+    } catch (error: any) {
+        console.error("Error deleting manual test report:", error);
+        res.status(500).json({ error: "Failed to delete manual test report" });
+    }
+});
+
+
 
 export default router;
