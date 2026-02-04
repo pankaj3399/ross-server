@@ -93,7 +93,6 @@ const DatasetTestingReportPage = () => {
                 console.error("Failed to fetch report:", error);
 
                 // Fallback to session storage on API error
-                // Fallback to session storage on API error
                 setPayload(loadPayloadFromSession(projectId));
             } finally {
                 setIsLoading(false);

@@ -46,7 +46,7 @@ app.use(cors({
 
 // Specific route requiring larger payload - defined BEFORE global body parser
 // This ensures that for this specific path, the 50mb limit applies and consumes the stream
-app.use("/fairness/dataset-evaluate", express.json({ limit: '50mb' }));
+app.use("/fairness/dataset-evaluate", authenticateToken, express.json({ limit: '50mb' }));
 
 // Set a global body size limit for JSON (25MB)
 app.use(express.json({ limit: '25mb' }));
