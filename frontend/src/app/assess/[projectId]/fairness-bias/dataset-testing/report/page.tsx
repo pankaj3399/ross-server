@@ -26,6 +26,18 @@ const formatBytes = (bytes: number) => {
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
+const loadPayloadFromSession = (projectId: string): DatasetReportPayload | null => {
+    if (typeof window === "undefined") return null;
+    const key = getDatasetTestingReportKey(projectId);
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as DatasetReportPayload;
+    } catch {
+        return null;
+    }
+};
+
 const DatasetTestingReportPage = () => {
     const router = useRouter();
     const params = useParams<{ projectId: string }>();
@@ -75,33 +87,14 @@ const DatasetTestingReportPage = () => {
                     setPayload(mappedPayload);
                 } else {
                     // Fallback to session storage only if API fails or returns no reports (backward compatibility)
-                    const key = getDatasetTestingReportKey(projectId);
-                    const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(key) : null;
-                    if (raw) {
-                        try {
-                            setPayload(JSON.parse(raw) as DatasetReportPayload);
-                        } catch {
-                            setPayload(null);
-                        }
-                    } else {
-                        setPayload(null);
-                    }
+                    setPayload(loadPayloadFromSession(projectId));
                 }
             } catch (error) {
                 console.error("Failed to fetch report:", error);
 
                 // Fallback to session storage on API error
-                const key = getDatasetTestingReportKey(projectId);
-                const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(key) : null;
-                if (raw) {
-                    try {
-                        setPayload(JSON.parse(raw) as DatasetReportPayload);
-                    } catch {
-                        setPayload(null);
-                    }
-                } else {
-                    setPayload(null);
-                }
+                // Fallback to session storage on API error
+                setPayload(loadPayloadFromSession(projectId));
             } finally {
                 setIsLoading(false);
             }

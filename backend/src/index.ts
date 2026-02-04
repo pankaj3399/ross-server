@@ -43,8 +43,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-// Set a small global body size limit for JSON (e.g., 1MB)
-app.use(express.json({ limit: '50mb' }));
+
+// Specific route requiring larger payload - defined BEFORE global body parser
+// This ensures that for this specific path, the 50mb limit applies and consumes the stream
+app.use("/fairness/dataset-evaluate", express.json({ limit: '50mb' }));
+
+// Set a global body size limit for JSON (25MB)
+app.use(express.json({ limit: '25mb' }));
 app.use("/", publicRouter);
 
 app.get("/health", (_req, res) => {

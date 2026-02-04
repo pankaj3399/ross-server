@@ -96,8 +96,8 @@ router.get("/prompts", authenticateToken, async (req, res) => {
 });
 
 // POST /fairness/dataset-evaluate - Evaluate dataset fairness from CSV
-// Apply larger body size limit (25MB) specifically for CSV evaluation
-router.post("/dataset-evaluate", authenticateToken, express.json({ limit: "50mb" }), async (req, res) => {
+// Large payload limit (50MB) is handled in index.ts before global parser
+router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     try {
         // Check if Gemini is configured - required for explanations
         if (!isGeminiConfigured()) {
