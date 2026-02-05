@@ -290,10 +290,7 @@ const DatasetTestingPage = () => {
         projectName: projectInfo?.name,
         aiSystemType: projectInfo?.aiSystemType,
       };
-      if (typeof window !== "undefined") {
-        const storageKey = getDatasetTestingReportKey(projectId);
-        window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
-      }
+      // Note: Data is now fetched from API in report page to avoid sessionStorage limits
       router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report`);
     } catch (apiError) {
       const message = apiError instanceof Error ? apiError.message : "Evaluation failed";

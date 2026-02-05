@@ -4,12 +4,6 @@ import { FairnessColumn } from "../../types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
@@ -57,6 +51,7 @@ const getStatusConfig = (verdict: string) => {
 
 export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: SensitiveColumnAnalysisProps) => {
     const [showDetails, setShowDetails] = useState(false);
+    const [showExplanation, setShowExplanation] = useState(false);
     const MIN_PROGRESS_BAR_WIDTH = 5;
 
     const status = getStatusConfig(column.verdict);
@@ -222,34 +217,32 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                 <div className="flex items-center justify-between pt-3 border-t border-border text-xs text-muted-foreground">
                     <span>{column.groups.reduce((sum, g) => sum + g.rows, 0).toLocaleString()} total samples</span>
                     {column.explanation && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 hide-in-pdf"
-                                        aria-label="Show explanation"
-                                    >
-                                        <Info className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                    <div className="leading-relaxed text-xs">
-                                        {Array.isArray(column.explanation)
-                                            ? column.explanation.map((item, i) => (
-                                                <p key={i} className="mb-1 last:mb-0">
-                                                    {item}
-                                                </p>
-                                            ))
-                                            : column.explanation}
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowExplanation(!showExplanation)}
+                            className="h-6 w-6 hide-in-pdf"
+                            title="What does this mean?"
+                            aria-label="Toggle explanation"
+                            aria-expanded={showExplanation}
+                        >
+                            <Info className="w-4 h-4 text-muted-foreground hover:text-primary transition-colors" />
+                        </Button>
                     )}
                 </div>
+                {/* Expandable explanation */}
+                {showExplanation && column.explanation && (
+                    <div className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1 animate-fadeIn">
+                        {Array.isArray(column.explanation)
+                            ? column.explanation.map((item, i) => (
+                                <p key={i} className="mb-1 last:mb-0">
+                                    {item}
+                                </p>
+                            ))
+                            : <p>{column.explanation}</p>}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

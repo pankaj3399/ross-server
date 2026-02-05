@@ -20,6 +20,7 @@ import {
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FALLBACK_PRICES } from "../lib/constants";
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -401,7 +402,7 @@ export default function Home() {
                     <h3 className="text-2xl font-bold text-foreground mb-2">BLOOM</h3>
                     <p className="text-sm text-primary font-medium mb-4">Full Maturity, Testing & Automation</p>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-foreground">$100</span>
+                      <span className="text-4xl font-bold text-foreground">${FALLBACK_PRICES.basic}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
                   </div>
@@ -467,7 +468,7 @@ export default function Home() {
                     <h3 className="text-2xl font-bold text-foreground mb-2">BLOOM PLUS</h3>
                     <p className="text-sm text-primary font-medium mb-4">Expert AI Governance Support</p>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold text-foreground">$1000</span>
+                      <span className="text-4xl font-bold text-foreground">${FALLBACK_PRICES.pro}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
                   </div>

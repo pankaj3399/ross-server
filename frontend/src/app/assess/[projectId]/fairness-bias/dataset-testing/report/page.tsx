@@ -7,6 +7,7 @@ import {
     ArrowLeft,
     FileText,
 } from "lucide-react";
+import { apiService } from "@/lib/api";
 import type { DatasetMetric, DatasetReportPayload, FairnessColumn } from "../types";
 import { getDatasetTestingReportKey } from "../storage";
 import { Skeleton } from "@/components/Skeleton";
@@ -25,6 +26,18 @@ const formatBytes = (bytes: number) => {
 
 const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
+const loadPayloadFromSession = (projectId: string): DatasetReportPayload | null => {
+    if (typeof window === "undefined") return null;
+    const key = getDatasetTestingReportKey(projectId);
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as DatasetReportPayload;
+    } catch {
+        return null;
+    }
+};
+
 const DatasetTestingReportPage = () => {
     const router = useRouter();
     const params = useParams<{ projectId: string }>();
@@ -40,18 +53,53 @@ const DatasetTestingReportPage = () => {
 
     useEffect(() => {
         if (!projectId) return;
-        const key = getDatasetTestingReportKey(projectId);
-        const raw = typeof window !== "undefined" ? window.sessionStorage.getItem(key) : null;
-        if (raw) {
+
+        const fetchReport = async () => {
+            setIsLoading(true);
             try {
-                setPayload(JSON.parse(raw) as DatasetReportPayload);
-            } catch {
-                setPayload(null);
+                // Try to get from API first (preferred method for large datasets)
+                const response = await apiService.getDatasetReports(projectId);
+                if (response.success && response.reports.length > 0) {
+                    // Take the most recent report
+                    const latestReport = response.reports[0];
+
+                    // Map API response to local payload format
+                    const mappedPayload: DatasetReportPayload = {
+                        result: {
+                            fairness: latestReport.fairness_data,
+                            fairnessResult: latestReport.fairness_result,
+                            biasness: latestReport.biasness_result,
+                            toxicity: latestReport.toxicity_result,
+                            relevance: latestReport.relevance_result,
+                            faithfulness: latestReport.faithfulness_result,
+                        },
+                        fileMeta: {
+                            name: latestReport.file_name,
+                            size: latestReport.file_size,
+                            uploadedAt: latestReport.uploaded_at,
+                        },
+                        preview: latestReport.csv_preview,
+                        generatedAt: latestReport.created_at,
+                        selections: latestReport.selections,
+                        // Optional fields might need to be fetched or inferred if not in report data
+                        // For now leaving undefined as they are optional in DatasetReportPayload
+                    };
+                    setPayload(mappedPayload);
+                } else {
+                    // Fallback to session storage only if API fails or returns no reports (backward compatibility)
+                    setPayload(loadPayloadFromSession(projectId));
+                }
+            } catch (error) {
+                console.error("Failed to fetch report:", error);
+
+                // Fallback to session storage on API error
+                setPayload(loadPayloadFromSession(projectId));
+            } finally {
+                setIsLoading(false);
             }
-        } else {
-            setPayload(null);
-        }
-        setIsLoading(false);
+        };
+
+        fetchReport();
     }, [projectId]);
 
     const metricCards = useMemo<Array<{ key: string; title: string; data: DatasetMetric }>>(() => {
