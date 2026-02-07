@@ -302,159 +302,138 @@ const DatasetTestingPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-            <div className="h-6 w-px bg-border" />
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Dataset Testing
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Upload a CSV to evaluate your dataset for fairness and bias
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="pt-4">
 
 
-      {/* Error state - subscription check failed */}
-      {!isCheckingSubscription && subscriptionStatus === 'unknown' && (
-        <div className="max-w-7xl mx-auto px-6 py-12">
-          <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
-            <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
-              <RefreshCw className="w-8 h-8 text-warning" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-foreground">Unable to Verify Subscription</h2>
-              <p className="text-muted-foreground max-w-md mx-auto">
-                We encountered a temporary error while checking your subscription status. Please try again.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning/90 transition"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Free tier - locked feature */}
-      {
-        !isCheckingSubscription && subscriptionStatus === 'free' && (
+        {/* Error state - subscription check failed */}
+        {!isCheckingSubscription && subscriptionStatus === 'unknown' && (
           <div className="max-w-7xl mx-auto px-6 py-12">
             <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="w-8 h-8 text-primary" />
+              <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
+                <RefreshCw className="w-8 h-8 text-warning" />
               </div>
               <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-foreground">Premium Feature</h2>
+                <h2 className="text-2xl font-bold text-foreground">Unable to Verify Subscription</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                  Fairness & Bias evaluation is available on Premium plans. Upgrade your account to access advanced dataset testing.
+                  We encountered a temporary error while checking your subscription status. Please try again.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => router.push("/subscriptions")}
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-2 rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning/90 transition"
               >
-                Upgrade to Premium
+                <RefreshCw className="w-4 h-4" />
+                Retry
               </button>
             </div>
           </div>
-        )
-      }
+        )}
 
-      {/* Trial tier - temporary premium access with notice */}
-      {
-        !isCheckingSubscription && subscriptionStatus === 'trial' && (
-          <>
-            <div className="max-w-7xl mx-auto px-6 pt-6">
-              <div className="rounded-xl bg-secondary/50 border border-secondary px-4 py-3 flex items-center gap-3">
-                <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-secondary-foreground text-sm">⏱</span>
+        {/* Free tier - locked feature */}
+        {
+          !isCheckingSubscription && subscriptionStatus === 'free' && (
+            <div className="max-w-7xl mx-auto px-6 py-12">
+              <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
+                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
+                  <Lock className="w-8 h-8 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    You're on a trial plan
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Upgrade to keep access to Fairness & Bias evaluation after your trial ends.
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Premium Feature</h2>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Fairness & Bias evaluation is available on Premium plans. Upgrade your account to access advanced dataset testing.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => router.push("/subscriptions")}
-                  className="text-xs font-semibold text-primary hover:text-primary/80 transition"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition"
                 >
-                  Upgrade →
+                  Upgrade to Premium
                 </button>
               </div>
             </div>
-            <DatasetUploadSection
-              inputId="csv-upload-trial"
-              fileInputRef={fileInputRef}
-              handleDragOver={handleDragOver}
-              handleDrop={handleDrop}
-              handleFileChange={handleFileChange}
-              handleReset={handleReset}
-              handleEvaluate={handleEvaluate}
-              error={error}
-              isParsing={isParsing}
-              isEvaluating={isEvaluating}
-              hasFile={hasFile}
-              fileMeta={fileMeta}
-              preview={preview}
-            />
+          )
+        }
 
-            <div className="max-w-7xl mx-auto px-6 pb-12">
-              <div className="h-px bg-border mb-8 mt-12" />
-              <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
+        {/* Trial tier - temporary premium access with notice */}
+        {
+          !isCheckingSubscription && subscriptionStatus === 'trial' && (
+            <>
+              <div className="max-w-7xl mx-auto px-6 pt-6">
+                <div className="rounded-xl bg-secondary/50 border border-secondary px-4 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-secondary-foreground text-sm">⏱</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      You're on a trial plan
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Upgrade to keep access to Fairness & Bias evaluation after your trial ends.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/subscriptions")}
+                    className="text-xs font-semibold text-primary hover:text-primary/80 transition"
+                  >
+                    Upgrade →
+                  </button>
+                </div>
+              </div>
+              <DatasetUploadSection
+                inputId="csv-upload-trial"
+                fileInputRef={fileInputRef}
+                handleDragOver={handleDragOver}
+                handleDrop={handleDrop}
+                handleFileChange={handleFileChange}
+                handleReset={handleReset}
+                handleEvaluate={handleEvaluate}
+                error={error}
+                isParsing={isParsing}
+                isEvaluating={isEvaluating}
+                hasFile={hasFile}
+                fileMeta={fileMeta}
+                preview={preview}
+              />
+
+              <div className="max-w-7xl mx-auto px-6 pb-12">
+                <div className="h-px bg-border mb-8 mt-12" />
+                <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
+              </div>
+            </>
+          )
+        }
+
+        {/* Premium tier - full access */}
+        {
+          !isCheckingSubscription && subscriptionStatus === 'premium' && (
+            <div className="space-y-12 pb-12">
+              <DatasetUploadSection
+                inputId="csv-upload"
+                fileInputRef={fileInputRef}
+                handleDragOver={handleDragOver}
+                handleDrop={handleDrop}
+                handleFileChange={handleFileChange}
+                handleReset={handleReset}
+                handleEvaluate={handleEvaluate}
+                error={error}
+                isParsing={isParsing}
+                isEvaluating={isEvaluating}
+                hasFile={hasFile}
+                fileMeta={fileMeta}
+                preview={preview}
+              />
+
+              <div className="max-w-7xl mx-auto px-6">
+                <div className="h-px bg-border mb-8" />
+                <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
+              </div>
             </div>
-          </>
-        )
-      }
-
-      {/* Premium tier - full access */}
-      {
-        !isCheckingSubscription && subscriptionStatus === 'premium' && (
-          <div className="space-y-12 pb-12">
-            <DatasetUploadSection
-              inputId="csv-upload"
-              fileInputRef={fileInputRef}
-              handleDragOver={handleDragOver}
-              handleDrop={handleDrop}
-              handleFileChange={handleFileChange}
-              handleReset={handleReset}
-              handleEvaluate={handleEvaluate}
-              error={error}
-              isParsing={isParsing}
-              isEvaluating={isEvaluating}
-              hasFile={hasFile}
-              fileMeta={fileMeta}
-              preview={preview}
-            />
-
-            <div className="max-w-7xl mx-auto px-6">
-              <div className="h-px bg-border mb-8" />
-              <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
-            </div>
-          </div>
-        )
-      }
+          )
+        }
+      </div>
     </div>
   );
 };

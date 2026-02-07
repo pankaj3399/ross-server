@@ -65,6 +65,7 @@ interface AssessmentContextType {
     error: string | null;
     projectNotFound: boolean;
     isPremium: boolean;
+    projectName: string;
 
     // Navigation State
     currentDomainId: string;
@@ -180,6 +181,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [submissionPhase, setSubmissionPhase] = useState<'saving-notes' | 'submitting' | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [projectNotFound, setProjectNotFound] = useState(false);
+    const [projectName, setProjectName] = useState<string>("");
 
     const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
@@ -320,6 +322,14 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     showToast.error("Failed to load assessment data.");
                 }
             } finally {
+                // Fetch project name regardless of AIMA data status if project exists
+                try {
+                    const project = await apiService.getProject(projectId);
+                    setProjectName(project.name);
+                } catch (e) {
+                    console.error("Failed to fetch project for name:", e);
+                }
+
                 if (!controller.signal.aborted) {
                     setLoading(false);
                 }
@@ -546,6 +556,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         error,
         projectNotFound,
         isPremium,
+        projectName,
         currentDomainId,
         currentPracticeId,
         currentQuestionIndex,

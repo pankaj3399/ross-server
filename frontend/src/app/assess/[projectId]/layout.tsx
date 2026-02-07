@@ -3,11 +3,13 @@
 import React from "react";
 import { AssessmentProvider, useAssessmentContext } from "../../../contexts/AssessmentContext";
 import AssessmentTreeNavigation from "../../../components/shared/AssessmentTreeNavigation";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
+import { Breadcrumb } from "../../../components/shared/Breadcrumb";
 
 function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
+    const pathname = usePathname();
     const {
         projectId,
         domains,
@@ -18,6 +20,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         setCurrentPracticeId,
         setCurrentQuestionIndex,
         isPremium,
+        projectName,
         answers,
     } = useAssessmentContext();
 
@@ -89,7 +92,32 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-y-auto">
-                {children}
+                <div className="px-8 py-6 max-w-7xl w-full mx-auto">
+                    <Breadcrumb
+                        projectName={projectName || "Loading project..."}
+                        projectHref={`/assess/${projectId}`}
+                        items={[
+                            {
+                                label: pathname.includes("premium-features")
+                                    ? "Premium Features"
+                                    : pathname.includes("premium-domains")
+                                        ? "Premium Domains"
+                                        : pathname.includes("fairness-bias/options")
+                                            ? "Fairness & Bias Testing"
+                                            : pathname.includes("fairness-bias/api-endpoint")
+                                                ? "API Automated Testing"
+                                                : pathname.includes("fairness-bias/dataset-testing")
+                                                    ? "Dataset Testing"
+                                                    : pathname.includes("fairness-bias")
+                                                        ? "Fairness & Bias Testing"
+                                                        : "AI Maturity Assessment (AIMA)",
+                            }
+                        ]}
+                    />
+                    <div className="mt-2 flex-1">
+                        {children}
+                    </div>
+                </div>
             </div>
         </div>
     );
