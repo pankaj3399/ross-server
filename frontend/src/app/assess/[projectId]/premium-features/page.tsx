@@ -46,28 +46,6 @@ export default function PremiumFeaturesPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-card border-b border-border p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => router.push(`/assess/${projectId}`)}
-              className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-            >
-              <IconArrowLeft className="w-4 h-4" />
-              Back to AIMA Assessment
-            </button>
-            <div className="h-6 w-px bg-border" />
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">
-                Premium Features
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Premium Features Content */}
       <div className="flex-1 overflow-y-auto bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

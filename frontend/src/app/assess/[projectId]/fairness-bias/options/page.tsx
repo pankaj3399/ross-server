@@ -194,32 +194,8 @@ export default function FairnessBiasOptions() {
     <div className="min-h-screen bg-background relative">
       {/* Blurred Content */}
       <div className={isPremium ? "" : "blur-sm pointer-events-none select-none"}>
-        {/* Header */}
-        <div className="bg-card border-b border-border">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
-                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <div className="h-6 w-px bg-border" />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  Fairness & Bias Test
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Select a method to test your model for fairness and bias
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="mb-8 text-center">
             <h2 className="text-xl font-semibold text-foreground mb-2">
               Choose Your Testing Method

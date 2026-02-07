@@ -173,36 +173,14 @@ export default function ApiEndpointPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push(`/assess/${projectId}/fairness-bias/options`)}
-                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <div className="h-6 w-px bg-border" />
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">
-                  API Automated Testing
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Test your model's API endpoint for fairness and bias
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint/pending-jobs`)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
-            >
-              Show all pending jobs
-            </Button>
-          </div>
-        </div>
+      {/* Actions Area */}
+      <div className="max-w-4xl mx-auto px-6 pt-4 flex justify-end">
+        <Button
+          onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint/pending-jobs`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
+        >
+          Show all pending jobs
+        </Button>
       </div>
 
       {/* Main Content */}
