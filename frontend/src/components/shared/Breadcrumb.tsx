@@ -12,7 +12,7 @@ import {
     BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-interface BreadcrumbItem {
+interface IBreadcrumbItem {
     label: string;
     href?: string;
 }
@@ -20,7 +20,7 @@ interface BreadcrumbItem {
 interface BreadcrumbProps {
     projectName: string;
     projectHref?: string;
-    items: BreadcrumbItem[];
+    items: IBreadcrumbItem[];
 }
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ projectName, projectHref, items }) => {
