@@ -183,6 +183,10 @@ export default function FairnessBiasTest() {
   ).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
+  const currentQuestionOrdinal = categories
+    .slice(0, currentCategoryIndex)
+    .reduce((sum, cat) => sum + cat.totalPrompts, 0) + currentPromptIndex + 1;
+
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => {
       const newSet = new Set(prev);
@@ -420,25 +424,14 @@ export default function FairnessBiasTest() {
       <div className={`flex-1 flex flex-col ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         <div className="bg-card border-b border-border p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                onClick={() => router.back()}
-                className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors pl-0 hover:bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div className="h-6 w-px bg-border" />
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">
-                  {currentCategory?.label || "Loading..."}
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Question {answeredQuestions} of {totalQuestions} • Prompt{" "}
-                  {currentPromptIndex + 1} of {currentCategory?.totalPrompts || 0}
-                </p>
-              </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {currentCategory?.label || "Loading..."}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Question {currentQuestionOrdinal} of {totalQuestions} • Prompt{" "}
+                {currentPromptIndex + 1} of {currentCategory?.totalPrompts || 0}
+              </p>
             </div>
             <Button
               onClick={handleEvaluateAssessment}
@@ -463,7 +456,7 @@ export default function FairnessBiasTest() {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-foreground">
-                  Question {answeredQuestions} of {totalQuestions}
+                  Question {currentQuestionOrdinal} of {totalQuestions}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {Math.round(progress)}% Complete

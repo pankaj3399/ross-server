@@ -3,11 +3,23 @@
 import React from "react";
 import { AssessmentProvider, useAssessmentContext } from "../../../contexts/AssessmentContext";
 import AssessmentTreeNavigation from "../../../components/shared/AssessmentTreeNavigation";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
+import { Breadcrumb } from "../../../components/shared/Breadcrumb";
+
+const getBreadcrumbLabel = (pathname: string) => {
+    if (pathname.includes("premium-features")) return "Premium Features";
+    if (pathname.includes("premium-domains")) return "Premium Domains";
+    if (pathname.includes("fairness-bias/options")) return "Fairness & Bias Testing";
+    if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
+    if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
+    if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
+    return "AI Maturity Assessment (AIMA)";
+};
 
 function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
+    const pathname = usePathname();
     const {
         projectId,
         domains,
@@ -18,6 +30,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         setCurrentPracticeId,
         setCurrentQuestionIndex,
         isPremium,
+        projectName,
         answers,
     } = useAssessmentContext();
 
@@ -89,7 +102,20 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col overflow-y-auto">
-                {children}
+                <div className="px-8 py-6 max-w-7xl w-full mx-auto">
+                    <Breadcrumb
+                        projectName={projectName || "Loading project..."}
+                        projectHref={`/assess/${projectId}`}
+                        items={[
+                            {
+                                label: getBreadcrumbLabel(pathname)
+                            }
+                        ]}
+                    />
+                    <div className="mt-2 flex-1">
+                        {children}
+                    </div>
+                </div>
             </div>
         </div>
     );
