@@ -7,6 +7,16 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
 import { Breadcrumb } from "../../../components/shared/Breadcrumb";
 
+const getBreadcrumbLabel = (pathname: string) => {
+    if (pathname.includes("premium-features")) return "Premium Features";
+    if (pathname.includes("premium-domains")) return "Premium Domains";
+    if (pathname.includes("fairness-bias/options")) return "Fairness & Bias Testing";
+    if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
+    if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
+    if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
+    return "AI Maturity Assessment (AIMA)";
+};
+
 function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
@@ -98,19 +108,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                         projectHref={`/assess/${projectId}`}
                         items={[
                             {
-                                label: pathname.includes("premium-features")
-                                    ? "Premium Features"
-                                    : pathname.includes("premium-domains")
-                                        ? "Premium Domains"
-                                        : pathname.includes("fairness-bias/options")
-                                            ? "Fairness & Bias Testing"
-                                            : pathname.includes("fairness-bias/api-endpoint")
-                                                ? "API Automated Testing"
-                                                : pathname.includes("fairness-bias/dataset-testing")
-                                                    ? "Dataset Testing"
-                                                    : pathname.includes("fairness-bias")
-                                                        ? "Fairness & Bias Testing"
-                                                        : "AI Maturity Assessment (AIMA)",
+                                label: getBreadcrumbLabel(pathname)
                             }
                         ]}
                     />

@@ -2,7 +2,15 @@
 
 import React from "react";
 import Link from "next/link";
-import { IconChevronRight, IconHome } from "@tabler/icons-react";
+import { IconHome } from "@tabler/icons-react";
+import {
+    Breadcrumb as BreadcrumbRoot,
+    BreadcrumbList,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 
 interface BreadcrumbItem {
     label: string;
@@ -17,46 +25,59 @@ interface BreadcrumbProps {
 
 export const Breadcrumb: React.FC<BreadcrumbProps> = ({ projectName, projectHref, items }) => {
     return (
-        <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-4" aria-label="Breadcrumb">
-            <Link
-                href="/dashboard"
-                className="hover:text-foreground transition-colors flex items-center gap-1"
-            >
-                <IconHome className="w-4 h-4" />
-                <span className="sr-only">Dashboard</span>
-            </Link>
-
-            <IconChevronRight className="w-4 h-4 flex-shrink-0" />
-
-            {projectHref ? (
-                <Link
-                    href={projectHref}
-                    className="font-medium text-foreground hover:text-primary transition-colors truncate max-w-[200px]"
-                    title={projectName}
-                >
-                    {projectName}
-                </Link>
-            ) : (
-                <span className="font-medium text-foreground truncate max-w-[200px]" title={projectName}>
-                    {projectName}
-                </span>
-            )}
-
-            {items.map((item, index) => (
-                <React.Fragment key={index}>
-                    <IconChevronRight className="w-4 h-4 flex-shrink-0" />
-                    {item.href ? (
+        <BreadcrumbRoot className="mb-4">
+            <BreadcrumbList>
+                <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
                         <Link
-                            href={item.href}
-                            className="hover:text-foreground transition-colors"
+                            href="/dashboard"
+                            className="flex items-center gap-1"
                         >
-                            {item.label}
+                            <IconHome className="w-4 h-4" />
+                            <span className="sr-only">Dashboard</span>
                         </Link>
+                    </BreadcrumbLink>
+                </BreadcrumbItem>
+
+                <BreadcrumbSeparator />
+
+                <BreadcrumbItem>
+                    {projectHref ? (
+                        <BreadcrumbLink asChild>
+                            <Link
+                                href={projectHref}
+                                className="font-medium truncate max-w-[200px]"
+                                title={projectName}
+                            >
+                                {projectName}
+                            </Link>
+                        </BreadcrumbLink>
                     ) : (
-                        <span className="font-semibold text-primary">{item.label}</span>
+                        <BreadcrumbPage className="font-medium truncate max-w-[200px]" title={projectName}>
+                            {projectName}
+                        </BreadcrumbPage>
                     )}
-                </React.Fragment>
-            ))}
-        </nav>
+                </BreadcrumbItem>
+
+                {items.map((item) => (
+                    <React.Fragment key={item.href || item.label}>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                            {item.href ? (
+                                <BreadcrumbLink asChild>
+                                    <Link href={item.href}>
+                                        {item.label}
+                                    </Link>
+                                </BreadcrumbLink>
+                            ) : (
+                                <BreadcrumbPage className="font-semibold text-primary">
+                                    {item.label}
+                                </BreadcrumbPage>
+                            )}
+                        </BreadcrumbItem>
+                    </React.Fragment>
+                ))}
+            </BreadcrumbList>
+        </BreadcrumbRoot>
     );
 };

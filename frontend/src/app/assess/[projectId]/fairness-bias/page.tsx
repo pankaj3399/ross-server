@@ -183,6 +183,10 @@ export default function FairnessBiasTest() {
   ).length;
   const progress = totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
 
+  const currentQuestionOrdinal = categories
+    .slice(0, currentCategoryIndex)
+    .reduce((sum, cat) => sum + cat.totalPrompts, 0) + currentPromptIndex + 1;
+
   const toggleCategory = (categoryId: string) => {
     setExpandedCategories(prev => {
       const newSet = new Set(prev);
@@ -425,7 +429,7 @@ export default function FairnessBiasTest() {
                 {currentCategory?.label || "Loading..."}
               </h2>
               <p className="text-sm text-muted-foreground">
-                Question {answeredQuestions} of {totalQuestions} • Prompt{" "}
+                Question {currentQuestionOrdinal} of {totalQuestions} • Prompt{" "}
                 {currentPromptIndex + 1} of {currentCategory?.totalPrompts || 0}
               </p>
             </div>
@@ -452,7 +456,7 @@ export default function FairnessBiasTest() {
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-foreground">
-                  Question {answeredQuestions} of {totalQuestions}
+                  Question {currentQuestionOrdinal} of {totalQuestions}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   {Math.round(progress)}% Complete

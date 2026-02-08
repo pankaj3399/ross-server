@@ -131,32 +131,34 @@ const DatasetTestingPage = () => {
   const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'trial' | 'premium'>('unknown');
   const [projectInfo, setProjectInfo] = useState<{ name: string; aiSystemType?: string } | null>(null);
 
-  useEffect(() => {
-    const checkAccess = async () => {
-      try {
-        const user = await apiService.getCurrentUser();
-        const status = user.subscription_status;
-        // Explicitly map recognized subscription values
-        if (status === 'basic_premium' || status === 'pro_premium') {
-          setSubscriptionStatus('premium');
-        } else if (status === 'trial') {
-          setSubscriptionStatus('trial');
-        } else if (status === 'free') {
-          setSubscriptionStatus('free');
-        } else {
-          // Unknown subscription value - treat as free for safety
-          console.warn(`Unknown subscription status: ${status}, defaulting to free`);
-          setSubscriptionStatus('free');
-        }
-      } catch (error) {
-        console.error("Failed to check subscription status", error);
-        setSubscriptionStatus('unknown');
-      } finally {
-        setIsCheckingSubscription(false);
+  const checkAccess = useCallback(async () => {
+    setIsCheckingSubscription(true);
+    try {
+      const user = await apiService.getCurrentUser();
+      const status = user.subscription_status;
+      // Explicitly map recognized subscription values
+      if (status === 'basic_premium' || status === 'pro_premium') {
+        setSubscriptionStatus('premium');
+      } else if (status === 'trial') {
+        setSubscriptionStatus('trial');
+      } else if (status === 'free') {
+        setSubscriptionStatus('free');
+      } else {
+        // Unknown subscription value - treat as free for safety
+        console.warn(`Unknown subscription status: ${status}, defaulting to free`);
+        setSubscriptionStatus('free');
       }
-    };
-    checkAccess();
+    } catch (error) {
+      console.error("Failed to check subscription status", error);
+      setSubscriptionStatus('unknown');
+    } finally {
+      setIsCheckingSubscription(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
 
   // Fetch project info for PDF report
   useEffect(() => {
@@ -320,7 +322,10 @@ const DatasetTestingPage = () => {
               </div>
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  checkAccess();
+                  router.refresh();
+                }}
                 className="inline-flex items-center gap-2 rounded-xl bg-warning px-6 py-3 text-sm font-semibold text-warning-foreground hover:bg-warning/90 transition"
               >
                 <RefreshCw className="w-4 h-4" />
