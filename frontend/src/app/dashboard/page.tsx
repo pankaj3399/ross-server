@@ -18,7 +18,9 @@ import {
   IconLoader2,
   IconFolder,
   IconRobot,
-  IconBriefcase
+  IconBriefcase,
+  IconDotsVertical,
+  IconPencil,
 } from "@tabler/icons-react";
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
 import { Button } from "@/components/ui/button";
@@ -41,6 +43,13 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 const SKELETON_COUNT = 5;
@@ -423,50 +432,53 @@ export default function DashboardPage() {
                     <Card className={`h-full hover:shadow-xl transition-all duration-300 ${["bg-chart-1/10", "bg-chart-2/10", "bg-chart-3/10", "bg-chart-4/10", "bg-chart-5/10"][index % 5]}`}>
                       <CardHeader className="pb-3">
                         <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{project.name}</CardTitle>
-                          <Link
-                            href={`/assess/${project.id}`}
-                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-                          >
-                            <span>
-                              {project.status === 'completed' ? 'Completed' :
-                                project.status === 'in_progress' ? 'In Progress' :
-                                  'Start'}
-                            </span>
-                            <IconArrowRight className="w-4 h-4" />
-                          </Link>
+                          <div className="flex-1 mr-2">
+                            <CardTitle className="text-lg mb-1">{project.name}</CardTitle>
+                            <Link
+                              href={`/assess/${project.id}`}
+                              className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+                            >
+                              <span>
+                                {project.status === 'completed' ? 'Completed' :
+                                  project.status === 'in_progress' ? 'In Progress' :
+                                    'Start'}
+                              </span>
+                              <IconArrowRight className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <IconDotsVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEditProject(project)}>
+                                <IconPencil className="mr-2 h-4 w-4" />
+                                <span>Edit</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setDeletingProjectId(project.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <IconTrash className="mr-2 h-4 w-4" />
+                                <span>Delete</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                        <CardDescription>
+                        <CardDescription className="mt-2 text-sm line-clamp-2 min-h-[40px]">
                           {project.description || "No description provided"}
                         </CardDescription>
                       </CardHeader>
 
-                      <CardContent className="pb-3">
-                        <Badge variant="secondary">
+                      <CardContent className="pb-4">
+                        <Badge variant="secondary" className="font-normal">
                           {project.ai_system_type || "General AI System"}
                         </Badge>
                       </CardContent>
-
-                      <Separator />
-
-                      <CardFooter className="pt-4 justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditProject(project)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive border-destructive/40 hover:bg-destructive/10"
-                          onClick={() => setDeletingProjectId(project.id)}
-                        >
-                          <IconTrash className="w-4 h-4 mr-2" />
-                          Delete
-                        </Button>
-                      </CardFooter>
                     </Card>
                   </motion.div>
                 ))}
