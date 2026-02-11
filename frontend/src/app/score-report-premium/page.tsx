@@ -189,6 +189,7 @@ export default function ScoreReportPage() {
     }
 
     let pollInterval: NodeJS.Timeout | null = null;
+    let safetyTimeout: NodeJS.Timeout | null = null;
 
     const generateInsights = async () => {
       setGeneratingInsights(true);
@@ -214,24 +215,28 @@ export default function ScoreReportPage() {
 
               if (jobStatus.status === 'completed' && jobStatus.insights) {
                 if (pollInterval) clearInterval(pollInterval);
+                if (safetyTimeout) clearTimeout(safetyTimeout);
                 setInsights(jobStatus.insights);
                 updateResultsWithInsights(jobStatus.insights);
                 setGeneratingInsights(false);
               } else if (jobStatus.status === 'failed') {
                 if (pollInterval) clearInterval(pollInterval);
+                if (safetyTimeout) clearTimeout(safetyTimeout);
                 setGeneratingInsights(false);
                 console.error("Insights generation job failed:", jobStatus.error);
               }
             } catch (pollError) {
               console.error("Error polling insights status:", pollError);
               if (pollInterval) clearInterval(pollInterval);
+              if (safetyTimeout) clearTimeout(safetyTimeout);
               setGeneratingInsights(false);
             }
           }, 2000); // Poll every 2 seconds
 
           // Safety timeout after 5 minutes
-          setTimeout(() => {
+          safetyTimeout = setTimeout(() => {
             if (pollInterval) clearInterval(pollInterval);
+            if (safetyTimeout) clearTimeout(safetyTimeout);
             setGeneratingInsights(false);
           }, 300000);
         } else {
@@ -271,6 +276,7 @@ export default function ScoreReportPage() {
 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
+      if (safetyTimeout) clearTimeout(safetyTimeout);
     };
   }, [projectId, results, loading, isUserPremium]);
 

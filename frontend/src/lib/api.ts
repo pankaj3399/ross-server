@@ -139,6 +139,8 @@ export interface Thresholds {
   POSITIVE: { HIGH: number; MODERATE: number };
 }
 
+export type InsightsJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 class ApiService {
   private getAuthToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -1015,11 +1017,12 @@ class ApiService {
       };
     }>("/admin/analytics/industries");
   }
+
   async generateDomainInsights(projectId: string): Promise<{
     success: boolean;
     insights?: Record<string, string>; // domainId -> insights text
     jobId?: string;
-    status?: string;
+    status?: InsightsJobStatus;
     message?: string;
     cached?: boolean;
   }> {
@@ -1027,7 +1030,7 @@ class ApiService {
       success: boolean;
       insights?: Record<string, string>;
       jobId?: string;
-      status?: string;
+      status?: InsightsJobStatus;
       message?: string;
       cached?: boolean;
     }>(`/projects/${projectId}/generate-insights`, {
@@ -1037,13 +1040,13 @@ class ApiService {
 
   async getInsightsJobStatus(projectId: string, jobId: string): Promise<{
     jobId: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: InsightsJobStatus;
     insights?: Record<string, string>;
     error?: string;
   }> {
     return this.request<{
         jobId: string;
-        status: 'pending' | 'processing' | 'completed' | 'failed';
+        status: InsightsJobStatus;
         insights?: Record<string, string>;
         error?: string;
     }>(`/projects/${projectId}/insights/status/${jobId}`);

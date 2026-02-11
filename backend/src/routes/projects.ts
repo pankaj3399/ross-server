@@ -31,6 +31,7 @@ interface InsightJob {
   insights?: Record<string, string>;
   error?: string;
   projectId: string;
+  userId: string;
   createdAt: number;
 }
 const insightJobs = new Map<string, InsightJob>();
@@ -45,6 +46,14 @@ setInterval(() => {
     }
   }
 }, 300000); 
+
+// ... (lines 49-688 remain unchanged, but we need to target the specific blocks to update)
+
+// We need to update the POST handler where job is created (around line 693)
+// and the GET handler where status is checked (around line 725)
+
+// Since replace_file_content works on contiguous blocks, I will make two separate calls or one large one if context allows.
+// The file is large, so I'll do it in chunks. This first call updates the interface.
 
 // Get user's projects
 router.get("/", authenticateToken, async (req, res) => {
@@ -693,6 +702,7 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
     insightJobs.set(jobId, {
         status: 'pending',
         projectId,
+        userId,
         createdAt: Date.now()
     });
 
@@ -732,6 +742,10 @@ router.get("/:projectId/insights/status/:jobId", authenticateToken, async (req, 
         }
 
         if (job.projectId !== projectId) {
+             return res.status(403).json({ error: "Unauthorized access to this job" });
+        }
+
+        if (job.userId !== req.user!.id) {
              return res.status(403).json({ error: "Unauthorized access to this job" });
         }
 
