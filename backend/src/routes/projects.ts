@@ -47,14 +47,6 @@ setInterval(() => {
   }
 }, 300000); 
 
-// ... (lines 49-688 remain unchanged, but we need to target the specific blocks to update)
-
-// We need to update the POST handler where job is created (around line 693)
-// and the GET handler where status is checked (around line 725)
-
-// Since replace_file_content works on contiguous blocks, I will make two separate calls or one large one if context allows.
-// The file is large, so I'll do it in chunks. This first call updates the interface.
-
 // Get user's projects
 router.get("/", authenticateToken, async (req, res) => {
   try {
