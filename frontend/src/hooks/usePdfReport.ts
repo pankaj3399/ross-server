@@ -127,6 +127,11 @@ const applyPdfStyles = (clonedElement: HTMLElement) => {
         elem.style.animation = "none";
     });
 
+    // Force all details elements to be open so their content is visible in the PDF
+    clonedElement.querySelectorAll("details").forEach((details) => {
+        (details as HTMLDetailsElement).open = true;
+    });
+
     // Apply additional styling functions
     styleHeader(clonedElement);
     styleGrid(clonedElement);
@@ -205,14 +210,7 @@ export const usePdfReport = ({
                 pdfDoc.setTextColor(255, 255, 255);
                 pdfDoc.text(reportTitle, pageWidth / 2, 10, { align: "center" });
 
-                // Project name and page on right
-                pdfDoc.setFont("helvetica", "normal");
-                pdfDoc.setFontSize(8);
-                pdfDoc.setTextColor(220, 230, 255);
-                if (projectName) {
-                    pdfDoc.text(projectName, pageWidth - margin, 9, { align: "right" });
-                }
-                pdfDoc.text(`Page ${pageNum}/${totalPages}`, pageWidth - margin, 16, { align: "right" });
+                // Project name and page number removed from header as per request
             };
 
             // Helper: Add footer to current page
@@ -252,7 +250,7 @@ export const usePdfReport = ({
                 pdfDoc.text("Confidential", pageWidth / 2, footerY, { align: "center" });
 
                 pdfDoc.setFont("helvetica", "normal");
-                pdfDoc.text("matur.ai", pageWidth - margin, footerY, { align: "right" });
+                pdfDoc.text(`Page ${pageNum}/${totalPages}`, pageWidth - margin, footerY, { align: "right" });
             };
 
             // Create a temporary container with our color reset CSS

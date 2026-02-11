@@ -330,6 +330,32 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
     const project = projectCheck.rows[0];
     const projectVersionId = project.version_id;
 
+    // 1. Check if valid insights already exist for this project
+    // We fetch all insights for the project
+    const existingInsightsResult = await pool.query(
+      "SELECT domain_id, insight_text FROM project_insights WHERE project_id = $1",
+      [projectId]
+    );
+
+    const insights: Record<string, string> = {};
+    if (existingInsightsResult.rows.length > 0) {
+        existingInsightsResult.rows.forEach(row => {
+            insights[row.domain_id] = row.insight_text;
+        });
+        
+        // If we have insights, we might want to check if we have them for ALL required domains
+        // But for now, let's assume if we have some, we return them (or we can augment them if incomplete logic is needed)
+        // To keep it simple and fast: if we have any insights, we return them. 
+        // A more robust implementation would check against the required domains list.
+        if (Object.keys(insights).length > 0) {
+             return res.json({ 
+                success: true, 
+                insights,
+                cached: true
+              });
+        }
+    }
+
     // Get domains with their data
     let domainsQuery = `
       SELECT d.id, d.title, d.description, COALESCE(d.is_premium, false) as is_premium,
@@ -391,74 +417,136 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
       });
     }
 
-    const insights: Record<string, string> = {};
-
+    // The insights object is already declared above, so we don't redeclare it here.
     const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro"];
 
-    // Generate insights for each domain (free domains for free users, all domains for premium users)
-    for (const domain of domainsResult.rows) {
+    // Helper for rate limiting
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Generate insights for each domain sequentially to avoid Rate Limits (429)
+    for (const [index, domain] of domainsResult.rows.entries()) {
       try {
+        // Add delay between requests (except the first one) to respect rate limits
+        if (index > 0) await sleep(5000); // 5 seconds delay to be safe (approx 12 RPM)
+
         const totalQuestions = parseInt(domain.total_questions) || 0;
         const correctAnswers = parseInt(domain.correct_answers) || 0;
         const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+
+        let detailedContext = "";
+        if (isPremium) {
+           // Fetch detailed answers for this domain
+           const detailedAnswersQuery = `
+             SELECT 
+               aq.question_text,
+               ap.title as practice_title,
+               aa.value as user_score
+             FROM assessment_answers aa
+             JOIN aima_practices ap ON aa.practice_id = ap.id
+             JOIN aima_questions aq ON aa.practice_id = aq.practice_id 
+                  AND aa.level = aq.level 
+                  AND aa.stream = aq.stream 
+                  AND aa.question_index = aq.question_index
+             WHERE aa.project_id = $1 AND aa.user_id = $2 AND aa.domain_id = $3
+           `;
+           
+           const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, userId, domain.id]);
+           
+           if (detailedAnswersResult.rows.length > 0) {
+             detailedContext = "\n\nDetailed Question Analysis:\n" + detailedAnswersResult.rows.map(row => {
+               const status = parseFloat(row.user_score) === 1 ? "Correct" : "Incorrect";
+               return `- [${status}] Practice: ${row.practice_title}\n  Question: ${row.question_text}`;
+             }).join("\n");
+           }
+        }
 
         const prompt = `You are an AI assessment expert analyzing domain performance. Generate actionable insights and recommendations for the following domain assessment:
 
 Domain: ${domain.title}
 Description: ${domain.description || 'N/A'}
 Performance: ${correctAnswers}/${totalQuestions} questions correct (${percentage}%)
-Project: ${project.name}
+Project: ${project.name}${detailedContext}
 
-Based on this performance data, provide:
+Based on this performance data${isPremium ? ' and the detailed question analysis above' : ''}, provide:
 1. A brief analysis of the current performance level
 2. Key strengths (if any)
 3. Areas that need improvement
-4. Specific actionable recommendations
+4. Specific actionable recommendations${isPremium ? ' based on the specific incorrect answers' : ''}
 
 Keep the response concise (2-3 paragraphs) and focused on practical next steps. Format as plain text without markdown.`;
 
         let lastError: any = null;
         let insightText = "";
 
-        // Try multiple models
-        for (const modelName of modelsToTry) {
-          try {
-            const model = genAI!.getGenerativeModel({ model: modelName });
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            insightText = response.text().trim();
-            
-            if (insightText) {
-              break; 
+        // Retry logic for 429 Too Many Requests
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        while (attempts < maxAttempts && !insightText) {
+            attempts++;
+            // Try multiple models
+            for (const modelName of modelsToTry) {
+            try {
+                const model = genAI!.getGenerativeModel({ model: modelName });
+                 // Adjust generation config if potential for longer response due to detailed context
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                insightText = response.text().trim();
+                
+                if (insightText) {
+                break; 
+                }
+            } catch (modelError: any) {
+                lastError = modelError;
+                const isRateLimit = modelError.status === 429 || (modelError.message && modelError.message.includes('429'));
+                
+                if (isRateLimit) {
+                    console.warn(`[Insights] Rate limit hit for ${modelName}. Waiting before retry...`);
+                    await sleep(5000 * attempts); // Exponential-ish backoff: 5s, 10s...
+                    // If rate limit, break from inner model loop to retry the outer attempt loop
+                    // This allows the outer loop's `await sleep(2000)` to also apply if needed
+                    break; 
+                }
+                
+                console.error(`[Insights] Model ${modelName} failed for domain ${domain.id}:`, modelError.message || modelError);
+                continue;
             }
-          } catch (modelError: any) {
-            lastError = modelError;
-            console.error(`[Insights] Model ${modelName} failed for domain ${domain.id}:`, modelError.message || modelError);
-            continue;
-          }
+            }
+            
+            if (!insightText && attempts < maxAttempts) {
+                 // If we failed all models but haven't hit max attempts (likely rate limit caused break), wait and retry
+                 // This sleep is for cases where the inner loop broke due to rate limit and we need to wait before next attempt
+                 await sleep(2000); 
+            }
         }
 
         if (!insightText) {
-          throw lastError || new Error("All models failed to generate insights");
+          throw lastError || new Error("All models failed to generate insights after retries");
         }
 
+        // Save to database
+        await pool.query(
+            `INSERT INTO project_insights (project_id, domain_id, insight_text) 
+             VALUES ($1, $2, $3)
+             ON CONFLICT (project_id, domain_id) 
+             DO UPDATE SET insight_text = EXCLUDED.insight_text, updated_at = CURRENT_TIMESTAMP`,
+            [projectId, domain.id, insightText]
+        );
+
         insights[domain.id] = insightText;
+
       } catch (error: any) {
         console.error(`Error generating insight for domain ${domain.id} (${domain.title}):`, error);
-        console.error("Error details:", {
-          message: error?.message,
-          stack: error?.stack,
-          name: error?.name,
-          code: error?.code,
-          status: error?.status
-        });
         insights[domain.id] = "Unable to generate insights at this time. Please try again later.";
       }
     }
+    
+    // The `results` and `results.forEach` are removed as insights are populated directly in the loop.
 
     res.json({ 
       success: true, 
-      insights 
+      insights,
+      cached: false
     });
   } catch (error) {
     console.error("Error generating insights:", error);

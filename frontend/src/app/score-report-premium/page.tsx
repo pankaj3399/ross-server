@@ -16,12 +16,57 @@ import {
   IconLock,
   IconChevronRight,
   IconDownload,
-  IconLoader
+  IconLoader,
+  IconTrendingUp,
+  IconAlertTriangle,
+  IconListCheck,
+  IconCheck
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
 import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
+
+// Helper to parse insight text into structured sections
+const parseInsightText = (text: string) => {
+  const sections = {
+    analysis: "",
+    strengths: "",
+    improvements: "",
+    recommendations: [] as string[]
+  };
+
+  if (!text) return sections;
+
+  // Patterns to look for section headers
+  const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?(.*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific)|$)/i;
+  const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?(.*?)(?=(?:Areas|Improvements|3\.|Specific)|$)/i;
+  const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?(.*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
+  const recommendationsPattern = /(?:Specific actionable recommendations|Actionable Recommendations|Recommendations|4\.\s*Specific[^:]+):?(.*)/i;
+
+  const analysisMatch = text.match(analysisPattern);
+  const strengthsMatch = text.match(strengthsPattern);
+  const improvementsMatch = text.match(improvementsPattern);
+  const recommendationsMatch = text.match(recommendationsPattern);
+
+  if (analysisMatch) sections.analysis = analysisMatch[1].trim();
+  else if (!strengthsMatch && !improvementsMatch) sections.analysis = text; // Fallback if no headers found
+
+  if (strengthsMatch) sections.strengths = strengthsMatch[1].trim();
+
+  if (improvementsMatch) sections.improvements = improvementsMatch[1].trim();
+
+  if (recommendationsMatch) {
+    const rawRecs = recommendationsMatch[1].trim();
+    // Split by numbered lists (1., 2.) or bullets (-, •)
+    sections.recommendations = rawRecs
+      .split(/(?:\r\n|\r|\n)?(?:\d+\.|-|\u2022)\s+/)
+      .map(r => r.trim())
+      .filter(r => r.length > 0);
+  }
+
+  return sections;
+};
 
 // Performance variants mapped to Tailwind classes
 const PERFORMANCE_VARIANTS = {
@@ -208,14 +253,14 @@ export default function ScoreReportPage() {
     return { level: "Needs Improvement", ...PERFORMANCE_VARIANTS.poor };
   };
 
-  // Filter to show only premium domains
-  const premiumDomains = results.results.domains.filter((domain: any) =>
-    premiumDomainIds.has(domain.domainId)
-  );
+  // Show all domains for premium users (backend already filters non-visible domains)
+  // But we want to ensure we're showing the full report
+  const displayDomains = results.results.domains;
 
-  // Calculate overall score for premium domains only
-  const premiumOverall = premiumDomains.reduce(
+  // Calculate overall score for all displayed domains
+  const overallStats = displayDomains.reduce(
     (acc: { totalCorrectAnswers: number; totalQuestions: number }, domain: any) => {
+
       acc.totalCorrectAnswers += domain.correctAnswers;
       acc.totalQuestions += domain.totalQuestions;
       return acc;
@@ -223,30 +268,30 @@ export default function ScoreReportPage() {
     { totalCorrectAnswers: 0, totalQuestions: 0 }
   );
 
-  const premiumOverallPercentage = premiumOverall.totalQuestions > 0
-    ? Math.round((premiumOverall.totalCorrectAnswers / premiumOverall.totalQuestions) * 100 * 100) / 100
+  const overallPercentage = overallStats.totalQuestions > 0
+    ? Math.round((overallStats.totalCorrectAnswers / overallStats.totalQuestions) * 100 * 100) / 100
     : 0;
 
-  const performance = getPerformanceLevel(premiumOverallPercentage);
+  const performance = getPerformanceLevel(overallPercentage);
 
   // Prepare data for charts - using premium domains only
   const overallPieData = [
     {
       name: "Correct",
-      value: premiumOverall.totalCorrectAnswers,
+      value: overallStats.totalCorrectAnswers,
       color: PERFORMANCE_VARIANTS.excellent.color,
       fill: PERFORMANCE_VARIANTS.excellent.color
     },
     {
       name: "Incorrect",
-      value: premiumOverall.totalQuestions - premiumOverall.totalCorrectAnswers,
+      value: overallStats.totalQuestions - overallStats.totalCorrectAnswers,
       color: PERFORMANCE_VARIANTS.poor.color,
       fill: PERFORMANCE_VARIANTS.poor.color
     },
   ];
 
-  // Filter domains that have insights AND are premium
-  const domainsWithInsights = premiumDomains.filter((domain: any) =>
+  // Filter domains that have insights
+  const domainsWithInsights = displayDomains.filter((domain: any) =>
     insights[domain.domainId]
   );
 
@@ -358,7 +403,7 @@ export default function ScoreReportPage() {
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pdf-overall-score-container">
                       <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal pdf-overall-score-value">
-                        {premiumOverallPercentage.toFixed(0)}%
+                        {overallPercentage.toFixed(0)}%
                       </span>
                       <span className="text-sm font-medium text-muted-foreground mt-1 pdf-overall-score-label">Total Score</span>
                     </div>
@@ -378,7 +423,7 @@ export default function ScoreReportPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
                     <span className="text-muted-foreground font-medium">Correct Answers</span>
                     <span className="font-semibold text-foreground whitespace-nowrap">
-                      {premiumOverall.totalCorrectAnswers} <span className="text-muted-foreground">/ {premiumOverall.totalQuestions}</span>
+                      {overallStats.totalCorrectAnswers} <span className="text-muted-foreground">/ {overallStats.totalQuestions}</span>
                     </span>
                   </div>
                 </div>
@@ -401,9 +446,9 @@ export default function ScoreReportPage() {
               </h2>
 
               <div className="flex-1 overflow-y-auto scrollbar-hide">
-                {premiumDomains.length > 0 ? (
+                {displayDomains.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {premiumDomains.map((domain: any, index: number) => {
+                    {displayDomains.map((domain: any, index: number) => {
                       const domainPerformance = getPerformanceLevel(domain.percentage);
 
                       return (
@@ -450,7 +495,7 @@ export default function ScoreReportPage() {
                 ) : (
                   <div className="text-center py-12 bg-muted/50 rounded-3xl border border-border">
                     <p className="text-muted-foreground">
-                      No premium domains found in this assessment.
+                      No domains found in this assessment.
                     </p>
                   </div>
                 )}
@@ -460,7 +505,7 @@ export default function ScoreReportPage() {
         </div>
 
         {/* AI Insights Section - Conditional Rendering */}
-        <div className="mt-12">
+        <div className="mt-12 hide-in-pdf">
           {isUserPremium ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -482,7 +527,7 @@ export default function ScoreReportPage() {
                 <p className="text-muted-foreground mb-8 ml-14">
                   {generatingInsights
                     ? "Analyzing your performance data to generate personalized recommendations..."
-                    : "Tailored strategic recommendations for your premium domains."}
+                    : "Tailored strategic recommendations for your assessment."}
                 </p>
 
                 {generatingInsights && Object.keys(insights).length === 0 ? (
@@ -492,35 +537,103 @@ export default function ScoreReportPage() {
                     ))}
                   </div>
                 ) : domainsWithInsights.length > 0 ? (
-                  <div className="grid gap-4">
-                    {domainsWithInsights.map((domain: any, index: number) => (
-                      <motion.div
-                        key={domain.domainId}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.4, delay: index * 0.1 }}
-                        className="p-6 rounded-2xl bg-card border border-primary/10 hover:bg-muted transition-colors shadow-sm"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-primary">
-                            {domain.domainTitle}
-                          </h3>
-                          <div className="px-2 py-0.5 rounded-full bg-primary/10 text-xs font-medium text-primary border border-primary/30">
-                            Premium
+                  <div className="grid gap-6">
+                    {domainsWithInsights.map((domain: any, index: number) => {
+                      const analysis = parseInsightText(insights[domain.domainId]);
+
+                      return (
+                        <motion.div
+                          key={domain.domainId}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.4, delay: index * 0.1 }}
+                          className="rounded-3xl bg-card border border-primary/10 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300"
+                        >
+                          <div className="p-6 border-b border-border/50 bg-muted/30">
+                            <div className="flex items-center gap-3">
+                              <h3 className="text-xl font-bold text-foreground">
+                                {domain.domainTitle}
+                              </h3>
+                              <div className="px-2.5 py-0.5 rounded-full bg-primary/10 text-xs font-semibold text-primary border border-primary/20">
+                                Premium Analysis
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <p className="text-muted-foreground leading-relaxed">
-                          {insights[domain.domainId]}
-                        </p>
-                      </motion.div>
-                    ))}
+
+                          <div className="p-6 space-y-6">
+                            {/* Analysis Section */}
+                            {analysis.analysis && (
+                              <div className="space-y-2">
+                                <h4 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                                  <IconTrendingUp className="w-4 h-4" />
+                                  Current Analysis
+                                </h4>
+                                <p className="text-foreground leading-relaxed">
+                                  {analysis.analysis}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="grid md:grid-cols-2 gap-6">
+                              {/* Strengths */}
+                              {analysis.strengths && (
+                                <div className="space-y-3 bg-success/5 p-4 rounded-2xl border border-success/10">
+                                  <h4 className="flex items-center gap-2 text-sm font-bold text-success uppercase tracking-wider">
+                                    <IconCheck className="w-4 h-4" />
+                                    Key Strengths
+                                  </h4>
+                                  <p className="text-sm text-foreground/90 leading-relaxed">
+                                    {analysis.strengths}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Areas for Improvement */}
+                              {analysis.improvements && (
+                                <div className="space-y-3 bg-warning/5 p-4 rounded-2xl border border-warning/10">
+                                  <h4 className="flex items-center gap-2 text-sm font-bold text-warning uppercase tracking-wider">
+                                    <IconAlertTriangle className="w-4 h-4" />
+                                    Areas for Improvement
+                                  </h4>
+                                  <p className="text-sm text-foreground/90 leading-relaxed">
+                                    {analysis.improvements}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Recommendations */}
+                            {analysis.recommendations && analysis.recommendations.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="flex items-center gap-2 text-sm font-semibold text-primary uppercase tracking-wider">
+                                  <IconListCheck className="w-5 h-5" />
+                                  Strategic Recommendations
+                                </h4>
+                                <div className="grid gap-3">
+                                  {analysis.recommendations.map((rec, i) => (
+                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                        {i + 1}
+                                      </span>
+                                      <p className="text-sm text-foreground leading-snug pt-0.5">
+                                        {rec}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 ) : !generatingInsights ? (
                   <div className="text-center py-12 bg-muted/50 rounded-3xl border border-border">
                     <p className="text-muted-foreground">
-                      {premiumDomainIds.size > 0
-                        ? "No specific insights generated for your premium domains."
-                        : "You don't have any premium domains in this assessment."}
+                      {displayDomains.length > 0
+                        ? "No specific insights generated for your domains."
+                        : "You don't have enough data in this assessment."}
                     </p>
                   </div>
                 ) : null}

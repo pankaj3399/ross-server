@@ -75,15 +75,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 pdfDoc.setTextColor(255, 255, 255); // White text
                 pdfDoc.text("Fairness & Bias Evaluation Report", pageWidth / 2, 18, { align: "center" });
 
-                // Project name on right
-                if (payload.projectName) {
-                    pdfDoc.setFont("helvetica", "bold");
-                    pdfDoc.setFontSize(8);
-                    pdfDoc.setTextColor(255, 255, 255); // White text
-                    const projectText = `Project: ${payload.projectName}`;
-                    // Align with title for balance
-                    pdfDoc.text(projectText, pageWidth - margin, 11, { align: "right" });
-                }
+                // Project name removed from right as per request
                 
                 // Note: Removed separator line as the blue block serves as a cleaner separator
             };
@@ -193,7 +185,8 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 pdfDoc.text("Threshold:", rightCol, boxY + 8);
                 pdfDoc.setFont("helvetica", "bold");
                 pdfDoc.setTextColor(15, 23, 42);
-                pdfDoc.text(`${(payload.selections.threshold * 100).toFixed(0)}%`, rightCol + 24, boxY + 8);
+                const threshold = payload.selections?.threshold ?? 0.8;
+                pdfDoc.text(`${(threshold * 100).toFixed(0)}%`, rightCol + 24, boxY + 8);
 
                 // Row 3
                 pdfDoc.setFont("helvetica", "normal");
@@ -469,13 +462,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 styleMutedBackgrounds(root);
                 fixProgressBars(root);
 
-                // Additional: Hide analysis boxes in detailed view for compactness
-                root.querySelectorAll(".pdf-metric-grid > *").forEach(el => {
-                    const elem = el as HTMLElement;
-                    elem.querySelectorAll(".bg-muted\\/50, .mt-1.p-3").forEach(box => {
-                        (box as HTMLElement).style.display = "none";
-                    });
-                });
+                // Analysis boxes are now visible as per request
             };
 
             applyPdfStyles(clone);
