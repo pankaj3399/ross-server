@@ -84,8 +84,8 @@ export default function ManualReportDetailPage() {
 
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
-        fileName: `manual-fairness-report-${reportId}.pdf`,
-        reportTitle: "Manual Fairness & Bias Report",
+        fileName: `manual-prompt-fairness-report-${reportId}.pdf`,
+        reportTitle: "Manual Prompt Fairness & Bias Report",
         projectName: projectId,
         generatedAt: normalizedGeneratedAt
     });
@@ -171,7 +171,7 @@ export default function ManualReportDetailPage() {
                             <div className="h-6 w-px bg-border hide-in-pdf" />
                             <div>
                                 <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
-                                    Manual Test Report Details
+                                    Manual Prompt Report Details
                                 </h1>
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                                     <span className="flex items-center gap-1.5">

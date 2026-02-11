@@ -436,19 +436,14 @@ export const styleMetricCards = (root: HTMLElement) => {
             progressContainer.style.height = "6px";
         }
 
-        // Explanation / Analysis box - HIDE for PDF to make cards compact and fit on one page
+        // Analysis box styling - ensure it's visible but compact
         const analysisBox = elem.querySelector(".bg-muted\\/50") as HTMLElement;
         if (analysisBox) {
-            analysisBox.style.display = "none";
+            analysisBox.style.display = "block";
+            analysisBox.style.fontSize = "10px";
+            analysisBox.style.padding = "4px 8px";
+            analysisBox.style.marginTop = "4px";
         }
-
-        // Also hide any analysis sections by class pattern
-        elem.querySelectorAll("[class*='bg-muted']").forEach(box => {
-            const boxEl = box as HTMLElement;
-            if (boxEl.querySelector(".text-xs.font-medium")) {
-                boxEl.style.display = "none";
-            }
-        });
     });
 };
 
