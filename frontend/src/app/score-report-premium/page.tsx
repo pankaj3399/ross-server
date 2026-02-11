@@ -39,10 +39,11 @@ const parseInsightText = (text: string) => {
   if (!text) return sections;
 
   // Patterns to look for section headers
-  const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?(.*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific)|$)/i;
-  const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?(.*?)(?=(?:Areas|Improvements|3\.|Specific)|$)/i;
-  const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?(.*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
-  const recommendationsPattern = /(?:Specific actionable recommendations|Actionable Recommendations|Recommendations|4\.\s*Specific[^:]+):?(.*)/i;
+  // Using [\s\S]*? instead of .*? to match across newlines (ES5 compatible)
+  const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
+  const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?\s*([\s\S]*?)(?=(?:Areas|Improvements|3\.|Specific|$))/i;
+  const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?\s*([\s\S]*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
+  const recommendationsPattern = /(?:Specific actionable recommendations|Actionable Recommendations|Recommendations|4\.\s*Specific[^:]+):?\s*([\s\S]*)/i;
 
   const analysisMatch = text.match(analysisPattern);
   const strengthsMatch = text.match(strengthsPattern);
@@ -187,41 +188,90 @@ export default function ScoreReportPage() {
       return;
     }
 
+    let pollInterval: NodeJS.Timeout | null = null;
+
     const generateInsights = async () => {
       setGeneratingInsights(true);
       try {
         const response = await apiService.generateDomainInsights(projectId);
 
-        if (response.success && response.insights) {
+        // CASE 1: Instant results (cached)
+        if (response.success && response.insights && response.status === 'completed') {
           setInsights(response.insights);
-
-          // Update results with insights
-          const updatedDomains = results.results.domains.map((domain: any) => {
-            if (response.insights[domain.domainId]) {
-              return {
-                ...domain,
-                insights: response.insights[domain.domainId]
-              };
-            }
-            return domain;
-          });
-
-          setResults({
-            ...results,
-            results: {
-              ...results.results,
-              domains: updatedDomains
-            }
-          });
+          updateResultsWithInsights(response.insights);
+          setGeneratingInsights(false);
+          return;
         }
+
+        // CASE 2: Background job started
+        if (response.success && response.jobId && response.status === 'processing') {
+          const jobId = response.jobId;
+
+          // Poll every 2 seconds
+          pollInterval = setInterval(async () => {
+            try {
+              const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
+
+              if (jobStatus.status === 'completed' && jobStatus.insights) {
+                if (pollInterval) clearInterval(pollInterval);
+                setInsights(jobStatus.insights);
+                updateResultsWithInsights(jobStatus.insights);
+                setGeneratingInsights(false);
+              } else if (jobStatus.status === 'failed') {
+                if (pollInterval) clearInterval(pollInterval);
+                setGeneratingInsights(false);
+                console.error("Insights generation job failed:", jobStatus.error);
+              }
+            } catch (pollError) {
+              console.error("Error polling insights status:", pollError);
+              if (pollInterval) clearInterval(pollInterval);
+              setGeneratingInsights(false);
+            }
+          }, 2000); // Poll every 2 seconds
+
+          // Safety timeout after 5 minutes
+          setTimeout(() => {
+            if (pollInterval) clearInterval(pollInterval);
+            setGeneratingInsights(false);
+          }, 300000);
+        } else {
+          // Fallback/Error case
+          setGeneratingInsights(false);
+        }
+
       } catch (error) {
         console.error("Error generating insights:", error);
-      } finally {
         setGeneratingInsights(false);
       }
     };
 
+    const updateResultsWithInsights = (newInsights: Record<string, string>) => {
+      const updatedDomains = results.results.domains.map((domain: any) => {
+        if (newInsights[domain.domainId]) {
+          return {
+            ...domain,
+            insights: newInsights[domain.domainId]
+          };
+        }
+        return domain;
+      });
+
+      // Use functional update to ensure we have latest state if needed, 
+      // though here 'results' from closure is likely fine due to dependency array
+      setResults((prevResults: any) => ({
+        ...prevResults,
+        results: {
+          ...prevResults.results,
+          domains: updatedDomains
+        }
+      }));
+    };
+
     generateInsights();
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [projectId, results, loading, isUserPremium]);
 
   if (loading) {
@@ -464,9 +514,11 @@ export default function ScoreReportPage() {
                               <h3 className="font-semibold text-lg text-foreground pr-2 break-words" title={domain.domainTitle}>
                                 {domain.domainTitle}
                               </h3>
-                              <div className="px-2 py-0.5 rounded-full bg-primary/10 text-xs font-medium text-primary border border-primary/30">
-                                Premium
-                              </div>
+                              {premiumDomainIds.has(domain.domainId) && (
+                                <div className="px-2 py-0.5 rounded-full bg-primary/10 text-xs font-medium text-primary border border-primary/30">
+                                  Premium
+                                </div>
+                              )}
                             </div>
                             <div
                               className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border pdf-percentage-circle ${domainPerformance.border} ${domainPerformance.text}`}

@@ -2,8 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
-import { getCurrentVersion } from "../services/getCurrentVersion";
+import { getCurrentVersion } from "../services/getCurrentVersion"; // Assuming this service exists as per original file
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { randomUUID } from "crypto";
 
 // Initialize Gemini client only if configured
 let genAI: GoogleGenerativeAI | null = null;
@@ -15,12 +16,35 @@ if (!process.env.GEMINI_API_KEY) {
 
 const router = Router();
 
+// Create project schema validation
 const createProjectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   aiSystemType: z.string().optional(),
   industry: z.string().optional(),
 });
+
+// In-memory job store: jobId -> { status, insights?, error?, projectId, createdAt }
+// Note: In a production environment with multiple instances, use Redis or a DB table.
+interface InsightJob {
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  insights?: Record<string, string>;
+  error?: string;
+  projectId: string;
+  createdAt: number;
+}
+const insightJobs = new Map<string, InsightJob>();
+
+// Cleanup old jobs periodically (simple implementation)
+// Runs every 5 minutes, clears jobs older than 1 hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [jobId, job] of insightJobs.entries()) {
+    if (now - job.createdAt > 3600000) { // 1 hour expiration
+      insightJobs.delete(jobId);
+    }
+  }
+}, 300000); 
 
 // Get user's projects
 router.get("/", authenticateToken, async (req, res) => {
@@ -306,57 +330,42 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
   }
 });
 
-// Generate AI insights for domains (free users: free domains only, premium users: all domains)
-router.post("/:projectId/generate-insights", authenticateToken, async (req, res) => {
+/**
+ * Background task to generate insights
+ */
+const generateInsightsAsync = async (
+  jobId: string, 
+  projectId: string, 
+  userId: string, 
+  isPremium: boolean, 
+  projectVersionId: string | null
+) => {
   try {
-    const { projectId } = req.params;
-    const userId = req.user!.id;
-    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+    const job = insightJobs.get(jobId);
+    if (!job) return;
 
-    if (!genAI) {
-      return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
-    }
+    // Helper for rate limiting
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Verify project belongs to user and get version_id
-    const projectCheck = await pool.query(
-      "SELECT id, name, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, userId],
-    );
+    // Update status to processing
+    job.status = 'processing';
+    insightJobs.set(jobId, job);
 
-    if (projectCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
+    // 1. Get project details
+    const projectResult = await pool.query("SELECT name FROM projects WHERE id = $1", [projectId]);
+    const projectName = projectResult.rows[0]?.name || "Project";
 
-    const project = projectCheck.rows[0];
-    const projectVersionId = project.version_id;
-
-    // 1. Check if valid insights already exist for this project
-    // We fetch all insights for the project
+    // 2. Fetch existing cached insights
     const existingInsightsResult = await pool.query(
       "SELECT domain_id, insight_text FROM project_insights WHERE project_id = $1",
       [projectId]
     );
+    const existingInsights: Record<string, string> = {};
+    existingInsightsResult.rows.forEach(row => {
+      existingInsights[row.domain_id] = row.insight_text;
+    });
 
-    const insights: Record<string, string> = {};
-    if (existingInsightsResult.rows.length > 0) {
-        existingInsightsResult.rows.forEach(row => {
-            insights[row.domain_id] = row.insight_text;
-        });
-        
-        // If we have insights, we might want to check if we have them for ALL required domains
-        // But for now, let's assume if we have some, we return them (or we can augment them if incomplete logic is needed)
-        // To keep it simple and fast: if we have any insights, we return them. 
-        // A more robust implementation would check against the required domains list.
-        if (Object.keys(insights).length > 0) {
-             return res.json({ 
-                success: true, 
-                insights,
-                cached: true
-              });
-        }
-    }
-
-    // Get domains with their data
+    // 3. Get domains with their data - we must query again to get performance stats
     let domainsQuery = `
       SELECT d.id, d.title, d.description, COALESCE(d.is_premium, false) as is_premium,
               COUNT(DISTINCT aq.id) as total_questions,
@@ -408,56 +417,79 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
        HAVING COUNT(DISTINCT aq.id) > 0`;
     
     const domainsResult = await pool.query(domainsQuery, queryParams);
+    const domains = domainsResult.rows;
 
-    if (domainsResult.rows.length === 0) {
-      return res.json({ 
-        success: true, 
-        insights: {},
-        message: "No domains found" 
-      });
+    if (domains.length === 0) {
+      job.status = 'completed';
+      job.insights = {};
+      insightJobs.set(jobId, job);
+      return;
     }
 
-    // The insights object is already declared above, so we don't redeclare it here.
+    // Initialize insights with existing ones so we don't regenerate them
+    const insights: Record<string, string> = { ...existingInsights };
+    const domainsToProcess = domains.filter(d => !insights[d.id]);
+    
+    // Optimization: Prefetch detailed answers for ALL domains if Premium
+    const detailedContextMap = new Map<string, string>();
+    
+    if (isPremium && domainsToProcess.length > 0) {
+        const domainIdsToCheck = domainsToProcess.map(d => d.id);
+        
+        // Only run if we actually have domains to process
+        if (domainIdsToCheck.length > 0) {
+            const detailedAnswersQuery = `
+              SELECT 
+                aa.domain_id,
+                aq.question_text,
+                ap.title as practice_title,
+                aa.value as user_score
+              FROM assessment_answers aa
+              JOIN aima_practices ap ON aa.practice_id = ap.id
+              JOIN aima_questions aq ON aa.practice_id = aq.practice_id 
+                   AND aa.level = aq.level 
+                   AND aa.stream = aq.stream 
+                   AND aa.question_index = aq.question_index
+              WHERE aa.project_id = $1 AND aa.user_id = $2 AND aa.domain_id = ANY($3)
+            `;
+            
+            const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, userId, domainIdsToCheck]);
+            
+            // Group by domain_id
+            const groupedAnswers = new Map<string, any[]>();
+            detailedAnswersResult.rows.forEach(row => {
+                if (!groupedAnswers.has(row.domain_id)) {
+                    groupedAnswers.set(row.domain_id, []);
+                }
+                groupedAnswers.get(row.domain_id)!.push(row);
+            });
+            
+            // Build context strings
+            groupedAnswers.forEach((rows, domainId) => {
+                 const context = "\n\nDetailed Question Analysis:\n" + rows.map(row => {
+                    const status = parseFloat(row.user_score) === 1 ? "Correct" : "Incorrect";
+                    return `- [${status}] Practice: ${row.practice_title}\n  Question: ${row.question_text}`;
+                  }).join("\n");
+                  detailedContextMap.set(domainId, context);
+            });
+        }
+    }
+
     const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro"];
 
-    // Helper for rate limiting
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-    // Generate insights for each domain sequentially to avoid Rate Limits (429)
-    for (const [index, domain] of domainsResult.rows.entries()) {
+    // Generate insights for each missing domain sequentially
+    for (const [index, domain] of domainsToProcess.entries()) {
       try {
         // Add delay between requests (except the first one) to respect rate limits
-        if (index > 0) await sleep(5000); // 5 seconds delay to be safe (approx 12 RPM)
+        if (index > 0) await sleep(2000); // reduced delay to be nice to API but faster than 5s
 
         const totalQuestions = parseInt(domain.total_questions) || 0;
         const correctAnswers = parseInt(domain.correct_answers) || 0;
         const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
 
         let detailedContext = "";
-        if (isPremium) {
-           // Fetch detailed answers for this domain
-           const detailedAnswersQuery = `
-             SELECT 
-               aq.question_text,
-               ap.title as practice_title,
-               aa.value as user_score
-             FROM assessment_answers aa
-             JOIN aima_practices ap ON aa.practice_id = ap.id
-             JOIN aima_questions aq ON aa.practice_id = aq.practice_id 
-                  AND aa.level = aq.level 
-                  AND aa.stream = aq.stream 
-                  AND aa.question_index = aq.question_index
-             WHERE aa.project_id = $1 AND aa.user_id = $2 AND aa.domain_id = $3
-           `;
-           
-           const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, userId, domain.id]);
-           
-           if (detailedAnswersResult.rows.length > 0) {
-             detailedContext = "\n\nDetailed Question Analysis:\n" + detailedAnswersResult.rows.map(row => {
-               const status = parseFloat(row.user_score) === 1 ? "Correct" : "Incorrect";
-               return `- [${status}] Practice: ${row.practice_title}\n  Question: ${row.question_text}`;
-             }).join("\n");
-           }
+        if (isPremium && detailedContextMap.has(domain.id)) {
+            detailedContext = detailedContextMap.get(domain.id) || "";
         }
 
         const prompt = `You are an AI assessment expert analyzing domain performance. Generate actionable insights and recommendations for the following domain assessment:
@@ -465,7 +497,7 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
 Domain: ${domain.title}
 Description: ${domain.description || 'N/A'}
 Performance: ${correctAnswers}/${totalQuestions} questions correct (${percentage}%)
-Project: ${project.name}${detailedContext}
+Project: ${projectName}${detailedContext}
 
 Based on this performance data${isPremium ? ' and the detailed question analysis above' : ''}, provide:
 1. A brief analysis of the current performance level
@@ -487,7 +519,8 @@ Keep the response concise (2-3 paragraphs) and focused on practical next steps. 
             // Try multiple models
             for (const modelName of modelsToTry) {
             try {
-                const model = genAI!.getGenerativeModel({ model: modelName });
+                if (!genAI) throw new Error("GenAI not initialized");
+                const model = genAI.getGenerativeModel({ model: modelName });
                  // Adjust generation config if potential for longer response due to detailed context
                 const result = await model.generateContent(prompt);
                 const response = await result.response;
@@ -502,9 +535,7 @@ Keep the response concise (2-3 paragraphs) and focused on practical next steps. 
                 
                 if (isRateLimit) {
                     console.warn(`[Insights] Rate limit hit for ${modelName}. Waiting before retry...`);
-                    await sleep(5000 * attempts); // Exponential-ish backoff: 5s, 10s...
-                    // If rate limit, break from inner model loop to retry the outer attempt loop
-                    // This allows the outer loop's `await sleep(2000)` to also apply if needed
+                    await sleep(5000 * attempts); 
                     break; 
                 }
                 
@@ -514,8 +545,6 @@ Keep the response concise (2-3 paragraphs) and focused on practical next steps. 
             }
             
             if (!insightText && attempts < maxAttempts) {
-                 // If we failed all models but haven't hit max attempts (likely rate limit caused break), wait and retry
-                 // This sleep is for cases where the inner loop broke due to rate limit and we need to wait before next attempt
                  await sleep(2000); 
             }
         }
@@ -540,18 +569,183 @@ Keep the response concise (2-3 paragraphs) and focused on practical next steps. 
         insights[domain.id] = "Unable to generate insights at this time. Please try again later.";
       }
     }
-    
-    // The `results` and `results.forEach` are removed as insights are populated directly in the loop.
 
+    // Complete job
+    job.status = 'completed';
+    job.insights = insights;
+    insightJobs.set(jobId, job);
+
+  } catch (error: any) {
+    console.error("Error in generateInsightsAsync:", error);
+    const job = insightJobs.get(jobId);
+    if (job) {
+      job.status = 'failed';
+      job.error = error.message;
+      insightJobs.set(jobId, job);
+    }
+  }
+};
+
+// Generate AI insights for domains (free users: free domains only, premium users: all domains)
+// REFACTORED: Now async, returns a jobId
+router.post("/:projectId/generate-insights", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user!.id;
+    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+
+    if (!genAI) {
+      return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
+    }
+
+    // Verify project belongs to user and get version_id
+    const projectCheck = await pool.query(
+      "SELECT id, name, version_id FROM projects WHERE id = $1 AND user_id = $2",
+      [projectId, userId],
+    );
+
+    if (projectCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    const project = projectCheck.rows[0];
+    const projectVersionId = project.version_id;
+
+    // 1. Determine which domains need insights
+    // We need to know the list of relevant domain IDs first to check if cache is complete
+    let domainsQuery = `
+        SELECT d.id
+        FROM aima_domains d
+        LEFT JOIN aima_practices p ON d.id = p.domain_id
+        LEFT JOIN aima_questions aq ON p.id = aq.practice_id
+        LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1 AND aa.user_id = $2
+    `;
+
+    const whereConditions: string[] = [];
+    const queryParams: any[] = [projectId, userId];
+    let paramIndex = 3;
+
+    if (!isPremium) {
+        whereConditions.push(`COALESCE(d.is_premium, false) = false`);
+    }
+
+    // Add version filtering (simplified reuse of logic)
+    if (projectVersionId) {
+        whereConditions.push(`(d.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
+        AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+        ))`);
+        queryParams.push(projectVersionId);
+        paramIndex++;
+        
+         whereConditions.push(`(p.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v2 WHERE v2.id = p.version_id 
+        AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+        ))`);
+        queryParams.push(projectVersionId);
+        paramIndex++;
+        
+        whereConditions.push(`(aq.version_id IS NULL OR EXISTS (
+        SELECT 1 FROM versions v3 WHERE v3.id = aq.version_id 
+        AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+        ))`);
+        queryParams.push(projectVersionId);
+        paramIndex++;
+    }
+
+    if (whereConditions.length > 0) {
+        domainsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
+    }
+    
+    domainsQuery += ` GROUP BY d.id HAVING COUNT(DISTINCT aq.id) > 0`;
+
+    const domainsResult = await pool.query(domainsQuery, queryParams);
+    const requiredDomainIds = domainsResult.rows.map(r => r.id);
+
+    // 2. Check cache
+    const existingInsightsResult = await pool.query(
+      "SELECT domain_id, insight_text FROM project_insights WHERE project_id = $1",
+      [projectId]
+    );
+    const cachedAllowed: Record<string, string> = {};
+    existingInsightsResult.rows.forEach(row => {
+        if (requiredDomainIds.includes(row.domain_id)) {
+            cachedAllowed[row.domain_id] = row.insight_text;
+        }
+    });
+
+    // Check if we have insights for ALL required domains
+    const allCached = requiredDomainIds.length > 0 && requiredDomainIds.every(id => cachedAllowed[id]);
+
+    if (allCached) {
+         return res.json({ 
+            success: true, 
+            insights: cachedAllowed,
+            cached: true,
+            status: 'completed'
+          });
+    }
+
+    // 3. Not fully cached, start async job
+    const jobId = randomUUID();
+    
+    // Store job
+    insightJobs.set(jobId, {
+        status: 'pending',
+        projectId,
+        createdAt: Date.now()
+    });
+
+    // Start background processing (fire and forget)
+    generateInsightsAsync(jobId, projectId, userId, isPremium, projectVersionId).catch(err => {
+        console.error(`Background job ${jobId} failed completely:`, err);
+        const job = insightJobs.get(jobId);
+        if (job) {
+            job.status = 'failed';
+            job.error = "Internal server error during processing";
+            insightJobs.set(jobId, job);
+        }
+    });
+
+    // Return immediately
     res.json({ 
       success: true, 
-      insights,
-      cached: false
+      jobId, 
+      status: 'processing',
+      message: "Insights generation started. Please poll status."
     });
+
   } catch (error) {
-    console.error("Error generating insights:", error);
+    console.error("Error initiating insights generation:", error);
     res.status(500).json({ error: "Failed to generate insights" });
   }
+});
+
+// Poll for insights status
+router.get("/:projectId/insights/status/:jobId", authenticateToken, async (req, res) => {
+    try {
+        const { jobId, projectId } = req.params;
+        const job = insightJobs.get(jobId);
+
+        if (!job) {
+            return res.status(404).json({ error: "Job not found" });
+        }
+
+        if (job.projectId !== projectId) {
+             return res.status(403).json({ error: "Unauthorized access to this job" });
+        }
+
+        res.json({
+            jobId,
+            status: job.status,
+            insights: job.insights,
+            error: job.error
+        });
+
+    } catch (error) {
+        console.error("Error checking job status:", error);
+        res.status(500).json({ error: "Failed to check status" });
+    }
 });
 
 export default router;

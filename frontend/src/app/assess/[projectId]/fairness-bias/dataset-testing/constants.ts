@@ -72,6 +72,8 @@ const DEFAULT_THRESHOLDS = {
 
 export type Thresholds = typeof DEFAULT_THRESHOLDS;
 
+export const THRESHOLDS = DEFAULT_THRESHOLDS;
+
 /**
  * Simple recursive deep merge utility
  */

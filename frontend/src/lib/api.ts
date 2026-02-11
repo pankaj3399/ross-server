@@ -1017,14 +1017,36 @@ class ApiService {
   }
   async generateDomainInsights(projectId: string): Promise<{
     success: boolean;
-    insights: Record<string, string>; // domainId -> insights text
+    insights?: Record<string, string>; // domainId -> insights text
+    jobId?: string;
+    status?: string;
+    message?: string;
+    cached?: boolean;
   }> {
     return this.request<{
       success: boolean;
-      insights: Record<string, string>;
+      insights?: Record<string, string>;
+      jobId?: string;
+      status?: string;
+      message?: string;
+      cached?: boolean;
     }>(`/projects/${projectId}/generate-insights`, {
       method: "POST",
     });
+  }
+
+  async getInsightsJobStatus(projectId: string, jobId: string): Promise<{
+    jobId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    insights?: Record<string, string>;
+    error?: string;
+  }> {
+    return this.request<{
+        jobId: string;
+        status: 'pending' | 'processing' | 'completed' | 'failed';
+        insights?: Record<string, string>;
+        error?: string;
+    }>(`/projects/${projectId}/insights/status/${jobId}`);
   }
 }
 

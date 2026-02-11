@@ -6,6 +6,7 @@ import {
     styleBadges, styleTypography, styleTables, styleMetricCards,
     styleIcons, styleMutedBackgrounds, fixProgressBars
 } from "./pdfStyles";
+import { THRESHOLDS } from "../../constants";
 
 interface UsePdfExportProps {
     reportRef: RefObject<HTMLDivElement>;
@@ -185,7 +186,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 pdfDoc.text("Threshold:", rightCol, boxY + 8);
                 pdfDoc.setFont("helvetica", "bold");
                 pdfDoc.setTextColor(15, 23, 42);
-                const threshold = payload.selections?.threshold ?? 0.8;
+                const threshold = payload.selections?.threshold ?? THRESHOLDS.FAIRNESS.HIGH;
                 pdfDoc.text(`${(threshold * 100).toFixed(0)}%`, rightCol + 24, boxY + 8);
 
                 // Row 3
