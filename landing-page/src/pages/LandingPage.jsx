@@ -16,7 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import AIMaturityRunGame from "@/components/AIMaturityRunGame";
-import logoImage from "@/logo.webp";
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
@@ -43,7 +43,7 @@ const LandingPage = () => {
     return () => observer.disconnect();
   }, []);
 
-  const logoUrl = isDarkMode ? "/logo-dark.png" : logoImage;
+  const logoUrl = isDarkMode ? "/logo.png" : "/logo.png";
 
   const handleNotify = async (e) => {
     e.preventDefault();
@@ -216,16 +216,13 @@ const LandingPage = () => {
             className="space-y-6"
           >
             <img
-              src={isDarkMode ? "/logo-dark.png" : "/logo.png"}
+              src="/logo.png"
               alt="MATUR.ai Logo"
               className="h-24 mx-auto mb-4"
             />
 
-            <h3 className="text-3xl md:text-4xl font-extrabold gradient-text-blue mb-4">
-              MaturAIze Your AI
-            </h3>
             <h1 className="text-4xl md:text-5xl font-extrabold gradient-text">
-              The First Comprehensive AI Maturity Self-Assessment Platform
+              Assess the maturity of your AI systems
             </h1>
             <h2 className="text-xl md:text-2xl font-semibold text-purple-700 -mt-2">
               Using the Industry-Standard OWASP AIMA Framework & Much More!
