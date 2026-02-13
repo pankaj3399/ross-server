@@ -23,9 +23,7 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo Section */}
           <Link href="/" className="flex items-center space-x-3">
-            <span className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
-              MATHUR.ai
-            </span>
+            <img src="/matur-logo-slogan.png" alt="Matur AI" className="h-8" />
           </Link>
 
           {/* Navigation Section */}

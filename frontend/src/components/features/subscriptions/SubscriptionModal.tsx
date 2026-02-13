@@ -211,7 +211,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-5xl font-bold text-primary">
-                          ${prices.basic || FALLBACK_PRICES.basic}
+                          $100
                         </span>
                         <span className="text-lg text-muted-foreground">/month</span>
                       </div>
@@ -300,7 +300,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-5xl font-bold text-primary">
-                          ${prices.pro || FALLBACK_PRICES.pro}
+                          $1000
                         </span>
                         <span className="text-lg text-muted-foreground">/month</span>
                       </div>
