@@ -185,7 +185,7 @@ export default function UnlockPremium({
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-3xl font-bold">
-                          ${prices.basic !== null ? prices.basic : FALLBACK_PRICES.basic}
+                          $100
                         </span>
                         <span className="text-muted-foreground">/month</span>
                       </div>
@@ -246,7 +246,7 @@ export default function UnlockPremium({
                     ) : (
                       <div className="flex items-baseline justify-center gap-1">
                         <span className="text-3xl font-bold">
-                          ${prices.pro !== null ? prices.pro : FALLBACK_PRICES.pro}
+                          $1000
                         </span>
                         <span className="text-muted-foreground">/month</span>
                       </div>
