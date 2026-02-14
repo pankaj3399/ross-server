@@ -468,10 +468,10 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     }
                     /* Force variables to hex within the clone */
                     .pdf-export-root {
-                        --success: `#34a853` !important;
-                        --warning: `#fbbc04` !important;
-                        --destructive: `#ea4335` !important;
-                        --primary: `#4285f4` !important;
+                        --success: #34a853 !important;
+                        --warning: #fbbc04 !important;
+                        --destructive: #ea4335 !important;
+                        --primary: #4285f4 !important;
                     }
                 `;
                 root.appendChild(styleSheet);
