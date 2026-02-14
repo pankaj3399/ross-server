@@ -43,12 +43,7 @@ const LandingPage = () => {
     return () => observer.disconnect();
   }, []);
 
-const LandingPage = () => {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const logoUrl = "/matur-logo-slogan.png";
-  // ... rest of the component
+  const logoUrl = isDarkMode ? "/matur-logo-slogan.png" : "/matur-logo-slogan.png";
 
   const handleNotify = async (e) => {
     e.preventDefault();
