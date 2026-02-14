@@ -26,32 +26,32 @@ const VISUAL_CONFIGS: Record<'good' | 'caution' | 'bad' | 'unknown', VisualConfi
     good: {
         icon: CheckCircle2,
         color: "text-primary",
-        bgColor: "bg-primary/10",
-        barColor: "bg-primary",
+        bgColor: "bg-[#eff6ff] dark:bg-[#1e3a8a]",
+        barColor: "bg-[#4285f4] dark:bg-primary",
         badgeLabel: "Good",
         badgeVariant: "default"
     },
     caution: {
         icon: AlertTriangle,
         color: "text-muted-foreground",
-        bgColor: "bg-muted",
-        barColor: "bg-muted-foreground",
+        bgColor: "bg-[#f1f5f9] dark:bg-muted",
+        barColor: "bg-[#64748b] dark:bg-muted-foreground",
         badgeLabel: "Review",
         badgeVariant: "secondary"
     },
     bad: {
         icon: XCircle,
         color: "text-destructive",
-        bgColor: "bg-destructive/10",
-        barColor: "bg-destructive",
+        bgColor: "bg-[#fef2f2] dark:bg-[#7f1d1d]",
+        barColor: "bg-[#ea4335] dark:bg-destructive",
         badgeLabel: "Alert",
         badgeVariant: "destructive"
     },
     unknown: {
         icon: HelpCircle,
         color: "text-muted-foreground",
-        bgColor: "bg-muted",
-        barColor: "bg-muted",
+        bgColor: "bg-[#f1f3f5] dark:bg-muted",
+        barColor: "bg-[#94a3b8] dark:bg-muted",
         badgeLabel: "Unknown",
         badgeVariant: "secondary"
     }
@@ -209,7 +209,7 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                     if (explanationItems.length === 0) return null;
 
                     return (
-                        <div className="mt-1 p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="mt-1 p-3 bg-[#f8fafc] dark:bg-muted rounded-lg border border-border">
                             <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3 h-3 text-primary" />
                                 Analysis

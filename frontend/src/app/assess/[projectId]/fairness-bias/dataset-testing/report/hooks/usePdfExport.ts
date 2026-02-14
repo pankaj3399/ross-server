@@ -4,7 +4,8 @@ import {
     styleHeader, styleGrid, styleCards, styleSectionCards,
     styleUploadInfo, styleAnalysisParams, styleVerdictColors,
     styleBadges, styleTypography, styleTables, styleMetricCards,
-    styleIcons, styleMutedBackgrounds, fixProgressBars
+    styleIcons, styleMutedBackgrounds, fixProgressBars, 
+    removeAnimations, fixSensitiveAnalysis
 } from "./pdfStyles";
 import { THRESHOLDS } from "../../constants";
 
@@ -56,7 +57,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             const usableHeight = contentBottom - contentTop;
 
             // Helper: Add header to current page
-            const addPageHeader = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
+            const addPageHeader = (pdfDoc: any, pageNum: number, totalPages: number) => {
                 const { margin, headerHeight } = PDF_CONFIG;
                 
                 // Header background - Primary Blue #4285F4
@@ -82,7 +83,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             };
 
             // Helper: Add footer to current page
-            const addPageFooter = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
+            const addPageFooter = (pdfDoc: any, pageNum: number, totalPages: number) => {
                 const footerY = pageHeight - 8;
 
                 // Left side: Date and system info
@@ -114,7 +115,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             };
 
             // Helper: Create summary/cover page
-            const createSummaryPage = (pdfDoc: jsPDFType) => {
+            const createSummaryPage = (pdfDoc: any) => {
                 // Title area - more compact
                 pdfDoc.setFillColor(249, 250, 251); // gray-50
                 pdfDoc.rect(0, 20, pageWidth, 50, "F");
@@ -446,7 +447,33 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     if (safeClass.includes("dark:border")) {
                         elem.style.borderColor = "#e2e8f0";
                     }
+
+
                 });
+
+                // Final safety: Inject a global CSS block to catch pseudo-elements and variables
+                const styleSheet = document.createElement("style");
+                styleSheet.textContent = `
+                    * { 
+                        transition: none !important; 
+                        animation: none !important; 
+                    }
+                    *::before, *::after {
+                        background-color: transparent !important;
+                        color: inherit !important;
+                        border-color: inherit !important;
+                        box-shadow: none !important;
+                        content: none !important; /* Some icons use ::before for oklch icons */
+                    }
+                    /* Force variables to hex */
+                    :root {
+                        --success: #34a853 !important;
+                        --warning: #fbbc04 !important;
+                        --destructive: #ea4335 !important;
+                        --primary: #4285f4 !important;
+                    }
+                `;
+                root.appendChild(styleSheet);
 
                 styleHeader(root);
                 styleGrid(root);
@@ -462,11 +489,16 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 styleIcons(root);
                 styleMutedBackgrounds(root);
                 fixProgressBars(root);
+                fixSensitiveAnalysis(root);
+                removeAnimations(root);
 
                 // Analysis boxes are now visible as per request
             };
 
             applyPdfStyles(clone);
+
+
+
             document.body.appendChild(clone);
 
             try {
@@ -512,15 +544,71 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                 // Fallback: capture main sections (skip first one as it's the summary, drawn natively)
                 if (sections.length === 0) {
-                    const allSections = clone.querySelectorAll("main > section");
-                    allSections.forEach((section, idx) => {
-                        // Skip the first section (summary) since it's drawn natively on page 1
-                        if (idx === 0) return;
-                        sections.push({ element: section as HTMLElement, label: `section-${idx}`, scale: 1.8 });
+                    // Capture Overall Metrics section (contains the detailed Analysis)
+                    // We need to find the section within the clone.
+
+                    // Capture Sensitive Column Charts individually to allow proper page breaking
+                    // Target the second section (.space-y-6) which contains the sensitive columns
+                    const sensitiveSection = clone.querySelector("main > section.space-y-6");
+                    
+                    if (sensitiveSection) {
+                        const sensitiveCharts = sensitiveSection.querySelectorAll(".page-break-avoid");
+                        
+                        if (sensitiveCharts.length > 0) {
+                            sensitiveCharts.forEach((chart, idx) => {
+                                 // Ensure charts have white background and no box shadow artifacts for capture
+                                 const chartEl = chart as HTMLElement;
+                                 chartEl.style.backgroundColor = "#ffffff";
+                                 chartEl.style.height = "auto"; // Allow full expansion
+                                 chartEl.style.overflow = "visible"; // Ensure nothing is clipped
+                                 
+                                 sections.push({ 
+                                     element: chartEl, 
+                                     label: `sensitive-column-${idx}`, 
+                                     scale: 1.8 
+                                 });
+                            });
+                        }
+                    }
+                } // end fallback if (sections.length === 0)
+
+                // ALWAYS capture Overall Metrics section at the end
+                // Use the ORIGINAL section in the clone (not a sub-clone) so it has proper dimensions
+                const metricsSection = clone.querySelector("main > section.rounded-3xl") as HTMLElement | null;
+                
+                if (metricsSection) {
+                    console.log("[PDF Export] Found metricsSection:", metricsSection.tagName, "offsetHeight:", metricsSection.offsetHeight, "offsetWidth:", metricsSection.offsetWidth);
+                    // Hide Upload Info/Analysis Params grid (first .grid.gap-6 child)
+                    const uploadGrid = metricsSection.querySelector(".grid.gap-6.lg\\:grid-cols-2");
+                    if (uploadGrid) (uploadGrid as HTMLElement).style.display = "none";
+                    
+                    // Hide the verdict banner
+                    const verdictBanner = metricsSection.querySelector(".space-y-6");
+                    if (verdictBanner) (verdictBanner as HTMLElement).style.display = "none";
+
+                    // Force light mode styles on all children
+                    metricsSection.style.backgroundColor = "#ffffff";
+                    metricsSection.style.color = "#0f172a";
+                    metricsSection.querySelectorAll("*").forEach(node => {
+                        const el = node as HTMLElement;
+                        if (el.style) {
+                            el.style.color = "#0f172a";
+                            const cls = el.getAttribute("class") || "";
+                            if (cls.includes("dark:bg-gray-900") || cls.includes("dark:bg-slate-900")) {
+                                el.style.backgroundColor = "#ffffff";
+                                el.style.borderColor = "#e2e8f0";
+                            }
+                        }
+                    });
+
+                    sections.push({ 
+                        element: metricsSection, 
+                        label: "overall-metrics-analysis", 
+                        scale: 1.8 
                     });
                 }
 
-                // If still nothing (only 1 section in document), capture the whole thing minus header
+                // If genuinely nothing was captured (e.g. empty report), fallback to whole main
                 if (sections.length === 0) {
                     const mainEl = clone.querySelector("main");
                     if (mainEl) {
@@ -530,7 +618,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                 // Create PDF pages
                 // Page 1: Summary page (native PDF drawing)
-                createSummaryPage(pdf);
+                createSummaryPage(pdf as any);
 
                 // Filter out empty or invalid sections before processing
                 const validSections = sections.filter(section => {
@@ -538,6 +626,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     if (section.element.offsetHeight === 0 || section.element.offsetWidth === 0) return false;
                     return true;
                 });
+                console.log("[PDF Export] Total sections:", sections.length, "Valid sections:", validSections.length, "Labels:", sections.map(s => s.label + "(" + s.element.offsetHeight + "x" + s.element.offsetWidth + ")"));
 
                 // Only add detailed pages if there are valid sections
                 if (validSections.length > 0) {
@@ -610,7 +699,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                         if (imgHeight < 5) continue;
 
                         // Scale down detailed sections to fit more content
-                        const scaleFactor = section.label.includes("sensitive") ? 0.9 : 1;
+                        const scaleFactor = section.label.includes("sensitive") ? 0.75 : 1;
                         const scaledHeight = imgHeight * scaleFactor;
                         const scaledWidth = imgWidth * scaleFactor;
                         const xOffset = (usableWidth - scaledWidth) / 2;
@@ -694,8 +783,8 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 const totalPages = (pdf as any).internal.getNumberOfPages();
                 for (let i = 1; i <= totalPages; i++) {
                     pdf.setPage(i);
-                    addPageHeader(pdf, i, totalPages);
-                    addPageFooter(pdf, i, totalPages);
+                    addPageHeader(pdf as any, i, totalPages);
+                    addPageFooter(pdf as any, i, totalPages);
                 }
 
                 // Save PDF

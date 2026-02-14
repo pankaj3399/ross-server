@@ -3,6 +3,18 @@
  * Extracted from usePdfExport.ts to improve maintainability
  */
 
+export const removeAnimations = (root: HTMLElement) => {
+    root.querySelectorAll("*").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.animation = "none";
+        elem.style.transition = "none";
+        // Remove specific animation classes that might interfere
+        if (typeof elem.className === "string") {
+            elem.className = elem.className.replace(/animate-\S+/g, "");
+        }
+    });
+};
+
 export const styleHeader = (root: HTMLElement) => {
     const header = root.querySelector("header");
     if (header) {
@@ -46,9 +58,9 @@ export const styleGrid = (root: HTMLElement) => {
         
         // Check for specific grid configurations
         if (classes.includes("pdf-metric-grid") || classes.includes("lg:grid-cols-5")) {
-            // 3-column grid for metric cards - fits 3x3 layout on one page
-            elem.style.setProperty("grid-template-columns", "repeat(3, 1fr)", "important");
-            elem.style.gap = "12px";
+            // 2-column grid for standard A4 PDF width - prevents cut-off
+            elem.style.setProperty("grid-template-columns", "repeat(2, 1fr)", "important");
+            elem.style.gap = "16px";
         } else if (classes.includes("lg:grid-cols-2")) {
             // 2-column grid
             elem.style.setProperty("grid-template-columns", "repeat(2, 1fr)", "important");
@@ -99,21 +111,25 @@ export const styleSectionCards = (root: HTMLElement) => {
     root.querySelectorAll("section > .rounded-3xl").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.boxShadow = "0 8px 30px -8px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.06)";
-        elem.style.padding = "16px"; // Compact padding for page fit
+        elem.style.padding = "32px"; // Increased padding around the section border as requested
     });
     
     // Make the main section with metrics more compact
     root.querySelectorAll("section.rounded-3xl, section > .rounded-3xl").forEach((el) => {
         const elem = el as HTMLElement;
         // Reduce internal spacing
-        elem.querySelectorAll(".space-y-8").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "16px", "important");
-        });
-        elem.querySelectorAll(".space-y-6").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "12px", "important");
-        });
-        elem.querySelectorAll(".space-y-4").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "8px", "important");
+        elem.querySelectorAll(".space-y-8, .space-y-6, .space-y-5, .space-y-4, .space-y-3, .space-y-2").forEach(spacer => {
+            const s = spacer as HTMLElement;
+            s.style.display = "flex";
+            s.style.flexDirection = "column";
+            
+            const classes = s.className || "";
+            if (classes.includes("space-y-8")) s.style.gap = "16px";
+            else if (classes.includes("space-y-6")) s.style.gap = "12px";
+            else if (classes.includes("space-y-5")) s.style.gap = "10px";
+            else if (classes.includes("space-y-4")) s.style.gap = "8px";
+            else if (classes.includes("space-y-3")) s.style.gap = "6px";
+            else if (classes.includes("space-y-2")) s.style.gap = "4px";
         });
     });
 };
@@ -298,10 +314,10 @@ export const styleMetricCards = (root: HTMLElement) => {
     const metricGrid = root.querySelector(".pdf-metric-grid") as HTMLElement;
     if (metricGrid) {
         metricGrid.style.display = "grid";
-        // Use 3 columns for a 3x3 grid layout that fits on one page
-        metricGrid.style.setProperty("grid-template-columns", "repeat(3, 1fr)", "important");
+        // Use 2 columns for better fit on A4 page (preventing cut-off)
+        metricGrid.style.setProperty("grid-template-columns", "repeat(2, 1fr)", "important");
         metricGrid.style.setProperty("display", "grid", "important");
-        metricGrid.style.gap = "12px"; // Comfortable gap for 3-column layout
+        metricGrid.style.gap = "16px"; // Comfortable gap
         metricGrid.style.setProperty("grid-auto-rows", "auto", "important");
         metricGrid.style.width = "100%";
         metricGrid.style.padding = "0";
@@ -319,8 +335,8 @@ export const styleMetricCards = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = "#ffffff";
         elem.style.border = "1px solid #e2e8f0";
-        elem.style.borderRadius = "8px";
-        elem.style.padding = "12px"; // Comfortable padding for 3x3 grid
+        elem.style.borderRadius = "12px";
+        elem.style.padding = "24px"; // Increased padding (was 12px)
         elem.style.breakInside = "avoid";
         elem.style.overflow = "hidden";
         elem.style.minWidth = "0"; // CRITICAL: Allows grid items to shrink below content size
@@ -331,8 +347,8 @@ export const styleMetricCards = (root: HTMLElement) => {
         // Title
         const title = elem.querySelector("span.text-sm") as HTMLElement;
         if (title) {
-            title.style.fontSize = "11px";
-            title.style.marginBottom = "4px";
+            title.style.fontSize = "14px"; // Increased size (was 11px)
+            title.style.marginBottom = "12px"; // Increased margin (was 4px)
             title.style.fontWeight = "600";
             title.style.lineHeight = "1.2";
         }
@@ -340,31 +356,63 @@ export const styleMetricCards = (root: HTMLElement) => {
         // Badge - compact but readable for 3x3 grid
         elem.querySelectorAll(".pdf-badge, [class*='badge'], [class*='Badge']").forEach(b => {
             const badge = b as HTMLElement;
-            badge.style.setProperty("display", "inline-block", "important");
-            badge.style.setProperty("vertical-align", "middle", "important");
-            badge.style.setProperty("font-size", "9px", "important");
-            // Asymmetrical padding to shift text UP
-            badge.style.setProperty("padding", "1px 8px 3px 8px", "important");
-            badge.style.setProperty("line-height", "1", "important");
+            // Use inline-flex for better centering and size control
+            badge.style.setProperty("display", "inline-flex", "important");
+            badge.style.setProperty("align-items", "center", "important");
+            badge.style.setProperty("justify-content", "center", "important");
+            
+            badge.style.setProperty("font-size", "10px", "important"); // Slightly larger (was 9px)
+            badge.style.setProperty("padding", "4px 16px", "important"); // Balanced padding (was 2px 10px)
+            badge.style.setProperty("line-height", "normal", "important"); // Let font determine height
             badge.style.setProperty("height", "auto", "important");
-            badge.style.setProperty("min-width", "auto", "important");
+            badge.style.setProperty("min-width", "60px", "important"); // Ensure consistent badge width
+            badge.style.setProperty("white-space", "nowrap", "important"); // Prevent text wrapping
+            badge.style.setProperty("flex-shrink", "0", "important"); // Prevent being squeezed
+            
             badge.style.setProperty("box-sizing", "border-box", "important");
             badge.style.setProperty("border-radius", "10px", "important");
             badge.style.setProperty("font-weight", "700", "important");
             badge.style.setProperty("text-align", "center", "important");
+
+            // Fix background colors - enforce light mode for PDF consistency
+            const classes = badge.className || "";
+            // Good / Primary
+            if (classes.includes("bg-[#eff6ff]") || classes.includes("bg-[#1e3a8a]") || classes.includes("text-primary")) {
+                badge.style.backgroundColor = "#eff6ff"; // Light Blue
+                badge.style.color = "#1e40af"; // Dark Blue Text
+                badge.style.border = "1px solid #dbeafe";
+            } 
+            // Bad / Destructive
+            else if (classes.includes("bg-[#fef2f2]") || classes.includes("bg-[#7f1d1d]") || classes.includes("destructive")) {
+                badge.style.backgroundColor = "#fef2f2"; // Light Red
+                badge.style.color = "#b91c1c"; // Dark Red Text
+                badge.style.border = "1px solid #fee2e2";
+            }
+            // Caution / Warning
+            else if (classes.includes("bg-[#fffbeb]") || classes.includes("bg-[#78350f]") || classes.includes("warning")) {
+                badge.style.backgroundColor = "#fffbeb"; // Light Amber
+                badge.style.color = "#b45309"; // Dark Amber Text
+                badge.style.border = "1px solid #fef3c7";
+            }
+            // Unknown / Default
+            else {
+                badge.style.backgroundColor = "#f1f5f9"; // Slate
+                badge.style.color = "#475569";
+                badge.style.border = "1px solid #e2e8f0";
+            }
         });
 
         // Header row adjustment
         const headerRow = elem.querySelector(".flex.items-center.justify-between.mb-3") as HTMLElement;
         if (headerRow) {
-            headerRow.style.marginBottom = "6px";
-            headerRow.style.gap = "6px";
+            headerRow.style.marginBottom = "32px"; // Increased margin significantly (was 16px)
+            headerRow.style.gap = "8px";
         }
 
         // Score Display container
         const scoreRow = elem.querySelector(".flex.items-center.gap-3.mb-3") as HTMLElement;
         if (scoreRow) {
-            scoreRow.style.marginBottom = "6px";
+            scoreRow.style.marginBottom = "16px"; // Increased margin (was 6px)
             scoreRow.style.gap = "8px";
         }
 
@@ -386,11 +434,27 @@ export const styleMetricCards = (root: HTMLElement) => {
             }
         });
 
-        // Icon container
-        const iconBox = elem.querySelector(".p-2.rounded-lg") as HTMLElement;
+        // Icon container - Corrected selector and forced light background
+        const iconBox = elem.querySelector(".h-12.w-12.rounded-lg") as HTMLElement;
         if (iconBox) {
-            iconBox.style.padding = "6px";
-            iconBox.style.borderRadius = "6px";
+            iconBox.style.padding = "0"; // Reset padding
+            iconBox.style.borderRadius = "8px";
+            iconBox.style.display = "flex";
+            iconBox.style.alignItems = "center";
+            iconBox.style.justifyContent = "center";
+            
+            // Force light mode background colors (using 100-shade for better visibility)
+            const iconClasses = iconBox.className || "";
+            if (iconClasses.includes("bg-[#eff6ff]") || iconClasses.includes("bg-[#1e3a8a]") || iconClasses.includes("primary")) {
+                iconBox.style.backgroundColor = "#dbeafe"; // Blue-100 (was 50)
+            } else if (iconClasses.includes("bg-[#fef2f2]") || iconClasses.includes("bg-[#7f1d1d]") || iconClasses.includes("destructive")) {
+                iconBox.style.backgroundColor = "#fee2e2"; // Red-100 (was 50)
+            } else if (iconClasses.includes("bg-[#fffbeb]") || iconClasses.includes("bg-[#78350f]") || iconClasses.includes("warning")) {
+                iconBox.style.backgroundColor = "#fef3c7"; // Amber-100 (was 50)
+            } else {
+                 // Fallback to light slate if unknown
+                 iconBox.style.backgroundColor = "#f1f5f9";
+            }
         }
         
         // Icon itself
@@ -403,17 +467,21 @@ export const styleMetricCards = (root: HTMLElement) => {
         // Progress bar container
         const progressContainer = elem.querySelector(".h-1\\.5") as HTMLElement;
         if (progressContainer) {
-            progressContainer.style.marginBottom = "6px";
-            progressContainer.style.height = "6px";
+            progressContainer.style.marginBottom = "16px"; // Increased margin (was 6px)
+            progressContainer.style.height = "8px";
         }
 
         // Analysis box styling - ensure it's visible but compact
-        const analysisBox = elem.querySelector(".bg-muted\\/50") as HTMLElement;
+        // NOTE: Strictly target the analysis box via border class to avoid selecting progress bar
+        const analysisBox = elem.querySelector(".border-border") as HTMLElement;
         if (analysisBox) {
             analysisBox.style.display = "block";
-            analysisBox.style.fontSize = "10px";
-            analysisBox.style.padding = "4px 8px";
-            analysisBox.style.marginTop = "4px";
+            analysisBox.style.fontSize = "11px"; // Increased size
+            analysisBox.style.padding = "16px"; // Increased padding (was 4px 8px)
+            analysisBox.style.marginTop = "16px"; // Increased margin (was 4px)
+            analysisBox.style.borderRadius = "8px";
+            analysisBox.style.backgroundColor = "#f8fafc"; // Ensure background is light
+            analysisBox.style.border = "1px solid #e2e8f0";
         }
 
         // General text sizing for remaining elements
@@ -483,15 +551,15 @@ export const fixProgressBars = (root: HTMLElement) => {
 
             // Set color based on status class
             if (innerClasses.includes("success") || innerClasses.includes("green") || innerClasses.includes("emerald")) {
-                innerBar.style.background = "linear-gradient(90deg, #059669, #10b981)";
+                innerBar.style.backgroundColor = "#10b981";
             } else if (innerClasses.includes("warning") || innerClasses.includes("amber") || innerClasses.includes("yellow") || innerClasses.includes("orange")) {
-                innerBar.style.background = "linear-gradient(90deg, #d97706, #f59e0b)";
+                innerBar.style.backgroundColor = "#f59e0b";
             } else if (innerClasses.includes("destructive") || innerClasses.includes("red") || innerClasses.includes("rose")) {
-                innerBar.style.background = "linear-gradient(90deg, #dc2626, #ef4444)";
+                innerBar.style.backgroundColor = "#ef4444";
             } else if (innerClasses.includes("primary") || innerClasses.includes("indigo")) {
-                innerBar.style.background = "#94a3b8"; 
+                innerBar.style.backgroundColor = "#94a3b8"; 
             } else {
-                innerBar.style.background = "#94a3b8";
+                innerBar.style.backgroundColor = "#94a3b8";
             }
         });
     });
@@ -512,10 +580,10 @@ export const fixProgressBars = (root: HTMLElement) => {
                 const barClasses = bar.className || "";
                 
                 if (barClasses.includes("warning") || barClasses.includes("from-warning")) {
-                    bar.style.background = "linear-gradient(90deg, #d97706, #fbbf24)";
+                    bar.style.backgroundColor = "#fbbf24";
                 } else {
                     // Changed from Blue to Gray as requested
-                    bar.style.background = "#94a3b8"; // slate-400
+                    bar.style.backgroundColor = "#94a3b8"; // slate-400
                 }
             }
         }
@@ -536,13 +604,13 @@ export const fixProgressBars = (root: HTMLElement) => {
             
             const barClasses = innerBar.className || "";
             if (barClasses.includes("bg-destructive")) {
-                innerBar.style.background = "#dc2626";
+                innerBar.style.backgroundColor = "#dc2626";
             } else if (barClasses.includes("bg-muted-foreground")) {
-                innerBar.style.background = "#64748b";
+                innerBar.style.backgroundColor = "#64748b";
             } else if (barClasses.includes("bg-primary")) {
-                innerBar.style.background = "#94a3b8"; // slate-400
+                innerBar.style.backgroundColor = "#94a3b8"; // slate-400
             } else {
-                innerBar.style.background = "#94a3b8"; // slate-400
+                innerBar.style.backgroundColor = "#94a3b8"; // slate-400
             }
         }
     });
@@ -561,5 +629,91 @@ export const fixProgressBars = (root: HTMLElement) => {
         } else if (classes.includes("primary") || classes.includes("indigo")) {
             elem.style.backgroundColor = "#94a3b8"; // slate-400
         }
+    });
+};
+
+export const fixSensitiveAnalysis = (root: HTMLElement) => {
+    // Fix the group selection rate grid (label overlap)
+    root.querySelectorAll(".grid").forEach(el => {
+        const elem = el as HTMLElement;
+        const classes = elem.className || "";
+        if (classes.includes("grid-cols-[140px_1fr_48px]")) {
+            elem.style.setProperty("grid-template-columns", "200px 1fr 60px", "important");
+            elem.style.gap = "16px";
+            
+            // Fix overlapping group name text
+            elem.querySelectorAll(".truncate").forEach(t => {
+                (t as HTMLElement).style.overflow = "visible";
+                (t as HTMLElement).style.whiteSpace = "normal";
+                (t as HTMLElement).style.maxWidth = "200px";
+            });
+        }
+    });
+
+    // Fix the Fairness Score box (internal overlaps)
+    root.querySelectorAll(".bg-muted.rounded-xl.p-4.space-y-3").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.setProperty("display", "flex", "important");
+        elem.style.setProperty("flex-direction", "column", "important");
+        elem.style.setProperty("gap", "20px", "important");
+        elem.style.setProperty("padding", "24px", "important");
+        elem.style.setProperty("height", "auto", "important");
+        elem.style.setProperty("min-height", "auto", "important");
+        
+        // Fix individual rows within this box to prevent overlap
+        elem.querySelectorAll(".flex.items-center.justify-between").forEach(row => {
+            const r = row as HTMLElement;
+            r.style.display = "flex";
+            r.style.justifyContent = "space-between";
+            r.style.alignItems = "center";
+            r.style.marginBottom = "10px";
+            r.style.width = "100%";
+        });
+    });
+
+    // Fix the "i" info icon alignment and text overlaps in score display
+    root.querySelectorAll(".text-2xl.font-bold").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.marginRight = "12px";
+        elem.style.whiteSpace = "nowrap";
+    });
+
+    // Ensure headers and titles have sufficient spacing
+    root.querySelectorAll("h4.text-lg").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.setProperty("margin-top", "32px", "important");
+        elem.style.setProperty("margin-bottom", "16px", "important");
+        elem.style.setProperty("display", "block", "important");
+    });
+
+    // Fix total samples vs explanation overlap with hardcoded values
+    root.querySelectorAll(".flex.items-center.justify-between.pt-3").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.setProperty("margin-top", "40px", "important");
+        elem.style.setProperty("padding-top", "24px", "important");
+        elem.style.setProperty("border-top", "1px solid #e2e8f0", "important");
+        elem.style.setProperty("display", "flex", "important");
+        elem.style.setProperty("justify-content", "space-between", "important");
+        elem.style.setProperty("margin-bottom", "16px", "important");
+    });
+    
+    // Fix expanded explanation lists with hardcoded spacing
+    root.querySelectorAll(".animate-fadeIn").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.setProperty("margin-top", "16px", "important");
+        elem.style.setProperty("padding-top", "16px", "important");
+        elem.style.setProperty("display", "block", "important");
+        elem.style.setProperty("visibility", "visible", "important");
+        elem.style.setProperty("opacity", "1", "important");
+        // Ensure text inside has room
+        elem.style.setProperty("line-height", "1.6", "important");
+        elem.style.setProperty("margin-bottom", "8px", "important");
+    });
+    
+    // Hardcoded padding for the main card container to prevent bottom cut-off
+    root.querySelectorAll(".rounded-3xl.border.bg-card").forEach(el => {
+        const elem = el as HTMLElement;
+        elem.style.setProperty("padding-bottom", "32px", "important");
+        elem.style.setProperty("margin-bottom", "24px", "important");
     });
 };

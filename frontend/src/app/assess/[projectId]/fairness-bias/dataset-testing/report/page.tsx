@@ -155,7 +155,7 @@ const DatasetTestingReportPage = () => {
 
     return (
         <div ref={reportRef} className="min-h-screen bg-slate-50 dark:bg-gray-950">
-            <header className="backdrop-blur">
+            <header className="">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <button
@@ -204,7 +204,7 @@ const DatasetTestingReportPage = () => {
             <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
                 <section className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl ring-1 ring-slate-100 dark:ring-gray-800 p-6 space-y-8">
                     <div className="grid gap-6 lg:grid-cols-2">
-                        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-5 space-y-3 bg-slate-50/60 dark:bg-gray-800/60 page-break-avoid">
+                        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 p-5 space-y-3 bg-[#f8fafc] dark:bg-gray-800 page-break-avoid">
                             <p className="text-xs uppercase tracking-wide text-slate-500">Upload Info</p>
                             <div>
                                 <p className="text-sm text-slate-500">Filename</p>
@@ -242,7 +242,7 @@ const DatasetTestingReportPage = () => {
                         </div>
 
                         {/* Analysis Parameters Section */}
-                        <div className="rounded-2xl border border-indigo-100 dark:border-indigo-500/30 p-5 space-y-3 bg-indigo-50/50 dark:bg-indigo-500/5 page-break-avoid">
+                        <div className="rounded-2xl border border-indigo-100 dark:border-indigo-900 p-5 space-y-3 bg-[#f5f7ff] dark:bg-slate-900 page-break-avoid">
                             <p className="text-xs uppercase tracking-wide text-indigo-600 dark:text-indigo-400 font-semibold">Analysis Parameters</p>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
@@ -298,7 +298,7 @@ const DatasetTestingReportPage = () => {
                     </div>
 
                     {result.fairness.sensitiveColumns.length === 0 ? (
-                        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:bg-gray-800/60 dark:text-slate-300">
+                        <div className="rounded-2xl border border-slate-100 dark:border-gray-800 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500 dark:bg-gray-800 dark:text-slate-300">
                             No sensitive columns detected or insufficient data to compute disparities.
                         </div>
                     ) : (

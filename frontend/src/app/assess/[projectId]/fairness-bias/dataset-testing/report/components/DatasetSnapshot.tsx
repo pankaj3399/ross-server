@@ -10,11 +10,11 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
     const totalPages = Math.ceil(preview.rows.length / PAGE_SIZE);
 
     return (
-        <Card className="shadow-xl page-break-avoid">
+        <Card className="page-break-avoid">
             <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Dataset Snapshot</p>
+                        <p className="text-xs uppercase tracking-wide text-[#64748b] dark:text-muted-foreground">Dataset Snapshot</p>
                         <CardTitle className="text-lg">Dataset Content</CardTitle>
                     </div>
                     <CardDescription className="text-xs">
@@ -28,7 +28,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                         <thead>
                             <tr>
                                 {preview.headers.map((header, headerIndex) => (
-                                    <th key={`${headerIndex}-${header}`} className="text-left px-4 py-3 bg-muted text-muted-foreground font-medium whitespace-nowrap">
+                                    <th key={`${headerIndex}-${header}`} className="text-left px-4 py-3 bg-[#f1f5f9] dark:bg-muted text-[#64748b] dark:text-muted-foreground font-medium whitespace-nowrap">
                                         {header}
                                     </th>
                                 ))}
@@ -47,7 +47,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                                         <tr key={rowIndex} className="border-t border-border">
                                             {cells.map((value: any, colIndex: number) => (
                                                 <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground whitespace-nowrap">
-                                                    {(value === null || value === undefined || value === '') ? <span className="text-muted-foreground italic">—</span> : value}
+                                                    {(value === null || value === undefined || value === '') ? <span className="text-[#64748b] dark:text-muted-foreground italic">—</span> : value}
                                                 </td>
                                             ))}
                                         </tr>
