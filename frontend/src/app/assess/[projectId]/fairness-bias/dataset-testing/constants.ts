@@ -8,25 +8,25 @@ export const verdictStyles: Record<
     pass: {
         label: "Pass",
         color: "text-emerald-600",
-        bg: "bg-emerald-50 dark:bg-emerald-500/10",
+        bg: "bg-emerald-50 dark:bg-[#064e3b]",
         icon: ShieldCheck,
     },
     caution: {
         label: "Caution",
         color: "text-amber-600",
-        bg: "bg-amber-50 dark:bg-amber-500/10",
+        bg: "bg-amber-50 dark:bg-[#78350f]",
         icon: Shield,
     },
     fail: {
         label: "Fail",
         color: "text-rose-600",
-        bg: "bg-rose-50 dark:bg-rose-500/10",
+        bg: "bg-rose-50 dark:bg-[#881337]",
         icon: ShieldAlert,
     },
     insufficient: {
         label: "Insufficient",
         color: "text-slate-500",
-        bg: "bg-slate-50 dark:bg-slate-800/70",
+        bg: "bg-slate-50 dark:bg-[#1e293b]",
         icon: Shield,
     },
 };
@@ -38,20 +38,20 @@ export const metricStyles: Record<
     low: {
         label: "Low",
         color: "text-emerald-600",
-        bg: "bg-emerald-50 dark:bg-emerald-500/10",
-        border: "border-emerald-100 dark:border-emerald-500/30",
+        bg: "bg-emerald-50 dark:bg-[#064e3b]",
+        border: "border-emerald-100 dark:border-[#064e3b]",
     },
     moderate: {
         label: "Moderate",
         color: "text-amber-600",
-        bg: "bg-amber-50 dark:bg-amber-500/10",
-        border: "border-amber-100 dark:border-amber-500/30",
+        bg: "bg-amber-50 dark:bg-[#78350f]",
+        border: "border-amber-100 dark:border-[#78350f]",
     },
     high: {
         label: "High",
         color: "text-rose-600",
-        bg: "bg-rose-50 dark:bg-rose-500/10",
-        border: "border-rose-100 dark:border-rose-500/30",
+        bg: "bg-rose-50 dark:bg-[#881337]",
+        border: "border-rose-100 dark:border-[#881337]",
     },
 };
 
