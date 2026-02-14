@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
 import { apiService } from "../../lib/api";
 import { cn } from "@/lib/utils";
+import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import {
   Sidebar,
   SidebarContent,
@@ -294,6 +295,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
 
   const [isGovernanceExpanded, setIsGovernanceExpanded] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Sidebar resize logic
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default 20rem = 320px
@@ -602,17 +604,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                     {isFairness && (
                                       <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                         <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias`)} className="h-8 px-2">
+                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowSubscriptionModal(true)} className="h-8 px-2">
                                             <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
                                           </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
                                         <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)} className="h-8 px-2">
+                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowSubscriptionModal(true)} className="h-8 px-2">
                                             <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
                                           </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
                                         <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => router.push(`/assess/${projectId}/fairness-bias/dataset-testing`)} className="h-8 px-2">
+                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowSubscriptionModal(true)} className="h-8 px-2">
                                             <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
                                           </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
@@ -638,6 +640,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
         </SidebarContent >
       </Sidebar >
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+      />
     </div >
   );
 };

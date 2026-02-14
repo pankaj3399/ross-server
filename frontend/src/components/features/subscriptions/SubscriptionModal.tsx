@@ -57,6 +57,9 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
   useEffect(() => {
     if (!isOpen) return;
 
+    // Reset processing state when modal opens (e.g. after browser back from Stripe)
+    setUpgradingPlan(null);
+
     const fetchPrices = async () => {
       if (!BASIC_PRICE_ID || !PRO_PRICE_ID) {
         console.error("Price IDs not configured");
