@@ -43,7 +43,12 @@ const LandingPage = () => {
     return () => observer.disconnect();
   }, []);
 
-  const logoUrl = isDarkMode ? "/logo.png" : "/logo.png";
+const LandingPage = () => {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const logoUrl = "/matur-logo-slogan.png";
+  // ... rest of the component
 
   const handleNotify = async (e) => {
     e.preventDefault();
@@ -216,7 +221,7 @@ const LandingPage = () => {
             className="space-y-6"
           >
             <img
-              src="/logo.png"
+              src="/matur-logo-slogan.png"
               alt="MATUR.ai Logo"
               className="h-24 mx-auto mb-4"
             />
