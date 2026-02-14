@@ -43,7 +43,7 @@ const LandingPage = () => {
     return () => observer.disconnect();
   }, []);
 
-  const logoUrl = isDarkMode ? "/matur-logo-slogan.png" : "/matur-logo-slogan.png";
+  const logoUrl = "/matur-logo-slogan.png";
 
   const handleNotify = async (e) => {
     e.preventDefault();
