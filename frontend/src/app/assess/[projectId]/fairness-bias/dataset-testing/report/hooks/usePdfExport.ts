@@ -454,27 +454,27 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                 // Final safety: Inject a global CSS block to catch pseudo-elements and variables
                 const styleSheet = document.createElement("style");
                 styleSheet.textContent = `
-                    * { 
+                    .pdf-export-root * { 
                         transition: none !important; 
                         animation: none !important; 
                     }
-                    *::before, *::after {
+                    .pdf-export-root *::before,
+                    .pdf-export-root *::after {
                         background-color: transparent !important;
                         color: inherit !important;
                         border-color: inherit !important;
                         box-shadow: none !important;
                         content: none !important; /* Some icons use ::before for oklch icons */
                     }
-                    /* Force variables to hex */
-                    :root {
-                        --success: #34a853 !important;
-                        --warning: #fbbc04 !important;
-                        --destructive: #ea4335 !important;
-                        --primary: #4285f4 !important;
+                    /* Force variables to hex within the clone */
+                    .pdf-export-root {
+                        --success: `#34a853` !important;
+                        --warning: `#fbbc04` !important;
+                        --destructive: `#ea4335` !important;
+                        --primary: `#4285f4` !important;
                     }
                 `;
                 root.appendChild(styleSheet);
-
                 styleHeader(root);
                 styleGrid(root);
                 styleCards(root);
