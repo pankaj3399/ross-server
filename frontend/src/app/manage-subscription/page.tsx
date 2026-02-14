@@ -92,6 +92,13 @@ function StatusAlertCard({
 
   if (!isCanceling && !isDowngrading) return null;
 
+  // Hide the banner if the billing period has already ended —
+  // the cancellation/downgrade has already taken effect.
+  if (planDetails?.current_period_end) {
+    const periodEnd = new Date(planDetails.current_period_end);
+    if (periodEnd < new Date()) return null;
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
