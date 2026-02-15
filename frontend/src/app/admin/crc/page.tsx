@@ -107,13 +107,15 @@ const Section = ({ title, children, defaultOpen = false }: { title: string, chil
     const [isOpen, setIsOpen] = useState(defaultOpen);
     return (
         <div className="border rounded-md mb-4 bg-card">
-            <div
-                className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+            <button
+                type="button"
+                className="flex w-full items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors text-left"
                 onClick={() => setIsOpen(!isOpen)}
+                aria-expanded={isOpen}
             >
                 <h3 className="font-medium text-lg">{title}</h3>
                 {isOpen ? <IconChevronDown className="size-5" /> : <IconChevronRight className="size-5" />}
-            </div>
+            </button>
             {isOpen && <div className="p-4 border-t">{children}</div>}
         </div>
     );
@@ -160,6 +162,7 @@ const RepeatableField = ({ items, onChange, placeholder = "Enter item...", min =
                         />
                     ) : (
                         <Input
+                            id={`item-${index}`}
                             value={item}
                             onChange={(e) => updateItem(index, e.target.value)}
                             placeholder={placeholder}
@@ -171,6 +174,7 @@ const RepeatableField = ({ items, onChange, placeholder = "Enter item...", min =
                         onClick={() => removeItem(index)}
                         disabled={items.length <= min}
                         className="shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove item ${index + 1}`}
                     >
                         <IconX className="size-4" />
                     </Button>
@@ -215,16 +219,18 @@ const PairedRepeatableField = ({ items, onChange, label1, label2 }: PairedRepeat
                 <div key={index} className="flex gap-4 items-start border p-3 rounded-md bg-muted/20">
                     <div className="grid grid-cols-2 gap-4 flex-1">
                         <div>
-                            <label className="text-xs font-medium mb-1 block">{label1}</label>
+                            <label htmlFor={`ref-${index}`} className="text-xs font-medium mb-1 block">{label1}</label>
                             <Input
+                                id={`ref-${index}`}
                                 value={item.ref}
                                 onChange={(e) => updateItem(index, "ref", e.target.value)}
                                 placeholder="e.g. Article 12(1)"
                             />
                         </div>
                         <div>
-                            <label className="text-xs font-medium mb-1 block">{label2}</label>
+                            <label htmlFor={`context-${index}`} className="text-xs font-medium mb-1 block">{label2}</label>
                             <Input
+                                id={`context-${index}`}
                                 value={item.context}
                                 onChange={(e) => updateItem(index, "context", e.target.value)}
                                 placeholder="Context description..."
@@ -236,6 +242,7 @@ const PairedRepeatableField = ({ items, onChange, label1, label2 }: PairedRepeat
                         size="icon"
                         onClick={() => removeItem(index)}
                         className="mt-6 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove mapping ${index + 1}`}
                     >
                         <IconTrash className="size-4" />
                     </Button>
@@ -831,14 +838,14 @@ export default function CRCAdminPage() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(control.id)}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleEdit(control.id)} aria-label={`Edit ${control.control_id}`}>
                                                     <IconEdit className="size-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleClone(control.id)}>
+                                                <Button variant="ghost" size="icon" onClick={() => handleClone(control.id)} aria-label={`Clone ${control.control_id}`}>
                                                     <IconCopy className="size-4" />
                                                 </Button>
-                                                <Button variant="ghost" size="icon" onClick={() => handleDelete(control.id)}>
-                                                    <IconTrash className="size-4 text-destructive" />
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => handleDelete(control.id)} aria-label={`Delete ${control.control_id}`}>
+                                                    <IconTrash className="size-4" />
                                                 </Button>
                                             </div>
                                         </TableCell>

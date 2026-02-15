@@ -121,7 +121,7 @@ exports.up = (pgm) => {
 
   // Indexes for crc_control_versions
   pgm.createIndex("crc_control_versions", "control_id");
-  pgm.createIndex("crc_control_versions", ["control_id", "version"]);
+  pgm.createIndex("crc_control_versions", ["control_id", "version"], { unique: true });
 };
 
 exports.down = (pgm) => {

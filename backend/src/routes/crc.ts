@@ -234,6 +234,15 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
 
     const currentControl = existing.rows[0];
 
+    // Block direct status changes to preserve workflow rules
+    if (data.status !== currentControl.status) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        success: false,
+        error: "Use the transition endpoint to change status",
+      });
+    }
+
     // Check unique control_id if changed
     if (data.control_id !== currentControl.control_id) {
       const duplicate = await client.query("SELECT id FROM crc_controls WHERE control_id = $1 AND id != $2", [data.control_id, id]);
@@ -269,8 +278,7 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     const updatedControl = result.rows[0];
 
     // Create version snapshot
-    // Note: status change logic is handled separately in transition endpoint, but if status changes here, we capture it.
-    await createSnapshot(client, id, user.id, currentControl.status, data.status, "Update control details");
+    await createSnapshot(client, id, user.id, currentControl.status, currentControl.status, "Update control details");
 
     await client.query("COMMIT");
 
@@ -488,6 +496,9 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
     res.status(400).json({ success: false, error: "Invalid format" });
   } catch (error) {
     console.error("Error exporting controls:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
     res.status(500).json({ success: false, error: "Failed to export controls" });
   }
 });
