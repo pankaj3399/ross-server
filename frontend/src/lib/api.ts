@@ -1051,6 +1051,53 @@ class ApiService {
         error?: string;
     }>(`/projects/${projectId}/insights/status/${jobId}`);
   }
+
+  // CRC Controls
+  async getCRCControls(params?: URLSearchParams): Promise<{ data: any[]; count: number }> {
+    const qs = params ? `?${params.toString()}` : "";
+    return this.request<{ data: any[]; count: number }>(`/crc/controls${qs}`);
+  }
+
+  async getCRCControl(id: string): Promise<{ data: any }> {
+    return this.request<{ data: any }>(`/crc/controls/${id}`);
+  }
+
+  async createCRCControl(data: any): Promise<{ data: any }> {
+    return this.request<{ data: any }>("/crc/controls", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCRCControl(id: string, data: any): Promise<{ data: any }> {
+    return this.request<{ data: any }>(`/crc/controls/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCRCControl(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crc/controls/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async cloneCRCControl(id: string): Promise<{ data: any }> {
+    return this.request<{ data: any }>(`/crc/controls/${id}/clone`, {
+      method: "POST",
+    });
+  }
+
+  async transitionCRCControl(id: string, data: { status: string; note?: string }): Promise<{ data: any }> {
+    return this.request<{ data: any }>(`/crc/controls/${id}/transition`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCRCControlVersions(id: string): Promise<{ data: any[] }> {
+    return this.request<{ data: any[] }>(`/crc/controls/${id}/versions`);
+  }
 }
 
 export const apiService = new ApiService();

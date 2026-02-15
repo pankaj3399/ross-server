@@ -15,6 +15,7 @@ import {
   IconMoon,
   IconSun,
   IconCrown,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -129,6 +130,15 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         href: "/admin/premium-domains",
         icon: IconCrown,
         activePatterns: ["/admin/premium-domains"],
+      });
+    }
+    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-crc")) {
+      allSidebarItemsMap.set("admin-crc", {
+        id: "admin-crc",
+        label: "CRC Controls",
+        href: "/admin/crc",
+        icon: IconShieldCheck,
+        activePatterns: ["/admin/crc"],
       });
     }
     return Array.from(allSidebarItemsMap.values());
