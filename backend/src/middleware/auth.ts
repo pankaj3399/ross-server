@@ -71,6 +71,11 @@ export const checkRouteAccess = (route: string) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
+    // Admins bypass subscription checks
+    if (req.user.role === "ADMIN") {
+      return next();
+    }
+
     const userStatus = req.user.subscription_status as SubscriptionStatus;
 
     const validStatuses: SubscriptionStatus[] = ['free', 'basic_premium', 'pro_premium'];

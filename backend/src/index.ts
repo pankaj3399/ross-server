@@ -66,7 +66,7 @@ app.use("/notes", authenticateToken, checkRouteAccess('/notes'), notesRouter);
 app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'), subscriptionsRouter);
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
-app.use("/crc", crcRouter);
+app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
 
 // Inngest endpoint
 app.use(

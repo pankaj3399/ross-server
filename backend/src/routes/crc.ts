@@ -66,6 +66,12 @@ const exportSchema = z.object({
 
 // --- Helper Functions ---
 
+// Normalize values for insertion into JSONB columns
+const normalizeJsonForInsert = (value: any): string => {
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+};
+
 // Generate a snapshot of the control
 const createSnapshot = async (client: any, controlId: string, userId: string, statusFrom: string | null, statusTo: string, note?: string) => {
   // Fetch current control data
@@ -330,12 +336,17 @@ router.post("/controls/:id/clone", authenticateToken, requireRole(["ADMIN"]), as
     const source = sourceRes.rows[0];
 
     // Generate new control ID
+    const MAX_CLONE_ATTEMPTS = 1000;
     let suffix = 1;
     let newControlId = `${source.control_id}-CLONE-${suffix}`;
     while (true) {
       const check = await client.query("SELECT id FROM crc_controls WHERE control_id = $1", [newControlId]);
       if (check.rows.length === 0) break;
       suffix++;
+      if (suffix > MAX_CLONE_ATTEMPTS) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Too many clones, could not generate unique ID" });
+      }
       newControlId = `${source.control_id}-CLONE-${suffix}`;
     }
 
@@ -354,10 +365,10 @@ router.post("/controls/:id/clone", authenticateToken, requireRole(["ADMIN"]), as
     const values = [
       newControlId, `${source.control_title} (Clone)`, source.category, source.priority, "Draft", source.applicable_to,
       source.control_statement, source.control_objective, source.risk_description,
-      JSON.stringify(source.implementation), 
-      JSON.stringify(source.evidence_requirements), 
-      JSON.stringify(source.compliance_mapping), 
-      JSON.stringify(source.aima_mapping),
+      normalizeJsonForInsert(source.implementation), 
+      normalizeJsonForInsert(source.evidence_requirements), 
+      normalizeJsonForInsert(source.compliance_mapping), 
+      normalizeJsonForInsert(source.aima_mapping),
       user.id, 1
     ];
 
@@ -500,6 +511,124 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
       return res.status(400).json({ success: false, error: error.errors });
     }
     res.status(500).json({ success: false, error: "Failed to export controls" });
+  }
+});
+
+// GET /crc/public/controls - Get all published CRC controls for users
+router.get("/public/controls", authenticateToken, async (req, res) => {
+  try {
+    const query = `
+      SELECT id, control_id, control_title, category, priority, status, version,
+             applicable_to, control_statement, control_objective, risk_description,
+             implementation, evidence_requirements, compliance_mapping, aima_mapping,
+             created_at, updated_at
+      FROM crc_controls
+      WHERE status = 'Published'
+      ORDER BY category, control_id ASC
+    `;
+    
+    const result = await pool.query(query);
+    
+    res.json({
+      success: true,
+      data: result.rows,
+      count: result.rowCount
+    });
+  } catch (error) {
+    console.error("Error fetching published controls:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch controls" });
+  }
+});
+
+// --- User CRC Assessment Endpoints ---
+
+const crcResponseSchema = z.object({
+  controlId: z.string().uuid(),
+  value: z.number().min(0).max(1),
+  notes: z.string().max(5000).optional().default(""),
+});
+
+// POST /crc/assess/:projectId - Save CRC assessment response
+router.post("/assess/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const data = crcResponseSchema.parse(req.body);
+
+    // Verify project belongs to user
+    const projectCheck = await pool.query(
+      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+      [projectId, userId]
+    );
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    // Verify control exists and is published
+    const controlCheck = await pool.query(
+      "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
+      [data.controlId]
+    );
+    if (controlCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Control not found or not published" });
+    }
+
+    // Upsert response
+    const result = await pool.query(
+      `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (project_id, control_id, user_id)
+       DO UPDATE SET value = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [projectId, data.controlId, userId, data.value, data.notes]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("Error saving CRC response:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
+    res.status(500).json({ success: false, error: "Failed to save response" });
+  }
+});
+
+// GET /crc/assess/:projectId - Get all CRC responses for a project
+router.get("/assess/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify project belongs to user
+    const projectCheck = await pool.query(
+      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
+      [projectId, userId]
+    );
+    if (projectCheck.rows.length === 0) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    const result = await pool.query(
+      `SELECT control_id, value, notes, updated_at
+       FROM crc_assessment_responses
+       WHERE project_id = $1 AND user_id = $2`,
+      [projectId, userId]
+    );
+
+    // Build a map: controlId -> { value, notes }
+    const responses: Record<string, { value: number; notes: string; updatedAt: string }> = {};
+    result.rows.forEach((row: any) => {
+      responses[row.control_id] = {
+        value: parseFloat(row.value),
+        notes: row.notes || "",
+        updatedAt: row.updated_at,
+      };
+    });
+
+    res.json({ success: true, responses, count: result.rowCount });
+  } catch (error) {
+    console.error("Error fetching CRC responses:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch responses" });
   }
 });
 

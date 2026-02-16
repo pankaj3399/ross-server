@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
-import { apiService } from "@/lib/api";
+import { apiService, type CRCControlStatus } from "@/lib/api";
 
 // Dynamic import for RichTextEditor to avoid SSR issues
 const RichTextEditor = dynamic(() => import("@/components/shared/RichTextEditor").then(mod => mod.RichTextEditor), {
@@ -77,7 +77,7 @@ interface Control {
     control_title: string;
     category: string;
     priority: string;
-    status: string;
+    status: CRCControlStatus;
     version: number;
     applicable_to: string[];
     control_statement: string;
@@ -287,13 +287,13 @@ export default function CRCAdminPage() {
     const [versions, setVersions] = useState<ControlVersion[]>([]);
     const [showTransitionDialog, setShowTransitionDialog] = useState(false);
     const [transitionNote, setTransitionNote] = useState("");
-    const [targetStatus, setTargetStatus] = useState("");
+    const [targetStatus, setTargetStatus] = useState<CRCControlStatus | "">("");
 
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
 
     // fetch controls
-    const fetchControls = async () => {
+    const fetchControls = async (signal?: AbortSignal) => {
         setLoading(true);
         try {
             const api = apiService;
@@ -304,8 +304,10 @@ export default function CRCAdminPage() {
             if (searchQuery) params.append("search", searchQuery);
 
             const res = await api.getCRCControls(params);
+            if (signal?.aborted) return;
             setControls(res.data);
         } catch (error) {
+            if (signal?.aborted) return;
             toast.error("Failed to fetch controls");
         } finally {
             setLoading(false);
@@ -313,14 +315,13 @@ export default function CRCAdminPage() {
     };
 
     useEffect(() => {
-        fetchControls();
-    }, [categoryFilter, priorityFilter, statusFilter]);
-
-    // Handle Search Debounce
-    useEffect(() => {
-        const timer = setTimeout(fetchControls, 500);
-        return () => clearTimeout(timer);
-    }, [searchQuery]);
+        const controller = new AbortController();
+        const timer = setTimeout(() => fetchControls(controller.signal), searchQuery ? 500 : 0);
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [categoryFilter, priorityFilter, statusFilter, searchQuery]);
 
     const handleCreate = () => {
         setSelectedControlId(null);
@@ -412,7 +413,7 @@ export default function CRCAdminPage() {
         }
     };
 
-    const openTransitionDialog = (status: string) => {
+    const openTransitionDialog = (status: CRCControlStatus) => {
         setTargetStatus(status);
         setShowTransitionDialog(true);
     };
@@ -423,22 +424,7 @@ export default function CRCAdminPage() {
             return;
         }
         try {
-            const api = apiService;
-            // We need to fetch blob/text manually as ApiService.request assumes JSON usually
-            const authToken = localStorage.getItem("auth_token");
-
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/crc/controls/export`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${authToken}`
-                },
-                body: JSON.stringify({ ids: selectedIds, format })
-            });
-
-            if (!res.ok) throw new Error("Export failed");
-
-            const blob = await res.blob();
+            const blob = await apiService.exportControls(selectedIds, format);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -601,7 +587,11 @@ export default function CRCAdminPage() {
                                     items={formData.implementation?.requirements || []}
                                     onChange={(items) => setFormData({
                                         ...formData,
-                                        implementation: { ...formData.implementation!, requirements: items }
+                                        implementation: {
+                                            requirements: items,
+                                            steps: formData.implementation?.steps || [],
+                                            timeline: formData.implementation?.timeline || ""
+                                        }
                                     })}
                                     placeholder="Add requirement..."
                                 />
@@ -613,14 +603,25 @@ export default function CRCAdminPage() {
                                     items={formData.implementation?.steps || []}
                                     onChange={(items) => setFormData({
                                         ...formData,
-                                        implementation: { ...formData.implementation!, steps: items }
+                                        implementation: {
+                                            requirements: formData.implementation?.requirements || [],
+                                            steps: items,
+                                            timeline: formData.implementation?.timeline || ""
+                                        }
                                     })}
                                     placeholder="Add step..."
                                 />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Expected Timeline</label>
-                                <Select value={formData.implementation?.timeline || ""} onValueChange={(val) => setFormData({ ...formData, implementation: { ...formData.implementation!, timeline: val } })}>
+                                <Select value={formData.implementation?.timeline || ""} onValueChange={(val) => setFormData({
+                                    ...formData,
+                                    implementation: {
+                                        requirements: formData.implementation?.requirements || [],
+                                        steps: formData.implementation?.steps || [],
+                                        timeline: val
+                                    }
+                                })}>
                                     <SelectTrigger><SelectValue placeholder="Select Timeline" /></SelectTrigger>
                                     <SelectContent>
                                         {TIMELINES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -645,7 +646,14 @@ export default function CRCAdminPage() {
                                 <h4 className="font-semibold mt-4">EU AI Act Mapping</h4>
                                 <PairedRepeatableField
                                     items={formData.compliance_mapping?.eu_ai_act || []}
-                                    onChange={(items) => setFormData({ ...formData, compliance_mapping: { ...formData.compliance_mapping!, eu_ai_act: items } })}
+                                    onChange={(items) => setFormData({
+                                        ...formData,
+                                        compliance_mapping: {
+                                            eu_ai_act: items,
+                                            nist_ai_rmf: formData.compliance_mapping?.nist_ai_rmf || [],
+                                            iso_42001: formData.compliance_mapping?.iso_42001 || []
+                                        }
+                                    })}
                                     label1="Reference (Article)"
                                     label2="Context"
                                 />
@@ -655,7 +663,14 @@ export default function CRCAdminPage() {
                                 <h4 className="font-semibold mt-4">NIST AI RMF Mapping</h4>
                                 <PairedRepeatableField
                                     items={formData.compliance_mapping?.nist_ai_rmf || []}
-                                    onChange={(items) => setFormData({ ...formData, compliance_mapping: { ...formData.compliance_mapping!, nist_ai_rmf: items } })}
+                                    onChange={(items) => setFormData({
+                                        ...formData,
+                                        compliance_mapping: {
+                                            eu_ai_act: formData.compliance_mapping?.eu_ai_act || [],
+                                            nist_ai_rmf: items,
+                                            iso_42001: formData.compliance_mapping?.iso_42001 || []
+                                        }
+                                    })}
                                     label1="Reference"
                                     label2="Context"
                                 />
@@ -665,7 +680,14 @@ export default function CRCAdminPage() {
                                 <h4 className="font-semibold mt-4">ISO 42001 Mapping</h4>
                                 <PairedRepeatableField
                                     items={formData.compliance_mapping?.iso_42001 || []}
-                                    onChange={(items) => setFormData({ ...formData, compliance_mapping: { ...formData.compliance_mapping!, iso_42001: items } })}
+                                    onChange={(items) => setFormData({
+                                        ...formData,
+                                        compliance_mapping: {
+                                            eu_ai_act: formData.compliance_mapping?.eu_ai_act || [],
+                                            nist_ai_rmf: formData.compliance_mapping?.nist_ai_rmf || [],
+                                            iso_42001: items
+                                        }
+                                    })}
                                     label1="Reference"
                                     label2="Context"
                                 />

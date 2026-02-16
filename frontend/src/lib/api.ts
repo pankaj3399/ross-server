@@ -139,13 +139,15 @@ export interface Thresholds {
   POSITIVE: { HIGH: number; MODERATE: number };
 }
 
+export type CRCControlStatus = "Draft" | "In Review" | "Published" | "Archived";
+
 export interface CRCControl {
   id: string;
   control_id: string;
   control_title: string;
   category: string;
   priority: string;
-  status: string;
+  status: CRCControlStatus;
   version: number;
   applicable_to: string[];
   control_statement: string;
@@ -1130,15 +1132,48 @@ class ApiService {
     });
   }
 
-  async transitionCRCControl(id: string, data: { status: string; note?: string }): Promise<{ data: CRCControl }> {
+  async transitionCRCControl(id: string, data: { status: CRCControlStatus; note?: string }): Promise<{ data: CRCControl }> {
     return this.request<{ data: CRCControl }>(`/crc/controls/${id}/transition`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
+  async exportControls(ids: string[], format: "json" | "csv"): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/crc/controls/export`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("auth_token")}`,
+      },
+      body: JSON.stringify({ ids, format }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Export failed");
+    }
+
+    return response.blob();
+  }
+
   async getCRCControlVersions(id: string): Promise<{ data: CRCControlVersion[] }> {
     return this.request<{ data: CRCControlVersion[] }>(`/crc/controls/${id}/versions`);
+  }
+
+  async getPublishedCRCControls(): Promise<{ data: CRCControl[]; count: number }> {
+    return this.request<{ data: CRCControl[]; count: number }>("/crc/public/controls");
+  }
+
+  // CRC Assessment (user-facing)
+  async saveCRCResponse(projectId: string, data: { controlId: string; value: number; notes?: string }): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/crc/assess/${projectId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCRCResponses(projectId: string): Promise<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }> {
+    return this.request<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }>(`/crc/assess/${projectId}`);
   }
 }
 
