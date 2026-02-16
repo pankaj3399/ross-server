@@ -538,7 +538,7 @@ export default function Home() {
                 </h2>
                 <p className="text-xl text-muted-foreground mb-8">
                   Join organizations worldwide in building more secure, ethical, and
-                  mature AI systems
+                  mature AI system
                 </p>
                 {!isAuthenticated && (
                   <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground h-14 px-8">
