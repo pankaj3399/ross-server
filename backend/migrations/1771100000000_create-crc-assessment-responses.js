@@ -30,6 +30,7 @@ exports.up = (pgm) => {
     value: {
       type: "numeric(3,1)",
       notNull: true,
+      check: "value IN (0, 0.5, 1)",
       // 0 = No, 0.5 = Partially, 1 = Yes
     },
     notes: {
@@ -59,7 +60,7 @@ exports.up = (pgm) => {
 
   // Add trigger for updated_at
   pgm.sql(`
-    CREATE OR REPLACE FUNCTION set_updated_at()
+    CREATE OR REPLACE FUNCTION set_crc_assessment_responses_updated_at()
     RETURNS TRIGGER AS $$
     BEGIN
       NEW.updated_at = CURRENT_TIMESTAMP;
@@ -72,12 +73,12 @@ exports.up = (pgm) => {
     CREATE TRIGGER trg_set_updated_at_crc_assessment_responses
     BEFORE UPDATE ON crc_assessment_responses
     FOR EACH ROW
-    EXECUTE PROCEDURE set_updated_at();
+    EXECUTE PROCEDURE set_crc_assessment_responses_updated_at();
   `);
 };
 
 exports.down = (pgm) => {
   pgm.sql("DROP TRIGGER IF EXISTS trg_set_updated_at_crc_assessment_responses ON crc_assessment_responses");
-  pgm.sql("DROP FUNCTION IF EXISTS set_updated_at()");
+  pgm.sql("DROP FUNCTION IF EXISTS set_crc_assessment_responses_updated_at()");
   pgm.dropTable("crc_assessment_responses");
 };

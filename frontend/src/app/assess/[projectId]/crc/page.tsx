@@ -90,6 +90,17 @@ export default function CRCAssessmentPage() {
     : false;
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
+  const [controls, setControls] = useState<Control[]>([]);
+  const [responses, setResponses] = useState<Record<string, CRCResponse>>({});
+  const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Track which categories are expanded in the left sidebar
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
   // Gate non-premium users
   if (!authLoading && user && !isPremium) {
     return (
@@ -108,19 +119,13 @@ export default function CRCAssessmentPage() {
     );
   }
 
-  const [controls, setControls] = useState<Control[]>([]);
-  const [responses, setResponses] = useState<Record<string, CRCResponse>>({});
-  const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
-
-  // Track which categories are expanded in the left sidebar
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-
   // Fetch controls and existing responses
   useEffect(() => {
+    if (!user || !isPremium) {
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);

@@ -240,8 +240,14 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
 
     const currentControl = existing.rows[0];
 
+    // Determine effective status:
+    // If request body omitted status, data.status is 'Draft' from default, which might not match DB.
+    // So we check if the raw body had it.
+    const hasStatus = Object.prototype.hasOwnProperty.call(req.body, 'status');
+    const newStatus = hasStatus ? data.status : currentControl.status;
+
     // Block direct status changes to preserve workflow rules
-    if (data.status !== currentControl.status) {
+    if (newStatus !== currentControl.status) {
       await client.query("ROLLBACK");
       return res.status(400).json({
         success: false,
@@ -273,7 +279,7 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     `;
 
     const values = [
-      data.control_id, data.control_title, data.category, data.priority, data.status, data.applicable_to,
+      data.control_id, data.control_title, data.category, data.priority, newStatus, data.applicable_to,
       data.control_statement, data.control_objective, data.risk_description,
       JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
       JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
@@ -548,7 +554,7 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
 
 const crcResponseSchema = z.object({
   controlId: z.string().uuid(),
-  value: z.number().min(0).max(1),
+  value: z.union([z.literal(0), z.literal(0.5), z.literal(1)]),
   notes: z.string().max(5000).optional().default(""),
 });
 
