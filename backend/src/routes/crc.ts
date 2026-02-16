@@ -414,6 +414,10 @@ router.post("/controls/:id/transition", authenticateToken, requireRole(["ADMIN"]
     let isValid = false;
     if (currentStatus === "Draft" && status === "In Review") isValid = true;
     if (currentStatus === "In Review" && (status === "Published" || status === "Draft")) isValid = true;
+    
+    // Transitions Published -> Draft and Archived -> Draft are intentional business rules
+    // to permit quick reactivation/edits for existing controls. 
+    // Snapshots preserve the audit history of previous versions.
     if (currentStatus === "Published" && (status === "Archived" || status === "Draft")) isValid = true;
     if (currentStatus === "Archived" && status === "Draft") isValid = true;
     

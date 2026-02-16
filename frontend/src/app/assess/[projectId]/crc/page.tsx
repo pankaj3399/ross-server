@@ -91,11 +91,22 @@ export default function CRCAssessmentPage() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Gate non-premium users
-  useEffect(() => {
-    if (!authLoading && user && !isPremium) {
-      setShowSubscriptionModal(true);
-    }
-  }, [authLoading, user, isPremium]);
+  if (!authLoading && user && !isPremium) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background h-screen">
+        <SubscriptionModal
+          isOpen={true}
+          onClose={() => {
+            router.push(`/assess/${projectId}`);
+          }}
+        />
+        <div className="text-center">
+          <IconLoader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to subscription...</p>
+        </div>
+      </div>
+    );
+  }
 
   const [controls, setControls] = useState<Control[]>([]);
   const [responses, setResponses] = useState<Record<string, CRCResponse>>({});
@@ -323,11 +334,10 @@ export default function CRCAssessmentPage() {
                         key={control.id}
                         type="button"
                         onClick={() => handleControlSelect(control.globalIndex)}
-                        className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-left transition-colors text-sm ${
-                          isActive
+                        className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-left transition-colors text-sm ${isActive
                             ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
                             : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         {isAnswered ? (
                           <IconCheck className="w-3.5 h-3.5 text-success flex-none" />
@@ -577,11 +587,10 @@ export default function CRCAssessmentPage() {
                 {ANSWER_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
-                      currentAnswer === option.value
+                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50 hover:bg-muted/50"
-                    }`}
+                      }`}
                   >
                     <div className="relative flex items-center justify-center mt-1">
                       <input
@@ -592,11 +601,10 @@ export default function CRCAssessmentPage() {
                         onChange={() => handleAnswerChange(currentControl.id, option.value)}
                         className="sr-only peer"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring peer-focus-visible:ring-primary/50 peer-focus-visible:ring-offset-1 ${
-                        currentAnswer === option.value
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring peer-focus-visible:ring-primary/50 peer-focus-visible:ring-offset-1 ${currentAnswer === option.value
                           ? "border-primary bg-primary"
                           : "border-border bg-transparent"
-                      }`}>
+                        }`}>
                         {currentAnswer === option.value && (
                           <motion.div
                             initial={{ scale: 0 }}
@@ -662,14 +670,6 @@ export default function CRCAssessmentPage() {
         </div>
       </div>
 
-      {/* Subscription Modal for non-premium users */}
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => {
-          setShowSubscriptionModal(false);
-          router.push(`/assess/${projectId}`);
-        }}
-      />
     </div>
   );
 }
