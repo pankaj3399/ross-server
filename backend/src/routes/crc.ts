@@ -267,6 +267,23 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     // Increment version
     const newVersion = currentControl.version + 1;
 
+    // Preserve existing values for omitted fields
+    const updatedData = {
+      control_id: Object.prototype.hasOwnProperty.call(req.body, 'control_id') ? data.control_id : currentControl.control_id,
+      control_title: Object.prototype.hasOwnProperty.call(req.body, 'control_title') ? data.control_title : currentControl.control_title,
+      category: Object.prototype.hasOwnProperty.call(req.body, 'category') ? data.category : currentControl.category,
+      priority: Object.prototype.hasOwnProperty.call(req.body, 'priority') ? data.priority : currentControl.priority,
+      status: newStatus,
+      applicable_to: Object.prototype.hasOwnProperty.call(req.body, 'applicable_to') ? data.applicable_to : currentControl.applicable_to,
+      control_statement: Object.prototype.hasOwnProperty.call(req.body, 'control_statement') ? data.control_statement : currentControl.control_statement,
+      control_objective: Object.prototype.hasOwnProperty.call(req.body, 'control_objective') ? data.control_objective : currentControl.control_objective,
+      risk_description: Object.prototype.hasOwnProperty.call(req.body, 'risk_description') ? data.risk_description : currentControl.risk_description,
+      implementation: Object.prototype.hasOwnProperty.call(req.body, 'implementation') ? data.implementation : currentControl.implementation,
+      evidence_requirements: Object.prototype.hasOwnProperty.call(req.body, 'evidence_requirements') ? data.evidence_requirements : currentControl.evidence_requirements,
+      compliance_mapping: Object.prototype.hasOwnProperty.call(req.body, 'compliance_mapping') ? data.compliance_mapping : currentControl.compliance_mapping,
+      aima_mapping: Object.prototype.hasOwnProperty.call(req.body, 'aima_mapping') ? data.aima_mapping : currentControl.aima_mapping,
+    };
+
     // Update query
     const updateQuery = `
       UPDATE crc_controls SET
@@ -279,10 +296,10 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     `;
 
     const values = [
-      data.control_id, data.control_title, data.category, data.priority, newStatus, data.applicable_to,
-      data.control_statement, data.control_objective, data.risk_description,
-      JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
-      JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
+      updatedData.control_id, updatedData.control_title, updatedData.category, updatedData.priority, updatedData.status, updatedData.applicable_to,
+      updatedData.control_statement, updatedData.control_objective, updatedData.risk_description,
+      JSON.stringify(updatedData.implementation), JSON.stringify(updatedData.evidence_requirements),
+      JSON.stringify(updatedData.compliance_mapping), JSON.stringify(updatedData.aima_mapping),
       newVersion, id
     ];
 
@@ -506,7 +523,7 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
     if (format === "csv") {
       // Basic CSV flattening
       const headers = ["control_id", "control_title", "category", "priority", "status", "version", "created_at"];
-      const rows = controls.map((c: any) => headers.map(h => JSON.stringify(c[h] || "")).join(","));
+      const rows = controls.map((c: any) => headers.map(h => JSON.stringify(c[h] ?? "")).join(","));
       const csv = [headers.join(","), ...rows].join("\n");
       
       res.header("Content-Type", "text/csv");

@@ -88,8 +88,6 @@ export default function CRCAssessmentPage() {
   const isPremium = user?.subscription_status
     ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number])
     : false;
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-
   const [controls, setControls] = useState<Control[]>([]);
   const [responses, setResponses] = useState<Record<string, CRCResponse>>({});
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
@@ -101,28 +99,11 @@ export default function CRCAssessmentPage() {
   // Track which categories are expanded in the left sidebar
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  // Gate non-premium users
-  if (!authLoading && user && !isPremium) {
-    return (
-      <div className="flex-1 flex items-center justify-center bg-background h-screen">
-        <SubscriptionModal
-          isOpen={true}
-          onClose={() => {
-            router.push(`/assess/${projectId}`);
-          }}
-        />
-        <div className="text-center">
-          <IconLoader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Redirecting to subscription...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Fetch controls and existing responses
   useEffect(() => {
+    // Short-circuit if not premium
     if (!user || !isPremium) {
-      setLoading(false);
+      if (!authLoading) setLoading(false);
       return;
     }
 
@@ -157,7 +138,7 @@ export default function CRCAssessmentPage() {
     };
 
     fetchData();
-  }, [projectId]);
+  }, [projectId, user, isPremium, authLoading]);
 
   // Save answer
   const handleAnswerChange = useCallback(async (controlId: string, value: number) => {
@@ -193,7 +174,10 @@ export default function CRCAssessmentPage() {
   // Save notes
   const handleNoteSave = useCallback(async (controlId: string, notes: string) => {
     const currentResponse = responses[controlId];
-    if (currentResponse === undefined) return; // Must answer the question first
+    if (currentResponse === undefined) {
+      showToast.error("Please answer the control question before saving notes");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -212,6 +196,24 @@ export default function CRCAssessmentPage() {
       setSaving(false);
     }
   }, [projectId, responses]);
+
+  // --- Premium Gate Conditional ---
+  if (!authLoading && user && !isPremium) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-background h-screen">
+        <SubscriptionModal
+          isOpen={true}
+          onClose={() => {
+            router.push(`/assess/${projectId}`);
+          }}
+        />
+        <div className="text-center">
+          <IconLoader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to subscription...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Navigation
   const handleNext = () => {
@@ -340,8 +342,8 @@ export default function CRCAssessmentPage() {
                         type="button"
                         onClick={() => handleControlSelect(control.globalIndex)}
                         className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-left transition-colors text-sm ${isActive
-                            ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
-                            : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
+                          ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
+                          : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
                           }`}
                       >
                         {isAnswered ? (
@@ -593,8 +595,8 @@ export default function CRCAssessmentPage() {
                   <label
                     key={option.value}
                     className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50 hover:bg-muted/50"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50 hover:bg-muted/50"
                       }`}
                   >
                     <div className="relative flex items-center justify-center mt-1">
@@ -607,8 +609,8 @@ export default function CRCAssessmentPage() {
                         className="sr-only peer"
                       />
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring peer-focus-visible:ring-primary/50 peer-focus-visible:ring-offset-1 ${currentAnswer === option.value
-                          ? "border-primary bg-primary"
-                          : "border-border bg-transparent"
+                        ? "border-primary bg-primary"
+                        : "border-border bg-transparent"
                         }`}>
                         {currentAnswer === option.value && (
                           <motion.div
