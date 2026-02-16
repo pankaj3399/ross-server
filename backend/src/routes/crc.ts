@@ -267,7 +267,8 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     // Increment version
     const newVersion = currentControl.version + 1;
 
-    // Preserve existing values for omitted fields
+    // Preserve existing values for omitted fields, including nested fields in objects.
+    // We merge the raw input with current data to ensure sub-fields are preserved.
     const updatedData = {
       control_id: Object.prototype.hasOwnProperty.call(req.body, 'control_id') ? data.control_id : currentControl.control_id,
       control_title: Object.prototype.hasOwnProperty.call(req.body, 'control_title') ? data.control_title : currentControl.control_title,
@@ -278,10 +279,16 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
       control_statement: Object.prototype.hasOwnProperty.call(req.body, 'control_statement') ? data.control_statement : currentControl.control_statement,
       control_objective: Object.prototype.hasOwnProperty.call(req.body, 'control_objective') ? data.control_objective : currentControl.control_objective,
       risk_description: Object.prototype.hasOwnProperty.call(req.body, 'risk_description') ? data.risk_description : currentControl.risk_description,
-      implementation: Object.prototype.hasOwnProperty.call(req.body, 'implementation') ? data.implementation : currentControl.implementation,
+      implementation: Object.prototype.hasOwnProperty.call(req.body, 'implementation') 
+        ? { ...currentControl.implementation, ...req.body.implementation } 
+        : currentControl.implementation,
       evidence_requirements: Object.prototype.hasOwnProperty.call(req.body, 'evidence_requirements') ? data.evidence_requirements : currentControl.evidence_requirements,
-      compliance_mapping: Object.prototype.hasOwnProperty.call(req.body, 'compliance_mapping') ? data.compliance_mapping : currentControl.compliance_mapping,
-      aima_mapping: Object.prototype.hasOwnProperty.call(req.body, 'aima_mapping') ? data.aima_mapping : currentControl.aima_mapping,
+      compliance_mapping: Object.prototype.hasOwnProperty.call(req.body, 'compliance_mapping') 
+        ? { ...currentControl.compliance_mapping, ...req.body.compliance_mapping } 
+        : currentControl.compliance_mapping,
+      aima_mapping: Object.prototype.hasOwnProperty.call(req.body, 'aima_mapping') 
+        ? { ...currentControl.aima_mapping, ...req.body.aima_mapping } 
+        : currentControl.aima_mapping,
     };
 
     // Update query
