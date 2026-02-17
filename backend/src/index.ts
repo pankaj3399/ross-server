@@ -7,6 +7,7 @@ import authRouter from "./routes/auth";
 import projectsRouter from "./routes/projects";
 import subscriptionsRouter from "./routes/subscriptions";
 import adminRouter from "./routes/admin";
+import crcRouter from "./routes/crc";
 import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
 import publicRouter from "./routes/public";
@@ -65,6 +66,7 @@ app.use("/notes", authenticateToken, checkRouteAccess('/notes'), notesRouter);
 app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'), subscriptionsRouter);
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
+app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
 
 // Inngest endpoint
 app.use(

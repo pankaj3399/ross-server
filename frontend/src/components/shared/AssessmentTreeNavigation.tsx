@@ -9,12 +9,12 @@ import {
   IconCircle,
   IconFileText,
   IconBrain,
-  IconShield,
   IconScale,
   IconClipboardCheck,
   IconLock,
   IconClock,
   IconFolder,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
@@ -513,20 +513,20 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                       <SidebarMenu className="gap-1">
                         {[
                           {
-                            id: "vulnerability",
-                            label: "AI Vulnerability Assessment",
-                            icon: IconShield,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : router.push(`/manage-subscription`),
-                            locked: !premiumStatus,
-                            color: "text-blue-500"
-                          },
-                          {
                             id: "fairness",
                             label: "Automated Bias & Fairness Testing",
                             icon: IconScale,
                             onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
                             locked: false,
                             color: "text-amber-500"
+                          },
+                          {
+                            id: "crc",
+                            label: "Compliance Readiness Controls",
+                            icon: IconShieldCheck,
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : setShowSubscriptionModal(true),
+                            locked: !premiumStatus,
+                            color: "text-emerald-500"
                           },
                           {
                             id: "governance",

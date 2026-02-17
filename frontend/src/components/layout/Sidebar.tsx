@@ -15,6 +15,7 @@ import {
   IconMoon,
   IconSun,
   IconCrown,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -122,13 +123,13 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         activePatterns: ["/admin/aima-data"],
       });
     }
-    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-premium-domains")) {
-      allSidebarItemsMap.set("admin-premium-domains", {
-        id: "admin-premium-domains",
-        label: "Premium Domains",
-        href: "/admin/premium-domains",
-        icon: IconCrown,
-        activePatterns: ["/admin/premium-domains"],
+    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-crc")) {
+      allSidebarItemsMap.set("admin-crc", {
+        id: "admin-crc",
+        label: "CRC Controls",
+        href: "/admin/crc",
+        icon: IconShieldCheck,
+        activePatterns: ["/admin/crc"],
       });
     }
     return Array.from(allSidebarItemsMap.values());

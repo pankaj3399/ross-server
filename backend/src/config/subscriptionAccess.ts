@@ -13,8 +13,8 @@ const COMMON_ROUTES: string[] = [
 
 export const SUBSCRIPTION_ROUTES: Record<SubscriptionStatus, string[]> = {
   free: [],
-  basic_premium: ['/fairness'],
-  pro_premium: ['/fairness'],
+  basic_premium: ['/fairness', '/crc'],
+  pro_premium: ['/fairness', '/crc'],
 };
 
 export function getRoutesForSubscription(status: SubscriptionStatus): string[] {
