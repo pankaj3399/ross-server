@@ -147,12 +147,12 @@ export default function CRCAssessmentPage() {
     if (categoryParam && controls.length > 0) {
       setExpandedCategories(prev => {
         const next = new Set(prev);
-        next.add(decodeURIComponent(categoryParam));
+        next.add(categoryParam);
         return next;
       });
 
       // Find first control in this category to set current index
-      const firstControlIndex = controls.findIndex(c => c.category === decodeURIComponent(categoryParam));
+      const firstControlIndex = controls.findIndex(c => c.category === categoryParam);
       if (firstControlIndex !== -1) {
         setCurrentIndex(firstControlIndex);
       }
