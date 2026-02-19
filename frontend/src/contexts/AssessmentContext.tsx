@@ -10,6 +10,7 @@ import {
     Practice as ApiPractice,
     PracticeQuestionLevels,
     PracticeQuestionDetail,
+    CRCControl,
 } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { PREMIUM_STATUS } from "../lib/constants";
@@ -66,6 +67,8 @@ interface AssessmentContextType {
     projectNotFound: boolean;
     isPremium: boolean;
     projectName: string;
+    crcControls: CRCControl[];
+    crcCategories: string[];
 
     // Navigation State
     currentDomainId: string;
@@ -174,6 +177,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
+
+    // CRC State
+    const [crcControls, setCrcControls] = useState<CRCControl[]>([]);
+    const [crcCategories, setCrcCategories] = useState<string[]>([]);
 
     const [saving, setSaving] = useState(false);
     const [savingNote, setSavingNote] = useState(false);
@@ -309,6 +316,22 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     notesMap[key] = note.note;
                 });
                 setNotes(notesMap);
+
+                // Fetch CRC Controls if Premium
+                if (isPremium) {
+                    try {
+                        const crcData = await apiService.getPublishedCRCControls();
+                        const controls = crcData.data || [];
+                        setCrcControls(controls);
+
+                        // Extract unique categories
+                        const categories = Array.from(new Set(controls.map(c => c.category))).sort();
+                        setCrcCategories(categories);
+                    } catch (err) {
+                        console.error("Failed to fetch CRC controls:", err);
+                        // Don't block main assessment loading for CRC error
+                    }
+                }
 
             } catch (error: any) {
                 if (controller.signal.aborted) return;
@@ -573,6 +596,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         submitting,
         submissionPhase,
         questions,
+        crcControls,
+        crcCategories,
     };
 
     return <AssessmentContext.Provider value={value}>{children}</AssessmentContext.Provider>;

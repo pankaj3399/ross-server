@@ -90,10 +90,10 @@ export default function PremiumFeaturesPage() {
 
             {/* Card 3: Actionable Governance Controls */}
             <FeatureCard
-              icon={<IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />}
-              title="Actionable Governance Controls"
-              description="Get concrete steps to improve maturity scores."
-              href={`/assess/${projectId}/premium-domains`}
+              icon={<IconShield className="w-28 h-28 text-primary-foreground fill-primary" />}
+              title="Compliance Readiness Controls"
+              description="Manage compliance status across multiple frameworks."
+              href={`/assess/${projectId}/crc`}
               delay={0.3}
             />
           </div>
