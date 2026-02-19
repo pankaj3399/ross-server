@@ -133,7 +133,7 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
     "Unlimited AI Projects/Systems",
     "AI Vulnerability Assessment",
     "Automated Bias & Fairness Testing (Manual/API/Dataset)",
-    "Actionable Governance Controls",
+    "Compliance Readiness Controls (CRC)",
     "Enhanced Reporting & Analytics",
     "Advanced Exportable Reports (PDF/Excel)",
     "Includes everything in SEED",

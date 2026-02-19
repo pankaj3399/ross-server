@@ -29,7 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-type FeatureType = "vulnerability" | "bias-fairness" | "governance" | null;
+type FeatureType = "vulnerability" | "bias-fairness" | "crc" | null;
 
 interface FeatureConfig {
   title: string;
@@ -55,10 +55,10 @@ const FEATURE_CONFIGS: Record<Exclude<FeatureType, null>, FeatureConfig> = {
     getPath: (projectId: string) => `/assess/${projectId}/fairness-bias/options`,
     requiresPremiumDomains: false,
   },
-  "governance": {
-    title: "Actionable Governance Controls",
-    description: "Select a project to view governance controls",
-    getPath: (projectId: string) => `/assess/${projectId}/premium-domains`,
+  "crc": {
+    title: "Compliance Readiness Controls",
+    description: "Manage compliance status across multiple frameworks",
+    getPath: (projectId: string) => `/assess/${projectId}/crc`,
     requiresPremiumDomains: true,
   },
 };
@@ -226,7 +226,7 @@ export default function PremiumFeaturesPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
               whileHover={{ y: -5, scale: 1.02 }}
-              onClick={() => handleCardClick("governance")}
+              onClick={() => handleCardClick("crc")}
             >
               <Card className="cursor-pointer hover:shadow-2xl hover:border-primary/50 transition-all h-full">
                 <CardContent className="p-8 flex flex-col items-center text-center">
@@ -234,10 +234,10 @@ export default function PremiumFeaturesPage() {
                     <IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />
                   </div>
                   <CardTitle className="text-2xl mb-3">
-                    Actionable Governance Controls
+                    Compliance Readiness Controls
                   </CardTitle>
                   <CardDescription className="text-base">
-                    Get concrete steps to improve maturity scores.
+                    Manage compliance status across multiple frameworks
                   </CardDescription>
                 </CardContent>
               </Card>

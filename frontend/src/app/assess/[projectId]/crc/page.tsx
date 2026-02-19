@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { safeRenderHTML } from "@/lib/htmlUtils";
 import { showToast } from "@/lib/toast";
@@ -82,7 +82,9 @@ const ANSWER_OPTIONS = [
 export default function CRCAssessmentPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  const categoryParam = searchParams.get("category");
   const { user, loading: authLoading } = useAuth();
 
   const isPremium = user?.subscription_status
@@ -139,6 +141,23 @@ export default function CRCAssessmentPage() {
 
     fetchData();
   }, [projectId, user, isPremium, authLoading]);
+
+  // Handle deep linking to category
+  useEffect(() => {
+    if (categoryParam && controls.length > 0) {
+      setExpandedCategories(prev => {
+        const next = new Set(prev);
+        next.add(decodeURIComponent(categoryParam));
+        return next;
+      });
+
+      // Find first control in this category to set current index
+      const firstControlIndex = controls.findIndex(c => c.category === decodeURIComponent(categoryParam));
+      if (firstControlIndex !== -1) {
+        setCurrentIndex(firstControlIndex);
+      }
+    }
+  }, [categoryParam, controls]);
 
   // Save answer
   const handleAnswerChange = useCallback(async (controlId: string, value: number) => {

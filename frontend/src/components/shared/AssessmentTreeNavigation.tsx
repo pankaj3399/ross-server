@@ -17,6 +17,7 @@ import {
   IconShieldCheck,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAssessmentContext } from "../../contexts/AssessmentContext";
 import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
 import { apiService } from "../../lib/api";
@@ -250,6 +251,15 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const { user } = useAuth();
   const router = useRouter();
 
+  // Safe context usage - might be used outside provider in some tests/stories
+  let crcCategories: string[] = [];
+  try {
+    const context = useAssessmentContext();
+    crcCategories = context.crcCategories;
+  } catch (e) {
+    // Ignore if not in provider
+  }
+
   const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
   const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
 
@@ -278,10 +288,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
   const activeDomainId = currentDomainId;
 
-  const { standardDomains, premiumDomains } = useMemo(() => {
+  const { standardDomains } = useMemo(() => {
     return {
       standardDomains: orderedDomains.filter(d => !d.is_premium),
-      premiumDomains: orderedDomains.filter(d => d.is_premium)
     };
   }, [orderedDomains]);
 
@@ -293,8 +302,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
-
-  const [isGovernanceExpanded, setIsGovernanceExpanded] = useState(false);
+  const [isCrcExpanded, setIsCrcExpanded] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Sidebar resize logic
@@ -527,32 +535,24 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : setShowSubscriptionModal(true),
                             locked: !premiumStatus,
                             color: "text-emerald-500"
-                          },
-                          {
-                            id: "governance",
-                            label: "Actionable Governance Controls",
-                            icon: IconClipboardCheck,
-                            onClick: () => { /* Handled in the parent onClick */ },
-                            locked: false,
-                            color: "text-green-500"
                           }
                         ].map((item, idx) => {
-                          const isGovernance = item.id === "governance";
                           const isFairness = item.id === "fairness";
-                          const showToggle = isGovernance || isFairness;
+                          const showToggle = isFairness;
 
                           let isExpanded = false;
-                          if (isGovernance) isExpanded = isGovernanceExpanded;
                           if (isFairness) isExpanded = isFairnessExpanded;
+                          if (item.id === "crc") isExpanded = isCrcExpanded;
 
                           return (
                             <SidebarMenuItem key={idx}>
                               <SidebarMenuButton
                                 onClick={() => {
-                                  if (isGovernance) {
-                                    setIsGovernanceExpanded(!isGovernanceExpanded);
-                                  } else if (isFairness) {
+                                  if (isFairness) {
                                     setIsFairnessExpanded(!isFairnessExpanded);
+                                    item.onClick();
+                                  } else if (item.id === "crc") {
+                                    setIsCrcExpanded(!isCrcExpanded);
                                     item.onClick();
                                   } else {
                                     item.onClick();
@@ -564,7 +564,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                   className={cn(
                                     "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
                                     isExpanded && "rotate-90",
-                                    (!showToggle) && "invisible"
+                                    (!showToggle && item.id !== "crc") && "invisible"
                                   )}
                                 />
                                 <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
@@ -582,25 +582,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                     exit={{ height: 0, opacity: 0 }}
                                     className="overflow-hidden"
                                   >
-                                    {isGovernance && premiumDomains.length > 0 && (
-                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                        {premiumDomains.map((domain) => (
-                                          <DomainTreeItem
-                                            key={domain.id}
-                                            domain={domain}
-                                            currentDomainId={activeDomainId}
-                                            currentPracticeId={currentPracticeId}
-                                            currentQuestionIndex={currentQuestionIndex}
-                                            expandedDomainId={expandedDomainId}
-                                            onDomainClick={onDomainClick}
-                                            onPracticeClick={onPracticeClick}
-                                            onQuestionClick={onQuestionClick}
-                                            toggleDomain={toggleDomain}
-                                            premiumStatus={premiumStatus}
-                                          />
-                                        ))}
-                                      </SidebarMenuSub>
-                                    )}
                                     {isFairness && (
                                       <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                         <SidebarMenuSubItem>
@@ -618,6 +599,20 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
                                           </SidebarMenuSubButton>
                                         </SidebarMenuSubItem>
+                                      </SidebarMenuSub>
+                                    )}
+                                    {item.id === "crc" && crcCategories.length > 0 && (
+                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                        {crcCategories.map((cat, catIdx) => (
+                                          <SidebarMenuSubItem key={catIdx}>
+                                            <SidebarMenuSubButton
+                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : setShowSubscriptionModal(true)}
+                                              className="h-8 px-2"
+                                            >
+                                              <span className="text-[13px] truncate ml-2 text-foreground/70">{cat}</span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                        ))}
                                       </SidebarMenuSub>
                                     )}
                                   </motion.div>
