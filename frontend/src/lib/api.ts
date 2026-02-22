@@ -1113,6 +1113,31 @@ class ApiService {
     });
   }
 
+  /** Bulk create CRC controls. On 400, throws an error with .status and .errors: { index, control_id?, message }[] */
+  async createCRCBulk(controls: Partial<CRCControl>[]): Promise<{ data: CRCControl[] }> {
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}/crc/controls/bulk`, {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ controls }),
+      });
+    } catch (networkError) {
+      const err = new Error("Network error") as Error & { status?: number; errors?: Array<{ index: number; control_id?: string; message: string }> };
+      err.status = 0;
+      err.errors = [];
+      throw err;
+    }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = new Error(body.error || "Bulk import failed") as Error & { status?: number; errors?: Array<{ index: number; control_id?: string; message: string }> };
+      err.status = response.status;
+      err.errors = body.errors;
+      throw err;
+    }
+    return { data: Array.isArray(body.data) ? body.data : [] };
+  }
+
   async updateCRCControl(id: string, data: Partial<CRCControl>): Promise<{ data: CRCControl }> {
     return this.request<{ data: CRCControl }>(`/crc/controls/${id}`, {
       method: "PUT",

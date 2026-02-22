@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import {
     IconPlus, IconSearch, IconFilter, IconEdit, IconTrash, IconCopy,
     IconDownload, IconChevronDown, IconChevronRight, IconArrowLeft,
-    IconCheck, IconX, IconHistory, IconEye, IconArchive, IconSend
+    IconCheck, IconX, IconHistory, IconEye, IconArchive, IconSend,
+    IconUpload
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -292,6 +293,17 @@ export default function CRCAdminPage() {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [idToDelete, setIdToDelete] = useState<string | null>(null);
 
+    // Bulk upload state
+    const [showBulkDialog, setShowBulkDialog] = useState(false);
+    const [bulkStep, setBulkStep] = useState<"input" | "preview">("input");
+    const [bulkInputType, setBulkInputType] = useState<"paste" | "csv" | "json">("paste");
+    const [bulkPastedText, setBulkPastedText] = useState("");
+    const [bulkPreviewRows, setBulkPreviewRows] = useState<Partial<Control>[]>([]);
+    const [bulkErrors, setBulkErrors] = useState<Array<{ index: number; control_id?: string; message: string }>>([]);
+    const [bulkEditIndex, setBulkEditIndex] = useState<number | null>(null);
+    const [bulkEditFormData, setBulkEditFormData] = useState<Partial<Control>>(defaultControlState);
+    const [bulkImporting, setBulkImporting] = useState(false);
+
     // fetch controls
     const fetchControls = async (signal?: AbortSignal) => {
         setLoading(true);
@@ -434,6 +446,261 @@ export default function CRCAdminPage() {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             toast.error("Export failed");
+        }
+    };
+
+    const openBulkDialog = () => {
+        setShowBulkDialog(true);
+        setBulkStep("input");
+        setBulkInputType("paste");
+        setBulkPastedText("");
+        setBulkPreviewRows([]);
+        setBulkErrors([]);
+        setBulkEditIndex(null);
+    };
+
+    const parseBulkFromPaste = (): Partial<Control>[] => {
+        const lines = bulkPastedText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        return lines.map((line, i) => ({
+            ...defaultControlState,
+            control_title: line.slice(0, 200),
+            control_id: `CRC-BULK-${i + 1}`.slice(0, 20),
+            category: "Governance",
+            priority: "Medium",
+            status: "Draft",
+        }));
+    };
+
+    /**
+     * Full CSV parser: handles quoted fields, doubled-quote escaping ("") and newlines inside quotes.
+     * Returns rows and a flag if an unclosed quote was detected (malformed CSV).
+     */
+    const parseFullCSV = (text: string): { rows: string[][]; unclosedQuote: boolean } => {
+        const rows: string[][] = [];
+        let currentRow: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const c = text[i];
+            const next = text[i + 1];
+            if (inQuotes) {
+                if (c === '"' && next === '"') {
+                    current += '"';
+                    i++;
+                } else if (c === '"') {
+                    inQuotes = false;
+                } else {
+                    current += c;
+                }
+            } else {
+                if (c === '"') {
+                    inQuotes = true;
+                } else if (c === ",") {
+                    currentRow.push(current.trim());
+                    current = "";
+                } else if (c === "\n" || c === "\r") {
+                    if (c === "\r" && next === "\n") i++;
+                    currentRow.push(current.trim());
+                    if (currentRow.some((cell) => cell.length > 0)) rows.push(currentRow);
+                    currentRow = [];
+                    current = "";
+                } else {
+                    current += c;
+                }
+            }
+        }
+        currentRow.push(current.trim());
+        if (currentRow.some((cell) => cell.length > 0)) rows.push(currentRow);
+        return { rows, unclosedQuote: inQuotes };
+    };
+
+    const parseBulkFromCSV = (text: string): Partial<Control>[] => {
+        const { rows: allRows, unclosedQuote } = parseFullCSV(text);
+        if (unclosedQuote) {
+            toast.warning("Unclosed quote detected in CSV; results may be incorrect.");
+        }
+        if (allRows.length < 2) return [];
+        const headers = allRows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+        const rows: Partial<Control>[] = [];
+        for (let i = 1; i < allRows.length; i++) {
+            const values = allRows[i];
+            const row: Record<string, string> = {};
+            headers.forEach((h, j) => {
+                row[h] = (values[j] ?? "").trim();
+            });
+            const control_id = (row.control_id || `CRC-BULK-${i}`).slice(0, 20);
+            const control_title = (row.control_title || row.title || "").slice(0, 200) || control_id;
+            rows.push({
+                ...defaultControlState,
+                control_id,
+                control_title,
+                category: (row.category || "Governance").slice(0, 100),
+                priority: (row.priority || "Medium").slice(0, 20),
+                control_statement: row.control_statement || row.statement || "",
+                status: "Draft",
+            });
+        }
+        return rows;
+    };
+
+    const parseBulkFromJSON = (text: string): Partial<Control>[] => {
+        const raw = JSON.parse(text);
+        if (!Array.isArray(raw)) return [];
+        return raw.map((item: any, i: number) => {
+            const c = item?.control_id;
+            return {
+                ...defaultControlState,
+                control_id: (c || `CRC-BULK-${i + 1}`).toString().slice(0, 20),
+                control_title: (item?.control_title ?? item?.title ?? "").toString().slice(0, 200),
+                category: (item?.category ?? "Governance").toString().slice(0, 100),
+                priority: (item?.priority ?? "Medium").toString().slice(0, 20),
+                control_statement: (item?.control_statement ?? item?.statement ?? "").toString(),
+                status: "Draft",
+                applicable_to: Array.isArray(item?.applicable_to) ? item.applicable_to : [],
+                evidence_requirements: Array.isArray(item?.evidence_requirements) ? item.evidence_requirements : [],
+            };
+        });
+    };
+
+    const handleBulkParse = () => {
+        setBulkErrors([]);
+        try {
+            if (bulkInputType === "paste") {
+                const rows = parseBulkFromPaste();
+                if (rows.length === 0) {
+                    toast.error("Enter at least one line of text (one question per line)");
+                    return;
+                }
+                setBulkPreviewRows(rows);
+            } else if (bulkInputType === "csv") {
+                if (!bulkPastedText.trim()) {
+                    toast.error("Paste CSV content or upload a file first");
+                    return;
+                }
+                const rows = parseBulkFromCSV(bulkPastedText);
+                if (rows.length === 0) {
+                    toast.error("CSV must have a header row and at least one data row");
+                    return;
+                }
+                setBulkPreviewRows(rows);
+            } else {
+                if (!bulkPastedText.trim()) {
+                    toast.error("Paste JSON array or upload a file first");
+                    return;
+                }
+                const rows = parseBulkFromJSON(bulkPastedText);
+                if (rows.length === 0) {
+                    toast.error("JSON must be an array of control objects");
+                    return;
+                }
+                setBulkPreviewRows(rows);
+            }
+            setBulkStep("preview");
+        } catch (e: any) {
+            toast.error(e?.message || "Failed to parse input");
+        }
+    };
+
+    const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+    const handleBulkFileUpload = (file: File, type: "csv" | "json") => {
+        if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+            toast.error("File too large. Maximum size is 5MB.");
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const text = String(reader.result);
+            setBulkPastedText(text);
+            setBulkInputType(type);
+        };
+        reader.onerror = () => {
+            toast.error("Failed to read file");
+            setBulkPastedText("");
+        };
+        reader.readAsText(file);
+    };
+
+    const handleBulkEditRow = (index: number) => {
+        setBulkEditFormData({ ...defaultControlState, ...bulkPreviewRows[index] });
+        setBulkEditIndex(index);
+    };
+
+    const saveBulkEditRow = () => {
+        if (bulkEditIndex === null) return;
+        setBulkPreviewRows((prev) => {
+            const next = [...prev];
+            next[bulkEditIndex] = { ...defaultControlState, ...bulkEditFormData };
+            return next;
+        });
+        setBulkEditIndex(null);
+    };
+
+    const removeBulkPreviewRow = (index: number) => {
+        setBulkPreviewRows((prev) => prev.filter((_, i) => i !== index));
+        setBulkErrors((prev) => prev.filter((e) => e.index !== index).map((e) => ({ ...e, index: e.index > index ? e.index - 1 : e.index })));
+    };
+
+    const handleBulkImport = async () => {
+        if (bulkPreviewRows.length === 0) return;
+        const invalid = bulkPreviewRows.filter((r) => !r.control_id || !r.control_title);
+        if (invalid.length > 0) {
+            const validationErrors = bulkPreviewRows
+                .map((r, idx) => {
+                    const missing: string[] = [];
+                    if (!r.control_id) missing.push("Control ID");
+                    if (!r.control_title) missing.push("Title");
+                    return { index: idx, missing };
+                })
+                .filter((e) => e.missing.length > 0)
+                .map((e) => ({ index: e.index, message: `Missing ${e.missing.join(" and ")}` }));
+            setBulkErrors(validationErrors);
+            toast.error("Some rows are missing Control ID or Title. Edit or remove them and try again.");
+            return;
+        }
+        const categoryPriorityErrors = bulkPreviewRows
+            .map((r, idx) => {
+                const issues: string[] = [];
+                if (r.category && !CATEGORIES.includes(r.category)) issues.push("Invalid category");
+                if (r.priority && !PRIORITIES.includes(r.priority)) issues.push("Invalid priority");
+                return issues.length ? { index: idx, message: issues.join(", ") } : null;
+            })
+            .filter((e): e is { index: number; message: string } => e !== null);
+        if (categoryPriorityErrors.length > 0) {
+            setBulkErrors(categoryPriorityErrors);
+            toast.error("Some rows have invalid category or priority. Use the allowed values.");
+            return;
+        }
+        const payloads = bulkPreviewRows.map((r) => ({
+            control_id: r.control_id as string,
+            control_title: r.control_title as string,
+            category: r.category && CATEGORIES.includes(r.category) ? r.category : "Governance",
+            priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
+            status: r.status || "Draft",
+            applicable_to: r.applicable_to ?? [],
+            control_statement: r.control_statement ?? "",
+            control_objective: r.control_objective ?? "",
+            risk_description: r.risk_description ?? "",
+            implementation: r.implementation ?? { requirements: [], steps: [], timeline: "" },
+            evidence_requirements: r.evidence_requirements ?? [],
+            compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
+            aima_mapping: r.aima_mapping ?? { domain: "", area: "", maturity_enhancement: "" },
+        }));
+        setBulkImporting(true);
+        setBulkErrors([]);
+        try {
+            const { data } = await apiService.createCRCBulk(payloads);
+            toast.success(`Created ${data.length} controls. You can edit or delete any control from the list.`);
+            setShowBulkDialog(false);
+            fetchControls();
+        } catch (err: any) {
+            if (err?.errors?.length) {
+                setBulkErrors(err.errors);
+                toast.error(`Import failed: ${err.errors.length} row(s) have errors. Fix or remove them and try again.`);
+            } else {
+                toast.error(err?.message || "Bulk import failed");
+            }
+        } finally {
+            setBulkImporting(false);
         }
     };
 
@@ -749,9 +1016,14 @@ export default function CRCAdminPage() {
                     <h1 className="text-3xl font-bold tracking-tight">CRC Controls</h1>
                     <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls and requirements.</p>
                 </div>
-                <Button onClick={handleCreate} size="lg">
-                    <IconPlus className="mr-2 size-5" /> Create Control
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={openBulkDialog} size="lg">
+                        <IconUpload className="mr-2 size-5" /> Bulk upload
+                    </Button>
+                    <Button onClick={handleCreate} size="lg">
+                        <IconPlus className="mr-2 size-5" /> Create Control
+                    </Button>
+                </div>
             </div>
 
             <div className="flex flex-col gap-4">
@@ -892,6 +1164,192 @@ export default function CRCAdminPage() {
                             setIdToDelete(null);
                         }}>Cancel</Button>
                         <Button variant="destructive" onClick={confirmDelete}>Delete Control</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showBulkDialog} onOpenChange={(open) => { setShowBulkDialog(open); if (!open) setBulkEditIndex(null); }}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Bulk upload CRC controls</DialogTitle>
+                        <DialogDescription>
+                            Paste a list of questions (one per line), or upload CSV/JSON. Then review, edit or remove rows and import.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {bulkStep === "input" ? (
+                        <div className="space-y-4 py-4">
+                            <Tabs value={bulkInputType} onValueChange={(v) => setBulkInputType(v as "paste" | "csv" | "json")}>
+                                <TabsList>
+                                    <TabsTrigger value="paste">Paste text</TabsTrigger>
+                                    <TabsTrigger value="csv">Upload CSV</TabsTrigger>
+                                    <TabsTrigger value="json">Upload JSON</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="paste" className="space-y-2 mt-4">
+                                    <p className="text-sm text-muted-foreground">One question per line. Control ID and category/priority will be auto-filled.</p>
+                                    <textarea
+                                        className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        placeholder="Paste your list of questions here..."
+                                        value={bulkPastedText}
+                                        onChange={(e) => setBulkPastedText(e.target.value)}
+                                    />
+                                </TabsContent>
+                                <TabsContent value="csv" className="space-y-2 mt-4">
+                                    <p className="text-sm text-muted-foreground">Upload a CSV with headers: control_id, control_title, category, priority (optional columns: control_statement).</p>
+                                    <Input
+                                        type="file"
+                                        accept=".csv,.txt"
+                                        onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (f) handleBulkFileUpload(f, "csv");
+                                            e.target.value = "";
+                                        }}
+                                    />
+                                    {bulkPastedText && (
+                                        <textarea
+                                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                                            value={bulkPastedText}
+                                            onChange={(e) => setBulkPastedText(e.target.value)}
+                                            placeholder="Or paste CSV content..."
+                                        />
+                                    )}
+                                </TabsContent>
+                                <TabsContent value="json" className="space-y-2 mt-4">
+                                    <p className="text-sm text-muted-foreground">Upload a JSON file with an array of objects (control_id, control_title, category, priority, etc.).</p>
+                                    <Input
+                                        type="file"
+                                        accept=".json"
+                                        onChange={(e) => {
+                                            const f = e.target.files?.[0];
+                                            if (f) handleBulkFileUpload(f, "json");
+                                            e.target.value = "";
+                                        }}
+                                    />
+                                    {bulkPastedText && (
+                                        <textarea
+                                            className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-2"
+                                            value={bulkPastedText}
+                                            onChange={(e) => setBulkPastedText(e.target.value)}
+                                            placeholder="Or paste JSON array..."
+                                        />
+                                    )}
+                                </TabsContent>
+                            </Tabs>
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
+                                <Button onClick={handleBulkParse}>Parse and preview</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm text-muted-foreground">{bulkPreviewRows.length} control(s) ready. Edit or remove rows below, then import.</p>
+                                <Button variant="ghost" size="sm" onClick={() => setBulkStep("input")}>Change input</Button>
+                            </div>
+                            {bulkErrors.length > 0 && (
+                                <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
+                                    {bulkErrors.map((e, i) => (
+                                        <div key={i}>{e.index === -1 ? "Batch: " : `Row ${e.index + 1}: `}{e.message}</div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="rounded-md border overflow-x-auto max-h-[300px] overflow-y-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Control ID</TableHead>
+                                            <TableHead>Title</TableHead>
+                                            <TableHead>Category</TableHead>
+                                            <TableHead>Priority</TableHead>
+                                            <TableHead className="w-[100px] text-right">Actions</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {bulkPreviewRows.map((row, idx) => (
+                                            <TableRow key={idx} className={bulkErrors.some((e) => e.index === idx) ? "bg-destructive/5" : ""}>
+                                                <TableCell className="font-medium">{row.control_id}</TableCell>
+                                                <TableCell>{row.control_title}</TableCell>
+                                                <TableCell>{row.category}</TableCell>
+                                                <TableCell>{row.priority}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleBulkEditRow(idx)} aria-label="Edit row">
+                                                        <IconEdit className="size-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeBulkPreviewRow(idx)} aria-label="Remove row">
+                                                        <IconTrash className="size-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
+                                <Button onClick={handleBulkImport} disabled={bulkPreviewRows.length === 0 || bulkImporting}>
+                                    {bulkImporting ? "Importing..." : `Import ${bulkPreviewRows.length} control(s)`}
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={bulkEditIndex !== null} onOpenChange={(open) => { if (!open) setBulkEditIndex(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit row {bulkEditIndex !== null ? bulkEditIndex + 1 : ""}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Control ID *</label>
+                                <Input
+                                    value={bulkEditFormData.control_id || ""}
+                                    onChange={(e) => setBulkEditFormData({ ...bulkEditFormData, control_id: e.target.value.slice(0, 20) })}
+                                    maxLength={20}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Title *</label>
+                                <Input
+                                    value={bulkEditFormData.control_title || ""}
+                                    onChange={(e) => setBulkEditFormData({ ...bulkEditFormData, control_title: e.target.value.slice(0, 200) })}
+                                    maxLength={200}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Category *</label>
+                                <Select value={bulkEditFormData.category} onValueChange={(v) => setBulkEditFormData({ ...bulkEditFormData, category: v })}>
+                                    <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+                                    <SelectContent>
+                                        {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Priority *</label>
+                                <Select value={bulkEditFormData.priority} onValueChange={(v) => setBulkEditFormData({ ...bulkEditFormData, priority: v })}>
+                                    <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
+                                    <SelectContent>
+                                        {PRIORITIES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Control statement</label>
+                            <textarea
+                                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={bulkEditFormData.control_statement || ""}
+                                onChange={(e) => setBulkEditFormData({ ...bulkEditFormData, control_statement: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setBulkEditIndex(null)}>Cancel</Button>
+                        <Button onClick={saveBulkEditRow}>Apply</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -221,6 +221,137 @@ router.post("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, 
   }
 });
 
+// POST /crc/controls/bulk - Bulk create controls (all-or-nothing)
+router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const raw = req.body;
+    if (!Array.isArray(raw.controls)) {
+      return res.status(400).json({ success: false, errors: [{ index: -1, message: "Request body must include a 'controls' array" }] });
+    }
+    if (raw.controls.length === 0) {
+      return res.status(400).json({ success: false, errors: [{ index: -1, message: "Request body must include at least one control" }] });
+    }
+    const MAX_BATCH_SIZE = 500;
+    if (raw.controls.length > MAX_BATCH_SIZE) {
+      return res.status(400).json({ success: false, errors: [{ index: -1, message: `Batch size cannot exceed ${MAX_BATCH_SIZE} controls` }] });
+    }
+
+    const errors: { index: number; control_id?: string; message: string }[] = [];
+    const parsedWithIndex: { data: z.infer<typeof controlSchema>; originalIndex: number }[] = [];
+
+    for (let i = 0; i < raw.controls.length; i++) {
+      const item = raw.controls[i];
+      const stripped = { ...item };
+      delete stripped.id;
+      delete stripped.created_at;
+      delete stripped.updated_at;
+      delete stripped.version;
+      delete stripped.created_by;
+
+      const result = controlSchema.safeParse(stripped);
+      if (!result.success) {
+        const first = result.error.errors[0];
+        errors.push({ index: i, control_id: item?.control_id, message: first?.message || "Validation failed" });
+        continue;
+      }
+      parsedWithIndex.push({ data: result.data, originalIndex: i });
+    }
+
+    const idToIndices = new Map<string, number[]>();
+    for (const { data, originalIndex } of parsedWithIndex) {
+      const list = idToIndices.get(data.control_id) ?? [];
+      list.push(originalIndex);
+      idToIndices.set(data.control_id, list);
+    }
+    for (const [controlId, indices] of idToIndices) {
+      if (indices.length > 1) {
+        for (const idx of indices) {
+          errors.push({ index: idx, control_id: controlId, message: "Control ID must be unique in this batch" });
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    await client.query("BEGIN");
+    const user = (req as any).user;
+
+    const controlIds = parsedWithIndex.map((p) => p.data.control_id);
+    const existingIds = await client.query(
+      "SELECT control_id FROM crc_controls WHERE control_id = ANY($1)",
+      [controlIds]
+    );
+    const existingSet = new Set(existingIds.rows.map((r: { control_id: string }) => r.control_id));
+    for (const { data, originalIndex } of parsedWithIndex) {
+      if (existingSet.has(data.control_id)) {
+        errors.push({ index: originalIndex, control_id: data.control_id, message: "Control ID already exists" });
+      }
+    }
+
+    if (errors.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const cols = 14;
+    const placeholders = parsedWithIndex.map((_, rowIdx) => {
+      const start = rowIdx * cols + 1;
+      return `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6}, $${start + 7}, $${start + 8}, $${start + 9}::jsonb, $${start + 10}::jsonb, $${start + 11}::jsonb, $${start + 12}::jsonb, $${start + 13}, 1)`;
+    }).join(", ");
+    const batchInsertQuery = `
+      INSERT INTO crc_controls (
+        control_id, control_title, category, priority, status, applicable_to,
+        control_statement, control_objective, risk_description,
+        implementation, evidence_requirements, compliance_mapping, aima_mapping,
+        created_by, version
+      )
+      VALUES ${placeholders}
+      RETURNING *
+    `;
+    const values: any[] = [];
+    for (const { data } of parsedWithIndex) {
+      values.push(
+        data.control_id, data.control_title, data.category, data.priority, data.status, data.applicable_to,
+        data.control_statement, data.control_objective, data.risk_description,
+        JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
+        JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
+        user.id
+      );
+    }
+    const result = await client.query(batchInsertQuery, values);
+    const created = result.rows;
+
+    if (created.length > 0) {
+      const snapshotCols = 7;
+      const snapshotPlaceholders = created.map((_: any, i: number) => {
+        const base = i * snapshotCols + 1;
+        return `($${base}, $${base + 1}, $${base + 2}::jsonb, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+      }).join(", ");
+      const snapshotValues: any[] = [];
+      for (const ctrl of created) {
+        snapshotValues.push(ctrl.id, ctrl.version, JSON.stringify(ctrl), null, ctrl.status, user.id, "Initial creation");
+      }
+      await client.query(
+        `INSERT INTO crc_control_versions (control_id, version, snapshot, status_from, status_to, changed_by, change_note)
+         VALUES ${snapshotPlaceholders}`,
+        snapshotValues
+      );
+    }
+
+    await client.query("COMMIT");
+    res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error bulk creating controls:", error);
+    res.status(500).json({ success: false, error: "Failed to create controls" });
+  } finally {
+    client.release();
+  }
+});
+
 // PUT /crc/controls/:id - Update control
 router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   const client = await pool.connect();
