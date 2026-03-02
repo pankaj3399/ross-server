@@ -7,6 +7,7 @@ import {
   type FairnessApiJobPayloadExtended,
   type FairnessPromptsJobPayload,
   type FairnessPromptsJobPayloadExtended,
+  type SecurityScanJobPayloadExtended,
   type EvaluationStatusPayload,
   type JobResult,
   type JobError,
@@ -16,6 +17,7 @@ import {
   markJobCompleted,
   processAutomatedApiTest,
   processManualPromptTest,
+  processSecurityScan,
   normalizeFairnessApiJobConfig,
   callUserApi,
   updateJobProgress,
@@ -123,13 +125,12 @@ export const evaluationJobProcessor = inngest.createFunction(
     try {
       const jobType = job.job_type;
       if (jobType === "AUTOMATED_API_TEST") {
-        // TypeScript narrows job.payload to FairnessApiJobPayloadExtended here
         await processAutomatedApiTest(job, payload as FairnessApiJobPayloadExtended, step);
       } else if (jobType === "MANUAL_PROMPT_TEST") {
-        // TypeScript narrows job.payload to FairnessPromptsJobPayloadExtended here
         await processManualPromptTest(job, payload as FairnessPromptsJobPayloadExtended, step);
+      } else if (jobType === "SECURITY_SCAN") {
+        await processSecurityScan(job, payload as SecurityScanJobPayloadExtended, step);
       } else {
-        // This should never happen with our discriminated union, but handle it defensively
         throw new Error(`Unknown job type: ${jobType}`);
       }
     } catch (error: any) {
@@ -572,12 +573,15 @@ export const evaluationAggregator = inngest.createFunction(
         );
         const job = jobResult.rows[0];
         const payload = (job.payload || {}) as EvaluationStatusPayload;
+        if (payload.type !== "FAIRNESS_API" && payload.type !== "FAIRNESS_PROMPTS") {
+          return;
+        }
         const responses = ("responses" in payload ? payload.responses : undefined) || [];
         const results: JobResult[] = ("results" in payload ? payload.results : undefined) || [];
         const errors: JobError[] = ("errors" in payload ? payload.errors : undefined) || [];
 
         const summary = buildSummary(responses.length, results, errors);
-        await markJobCompleted(job.id, payload, { summary, results, errors });
+        await markJobCompleted(job.id, payload as FairnessApiJobPayloadExtended | FairnessPromptsJobPayloadExtended, { summary, results, errors });
       });
     }
   }

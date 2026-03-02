@@ -2,9 +2,17 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2, Shield } from "lucide-react";
 import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
+
+type SecurityReportPayload = {
+    overall_score: number;
+    risk: string;
+    categories: Record<string, number>;
+    failures: Array<{ prompt: string; reason: string }>;
+    tests?: Array<{ category: string; prompt: string; passed: boolean; reason?: string }>;
+};
 
 type ApiReportDetail = {
     id: string;
@@ -13,26 +21,27 @@ type ApiReportDetail = {
     success_count: number;
     failure_count: number;
     average_scores: {
-        total: number;
-        successful: number;
-        failed: number;
-        averageOverallScore: number;
-        averageBiasScore: number;
-        averageToxicityScore: number;
+        total?: number;
+        successful?: number;
+        failed?: number;
+        averageOverallScore?: number;
+        averageBiasScore?: number;
+        averageToxicityScore?: number;
+        [key: string]: number | undefined;
     };
     results: Array<{
         category: string;
         prompt: string;
         success: boolean;
-        evaluation: {
+        evaluation?: {
             overallVerdict: string;
             overallScore: number;
             biasScore: number;
             toxicityScore: number;
             explanation: string;
         };
-        message: string;
-    }>;
+        message?: string;
+    }> | SecurityReportPayload;
     errors: Array<{
         category: string;
         prompt: string;
@@ -40,7 +49,7 @@ type ApiReportDetail = {
         error: string;
         message: string;
     }>;
-    config: any;
+    config: { testType?: string; apiUrl?: string; requestTemplate?: string; responseKey?: string; apiKeyPlacement?: string; apiKeyFieldName?: string; [key: string]: unknown };
     created_at: string;
 };
 
@@ -61,10 +70,11 @@ export default function ApiReportDetailPage() {
         return isNaN(d.getTime()) ? undefined : d.toISOString();
     })();
 
+    const isSecurityReport = report?.config?.testType === "SECURITY_SCAN";
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
-        fileName: `api-fairness-report-${reportId}.pdf`,
-        reportTitle: "API Fairness & Bias Report",
+        fileName: isSecurityReport ? `security-scan-report-${reportId}.pdf` : `api-fairness-report-${reportId}.pdf`,
+        reportTitle: isSecurityReport ? "Security Scan Report" : "API Fairness & Bias Report",
         projectName: projectId,
         generatedAt: normalizedGeneratedAt
     });
@@ -138,8 +148,20 @@ export default function ApiReportDetailPage() {
         );
     }
 
-    const { results, errors } = report;
-    const allItems = [...(results || []), ...(errors || [])];
+    const securityPayload = isSecurityReport ? (report.results as SecurityReportPayload) : null;
+    const resultsArray = Array.isArray(report.results) ? report.results : [];
+    const errors = report.errors || [];
+    const allItems = [...resultsArray, ...errors];
+
+    const getRiskBadgeColor = (risk: string) => {
+        switch (risk) {
+            case "Low": return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20";
+            case "Medium": return "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20";
+            case "High": return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
+            case "Critical": return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20";
+            default: return "bg-muted text-muted-foreground border-border";
+        }
+    };
 
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
@@ -157,8 +179,12 @@ export default function ApiReportDetailPage() {
                             </button>
                             <div className="h-6 w-px bg-border hide-in-pdf" />
                             <div>
-                                <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
-                                    API Report Details
+                                <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed flex items-center gap-2">
+                                    {isSecurityReport ? (
+                                        <> <Shield className="w-6 h-6" /> Security Scan Report </>
+                                    ) : (
+                                        "API Report Details"
+                                    )}
                                 </h1>
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
                                     <span className="flex items-center gap-1.5">
@@ -188,9 +214,9 @@ export default function ApiReportDetailPage() {
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className={`grid gap-4 ${isSecurityReport ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-4"}`}>
                     <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
+                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Tests</div>
                         <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
@@ -202,30 +228,89 @@ export default function ApiReportDetailPage() {
                             {report.success_count} passed, {report.failure_count} failed
                         </div>
                     </div>
-                    <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Overall Score</div>
-                        <div className={`text-2xl font-bold ${report.average_scores?.averageOverallScore != null
-                            ? getScoreColor(report.average_scores.averageOverallScore)
-                            : "text-muted-foreground"
-                            }`}>
-                            {report.average_scores?.averageOverallScore != null
-                                ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
-                                : "N/A"}
-                        </div>
-                    </div>
-                    <div className="bg-card border border-border rounded-xl p-6">
-                        <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Bias Score</div>
-                        <div className={`text-2xl font-bold ${report.average_scores?.averageBiasScore != null
-                            ? getScoreColor(1 - report.average_scores.averageBiasScore)
-                            : "text-muted-foreground"
-                            }`}>
-                            {report.average_scores?.averageBiasScore != null
-                                ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
-                                : "N/A"}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">Lower is better</div>
-                    </div>
+                    {isSecurityReport && securityPayload ? (
+                        <>
+                            <div className="bg-card border border-border rounded-xl p-6">
+                                <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Overall Security Score</div>
+                                <div className={`text-2xl font-bold ${getScoreColor(securityPayload.overall_score / 100)}`}>
+                                    {securityPayload.overall_score}%
+                                </div>
+                            </div>
+                            <div className="bg-card border border-border rounded-xl p-6">
+                                <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Risk Level</div>
+                                <span className={`inline-flex px-3 py-1.5 rounded-lg text-sm font-semibold border ${getRiskBadgeColor(securityPayload.risk)}`}>
+                                    {securityPayload.risk}
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-card border border-border rounded-xl p-6">
+                                <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Overall Score</div>
+                                <div className={`text-2xl font-bold ${report.average_scores?.averageOverallScore != null
+                                    ? getScoreColor(report.average_scores.averageOverallScore)
+                                    : "text-muted-foreground"
+                                    }`}>
+                                    {report.average_scores?.averageOverallScore != null
+                                        ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
+                                        : "N/A"}
+                                </div>
+                            </div>
+                            <div className="bg-card border border-border rounded-xl p-6">
+                                <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Avg Bias Score</div>
+                                <div className={`text-2xl font-bold ${report.average_scores?.averageBiasScore != null
+                                    ? getScoreColor(1 - (report.average_scores.averageBiasScore ?? 0))
+                                    : "text-muted-foreground"
+                                    }`}>
+                                    {report.average_scores?.averageBiasScore != null
+                                        ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
+                                        : "N/A"}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Lower is better</div>
+                            </div>
+                        </>
+                    )}
                 </div>
+
+                {/* Category scores for security report */}
+                {isSecurityReport && securityPayload?.categories && Object.keys(securityPayload.categories).length > 0 && (
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <Shield className="w-5 h-5" />
+                            Category Scores
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                            {Object.entries(securityPayload.categories).map(([name, score]) => (
+                                <div key={name} className="bg-card border border-border rounded-xl p-4">
+                                    <div className="text-xs text-muted-foreground mb-1 capitalize">{name.replace(/_/g, " ")}</div>
+                                    <div className={`text-xl font-bold ${getScoreColor(score / 100)}`}>{score}%</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Security failures list */}
+                {isSecurityReport && securityPayload?.failures && securityPayload.failures.length > 0 && (
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            <XCircle className="w-5 h-5 text-red-500" />
+                            Failures
+                        </h3>
+                        <div className="bg-card border border-border rounded-xl overflow-hidden">
+                            <div className="divide-y divide-border">
+                                {securityPayload.failures.map((f, idx) => (
+                                    <div key={idx} className="p-6">
+                                        <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
+                                        <div className="bg-secondary/10 p-3 rounded-lg text-sm mb-3">{f.prompt}</div>
+                                        <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Reason</div>
+                                        <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20">{f.reason}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Configuration */}
                 <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -269,6 +354,51 @@ export default function ApiReportDetailPage() {
                         Detailed Results
                     </h3>
 
+                    {isSecurityReport && securityPayload?.tests && securityPayload.tests.length > 0 ? (
+                        <>
+                        {Object.entries(
+                            securityPayload.tests.reduce((acc, t) => {
+                                const cat = t.category || "Unknown";
+                                if (!acc[cat]) acc[cat] = [];
+                                acc[cat].push(t);
+                                return acc;
+                            }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
+                        ).map(([category, items]) => (
+                        <div key={category} className="space-y-4">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
+                                <span>{category.replace(/_/g, " ")}</span>
+                                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{items.length}</span>
+                            </div>
+                            {items.map((item, idx) => (
+                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
+                                    <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.passed ? "bg-green-500/5" : "bg-red-500/5"}`}>
+                                        <div className="flex items-center gap-3">
+                                            {item.passed ? (
+                                                <CheckCircle className="w-5 h-5 text-green-500" />
+                                            ) : (
+                                                <XCircle className="w-5 h-5 text-red-500" />
+                                            )}
+                                            <span className="font-medium text-foreground/80">Prompt #{idx + 1}</span>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 space-y-4">
+                                        <div>
+                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1">Prompt</div>
+                                            <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                        </div>
+                                        {!item.passed && item.reason && (
+                                            <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                                                <strong>Reason:</strong> {item.reason}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        ))}
+                        </>
+                    ) : (
+                    <>
                     {Object.entries(
                         allItems.reduce((acc, item) => {
                             const cat = item.category || "Unknown";
@@ -363,6 +493,8 @@ export default function ApiReportDetailPage() {
                             ))}
                         </div>
                     ))}
+                    </>
+                    )}
                 </div>
             </div>
         </div>

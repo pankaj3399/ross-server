@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search, Shield } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
 type ApiReport = {
@@ -12,14 +12,21 @@ type ApiReport = {
     success_count: number;
     failure_count: number;
     average_scores: {
-        total: number;
-        successful: number;
-        failed: number;
-        averageOverallScore: number;
-        averageBiasScore: number;
-        averageToxicityScore: number;
+        total?: number;
+        successful?: number;
+        failed?: number;
+        averageOverallScore?: number;
+        averageBiasScore?: number;
+        averageToxicityScore?: number;
+        [key: string]: number | undefined;
     };
-    config: any;
+    results?: {
+        overall_score?: number;
+        risk?: string;
+        categories?: Record<string, number>;
+        failures?: Array<{ prompt: string; reason: string }>;
+    };
+    config: { testType?: string; apiUrl?: string; [key: string]: unknown };
     created_at: string;
 };
 
@@ -189,8 +196,14 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                                     <Server className="w-4 h-4" />
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium text-foreground truncate max-w-[200px]">
+                                                    <div className="font-medium text-foreground truncate max-w-[200px] flex items-center gap-2">
                                                         {report.config?.apiUrl || "Unknown Endpoint"}
+                                                        {report.config?.testType === "SECURITY_SCAN" && (
+                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                                                                <Shield className="w-3 h-3" />
+                                                                Security scan
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground">
                                                         {report.total_prompts} prompts
@@ -202,9 +215,13 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                             {getStatusBadge(report.success_count, report.failure_count)}
                                         </td>
                                         <td className="px-6 py-4 font-medium">
-                                            {report.average_scores?.averageOverallScore != null ?
-                                                `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%` :
-                                                "N/A"}
+                                            {report.config?.testType === "SECURITY_SCAN"
+                                                ? (report.results?.overall_score != null
+                                                    ? `${report.results.overall_score}%`
+                                                    : "N/A")
+                                                : (report.average_scores?.averageOverallScore != null
+                                                    ? `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%`
+                                                    : "N/A")}
                                         </td>
                                         <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                                             <button

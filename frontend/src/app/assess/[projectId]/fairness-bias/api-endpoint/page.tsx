@@ -12,6 +12,7 @@ import {
   Play,
   Loader2,
   AlertCircle,
+  Shield,
 } from "lucide-react";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "../api-history/components/ApiHistory";
@@ -157,11 +158,42 @@ export default function ApiEndpointPage() {
         apiKeyPlacement,
         apiKeyFieldName: trimmedApiKeyFieldName || null,
       });
-      console.log(response);
-
       router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to schedule evaluation");
+    } finally {
+      setJobStarting(false);
+    }
+  };
+
+  const handleSecurityScan = async () => {
+    const trimmedTemplate = requestTemplate.trim();
+    if (
+      !apiEndpoint ||
+      !isValidUrl ||
+      !responseKey.trim() ||
+      !trimmedTemplate ||
+      templateError ||
+      (requiresApiKey && !trimmedApiKey)
+    )
+      return;
+
+    setJobStartError(null);
+    setJobStarting(true);
+
+    try {
+      const response = await apiService.startSecurityScan({
+        projectId,
+        apiUrl: apiEndpoint,
+        requestTemplate: trimmedTemplate,
+        responseKey: responseKey.trim(),
+        apiKey: trimmedApiKey || null,
+        apiKeyPlacement,
+        apiKeyFieldName: trimmedApiKeyFieldName || null,
+      });
+      router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
+    } catch (error: any) {
+      setJobStartError(error.message || "Failed to start security scan");
     } finally {
       setJobStarting(false);
     }
@@ -526,25 +558,39 @@ export default function ApiEndpointPage() {
               </p>
             </div>
 
-            <Button
-              onClick={handleTestModel}
-              isLoading={jobStarting}
-              disabled={!canSubmit}
-              className={`
-                w-full py-6 rounded-xl font-semibold text-lg transition-all duration-200
-                flex items-center justify-center gap-2 shadow-lg hover:shadow-xl
-              `}
-            >
-              {jobStarting ? (
-                "Scheduling..."
-              ) : (
-                <>
-                  <Play className="w-5 h-5 mr-2" />
-                  Start Fairness Evaluation
-                </>
-              )}
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Button
+                onClick={handleTestModel}
+                isLoading={jobStarting}
+                disabled={!canSubmit || jobStarting}
+                className="w-full py-6 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                {jobStarting ? (
+                  "Scheduling..."
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 mr-2" />
+                    Start Fairness Evaluation
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleSecurityScan}
+                disabled={!canSubmit || jobStarting}
+                variant="outline"
+                className="w-full py-6 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-2 border-2 hover:bg-muted/50"
+              >
+                {jobStarting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Shield className="w-5 h-5 mr-2" />
+                    Run Security Scan
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-2">
               We will queue the job instantly. You can monitor progress on the next screen—no more 5-minute loading spinners.
             </p>
             {jobStartError && (

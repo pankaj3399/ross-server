@@ -1,6 +1,14 @@
 import pool from "../config/database";
 import type { EvaluationPayload } from "../services/evaluateFairness";
 import { sanitizeConfig } from "../utils/sanitize";
+import {
+  getAllSecurityPrompts,
+  evaluateSecurityResponse,
+  redactResponse,
+  computeCategoryScores,
+  computeFinalScore,
+  getRiskLevel,
+} from "../security";
 
 // Types 
 // Extended payload types that include runtime fields added during job processing
@@ -26,7 +34,8 @@ export type FairnessPromptsJobPayloadExtended = FairnessPromptsJobPayload & {
 // Discriminated union of all possible payload shapes
 export type EvaluationStatusPayload = 
   | FairnessApiJobPayloadExtended
-  | FairnessPromptsJobPayloadExtended;
+  | FairnessPromptsJobPayloadExtended
+  | SecurityScanJobPayloadExtended;
 
 // Discriminated union for EvaluationStatusRow, discriminated by job_type
 export type EvaluationStatusRow = 
@@ -55,6 +64,19 @@ export type EvaluationStatusRow =
       last_processed_prompt: string | null;
       percent: number | null;
       job_type: "MANUAL_PROMPT_TEST";
+    }
+  | {
+      id: number;
+      user_id: string;
+      project_id: string;
+      job_id: string;
+      payload: SecurityScanJobPayloadExtended;
+      total_prompts: number | null;
+      status: string;
+      progress: string | null;
+      last_processed_prompt: string | null;
+      percent: number | null;
+      job_type: "SECURITY_SCAN";
     };
 
 export type ApiKeyPlacement = "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
@@ -99,6 +121,37 @@ export type FairnessPromptsJobPayload = {
   results?: JobResult[];
   errors?: JobError[];
   error?: string;
+};
+
+export type SecurityScanJobPayload = {
+  type: "SECURITY_SCAN";
+  config: FairnessApiJobConfigStored;
+  summary?: SecurityScanSummary;
+  results?: SecurityScanTestResult[];
+  errors?: JobError[];
+  error?: string;
+};
+
+export type SecurityScanJobPayloadExtended = SecurityScanJobPayload & {
+  userApiResponses?: UserApiResponse[];
+  userApiCallStatuses?: Record<string, "success" | "failed">;
+};
+
+export type SecurityScanSummary = {
+  total: number;
+  successful: number;
+  failed: number;
+  overall_score: number;
+  risk: "Low" | "Medium" | "High" | "Critical";
+  categories: Record<string, number>;
+};
+
+export type SecurityScanTestResult = {
+  category: string;
+  prompt: string;
+  responseRedacted?: string;
+  passed: boolean;
+  reason?: string;
 };
 
 export type JobSummary = {
@@ -684,6 +737,115 @@ export async function failJob(jobInternalId: number, message: string) {
   );
 }
 
+export type SecurityScanReport = {
+  overall_score: number;
+  risk: "Low" | "Medium" | "High" | "Critical";
+  categories: Record<string, number>;
+  failures: Array<{ prompt: string; reason: string }>;
+  tests?: SecurityScanTestResult[];
+};
+
+export async function markSecurityScanCompleted(
+  jobInternalId: number,
+  payload: SecurityScanJobPayloadExtended,
+  report: SecurityScanReport,
+  totalPrompts: number
+) {
+  const successful = report.tests?.filter((t) => t.passed).length ?? 0;
+  const failed = totalPrompts - successful;
+
+  let finalStatus: string;
+  if (totalPrompts === 0) {
+    finalStatus = "success";
+  } else if (successful === 0 && failed > 0) {
+    finalStatus = "failed";
+  } else if (failed === 0) {
+    finalStatus = "success";
+  } else {
+    finalStatus = "partial_success";
+  }
+
+  const partialPayload = {
+    summary: {
+      total: totalPrompts,
+      successful,
+      failed,
+      overall_score: report.overall_score,
+      risk: report.risk,
+      categories: report.categories,
+    },
+    results: report.tests ?? [],
+    errors: report.failures.map((f) => ({
+      category: "",
+      prompt: f.prompt,
+      success: false as const,
+      error: f.reason,
+      message: f.reason,
+    })),
+  };
+
+  await pool.query(
+    `UPDATE evaluation_status
+     SET status = $1,
+         progress = $2,
+         percent = 100,
+         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+     WHERE id = $4`,
+    [
+      finalStatus,
+      `${totalPrompts}/${totalPrompts}`,
+      JSON.stringify(partialPayload),
+      jobInternalId,
+    ],
+  );
+
+  try {
+    const jobResult = await pool.query(
+      `SELECT user_id, project_id, job_id FROM evaluation_status WHERE id = $1`,
+      [jobInternalId]
+    );
+    if (jobResult.rows.length > 0) {
+      const { user_id, project_id, job_id } = jobResult.rows[0];
+      const configToSave = { ...sanitizeConfig(payload.config), testType: "SECURITY_SCAN" };
+      const resultsPayload = {
+        overall_score: report.overall_score,
+        risk: report.risk,
+        categories: report.categories,
+        failures: report.failures,
+        tests: report.tests,
+      };
+      await pool.query(
+        `INSERT INTO api_test_reports
+         (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (job_id) DO UPDATE SET
+           total_prompts = EXCLUDED.total_prompts,
+           success_count = EXCLUDED.success_count,
+           failure_count = EXCLUDED.failure_count,
+           average_scores = EXCLUDED.average_scores,
+           results = EXCLUDED.results,
+           errors = EXCLUDED.errors,
+           config = EXCLUDED.config,
+           updated_at = CURRENT_TIMESTAMP`,
+        [
+          user_id,
+          project_id,
+          job_id,
+          totalPrompts,
+          successful,
+          failed,
+          JSON.stringify(report.categories),
+          JSON.stringify(resultsPayload),
+          JSON.stringify(report.failures.map((f) => ({ prompt: f.prompt, reason: f.reason }))),
+          JSON.stringify(configToSave),
+        ]
+      );
+    }
+  } catch (err) {
+    console.error("Failed to save security scan report:", err);
+  }
+}
+
 export async function processAutomatedApiTest(
   job: EvaluationStatusRow & { job_type: "AUTOMATED_API_TEST" },
   payload: FairnessApiJobPayloadExtended,
@@ -992,5 +1154,148 @@ export async function processManualPromptTest(
       },
     });
   }
+}
+
+export async function processSecurityScan(
+  job: EvaluationStatusRow & { job_type: "SECURITY_SCAN" },
+  payload: SecurityScanJobPayloadExtended,
+  step: any
+) {
+  if (payload.type !== "SECURITY_SCAN") {
+    throw new Error("Invalid payload type for SECURITY_SCAN job");
+  }
+
+  await step.run("verify-project", async () => {
+    const projectCheck = await pool.query(
+      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
+      [payload.config.projectId, job.user_id],
+    );
+    if (projectCheck.rowCount === 0) {
+      throw new Error("Project not found or access denied for this job");
+    }
+  });
+
+  const prompts = await step.run("fetch-security-prompts", async () => {
+    return getAllSecurityPrompts();
+  });
+
+  if (prompts.length === 0) {
+    await step.run("mark-empty-completed", async () => {
+      await markSecurityScanCompleted(job.id, payload, {
+        overall_score: 100,
+        risk: "Low",
+        categories: {},
+        failures: [],
+        tests: [],
+      }, 0);
+    });
+    return;
+  }
+
+  await step.run("initialize-progress", async () => {
+    await pool.query(
+      `UPDATE evaluation_status
+       SET status = 'collecting_responses',
+           total_prompts = $1,
+           progress = $2,
+           percent = 0
+       WHERE id = $3`,
+      [prompts.length, `0/${prompts.length}`, job.id],
+    );
+  });
+
+  await step.run("initialize-user-api-responses", async () => {
+    await pool.query(
+      `UPDATE evaluation_status
+       SET payload = COALESCE(payload, '{}'::jsonb) || '{"userApiResponses": []}'::jsonb
+       WHERE id = $1`,
+      [job.id],
+    );
+  });
+
+  for (let i = 0; i < prompts.length; i += 1) {
+    const { category, prompt } = prompts[i];
+    if (i > 0) {
+      await step.run(`delay-before-user-api-${i}`, async () => {
+        await delay(MIN_REQUEST_INTERVAL_MS);
+      });
+    }
+    await step.sendEvent(`trigger-user-api-${i}`, {
+      name: "user-api/call.requested",
+      data: {
+        jobId: job.job_id,
+        promptIndex: i,
+        category,
+        prompt,
+        config: payload.config,
+        includePromptConstraints: false,
+      },
+    });
+  }
+
+  await step.waitForEvent("wait-for-all-user-api-complete", {
+    event: "user-api/all-completed",
+    timeout: `${prompts.length * 2}m`,
+    if: `async.data.jobId == "${job.job_id}"`,
+  });
+
+  const finalJobData = await step.run("read-collected-responses", async () => {
+    const jobData = await pool.query(
+      `SELECT payload FROM evaluation_status WHERE id = $1`,
+      [job.id],
+    );
+    return jobData.rows[0]?.payload || {};
+  });
+
+  const userApiResponses: UserApiResponse[] = finalJobData.userApiResponses || [];
+  const successfulResponses = userApiResponses
+    .filter((r): r is UserApiResponse & { success: true; response: string } => r.success)
+    .sort((a, b) => a.promptIndex - b.promptIndex);
+
+  const apiErrors: JobError[] = userApiResponses
+    .filter((r): r is UserApiResponse & { success: false; error: string } => !r.success)
+    .map((r) => ({
+      category: r.category,
+      prompt: r.prompt,
+      success: false as const,
+      error: r.error,
+      message: r.error,
+    }));
+
+  const testResults: SecurityScanTestResult[] = [];
+  const failures: Array<{ prompt: string; reason: string }> = [];
+
+  for (const r of successfulResponses) {
+    const analyzed = evaluateSecurityResponse(r.category, r.prompt, r.response);
+    const result: SecurityScanTestResult = {
+      category: r.category,
+      prompt: r.prompt,
+      responseRedacted: redactResponse(r.response),
+      passed: analyzed.passed,
+      reason: analyzed.reason,
+    };
+    testResults.push(result);
+    if (!analyzed.passed && analyzed.reason) {
+      failures.push({ prompt: r.prompt, reason: analyzed.reason });
+    }
+  }
+
+  for (const e of apiErrors) {
+    failures.push({ prompt: e.prompt, reason: e.error });
+  }
+
+  const categoryScores = computeCategoryScores(testResults);
+  const overallScore = computeFinalScore(categoryScores);
+  const risk = getRiskLevel(overallScore);
+
+  await step.run("mark-security-scan-completed", async () => {
+    await markSecurityScanCompleted(job.id, payload, {
+      overall_score: overallScore,
+      risk,
+      categories: categoryScores,
+      failures,
+      tests: testResults,
+    }, prompts.length);
+  });
 }
 

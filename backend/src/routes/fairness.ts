@@ -21,6 +21,7 @@ import {
     THRESHOLDS
 } from "../utils/fairnessThresholds";
 import { sanitizeConfig } from "../utils/sanitize";
+import { getAllSecurityPrompts } from "../security";
 
 const router = Router();
 
@@ -507,6 +508,76 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
             return res.status(400).json({ error: "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to create evaluation job" });
+    }
+});
+
+// POST /fairness/security-scan - Create a job for security scan (same body as evaluate-api)
+router.post("/security-scan", authenticateToken, async (req, res) => {
+    try {
+        const { projectId, apiUrl, responseKey, requestTemplate, apiKey, apiKeyPlacement, apiKeyFieldName } = evaluateApiSchema.parse(req.body);
+        const userId = req.user!.id;
+
+        const projectCheck = await pool.query(
+            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
+            [projectId, userId]
+        );
+        if (projectCheck.rows.length === 0) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        const totalPrompts = getAllSecurityPrompts().length;
+        const jobId = `security-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const jobPayload = {
+            type: "SECURITY_SCAN",
+            config: {
+                projectId,
+                apiUrl,
+                requestTemplate,
+                responseKey,
+                apiKey: apiKey || null,
+                apiKeyPlacement: apiKeyPlacement || "none",
+                apiKeyFieldName: apiKeyFieldName || null,
+            },
+        };
+
+        const insertResult = await pool.query(
+            `INSERT INTO evaluation_status (user_id, project_id, job_id, payload, status, total_prompts, progress, percent, job_type)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING id, job_id, total_prompts`,
+            [
+                userId,
+                projectId,
+                jobId,
+                JSON.stringify(jobPayload),
+                "processing",
+                totalPrompts,
+                `0/${totalPrompts}`,
+                0,
+                "SECURITY_SCAN",
+            ]
+        );
+        const job = insertResult.rows[0];
+
+        try {
+            await inngest.send({
+                name: "evaluation/job.created",
+                data: { jobId: job.job_id },
+            });
+        } catch (inngestError) {
+            console.warn("Failed to send Inngest event:", inngestError);
+        }
+
+        res.json({
+            jobId: job.job_id,
+            totalPrompts: job.total_prompts,
+            message: `Security scan job created. Processing ${totalPrompts} prompts.`,
+        });
+    } catch (error) {
+        console.error("Error creating security scan job:", error);
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: "Validation failed", details: error.errors });
+        }
+        res.status(500).json({ error: "Failed to create security scan job" });
     }
 });
 

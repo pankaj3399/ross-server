@@ -580,6 +580,29 @@ class ApiService {
     });
   }
 
+  async startSecurityScan(data: {
+    projectId: string;
+    apiUrl: string;
+    requestTemplate: string;
+    responseKey: string;
+    apiKey?: string | null;
+    apiKeyPlacement: "none" | "auth_header" | "x_api_key" | "query_param" | "body_field";
+    apiKeyFieldName?: string | null;
+  }): Promise<{
+    jobId: string;
+    totalPrompts: number;
+    message: string;
+  }> {
+    return this.request<{
+      jobId: string;
+      totalPrompts: number;
+      message: string;
+    }>("/fairness/security-scan", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async evaluatePrompts(data: {
     projectId: string;
     responses: Array<{
