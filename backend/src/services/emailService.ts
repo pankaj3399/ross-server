@@ -344,8 +344,19 @@ class EmailService {
     try {
       const parsed = new URL(inviteUrl);
 
-      // Require a safe protocol and a valid hostname
-      if (parsed.protocol !== "https:" || !parsed.hostname) {
+      const isLocalhost =
+        parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+      const allowInsecureLocal =
+        process.env.NODE_ENV !== "production" ||
+        process.env.ALLOW_INSECURE_URLS === "true";
+
+      // Require a safe protocol and a valid hostname.
+      // In non-production (or when ALLOW_INSECURE_URLS is true), allow http for localhost-style URLs.
+      const isHttps = parsed.protocol === "https:";
+      const isAllowedLocalHttp =
+        parsed.protocol === "http:" && isLocalhost && allowInsecureLocal;
+
+      if (!parsed.hostname || (!isHttps && !isAllowedLocalHttp)) {
         throw new Error("Unsafe invitation URL");
       }
 
@@ -354,7 +365,19 @@ class EmailService {
       const fallbackBase =
         process.env.FRONTEND_URL || "https://app.matur.ai";
       try {
-        normalizedInviteUrl = new URL(fallbackBase).toString();
+        const base = new URL(fallbackBase);
+
+        // Best effort: if the original inviteUrl parses relative to the base,
+        // preserve its path/query while anchoring to the trusted FRONTEND_URL host.
+        try {
+          const relative = new URL(inviteUrl, base);
+          normalizedInviteUrl = new URL(
+            relative.pathname + relative.search + relative.hash,
+            base,
+          ).toString();
+        } catch {
+          normalizedInviteUrl = base.toString();
+        }
       } catch {
         normalizedInviteUrl = "https://app.matur.ai";
       }
