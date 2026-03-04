@@ -852,24 +852,23 @@ router.post(
         return res.status(404).json({ error: "Invitation not found" });
       }
 
-      if (
-        invitation.email.toLowerCase() !== user.email.toLowerCase()
-      ) {
+      if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
         return res.status(403).json({
           error:
             "This invitation was sent to a different email address. Please log in with the invited email.",
         });
       }
 
-      const { invitation, membership } = await acceptInvitation(token, user.id);
+      const { invitation: acceptedInvitation, membership } =
+        await acceptInvitation(token, user.id);
 
       await recordEvent({
-        projectId: invitation.project_id,
+        projectId: acceptedInvitation.project_id,
         actorId: user.id,
         action: "project.invitation.accepted",
         objectType: "MEMBERSHIP",
         objectId: membership.id,
-        metadata: { email: invitation.email },
+        metadata: { email: acceptedInvitation.email },
       });
 
       res.json({
@@ -924,48 +923,58 @@ router.post("/invitations/:token/signup", async (req, res) => {
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Create user with default free subscription
-    const result = await pool.query(
-      "INSERT INTO users (email, password_hash, name, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, subscription_status, email_verified",
-      [email, passwordHash, name, true],
-    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const user = result.rows[0];
+      // Create user with default free subscription
+      const result = await client.query(
+        "INSERT INTO users (email, password_hash, name, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, subscription_status, email_verified",
+        [email, passwordHash, name, true],
+      );
 
-    // Attach to project via invitation
-    const { invitation: acceptedInvitation, membership } = await acceptInvitation(
-      token,
-      user.id,
-    );
+      const user = result.rows[0];
 
-    await recordEvent({
-      projectId: acceptedInvitation.project_id,
-      actorId: user.id,
-      action: "project.invitation.accepted",
-      objectType: "MEMBERSHIP",
-      objectId: membership.id,
-      metadata: { email: acceptedInvitation.email },
-    });
+      // Attach to project via invitation within the same transaction
+      const { invitation: acceptedInvitation, membership } =
+        await acceptInvitation(token, user.id, client);
 
-    // Generate JWT
-    const jwtToken = jwt.sign(
-      { userId: user.id, email: user.email, emailVerified: true },
-      process.env.JWT_SECRET!,
-      { expiresIn: "7d" },
-    );
+      await client.query("COMMIT");
 
-    res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        subscription_status: user.subscription_status,
-        email_verified: user.email_verified,
-      },
-      token: jwtToken,
-      projectId: membership.project_id,
-    });
+      await recordEvent({
+        projectId: acceptedInvitation.project_id,
+        actorId: user.id,
+        action: "project.invitation.accepted",
+        objectType: "MEMBERSHIP",
+        objectId: membership.id,
+        metadata: { email: acceptedInvitation.email },
+      });
+
+      // Generate JWT
+      const jwtToken = jwt.sign(
+        { userId: user.id, email: user.email, emailVerified: true },
+        process.env.JWT_SECRET!,
+        { expiresIn: "7d" },
+      );
+
+      res.status(201).json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          subscription_status: user.subscription_status,
+          email_verified: user.email_verified,
+        },
+        token: jwtToken,
+        projectId: membership.project_id,
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error("Invitation signup error:", error);
     if (error instanceof z.ZodError) {

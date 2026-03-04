@@ -1,4 +1,5 @@
 import pool from "../config/database";
+import type { PoolClient } from "pg";
 
 export type ProjectRole = "OWNER" | "EDITOR" | "VIEWER";
 
@@ -60,13 +61,18 @@ export async function getMembership(
   };
 }
 
+type DbClient = PoolClient | typeof pool;
+
 export async function addMember(
   projectId: string,
   userId: string,
   role: ProjectRole,
   permissions: string[] = [],
+  client?: DbClient,
 ): Promise<ProjectMembership> {
-  const result = await pool.query(
+  const db = client ?? pool;
+
+  const result = await db.query(
     `INSERT INTO project_members (project_id, user_id, role, permissions)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (project_id, user_id)

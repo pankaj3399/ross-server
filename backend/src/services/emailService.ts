@@ -8,6 +8,14 @@ interface EmailOptions {
   text?: string;
 }
 
+const escapeHtml = (str: string): string =>
+  str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 class EmailService {
   private transporter: nodemailer.Transporter;
 
@@ -328,6 +336,9 @@ class EmailService {
     inviterName: string,
     inviteUrl: string,
   ): Promise<boolean> {
+    const safeProjectName = escapeHtml(projectName);
+    const safeInviterName = escapeHtml(inviterName);
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -344,7 +355,7 @@ class EmailService {
           
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
             <h2 style="color: #333; margin-top: 0;">Project Invitation</h2>
-            <p><strong>${inviterName}</strong> has invited you to collaborate on the project <strong>${projectName}</strong> in MATUR.ai.</p>
+            <p><strong>${safeInviterName}</strong> has invited you to collaborate on the project <strong>${safeProjectName}</strong> in MATUR.ai.</p>
             
             <div style="text-align: center; margin: 30px 0;">
               <a href="${inviteUrl}" 

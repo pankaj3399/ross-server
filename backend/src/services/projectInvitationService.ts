@@ -1,6 +1,11 @@
 import crypto from "crypto";
+import type { PoolClient } from "pg";
 import pool from "../config/database";
-import { addMember, ProjectMembership, ProjectRole } from "./projectMembershipService";
+import {
+  addMember,
+  ProjectMembership,
+  ProjectRole,
+} from "./projectMembershipService";
 
 export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
 
@@ -72,10 +77,15 @@ export async function findInvitationByToken(
 export async function acceptInvitation(
   token: string,
   userId: string,
+  clientOverride?: PoolClient,
 ): Promise<{ invitation: ProjectInvitation; membership: ProjectMembership }> {
-  const client = await pool.connect();
+  const client = clientOverride ?? (await pool.connect());
+  const manageTransaction = !clientOverride;
+
   try {
-    await client.query("BEGIN");
+    if (manageTransaction) {
+      await client.query("BEGIN");
+    }
 
     const inviteResult = await client.query(
       `SELECT * FROM project_invitations WHERE token = $1 FOR UPDATE`,
@@ -105,6 +115,7 @@ export async function acceptInvitation(
       userId,
       invite.role,
       Array.isArray(invite.permissions) ? invite.permissions : [],
+      client,
     );
 
     const updatedInviteResult = await client.query(
@@ -115,7 +126,9 @@ export async function acceptInvitation(
       [invite.id],
     );
 
-    await client.query("COMMIT");
+    if (manageTransaction) {
+      await client.query("COMMIT");
+    }
 
     const updatedInvite = updatedInviteResult.rows[0];
 
@@ -129,10 +142,14 @@ export async function acceptInvitation(
       membership,
     };
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (manageTransaction) {
+      await client.query("ROLLBACK");
+    }
     throw error;
   } finally {
-    client.release();
+    if (!clientOverride) {
+      client.release();
+    }
   }
 }
 
