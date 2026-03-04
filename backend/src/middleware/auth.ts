@@ -78,7 +78,7 @@ export const checkRouteAccess = (route: string) => {
 
     const userStatus = req.user.subscription_status as SubscriptionStatus;
 
-    const validStatuses: SubscriptionStatus[] = ['free', 'basic_premium', 'pro_premium'];
+    const validStatuses: SubscriptionStatus[] = ['free', 'basic_premium', 'pro_premium', 'trial'];
     if (!validStatuses.includes(userStatus)) {
       return res.status(403).json({
         error: "Invalid subscription status",

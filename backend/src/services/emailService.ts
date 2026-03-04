@@ -318,6 +318,70 @@ class EmailService {
       html,
     });
   }
+
+  /**
+   * Send project invitation email
+   */
+  async sendProjectInvitation(
+    email: string,
+    projectName: string,
+    inviterName: string,
+    inviteUrl: string,
+  ): Promise<boolean> {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>You've been invited to a MATUR.ai project</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">MATUR.ai</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">AI Maturity Assessment Platform</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Project Invitation</h2>
+            <p><strong>${inviterName}</strong> has invited you to collaborate on the project <strong>${projectName}</strong> in MATUR.ai.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${inviteUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        font-weight: bold; 
+                        display: inline-block;">
+                Accept invitation
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666;">
+              If the button doesn't work, you can copy and paste this link into your browser:<br>
+              <a href="${inviteUrl}" style="color: #667eea; word-break: break-all;">${inviteUrl}</a>
+            </p>
+            
+            <p style="font-size: 14px; color: #666;">
+              If you were not expecting this invitation, you can safely ignore this email.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+            <p>© 2024 MATUR.ai. All rights reserved.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: `You've been invited to a MATUR.ai project`,
+      html,
+    });
+  }
 }
 
 export const emailService = new EmailService();

@@ -12,6 +12,8 @@ import notesRouter from "./routes/notes";
 import fairnessRouter from "./routes/fairness";
 import publicRouter from "./routes/public";
 import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
+import commentsRouter from "./routes/comments";
+import auditLogsRouter from "./routes/auditLogs";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
@@ -67,6 +69,8 @@ app.use("/subscriptions", authenticateToken, checkRouteAccess('/subscriptions'),
 app.use("/fairness", authenticateToken, checkRouteAccess('/fairness'), fairnessRouter);
 app.use("/admin", adminRouter);
 app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
+app.use("/projects", authenticateToken, checkRouteAccess('/projects'), commentsRouter);
+app.use("/projects", authenticateToken, checkRouteAccess('/projects'), auditLogsRouter);
 
 // Inngest endpoint
 app.use(

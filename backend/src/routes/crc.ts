@@ -2,6 +2,7 @@ import { Router } from "express";
 import pool from "../config/database";
 import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth";
+import { getMembership } from "../services/projectMembershipService";
 
 const router = Router();
 
@@ -720,13 +721,17 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
     const userId = (req as any).user.id;
     const data = crcResponseSchema.parse(req.body);
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, userId]
-    );
-    if (projectCheck.rows.length === 0) {
-      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    // Verify user is a member of the project with write access
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Insufficient project role" });
     }
 
     // Verify control exists and is published
@@ -764,13 +769,12 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     const { projectId } = req.params;
     const userId = (req as any).user.id;
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, userId]
-    );
-    if (projectCheck.rows.length === 0) {
-      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Project not found or access denied" });
     }
 
     const result = await pool.query(

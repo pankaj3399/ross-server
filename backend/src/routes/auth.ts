@@ -11,6 +11,12 @@ import {
 import { emailService } from "../services/emailService";
 import { mfaService } from "../services/mfaService";
 import { tokenService } from "../services/tokenService";
+import {
+  acceptInvitation,
+  findInvitationByToken,
+} from "../services/projectInvitationService";
+import { addMember } from "../services/projectMembershipService";
+import { recordEvent } from "../services/auditLogService";
 
 const router = Router();
 
@@ -777,6 +783,197 @@ router.post("/cleanup-tokens", async (req, res) => {
   } catch (error) {
     console.error("Token cleanup error:", error);
     res.status(500).json({ error: "Token cleanup failed" });
+  }
+});
+
+// --- Invitation acceptance flows ---
+
+// Get invitation metadata by token
+router.get("/invitations/:token", async (req, res) => {
+  try {
+    const { token } = req.params;
+    const invitation = await findInvitationByToken(token);
+
+    if (!invitation) {
+      return res.status(404).json({ error: "Invitation not found" });
+    }
+
+    const projectResult = await pool.query(
+      "SELECT id, name FROM projects WHERE id = $1",
+      [invitation.project_id],
+    );
+    const project = projectResult.rows[0];
+
+    const inviter =
+      invitation.inviter_id &&
+      (
+        await pool.query(
+          "SELECT id, name, email FROM users WHERE id = $1",
+          [invitation.inviter_id],
+        )
+      ).rows[0];
+
+    const existingUserResult = await pool.query(
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
+      [invitation.email],
+    );
+
+    res.json({
+      invitation: {
+        email: invitation.email,
+        role: invitation.role,
+        status: invitation.status,
+        project: project
+          ? { id: project.id, name: project.name }
+          : { id: invitation.project_id },
+        inviter: inviter
+          ? { id: inviter.id, name: inviter.name, email: inviter.email }
+          : null,
+        hasAccount: existingUserResult.rows.length > 0,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching invitation by token:", error);
+    res.status(500).json({ error: "Failed to load invitation" });
+  }
+});
+
+// Accept invitation as an already-logged-in user
+router.post(
+  "/invitations/:token/accept",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { token } = req.params;
+      const user = req.user!;
+
+      const invitation = await findInvitationByToken(token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      if (
+        invitation.email.toLowerCase() !== user.email.toLowerCase()
+      ) {
+        return res.status(403).json({
+          error:
+            "This invitation was sent to a different email address. Please log in with the invited email.",
+        });
+      }
+
+      const { invitation, membership } = await acceptInvitation(token, user.id);
+
+      await recordEvent({
+        projectId: invitation.project_id,
+        actorId: user.id,
+        action: "project.invitation.accepted",
+        objectType: "MEMBERSHIP",
+        objectId: membership.id,
+        metadata: { email: invitation.email },
+      });
+
+      res.json({
+        message: "Invitation accepted",
+        projectId: membership.project_id,
+      });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(400).json({ error: "Failed to accept invitation" });
+    }
+  },
+);
+
+// Sign up via invitation token
+router.post("/invitations/:token/signup", async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    const invitation = await findInvitationByToken(token);
+    if (!invitation) {
+      return res.status(404).json({ error: "Invitation not found" });
+    }
+
+    const { email } = invitation;
+    const { password, name } = registerSchema
+      .pick({ password: true, name: true })
+      .parse(req.body);
+
+    // Check if a verified user already exists for this email (case-insensitive)
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
+      [email],
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({
+        error:
+          "An account with this email already exists. Please log in instead.",
+      });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password, { email, name });
+    if (!passwordValidation.isValid) {
+      return res.status(400).json({
+        error: "Password does not meet requirements",
+        details: passwordValidation.errors,
+        score: passwordValidation.score,
+      });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Create user with default free subscription
+    const result = await pool.query(
+      "INSERT INTO users (email, password_hash, name, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, subscription_status, email_verified",
+      [email, passwordHash, name, true],
+    );
+
+    const user = result.rows[0];
+
+    // Attach to project via invitation
+    const { invitation: acceptedInvitation, membership } = await acceptInvitation(
+      token,
+      user.id,
+    );
+
+    await recordEvent({
+      projectId: acceptedInvitation.project_id,
+      actorId: user.id,
+      action: "project.invitation.accepted",
+      objectType: "MEMBERSHIP",
+      objectId: membership.id,
+      metadata: { email: acceptedInvitation.email },
+    });
+
+    // Generate JWT
+    const jwtToken = jwt.sign(
+      { userId: user.id, email: user.email, emailVerified: true },
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" },
+    );
+
+    res.status(201).json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        subscription_status: user.subscription_status,
+        email_verified: user.email_verified,
+      },
+      token: jwtToken,
+      projectId: membership.project_id,
+    });
+  } catch (error) {
+    console.error("Invitation signup error:", error);
+    if (error instanceof z.ZodError) {
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: error.errors });
+    }
+    res.status(400).json({ error: "Registration via invitation failed" });
   }
 });
 

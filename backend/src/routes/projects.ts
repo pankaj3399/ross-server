@@ -5,6 +5,15 @@ import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion"; // Assuming this service exists as per original file
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
+import { addMember } from "../services/projectMembershipService";
+import { loadProject, requireProjectRole } from "../middleware/projectAccess";
+import {
+  createInvitation,
+  listInvitationsForProject,
+  revokeInvitation,
+} from "../services/projectInvitationService";
+import { emailService } from "../services/emailService";
+import { recordEvent } from "../services/auditLogService";
 
 // Initialize Gemini client only if configured
 let genAI: GoogleGenerativeAI | null = null;
@@ -47,11 +56,15 @@ setInterval(() => {
   }
 }, 300000); 
 
-// Get user's projects
+// Get user's projects (all projects where the user is a member or owner)
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT * FROM projects WHERE user_id = $1 ORDER BY created_at DESC",
+      `SELECT DISTINCT p.*
+       FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id
+       WHERE pm.user_id = $1 OR p.user_id = $1
+       ORDER BY p.created_at DESC`,
       [req.user!.id],
     );
 
@@ -65,6 +78,13 @@ router.get("/", authenticateToken, async (req, res) => {
 // Create new project
 router.post("/", authenticateToken, async (req, res) => {
   try {
+    // Enforce subscription for creating/owning projects
+    const status = req.user!.subscription_status;
+    if (!["basic_premium", "pro_premium", "trial"].includes(status)) {
+      return res.status(403).json({
+        error: "Subscription required to create projects",
+      });
+    }
     const { name, description, aiSystemType, industry } = createProjectSchema.parse(
       req.body,
     );
@@ -77,8 +97,22 @@ router.post("/", authenticateToken, async (req, res) => {
       [req.user!.id, name, description || null, aiSystemType || null, industry || null, currentVersion.id],
     );
 
-    res.status(201).json({ 
-      project: result.rows[0],
+    const project = result.rows[0];
+
+    // Ensure creator is recorded as OWNER in project_members
+    await addMember(project.id, req.user!.id, "OWNER");
+
+    await recordEvent({
+      projectId: project.id,
+      actorId: req.user!.id,
+      action: "project.created",
+      objectType: "PROJECT",
+      objectId: project.id,
+      metadata: { name, industry },
+    });
+
+    res.status(201).json({
+      project,
       version: {
         id: currentVersion.id,
         version_number: currentVersion.version_number
@@ -91,31 +125,33 @@ router.post("/", authenticateToken, async (req, res) => {
 });
 
 // Get specific project
-router.get("/:projectId", authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM projects WHERE id = $1 AND user_id = $2",
-      [req.params.projectId, req.user!.id],
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
+router.get(
+  "/:projectId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
+  async (req, res) => {
+    try {
+      res.json({ project: req.project });
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ error: "Failed to fetch project" });
     }
-
-    res.json({ project: result.rows[0] });
-  } catch (error) {
-    console.error("Error fetching project:", error);
-    res.status(500).json({ error: "Failed to fetch project" });
-  }
-});
+  },
+);
 
 // Update project
-router.put("/:projectId", authenticateToken, async (req, res) => {
+router.put(
+  "/:projectId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER", "EDITOR"]),
+  async (req, res) => {
   try {
     const { name, description, aiSystemType, industry, status } = req.body;
 
     const result = await pool.query(
-      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), industry = COALESCE($4, industry), status = COALESCE($5, status), updated_at = CURRENT_TIMESTAMP WHERE id = $6 AND user_id = $7 RETURNING *",
+      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), industry = COALESCE($4, industry), status = COALESCE($5, status), updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *",
       [
         name,
         description,
@@ -123,14 +159,24 @@ router.put("/:projectId", authenticateToken, async (req, res) => {
         industry,
         status,
         req.params.projectId,
-        req.user!.id,
       ],
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Project not found" });
     }
-    res.json({ project: result.rows[0] });
+
+    const updated = result.rows[0];
+
+    await recordEvent({
+      projectId: updated.id,
+      actorId: req.user!.id,
+      action: "project.updated",
+      objectType: "PROJECT",
+      objectId: updated.id,
+    });
+
+    res.json({ project: updated });
   } catch (error) {
     console.error("Error updating project:", error);
     res.status(500).json({ error: "Failed to update project" });
@@ -138,41 +184,58 @@ router.put("/:projectId", authenticateToken, async (req, res) => {
 });
 
 // Delete project
-router.delete("/:projectId", authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "DELETE FROM projects WHERE id = $1 AND user_id = $2 RETURNING id",
-      [req.params.projectId, req.user!.id],
-    );
+router.delete(
+  "/:projectId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const projectId = req.params.projectId;
+      const actorId = req.user!.id;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
+      // Best-effort audit logging before deletion so FK constraint is satisfied
+      try {
+        await recordEvent({
+          projectId,
+          actorId,
+          action: "project.deleted",
+          objectType: "PROJECT",
+          objectId: projectId,
+        });
+      } catch (logError) {
+        console.error("Failed to record project deletion audit log:", logError);
+      }
+
+      const result = await pool.query(
+        "DELETE FROM projects WHERE id = $1 RETURNING id",
+        [projectId],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      res.json({ message: "Project deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ error: "Failed to delete project" });
     }
-
-    res.json({ message: "Project deleted successfully" });
-  } catch (error) {
-    console.error("Error deleting project:", error);
-    res.status(500).json({ error: "Failed to delete project" });
-  }
-});
+  },
+);
 
 // Submit project
-router.post("/:projectId/submit", authenticateToken, async (req, res) => {
+router.post(
+  "/:projectId/submit",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER", "EDITOR"]),
+  async (req, res) => {
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
 
-    // Verify project belongs to user and get version_id
-    const projectCheck = await pool.query(
-      "SELECT id, status, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, userId],
-    );
-
-    if (projectCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-
-    const project = projectCheck.rows[0];
+    const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
 
     // Check if user is premium
@@ -309,11 +372,24 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
 
     // Update project status to completed
     const result = await pool.query(
-      "UPDATE projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING *",
-      [projectId, userId],
+      "UPDATE projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      [projectId],
     );
 
-    res.json({ 
+    await recordEvent({
+      projectId,
+      actorId: userId,
+      action: "project.submitted",
+      objectType: "PROJECT",
+      objectId: projectId,
+      metadata: {
+        totalCorrectAnswers,
+        totalQuestions,
+        overallPercentage,
+      },
+    });
+
+    res.json({
       message: "Project submitted successfully",
       project: result.rows[0],
       results: {
@@ -330,6 +406,160 @@ router.post("/:projectId/submit", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to submit project" });
   }
 });
+
+// --- Project invitations ---
+
+const inviteBodySchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["OWNER", "EDITOR", "VIEWER"]).default("EDITOR"),
+  permissions: z.array(z.string()).optional(),
+});
+
+// Create or send invitation
+router.post(
+  "/:projectId/invitations",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { email, role, permissions } = inviteBodySchema.parse(req.body);
+      const project = req.project as { id: string; name: string };
+      const inviterId = req.user!.id;
+
+      // See if a user already exists for this email
+      const userResult = await pool.query(
+        "SELECT id, name FROM users WHERE LOWER(email) = LOWER($1)",
+        [email],
+      );
+
+      if (userResult.rows.length > 0) {
+        const existingUser = userResult.rows[0];
+        const membership = await addMember(
+          project.id,
+          existingUser.id,
+          role,
+          permissions ?? [],
+        );
+
+        await recordEvent({
+          projectId: project.id,
+          actorId: inviterId,
+          action: "project.member.added",
+          objectType: "MEMBERSHIP",
+          objectId: membership.id,
+          metadata: { userId: existingUser.id, role },
+        });
+
+        return res.status(200).json({
+          mode: "existing_user",
+          membership,
+        });
+      }
+
+      // Create invitation for new or not-yet-registered user
+      const invitation = await createInvitation(
+        project.id,
+        inviterId,
+        email,
+        role,
+        permissions ?? [],
+      );
+
+      // Send email (best-effort)
+      const inviteUrl = `${process.env.FRONTEND_URL}/invite/accept?token=${invitation.token}`;
+      const inviterName = req.user!.email;
+      emailService
+        .sendProjectInvitation(email, project.name, inviterName, inviteUrl)
+        .catch((err) => {
+          console.error("Failed to send project invitation email:", err);
+        });
+
+      await recordEvent({
+        projectId: project.id,
+        actorId: inviterId,
+        action: "project.invitation.created",
+        objectType: "INVITATION",
+        objectId: invitation.id,
+        metadata: { email, role },
+      });
+
+      res.status(201).json({
+        mode: "invited",
+        invitation: {
+          id: invitation.id,
+          email: invitation.email,
+          role: invitation.role,
+          status: invitation.status,
+          expires_at: invitation.expires_at,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating project invitation:", error);
+      if (error instanceof z.ZodError) {
+        return res
+          .status(400)
+          .json({ error: "Validation failed", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to create invitation" });
+    }
+  },
+);
+
+// List invitations for a project
+router.get(
+  "/:projectId/invitations",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const project = req.project as { id: string };
+      const invitations = await listInvitationsForProject(project.id);
+
+      res.json({
+        invitations: invitations.map((inv) => ({
+          id: inv.id,
+          email: inv.email,
+          role: inv.role,
+          status: inv.status,
+          expires_at: inv.expires_at,
+          created_at: inv.created_at,
+        })),
+      });
+    } catch (error) {
+      console.error("Error listing project invitations:", error);
+      res.status(500).json({ error: "Failed to list invitations" });
+    }
+  },
+);
+
+// Revoke invitation
+router.delete(
+  "/:projectId/invitations/:invitationId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { projectId, invitationId } = req.params;
+      await revokeInvitation(invitationId, projectId);
+
+      await recordEvent({
+        projectId,
+        actorId: req.user!.id,
+        action: "project.invitation.revoked",
+        objectType: "INVITATION",
+        objectId: invitationId,
+      });
+
+      res.json({ message: "Invitation revoked" });
+    } catch (error) {
+      console.error("Error revoking project invitation:", error);
+      res.status(500).json({ error: "Failed to revoke invitation" });
+    }
+  },
+);
 
 /**
  * Background task to generate insights
@@ -589,7 +819,12 @@ Keep the response concise (2-3 paragraphs) and focused on practical next steps. 
 
 // Generate AI insights for domains (free users: free domains only, premium users: all domains)
 // REFACTORED: Now async, returns a jobId
-router.post("/:projectId/generate-insights", authenticateToken, async (req, res) => {
+router.post(
+  "/:projectId/generate-insights",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER", "EDITOR"]),
+  async (req, res) => {
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
@@ -599,17 +834,7 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
       return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
     }
 
-    // Verify project belongs to user and get version_id
-    const projectCheck = await pool.query(
-      "SELECT id, name, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, userId],
-    );
-
-    if (projectCheck.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-
-    const project = projectCheck.rows[0];
+    const project = req.project as { id: string; name: string; version_id: string | null };
     const projectVersionId = project.version_id;
 
     // 1. Determine which domains need insights
@@ -724,7 +949,10 @@ router.post("/:projectId/generate-insights", authenticateToken, async (req, res)
 });
 
 // Poll for insights status
-router.get("/:projectId/insights/status/:jobId", authenticateToken, async (req, res) => {
+router.get(
+  "/:projectId/insights/status/:jobId",
+  authenticateToken,
+  async (req, res) => {
     try {
         const { jobId, projectId } = req.params;
         const job = insightJobs.get(jobId);

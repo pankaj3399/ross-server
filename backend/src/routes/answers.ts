@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
+import { getMembership } from "../services/projectMembershipService";
 
 const router = Router();
 
@@ -30,13 +31,15 @@ router.post("/", authenticateToken, async (req, res) => {
 
     const { projectId, answers } = parsed.data;
 
-    // Verify project 
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, req.user!.id]
-    );
-    if (projectCheck.rows.length === 0) {
-      return res.status(403).json({ error: "Project not found or access denied" });
+    // Verify user is a member of the project with write access
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ error: "Insufficient project role" });
     }
 
     // Upsert answer
@@ -76,13 +79,9 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, req.user!.id],
-    );
-
-    if (projectCheck.rows.length === 0) {
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, req.user!.id);
+    if (!membership) {
       return res
         .status(403)
         .json({ error: "Project not found or access denied" });

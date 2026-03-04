@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
+import { getMembership } from "../services/projectMembershipService";
 import { sanitizeNote } from "../utils/sanitize";
 
 const router = Router();
@@ -34,16 +35,15 @@ router.post("/", authenticateToken, async (req, res) => {
       note = "",
     } = parsed.data;
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, req.user!.id],
-    );
-
-    if (projectCheck.rows.length === 0) {
+    // Verify user is a member of the project with write access
+    const membership = await getMembership(projectId, req.user!.id);
+    if (!membership) {
       return res
         .status(403)
         .json({ error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ error: "Insufficient project role" });
     }
 
     // Sanitize the note
@@ -84,13 +84,9 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, req.user!.id],
-    );
-
-    if (projectCheck.rows.length === 0) {
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, req.user!.id);
+    if (!membership) {
       return res
         .status(403)
         .json({ error: "Project not found or access denied" });
@@ -115,16 +111,15 @@ router.delete("/:projectId", authenticateToken, async (req, res) => {
     const { projectId } = req.params;
     const { domainId, practiceId, level, stream, questionIndex } = req.body;
 
-    // Verify project belongs to user
-    const projectCheck = await pool.query(
-      "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-      [projectId, req.user!.id],
-    );
-
-    if (projectCheck.rows.length === 0) {
+    // Verify user is a member of the project with write access
+    const membership = await getMembership(projectId, req.user!.id);
+    if (!membership) {
       return res
         .status(403)
         .json({ error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ error: "Insufficient project role" });
     }
 
     // Delete note

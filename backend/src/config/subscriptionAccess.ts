@@ -1,4 +1,4 @@
-export type SubscriptionStatus = 'free' | 'basic_premium' | 'pro_premium';
+export type SubscriptionStatus = 'free' | 'basic_premium' | 'pro_premium' | 'trial';
 
 const COMMON_ROUTES: string[] = [
   '/auth',
@@ -13,6 +13,9 @@ const COMMON_ROUTES: string[] = [
 
 export const SUBSCRIPTION_ROUTES: Record<SubscriptionStatus, string[]> = {
   free: [],
+  // Trial currently has the same route-level access as free;
+  // business logic for trial-specific perks can be layered on later.
+  trial: [],
   basic_premium: ['/fairness', '/crc'],
   pro_premium: ['/fairness', '/crc'],
 };
