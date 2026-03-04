@@ -339,6 +339,29 @@ class EmailService {
     const safeProjectName = escapeHtml(projectName);
     const safeInviterName = escapeHtml(inviterName);
 
+    // Validate and normalize the invite URL to prevent javascript: URIs or malformed values
+    let normalizedInviteUrl: string;
+    try {
+      const parsed = new URL(inviteUrl);
+
+      // Require a safe protocol and a valid hostname
+      if (parsed.protocol !== "https:" || !parsed.hostname) {
+        throw new Error("Unsafe invitation URL");
+      }
+
+      normalizedInviteUrl = parsed.toString();
+    } catch {
+      const fallbackBase =
+        process.env.FRONTEND_URL || "https://app.matur.ai";
+      try {
+        normalizedInviteUrl = new URL(fallbackBase).toString();
+      } catch {
+        normalizedInviteUrl = "https://app.matur.ai";
+      }
+    }
+
+    const safeInviteUrlText = escapeHtml(normalizedInviteUrl);
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -358,7 +381,7 @@ class EmailService {
             <p><strong>${safeInviterName}</strong> has invited you to collaborate on the project <strong>${safeProjectName}</strong> in MATUR.ai.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${inviteUrl}" 
+              <a href="${normalizedInviteUrl}" 
                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                         color: white; 
                         padding: 15px 30px; 
@@ -372,7 +395,7 @@ class EmailService {
             
             <p style="font-size: 14px; color: #666;">
               If the button doesn't work, you can copy and paste this link into your browser:<br>
-              <a href="${inviteUrl}" style="color: #667eea; word-break: break-all;">${inviteUrl}</a>
+              <a href="${normalizedInviteUrl}" style="color: #667eea; word-break: break-all;">${safeInviteUrlText}</a>
             </p>
             
             <p style="font-size: 14px; color: #666;">

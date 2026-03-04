@@ -941,14 +941,23 @@ router.post("/invitations/:token/signup", async (req, res) => {
 
       await client.query("COMMIT");
 
-      await recordEvent({
-        projectId: acceptedInvitation.project_id,
-        actorId: user.id,
-        action: "project.invitation.accepted",
-        objectType: "MEMBERSHIP",
-        objectId: membership.id,
-        metadata: { email: acceptedInvitation.email },
-      });
+      try {
+        await recordEvent({
+          projectId: acceptedInvitation.project_id,
+          actorId: user.id,
+          action: "project.invitation.accepted",
+          objectType: "MEMBERSHIP",
+          objectId: membership.id,
+          metadata: { email: acceptedInvitation.email },
+        });
+      } catch (logError) {
+        console.error("Failed to record audit log for invitation signup", {
+          error: logError,
+          projectId: acceptedInvitation.project_id,
+          actorId: user.id,
+          objectId: membership.id,
+        });
+      }
 
       // Generate JWT
       const jwtToken = jwt.sign(
