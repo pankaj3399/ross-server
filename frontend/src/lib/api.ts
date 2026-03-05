@@ -749,6 +749,10 @@ class ApiService {
     }>(`/fairness/jobs/project/${projectId}`);
   }
 
+  async getApiReportByJobId(jobId: string): Promise<{ success: boolean; reportId: string }> {
+    return this.request<{ success: boolean; reportId: string }>(`/fairness/api-reports/job/${jobId}`);
+  }
+
   // Assessment Answers
   async saveAnswers(
     projectId: string,
