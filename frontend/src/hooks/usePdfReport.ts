@@ -313,36 +313,34 @@ export const usePdfReport = ({
             // Apply PDF-specific styling
             applyPdfStyles(clone);
 
+            // The most reliable fix for html2canvas text decapitation when scrolled
+            const originalScrollX = window.scrollX;
+            const originalScrollY = window.scrollY;
+
             try {
-                // The most reliable fix for html2canvas text decapitation when scrolled
-                const originalScrollX = window.scrollX;
-                const originalScrollY = window.scrollY;
-                
                 // Temporarily hide main content scrollbar to prevent layout shift
                 document.documentElement.style.overflow = "hidden";
                 window.scrollTo(0, 0);
 
-                // Capture with reasonable scale for balance between quality and size
-                const canvas = await html2canvas(container, {
-                    scale: 1.5,
-                    useCORS: true,
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    windowWidth: 1600, // Slightly wider to ensure no content-shift
-                    windowHeight: container.offsetHeight + 1000,
-                    scrollX: 0,
-                    scrollY: 0,
-                    imageTimeout: 15000,
-                    removeContainer: false,
-                });
+                    // Capture with reasonable scale for balance between quality and size
+                    const canvas = await html2canvas(container, {
+                        scale: 1.5,
+                        useCORS: true,
+                        backgroundColor: "#ffffff",
+                        logging: false,
+                        windowWidth: 1600, // Slightly wider to ensure no content-shift
+                        windowHeight: container.offsetHeight + 1000,
+                        scrollX: 0,
+                        scrollY: 0,
+                        imageTimeout: 15000,
+                        removeContainer: false,
+                    });
 
-                // Restore scroll
-                document.documentElement.style.overflow = "";
-                window.scrollTo(originalScrollX, originalScrollY);
-
-                if (canvas.width === 0 || canvas.height === 0) {
-                    throw new Error("Failed to capture report content");
-                }
+                    // Restore scroll immediately after capture inside finally below
+                    
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        throw new Error("Failed to capture report content");
+                    }
 
                 // Calculate dimensions
                 const imgWidth = usableWidth;
@@ -469,6 +467,10 @@ export const usePdfReport = ({
                 pdf.save(fileName);
 
             } finally {
+                // CRITICAL: Always restore original document state
+                document.documentElement.style.overflow = "";
+                window.scrollTo(originalScrollX, originalScrollY);
+
                 if (container && document.body.contains(container)) {
                     document.body.removeChild(container);
                 }
