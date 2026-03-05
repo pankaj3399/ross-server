@@ -278,7 +278,7 @@ const DatasetTestingReportPage = () => {
                     </div>
 
                     {/* Metric Score Cards - Simplified Grid */}
-                    <div className="space-y-4 rounded-2xl bg-white dark:bg-gray-900">
+                    <div className="space-y-4 rounded-2xl bg-white dark:bg-gray-900 page-break-avoid">
                         <h3 className="text-lg font-semibold text-slate-900 dark:text-white px-1">Overall Metrics</h3>
                         <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5 pdf-metric-grid">
                             {metricCards.map((metric) => (
@@ -289,7 +289,7 @@ const DatasetTestingReportPage = () => {
                 </section>
 
                 <section className="space-y-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between page-break-avoid">
                         <div>
                             <p className="text-xs uppercase tracking-wide text-slate-500">Sensitive Columns</p>
                             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Fairness Analysis by Demographic Group</h3>

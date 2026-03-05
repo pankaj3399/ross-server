@@ -385,14 +385,17 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "1200px";
-            clone.style.position = "fixed";
+            clone.style.position = "absolute";
             clone.style.top = "0";
-            clone.style.left = "-10000px";
-            clone.style.zIndex = "1000";
+            clone.style.left = "-10000px"; // Offscreen to prevent user seeing it
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a";
             clone.style.padding = "24px";
             clone.style.fontFamily = "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif";
+            clone.style.height = "auto";
+            clone.style.minHeight = "min-content";
+            clone.style.maxHeight = "none";
+            clone.style.overflow = "visible";
 
             // Apply all PDF styling
             const applyPdfStyles = (root: HTMLElement) => {
@@ -653,6 +656,12 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     currentY += 12;
 
                 // Capture and add sections
+                // Ensure window is at top to prevent html2canvas clipping bugs
+                const originalScrollX = window.scrollX;
+                const originalScrollY = window.scrollY;
+                document.documentElement.style.overflow = "hidden";
+                window.scrollTo(0, 0);
+
                 for (const section of validSections) {
 
                     try {
@@ -663,6 +672,9 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                             backgroundColor: "#ffffff",
                             logging: false,
                             windowWidth: 1200,
+                            windowHeight: section.element.scrollHeight + 1000,
+                            x: 0,
+                            y: 0,
                             scrollX: 0,
                             scrollY: 0,
                         });
@@ -725,9 +737,42 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                 while (remainingHeightPx > 0) {
                                     const currentSliceHeightPx = Math.min(remainingHeightPx, pageHeightInPx);
 
+                                    // Create a slice logic to avoid breaking items inside the canvas
+                                    let adjustedSliceHeightPx = currentSliceHeightPx;
+                                    
+                                    // Check if we need to avoid cutting something in half on this individual large canvas
+                                    if (remainingHeightPx > pageHeightInPx) {
+                                        const sliceBottom = sourceY + currentSliceHeightPx;
+                                        
+                                        // Attempt to identify elements that shouldn't break inside the CURRENT section we are processing
+                                        const breakAvoidElements = Array.from(section.element.querySelectorAll(".break-inside-avoid, .page-break-avoid"));
+                                        
+                                        if (breakAvoidElements.length > 0) {
+                                            const sectionRect = section.element.getBoundingClientRect();
+                                            const cssToCanvasFactor = canvas.width / section.element.offsetWidth;
+                                            
+                                            const breakPoints = breakAvoidElements.map(el => {
+                                                const rect = (el as HTMLElement).getBoundingClientRect();
+                                                return {
+                                                    top: (rect.top - sectionRect.top) * cssToCanvasFactor,
+                                                    bottom: (rect.bottom - sectionRect.top) * cssToCanvasFactor
+                                                };
+                                            }).sort((a, b) => a.top - b.top);
+                                            
+                                            const brokenElement = breakPoints.find(bp => 
+                                                bp.top < sliceBottom && bp.bottom > sliceBottom
+                                            );
+                                            
+                                            // Only cut earlier if the element starts after our current Y and isn't bigger than the page itself
+                                            if (brokenElement && brokenElement.top > sourceY + 10) {
+                                                adjustedSliceHeightPx = Math.max(0, brokenElement.top - sourceY - 10);
+                                            }
+                                        }
+                                    }
+
                                     const tempCanvas = document.createElement('canvas');
                                     tempCanvas.width = canvas.width;
-                                    tempCanvas.height = currentSliceHeightPx;
+                                    tempCanvas.height = adjustedSliceHeightPx;
                                     const tCtx = tempCanvas.getContext('2d');
                                     if (!tCtx) break;
 
@@ -735,17 +780,17 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                     tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
                                     tCtx.drawImage(
                                         canvas,
-                                        0, sourceY, canvas.width, currentSliceHeightPx,
-                                        0, 0, tempCanvas.width, currentSliceHeightPx
+                                        0, sourceY, canvas.width, adjustedSliceHeightPx,
+                                        0, 0, tempCanvas.width, adjustedSliceHeightPx
                                     );
 
                                     const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
-                                    const slicePdfHeight = (currentSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
+                                    const slicePdfHeight = (adjustedSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
 
                                     pdf.addImage(sliceImgData, "JPEG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
 
-                                    sourceY += currentSliceHeightPx;
-                                    remainingHeightPx -= currentSliceHeightPx;
+                                    sourceY += adjustedSliceHeightPx;
+                                    remainingHeightPx -= adjustedSliceHeightPx;
 
                                     if (remainingHeightPx > 0) {
                                         pdf.addPage();

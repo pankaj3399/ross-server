@@ -49,7 +49,7 @@ type ApiReportDetail = {
         error: string;
         message: string;
     }>;
-    config: { testType?: string; apiUrl?: string; requestTemplate?: string; responseKey?: string; apiKeyPlacement?: string; apiKeyFieldName?: string; [key: string]: unknown };
+    config: { testType?: string; apiUrl?: string; requestTemplate?: string; responseKey?: string; apiKeyPlacement?: string; apiKeyFieldName?: string;[key: string]: unknown };
     created_at: string;
 };
 
@@ -214,7 +214,7 @@ export default function ApiReportDetailPage() {
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
                 {/* Stats Grid */}
-                <div className={`grid gap-4 ${isSecurityReport ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-4"}`}>
+                <div className={`grid gap-4 ${isSecurityReport ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-4"} break-inside-avoid`}>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Tests</div>
                         <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
@@ -274,7 +274,7 @@ export default function ApiReportDetailPage() {
 
                 {/* Category scores for security report */}
                 {isSecurityReport && securityPayload?.categories && Object.keys(securityPayload.categories).length > 0 && (
-                    <div className="space-y-4">
+                    <div className="space-y-4 break-inside-avoid">
                         <h3 className="text-lg font-semibold flex items-center gap-2">
                             <Shield className="w-5 h-5" />
                             Category Scores
@@ -293,14 +293,14 @@ export default function ApiReportDetailPage() {
                 {/* Security failures list */}
                 {isSecurityReport && securityPayload?.failures && securityPayload.failures.length > 0 && (
                     <div className="space-y-4">
-                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid">
                             <XCircle className="w-5 h-5 text-red-500" />
                             Failures
                         </h3>
                         <div className="bg-card border border-border rounded-xl overflow-hidden">
                             <div className="divide-y divide-border">
                                 {securityPayload.failures.map((f, idx) => (
-                                    <div key={idx} className="p-6">
+                                    <div key={idx} className="p-6 break-inside-avoid">
                                         <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Prompt</div>
                                         <div className="bg-secondary/10 p-3 rounded-lg text-sm mb-3">{f.prompt}</div>
                                         <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider">Reason</div>
@@ -313,7 +313,7 @@ export default function ApiReportDetailPage() {
                 )}
 
                 {/* Configuration */}
-                <div className="bg-card border border-border rounded-xl overflow-hidden">
+                <div className="bg-card border border-border rounded-xl overflow-hidden break-inside-avoid">
                     <div className="px-6 py-4 border-b border-border bg-secondary/10">
                         <h3 className="font-semibold flex items-center gap-2">
                             <Terminal className="w-4 h-4" />
@@ -349,151 +349,151 @@ export default function ApiReportDetailPage() {
 
                 {/* Detailed Results */}
                 <div className="space-y-6">
-                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid">
                         <FileJson className="w-5 h-5" />
                         Detailed Results
                     </h3>
 
                     {isSecurityReport && securityPayload?.tests && securityPayload.tests.length > 0 ? (
                         <>
-                        {Object.entries(
-                            securityPayload.tests.reduce((acc, t) => {
-                                const cat = t.category || "Unknown";
-                                if (!acc[cat]) acc[cat] = [];
-                                acc[cat].push(t);
-                                return acc;
-                            }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
-                        ).map(([category, items]) => (
-                        <div key={category} className="space-y-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                                <span>{category.replace(/_/g, " ")}</span>
-                                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{items.length}</span>
-                            </div>
-                            {items.map((item, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
-                                    <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.passed ? "bg-green-500/5" : "bg-red-500/5"}`}>
-                                        <div className="flex items-center gap-3">
-                                            {item.passed ? (
-                                                <CheckCircle className="w-5 h-5 text-green-500" />
-                                            ) : (
-                                                <XCircle className="w-5 h-5 text-red-500" />
-                                            )}
-                                            <span className="font-medium text-foreground/80">Prompt #{idx + 1}</span>
-                                        </div>
+                            {Object.entries(
+                                securityPayload.tests.reduce((acc, t) => {
+                                    const cat = t.category || "Unknown";
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push(t);
+                                    return acc;
+                                }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
+                            ).map(([category, items]) => (
+                                <div key={category} className="space-y-4">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
+                                        <span>{category.replace(/_/g, " ")}</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{items.length}</span>
                                     </div>
-                                    <div className="p-6 space-y-4">
-                                        <div>
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1">Prompt</div>
-                                            <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
-                                        </div>
-                                        {!item.passed && item.reason && (
-                                            <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
-                                                <strong>Reason:</strong> {item.reason}
+                                    {items.map((item, idx) => (
+                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
+                                            <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.passed ? "bg-green-500/5" : "bg-red-500/5"}`}>
+                                                <div className="flex items-center gap-3">
+                                                    {item.passed ? (
+                                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                                    ) : (
+                                                        <XCircle className="w-5 h-5 text-red-500" />
+                                                    )}
+                                                    <span className="font-medium text-foreground/80">Prompt #{idx + 1}</span>
+                                                </div>
                                             </div>
-                                        )}
-                                    </div>
+                                            <div className="p-6 space-y-4">
+                                                <div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1">Prompt</div>
+                                                    <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                                </div>
+                                                {!item.passed && item.reason && (
+                                                    <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                                                        <strong>Reason:</strong> {item.reason}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ))}
-                        </div>
-                        ))}
                         </>
                     ) : (
-                    <>
-                    {Object.entries(
-                        allItems.reduce((acc, item) => {
-                            const cat = item.category || "Unknown";
-                            if (!acc[cat]) acc[cat] = [];
-                            acc[cat].push(item);
-                            return acc;
-                        }, {} as Record<string, typeof allItems>)
-                    ).map(([category, items], catIdx) => (
-                        <div key={category} className="space-y-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1">
-                                <span>{category}</span>
-                                <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
-                                    {items.length}
-                                </span>
-                            </div>
-
-                            {items.map((item, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
-                                    <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
-                                        }`}>
-                                        <div className="flex items-center gap-3">
-                                            {item.success ? (
-                                                <CheckCircle className="w-5 h-5 text-green-500" />
-                                            ) : (
-                                                <XCircle className="w-5 h-5 text-red-500" />
-                                            )}
-                                            <span className="font-medium text-foreground/80">
-                                                Prompt #{idx + 1}
-                                            </span>
-                                        </div>
-                                        <div className="text-sm text-muted-foreground">
-                                            {/* Status indicator or score could go here */}
-                                        </div>
+                        <>
+                            {Object.entries(
+                                allItems.reduce((acc, item) => {
+                                    const cat = item.category || "Unknown";
+                                    if (!acc[cat]) acc[cat] = [];
+                                    acc[cat].push(item);
+                                    return acc;
+                                }, {} as Record<string, typeof allItems>)
+                            ).map(([category, items], catIdx) => (
+                                <div key={category} className="space-y-4">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
+                                        <span>{category}</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
+                                            {items.length}
+                                        </span>
                                     </div>
-                                    <div className="p-6 space-y-4">
-                                        <div>
-                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
-                                            <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
-                                        </div>
 
-                                        {(item as any).success && (item as any).evaluation ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
-                                                    <div className="space-y-2">
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span>Overall Score:</span>
-                                                            <span className={`font-bold ${Number.isFinite((item as any).evaluation?.overallScore)
-                                                                    ? getScoreColor((item as any).evaluation?.overallScore)
-                                                                    : "text-muted-foreground"
-                                                                }`}>
-                                                                {Number.isFinite((item as any).evaluation?.overallScore)
-                                                                    ? ((item as any).evaluation?.overallScore * 100).toFixed(0) + "%"
-                                                                    : "N/A"}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span>Bias Score:</span>
-                                                            <span className="font-mono">
-                                                                {Number.isFinite((item as any).evaluation?.biasScore)
-                                                                    ? ((item as any).evaluation?.biasScore * 100).toFixed(1) + "%"
-                                                                    : "N/A"}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center text-sm">
-                                                            <span>Toxicity Score:</span>
-                                                            <span className="font-mono">
-                                                                {Number.isFinite((item as any).evaluation?.toxicityScore)
-                                                                    ? ((item as any).evaluation?.toxicityScore * 100).toFixed(1) + "%"
-                                                                    : "N/A"}
-                                                            </span>
-                                                        </div>
-                                                        <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                            {(item as any).evaluation?.overallVerdict || "No verdict"}
-                                                        </div>
-                                                    </div>
+                                    {items.map((item, idx) => (
+                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
+                                            <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
+                                                }`}>
+                                                <div className="flex items-center gap-3">
+                                                    {item.success ? (
+                                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                                    ) : (
+                                                        <XCircle className="w-5 h-5 text-red-500" />
+                                                    )}
+                                                    <span className="font-medium text-foreground/80">
+                                                        Prompt #{idx + 1}
+                                                    </span>
                                                 </div>
-                                                <div>
-                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Explanation</div>
-                                                    <div className="text-sm text-foreground/80 leading-relaxed">
-                                                        {(item as any).evaluation?.explanation || "No explanation provided."}
-                                                    </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    {/* Status indicator or score could go here */}
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/20 text-red-600 text-sm">
-                                                <strong>Error:</strong> {item.message || (item as any).error || "Unknown error occurred"}
+                                            <div className="p-6 space-y-4">
+                                                <div>
+                                                    <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Prompt</div>
+                                                    <div className="bg-secondary/10 p-3 rounded-lg text-sm">{item.prompt}</div>
+                                                </div>
+
+                                                {(item as any).success && (item as any).evaluation ? (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <div>
+                                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Evaluation</div>
+                                                            <div className="space-y-2">
+                                                                <div className="flex justify-between items-center text-sm">
+                                                                    <span>Overall Score:</span>
+                                                                    <span className={`font-bold ${Number.isFinite((item as any).evaluation?.overallScore)
+                                                                        ? getScoreColor((item as any).evaluation?.overallScore)
+                                                                        : "text-muted-foreground"
+                                                                        }`}>
+                                                                        {Number.isFinite((item as any).evaluation?.overallScore)
+                                                                            ? ((item as any).evaluation?.overallScore * 100).toFixed(0) + "%"
+                                                                            : "N/A"}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-sm">
+                                                                    <span>Bias Score:</span>
+                                                                    <span className="font-mono">
+                                                                        {Number.isFinite((item as any).evaluation?.biasScore)
+                                                                            ? ((item as any).evaluation?.biasScore * 100).toFixed(1) + "%"
+                                                                            : "N/A"}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-sm">
+                                                                    <span>Toxicity Score:</span>
+                                                                    <span className="font-mono">
+                                                                        {Number.isFinite((item as any).evaluation?.toxicityScore)
+                                                                            ? ((item as any).evaluation?.toxicityScore * 100).toFixed(1) + "%"
+                                                                            : "N/A"}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
+                                                                    {(item as any).evaluation?.overallVerdict || "No verdict"}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Explanation</div>
+                                                            <div className="text-sm text-foreground/80 leading-relaxed">
+                                                                {(item as any).evaluation?.explanation || "No explanation provided."}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/20 text-red-600 text-sm">
+                                                        <strong>Error:</strong> {item.message || (item as any).error || "Unknown error occurred"}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ))}
-                        </div>
-                    ))}
-                    </>
+                        </>
                     )}
                 </div>
             </div>

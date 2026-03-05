@@ -130,6 +130,7 @@ export const styleCards = (root: HTMLElement) => {
         } else {
             elem.style.borderRadius = "8px";
             elem.style.boxShadow = "0 1px 6px -1px rgba(0, 0, 0, 0.05)";
+            elem.style.padding = "24px";
         }
     });
 };
@@ -138,7 +139,7 @@ export const styleSectionCards = (root: HTMLElement) => {
     root.querySelectorAll("section > .rounded-3xl").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.boxShadow = "0 8px 30px -8px rgba(0, 0, 0, 0.1), 0 4px 12px -4px rgba(0, 0, 0, 0.06)";
-        elem.style.padding = "16px"; // Compact padding for page fit
+        elem.style.padding = "32px"; // Increased padding for premium look
     });
     
     // Make the main section with metrics more compact
@@ -146,13 +147,19 @@ export const styleSectionCards = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         // Reduce internal spacing
         elem.querySelectorAll(".space-y-8").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "16px", "important");
+            (spacer as HTMLElement).style.setProperty("display", "flex", "important");
+            (spacer as HTMLElement).style.setProperty("flex-direction", "column", "important");
+            (spacer as HTMLElement).style.setProperty("gap", "36px", "important");
         });
         elem.querySelectorAll(".space-y-6").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "12px", "important");
+            (spacer as HTMLElement).style.setProperty("display", "flex", "important");
+            (spacer as HTMLElement).style.setProperty("flex-direction", "column", "important");
+            (spacer as HTMLElement).style.setProperty("gap", "28px", "important");
         });
         elem.querySelectorAll(".space-y-4").forEach(spacer => {
-            (spacer as HTMLElement).style.setProperty("gap", "8px", "important");
+            (spacer as HTMLElement).style.setProperty("display", "flex", "important");
+            (spacer as HTMLElement).style.setProperty("flex-direction", "column", "important");
+            (spacer as HTMLElement).style.setProperty("gap", "20px", "important");
         });
     });
 };
@@ -163,7 +170,7 @@ export const styleUploadInfo = (root: HTMLElement) => {
         elem.style.backgroundColor = PDF_COLORS.background.muted;
         elem.style.border = `1px solid ${PDF_COLORS.border.default}`;
         elem.style.borderRadius = "8px";
-        elem.style.padding = "12px"; // Compact padding
+        elem.style.padding = "20px"; // Increased padding
         
         // Reduce internal spacing
         elem.querySelectorAll(".space-y-3").forEach(spacer => {
@@ -189,7 +196,7 @@ export const styleAnalysisParams = (root: HTMLElement) => {
         elem.style.backgroundColor = PDF_COLORS.background.indigo50;
         elem.style.border = `1px solid ${PDF_COLORS.border.indigo}`;
         elem.style.borderRadius = "8px";
-        elem.style.padding = "12px"; // Compact padding
+        elem.style.padding = "20px"; // Increased padding
         
         // Reduce internal spacing
         elem.querySelectorAll(".space-y-3").forEach(spacer => {
@@ -215,6 +222,7 @@ export const styleVerdictColors = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = PDF_COLORS.background.green50;
         elem.style.border = `1px solid ${PDF_COLORS.border.green}`;
+        elem.style.padding = "16px";
     });
     root.querySelectorAll("[class*='text-green'], [class*='text-success'], [class*='text-emerald']").forEach(el => {
         const elem = el as HTMLElement;
@@ -226,6 +234,7 @@ export const styleVerdictColors = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = PDF_COLORS.background.amber50;
         elem.style.border = `1px solid ${PDF_COLORS.border.amber}`;
+        elem.style.padding = "16px";
     });
     root.querySelectorAll("[class*='text-amber'], [class*='text-warning'], [class*='text-yellow']").forEach(el => {
         const elem = el as HTMLElement;
@@ -237,6 +246,7 @@ export const styleVerdictColors = (root: HTMLElement) => {
         const elem = el as HTMLElement;
         elem.style.backgroundColor = PDF_COLORS.background.red50;
         elem.style.border = `1px solid ${PDF_COLORS.border.red}`;
+        elem.style.padding = "16px";
     });
     root.querySelectorAll("[class*='text-red'], [class*='text-destructive']").forEach(el => {
         const elem = el as HTMLElement;
@@ -278,17 +288,56 @@ export const styleBadges = (root: HTMLElement) => {
 
 export const styleTypography = (root: HTMLElement) => {
     // Section headings
-    root.querySelectorAll("h3, h4").forEach((el) => {
+    root.querySelectorAll("h1, h2, h3, h4").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.fontWeight = "600";
         elem.style.color = PDF_COLORS.text.foreground;
         elem.style.letterSpacing = "-0.01em";
+        elem.style.lineHeight = "1.6";
+        elem.style.paddingTop = "16px"; 
+        elem.style.paddingBottom = "12px";
+        elem.style.verticalAlign = "top";
+        elem.style.display = "block";
+        elem.style.overflow = "visible";
+        elem.style.width = "auto";
     });
 
     // Main content text
-    root.querySelectorAll("p").forEach((el) => {
+    root.querySelectorAll("p, span, div, label, li").forEach((el) => {
         const elem = el as HTMLElement;
-        if (!elem.style.color || elem.style.color === "inherit") {
+        
+        // Ensure nothing is clipped by parents
+        if (!elem.classList.contains('pdf-badge')) {
+            elem.style.overflow = "visible";
+        }
+        
+        // Only target elements that contain direct text nodes to avoid overriding layout-only divs
+        let hasDirectText = false;
+        if (elem.childNodes.length > 0) {
+            for (let i = 0; i < elem.childNodes.length; i++) {
+                if (elem.childNodes[i].nodeType === 3 && elem.childNodes[i].nodeValue?.trim() !== "") {
+                    hasDirectText = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasDirectText) {
+            // Apply a safe line-height to prevent vertical clipping of descenders/ascenders
+            // Using a significantly larger value (2.0)
+            elem.style.lineHeight = "1.6";
+            elem.style.verticalAlign = "top";
+            
+            // Adding more top padding often helps html2canvas with font-metrics offsets
+            if (!elem.style.paddingTop || elem.style.paddingTop === "0px") {
+                elem.style.paddingTop = "4px";
+            }
+            if (!elem.style.paddingBottom || elem.style.paddingBottom === "0px") {
+                elem.style.paddingBottom = "4px";
+            }
+        }
+
+        if (elem.tagName === "P" && (!elem.style.color || elem.style.color === "inherit")) {
             elem.style.color = PDF_COLORS.text.default; // gray-700
         }
     });
