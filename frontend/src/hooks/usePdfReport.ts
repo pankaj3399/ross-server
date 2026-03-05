@@ -20,13 +20,13 @@ const PDF_RENDERING_DELAY_MS = 2000;
 
 // PDF Constants - A4 dimensions are 210mm x 297mm
 const PDF_CONFIG = {
-    margin: 12,
+    margin: 20,
     headerHeight: 22,
     footerHeight: 12,
     contentGap: 3,
 } as const;
 
-type jsPDFType = InstanceType<typeof import("jspdf").jsPDF>;
+type jsPDFType = any;
 
 /**
  * CSS reset that forces all colors to standard values
@@ -44,6 +44,13 @@ const PDF_COLOR_RESET_CSS = `
     :root, html, body {
         color: #0f172a !important;
         background-color: #ffffff !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    }
+    
+    * {
+        font-family: inherit !important;
+        text-rendering: auto !important;
+        -webkit-font-smoothing: antialiased !important;
     }
     
     .hide-in-pdf {
@@ -176,7 +183,7 @@ export const usePdfReport = ({
                 import("jspdf"),
                 import("html2canvas")
             ]);
-            const jsPDFConstructor = jsPDFModule.default;
+            const jsPDFConstructor = (jsPDFModule as any).jsPDF || jsPDFModule.default;
             const html2canvas = html2canvasModule.default;
 
             const pdf = new jsPDFConstructor({ orientation: "p", unit: "mm", format: "a4", compress: true });
@@ -184,37 +191,37 @@ export const usePdfReport = ({
             const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
             const { margin, headerHeight, footerHeight } = PDF_CONFIG;
             const usableWidth = pageWidth - 2 * margin; // 186mm
-            const contentTop = headerHeight + 2;
+            const contentTop = margin + headerHeight + 5;
             const contentBottom = pageHeight - footerHeight - 2;
             const usableHeight = contentBottom - contentTop;
 
             // Helper: Add header to current page
-            const addPageHeader = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
-                // Header background - gradient effect with primary blue
+            const addPageHeader = (pdfDoc: any, pageNum: number, totalPages: number) => {
+                // Header background - box inside margins
                 pdfDoc.setFillColor(66, 133, 244); 
-                pdfDoc.rect(0, 0, pageWidth, headerHeight, "F");
+                pdfDoc.rect(margin, margin, usableWidth, headerHeight, "F");
 
-                // Add subtle accent line at bottom of header
+                // Add subtle accent line at bottom of header box
                 pdfDoc.setFillColor(51, 103, 214);
-                pdfDoc.rect(0, headerHeight - 1, pageWidth, 1, "F");
+                pdfDoc.rect(margin, margin + headerHeight - 1, usableWidth, 1, "F");
 
                 // Logo/Brand text
                 pdfDoc.setFont("helvetica", "bold");
                 pdfDoc.setFontSize(13);
                 pdfDoc.setTextColor(255, 255, 255);
-                pdfDoc.text("MATUR.ai", margin, 10);
+                pdfDoc.text("MATUR.ai", margin + 6, margin + 12);
 
                 // Report title - centered
                 pdfDoc.setFont("helvetica", "normal");
                 pdfDoc.setFontSize(10);
                 pdfDoc.setTextColor(255, 255, 255);
-                pdfDoc.text(reportTitle, pageWidth / 2, 10, { align: "center" });
+                pdfDoc.text(reportTitle, pageWidth / 2, margin + 12, { align: "center" });
 
                 // Project name and page number removed from header as per request
             };
 
             // Helper: Add footer to current page
-            const addPageFooter = (pdfDoc: jsPDFType, pageNum: number, totalPages: number) => {
+            const addPageFooter = (pdfDoc: any, pageNum: number, totalPages: number) => {
                 const footerY = pageHeight - 6;
 
                 // Footer line
@@ -256,13 +263,14 @@ export const usePdfReport = ({
             // Create a temporary container with our color reset CSS
             const container = document.createElement("div");
             container.id = "pdf-export-container";
-            container.style.position = "fixed";
+            container.style.position = "absolute";
             container.style.top = "0";
-            container.style.left = "-10000px";
-            container.style.width = "1400px"; // Wider for better quality
+            container.style.left = "-10000px"; // Offscreen to avoid user seeing it
+            container.style.width = "1400px"; 
+            container.style.padding = "40px"; // Extra safety space around the entire capture
             container.style.backgroundColor = "#ffffff";
-            container.style.zIndex = "9999";
-            container.style.fontFamily = "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif";
+            container.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            container.style.boxSizing = "border-box";
 
             // Add CSS reset stylesheet
             const styleEl = document.createElement("style");
@@ -272,10 +280,14 @@ export const usePdfReport = ({
             // Clone and add the report content
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "100%";
-            clone.style.padding = "32px";
+            clone.style.padding = "48px";
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a";
             clone.style.boxSizing = "border-box";
+            clone.style.height = "auto";
+            clone.style.minHeight = "min-content";
+            clone.style.maxHeight = "none";
+            clone.style.overflow = "visible";
             
             // Apply inline styles to override any CSS variables or computed oklab colors
             clone.querySelectorAll("*").forEach((el) => {
@@ -286,6 +298,10 @@ export const usePdfReport = ({
                 if (!elem.style.backgroundColor) {
                     elem.style.backgroundColor = "inherit";
                 }
+                // Force overflow visible on everything to prevent clipping
+                elem.style.overflow = "visible";
+                elem.style.maxHeight = "none";
+                elem.style.minHeight = "auto";
             });
 
             container.appendChild(clone);
@@ -297,21 +313,34 @@ export const usePdfReport = ({
             // Apply PDF-specific styling
             applyPdfStyles(clone);
 
-            try {
-                // Capture with reasonable scale for balance between quality and size
-                const canvas = await html2canvas(container, {
-                    scale: 1.5,
-                    useCORS: true,
-                    backgroundColor: "#ffffff",
-                    logging: false,
-                    windowWidth: 1400,
-                    imageTimeout: 15000,
-                    removeContainer: false,
-                });
+            // The most reliable fix for html2canvas text decapitation when scrolled
+            const originalScrollX = window.scrollX;
+            const originalScrollY = window.scrollY;
 
-                if (canvas.width === 0 || canvas.height === 0) {
-                    throw new Error("Failed to capture report content");
-                }
+            try {
+                // Temporarily hide main content scrollbar to prevent layout shift
+                document.documentElement.style.overflow = "hidden";
+                window.scrollTo(0, 0);
+
+                    // Capture with reasonable scale for balance between quality and size
+                    const canvas = await html2canvas(container, {
+                        scale: 1.5,
+                        useCORS: true,
+                        backgroundColor: "#ffffff",
+                        logging: false,
+                        windowWidth: 1600, // Slightly wider to ensure no content-shift
+                        windowHeight: container.offsetHeight + 1000,
+                        scrollX: 0,
+                        scrollY: 0,
+                        imageTimeout: 15000,
+                        removeContainer: false,
+                    });
+
+                    // Restore scroll immediately after capture inside finally below
+                    
+                    if (canvas.width === 0 || canvas.height === 0) {
+                        throw new Error("Failed to capture report content");
+                    }
 
                 // Calculate dimensions
                 const imgWidth = usableWidth;
@@ -326,23 +355,48 @@ export const usePdfReport = ({
                     const pxPerMm = canvas.width / imgWidth;
                     const pageHeightPx = usableHeight * pxPerMm;
                     
-                    // Identify elements that should not be split across pages
-                    const cloneRect = clone.getBoundingClientRect();
-                    const cssToCanvasFactor = canvas.width / clone.offsetWidth;
+                    // Precise coordinate mapping: canvas pixels vs container CSS pixels
+                    const containerWidth = container.offsetWidth;
+                    const cssToCanvasFactor = canvas.width / containerWidth;
+                    const containerRect = container.getBoundingClientRect();
                     
-                    const breakAvoidElements = Array.from(clone.querySelectorAll(".break-inside-avoid, .page-break-avoid"));
-                    const breakPoints = breakAvoidElements.map(el => {
-                        const rect = (el as HTMLElement).getBoundingClientRect();
-                        return {
-                            top: (rect.top - cloneRect.top) * cssToCanvasFactor,
-                            bottom: (rect.bottom - cloneRect.top) * cssToCanvasFactor
-                        };
-                    }).sort((a, b) => a.top - b.top);
+                    // Logic: Identify logical groups that should not be split
+                    const breakAvoidSelectors = [
+                        ".break-inside-avoid",
+                        ".page-break-avoid",
+                        ".pdf-metric-grid > div",
+                        ".bg-card",
+                        ".divide-y > div",
+                        "[class*='rounded-xl']",
+                        "section",
+                        ".grid > div",
+                        "tr",
+                        ".p-6",
+                        ".space-y-6 > div",
+                        ".space-y-4 > div"
+                    ].join(", ");
+                    
+                    const breakAvoidElements = Array.from(container.querySelectorAll(breakAvoidSelectors));
+                    const breakPoints = breakAvoidElements
+                        .map(el => {
+                            const rect = (el as HTMLElement).getBoundingClientRect();
+                            const top = (rect.top - containerRect.top) * cssToCanvasFactor;
+                            const bottom = (rect.bottom - containerRect.top) * cssToCanvasFactor;
+                            const height = bottom - top;
+                            return { top, bottom, height };
+                        })
+                        // Oversized elements MUST break, otherwise we get infinite pages
+                        .filter(bp => bp.height > 5 && bp.height < pageHeightPx * 0.9)
+                        .sort((a, b) => a.top - b.top);
                     
                     let currentY = 0;
                     let pageNum = 0;
+                    // Min height for a page slice (approx 15mm)
+                    const minSliceHeight = 15 * pxPerMm;
+                    // Padding before the cut (3mm)
+                    const breakPaddingPx = 3 * pxPerMm;
 
-                    while (currentY < canvas.height) {
+                    while (currentY < canvas.height - 10) { // Small buffer for end of canvas
                         if (pageNum > 0) {
                             pdf.addPage();
                         }
@@ -350,21 +404,31 @@ export const usePdfReport = ({
                         const remainingHeight = canvas.height - currentY;
                         let sliceHeight = Math.min(pageHeightPx, remainingHeight);
                         
-                        // Check if this slice cuts through any break-avoid element
+                        // Check if this slice cuts through any break-avoid units
                         if (remainingHeight > pageHeightPx) {
                             const sliceBottom = currentY + sliceHeight;
                             
-                            // Find elements that span across this proposed slice line
-                            const brokenElement = breakPoints.find(bp => 
+                            // Find all elements that are currently being split by the page boundary
+                            const brokenElements = breakPoints.filter(bp => 
                                 bp.top < sliceBottom && bp.bottom > sliceBottom
                             );
                             
-                            // Only adjust if the element starts after the current page top 
-                            // (otherwise it's just too big to fit on any single page)
-                            if (brokenElement && brokenElement.top > currentY + (5 * pxPerMm)) { // 5mm buffer
-                                sliceHeight = brokenElement.top - currentY;
+                            if (brokenElements.length > 0) {
+                                // Find the FIRST element in the list (the highest parent) 
+                                // that starts after the top of the current PDF page
+                                const bestBreak = brokenElements.reduce((earliest, current) => 
+                                    current.top < earliest.top ? current : earliest
+                                );
+                                
+                                // Only move to next page if the element doesn't start at the very top
+                                if (bestBreak.top > currentY + minSliceHeight) {
+                                    sliceHeight = bestBreak.top - currentY - breakPaddingPx;
+                                }
                             }
                         }
+                        
+                        // Safety check: ensure slice height is reasonable
+                        sliceHeight = Math.max(sliceHeight, Math.min(minSliceHeight, remainingHeight));
                         
                         // Create slice canvas
                         const sliceCanvas = document.createElement("canvas");
@@ -382,7 +446,7 @@ export const usePdfReport = ({
                             0, 0, canvas.width, sliceHeight
                         );
 
-                        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.8);
+                        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
                         const sliceHeightMm = sliceHeight / pxPerMm;
 
                         pdf.addImage(sliceData, "JPEG", margin, contentTop, imgWidth, sliceHeightMm);
@@ -403,6 +467,10 @@ export const usePdfReport = ({
                 pdf.save(fileName);
 
             } finally {
+                // CRITICAL: Always restore original document state
+                document.documentElement.style.overflow = "";
+                window.scrollTo(originalScrollX, originalScrollY);
+
                 if (container && document.body.contains(container)) {
                     document.body.removeChild(container);
                 }

@@ -385,14 +385,17 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             // Clone the report container for PDF-specific rendering
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "1200px";
-            clone.style.position = "fixed";
+            clone.style.position = "absolute";
             clone.style.top = "0";
-            clone.style.left = "-10000px";
-            clone.style.zIndex = "1000";
+            clone.style.left = "-10000px"; // Offscreen to prevent user seeing it
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a";
             clone.style.padding = "24px";
             clone.style.fontFamily = "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif";
+            clone.style.height = "auto";
+            clone.style.minHeight = "min-content";
+            clone.style.maxHeight = "none";
+            clone.style.overflow = "visible";
 
             // Apply all PDF styling
             const applyPdfStyles = (root: HTMLElement) => {
@@ -653,129 +656,184 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     currentY += 12;
 
                 // Capture and add sections
-                for (const section of validSections) {
+                // Ensure window is at top to prevent html2canvas clipping bugs
+                const originalScrollX = window.scrollX;
+                const originalScrollY = window.scrollY;
+                
+                try {
+                    document.documentElement.style.overflow = "hidden";
+                    window.scrollTo(0, 0);
 
-                    try {
-                        const scale = section.scale || 2;
-                        let canvas = await html2canvas(section.element, {
-                            scale,
-                            useCORS: true,
-                            backgroundColor: "#ffffff",
-                            logging: false,
-                            windowWidth: 1200,
-                            scrollX: 0,
-                            scrollY: 0,
-                        });
-
-                        // Check canvas size limits
-                        const MAX_PIXELS = 50000000;
-                        const MAX_DIMENSION = 15000;
-
-                        if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
-                            canvas = await html2canvas(section.element, {
-                                scale: 1,
+                    for (const section of validSections) {
+                        try {
+                            const scale = section.scale || 2;
+                            let canvas = await html2canvas(section.element, {
+                                scale,
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 logging: false,
                                 windowWidth: 1200,
+                                windowHeight: section.element.scrollHeight + 1000,
+                                x: 0,
+                                y: 0,
+                                scrollX: 0,
+                                scrollY: 0,
                             });
 
-                            if (canvas.width * canvas.height > MAX_PIXELS) {
-                                console.warn("Section too large, skipping:", section.label);
-                                continue;
-                            }
-                        }
+                            // Check canvas size limits
+                            const MAX_PIXELS = 50000000;
+                            const MAX_DIMENSION = 15000;
 
-                        // Skip empty canvases
-                        if (canvas.width === 0 || canvas.height === 0) continue;
+                            if (canvas.width * canvas.height > MAX_PIXELS || canvas.height > MAX_DIMENSION) {
+                                canvas = await html2canvas(section.element, {
+                                    scale: 1,
+                                    useCORS: true,
+                                    backgroundColor: "#ffffff",
+                                    logging: false,
+                                    windowWidth: 1200,
+                                });
 
-                        // Skip very small captures (likely just whitespace or tiny fragments)
-                        if (canvas.height < 20) continue;
-
-                        const imgWidth = usableWidth;
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-                        // Skip if the resulting image would be too small to be meaningful
-                        if (imgHeight < 5) continue;
-
-                        // Scale down detailed sections to fit more content
-                        const scaleFactor = section.label.includes("sensitive") ? 0.75 : 1;
-                        const scaledHeight = imgHeight * scaleFactor;
-                        const scaledWidth = imgWidth * scaleFactor;
-                        const xOffset = (usableWidth - scaledWidth) / 2;
-
-                        // Check if we need a new page
-                        if (currentY + scaledHeight > contentBottom) {
-                            // Only create a new page if we've actually added content to the current one
-                            const hasContentOnCurrentPage = currentY > contentTop + 25; // Title takes about 20-25mm
-                            
-                            // Check if section fits on a fresh page
-                            if (scaledHeight > usableHeight) {
-                                // Section is larger than a page - need to slice
-                                if (hasContentOnCurrentPage) {
-                                    pdf.addPage();
-                                    currentPage++;
-                                    currentY = contentTop;
+                                if (canvas.width * canvas.height > MAX_PIXELS) {
+                                    console.warn("Section too large, skipping:", section.label);
+                                    continue;
                                 }
+                            }
 
-                                const pageHeightInPx = (usableHeight * canvas.width) / imgWidth;
-                                let remainingHeightPx = canvas.height;
-                                let sourceY = 0;
+                            // Skip empty canvases
+                            if (canvas.width === 0 || canvas.height === 0) continue;
 
-                                while (remainingHeightPx > 0) {
-                                    const currentSliceHeightPx = Math.min(remainingHeightPx, pageHeightInPx);
+                            // Skip very small captures (likely just whitespace or tiny fragments)
+                            if (canvas.height < 20) continue;
 
-                                    const tempCanvas = document.createElement('canvas');
-                                    tempCanvas.width = canvas.width;
-                                    tempCanvas.height = currentSliceHeightPx;
-                                    const tCtx = tempCanvas.getContext('2d');
-                                    if (!tCtx) break;
+                            const imgWidth = usableWidth;
+                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-                                    tCtx.fillStyle = "#ffffff";
-                                    tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-                                    tCtx.drawImage(
-                                        canvas,
-                                        0, sourceY, canvas.width, currentSliceHeightPx,
-                                        0, 0, tempCanvas.width, currentSliceHeightPx
-                                    );
+                            // Skip if the resulting image would be too small to be meaningful
+                            if (imgHeight < 5) continue;
 
-                                    const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
-                                    const slicePdfHeight = (currentSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
+                            // Scale down detailed sections to fit more content
+                            const scaleFactor = section.label.includes("sensitive") ? 0.75 : 1;
+                            const scaledHeight = imgHeight * scaleFactor;
+                            const scaledWidth = imgWidth * scaleFactor;
+                            const xOffset = (usableWidth - scaledWidth) / 2;
 
-                                    pdf.addImage(sliceImgData, "JPEG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
-
-                                    sourceY += currentSliceHeightPx;
-                                    remainingHeightPx -= currentSliceHeightPx;
-
-                                    if (remainingHeightPx > 0) {
+                            // Check if we need a new page
+                            if (currentY + scaledHeight > contentBottom) {
+                                // Only create a new page if we've actually added content to the current one
+                                const hasContentOnCurrentPage = currentY > contentTop + 25; // Title takes about 20-25mm
+                                
+                                // Check if section fits on a fresh page
+                                if (scaledHeight > usableHeight) {
+                                    // Section is larger than a page - need to slice
+                                    if (hasContentOnCurrentPage) {
                                         pdf.addPage();
                                         currentPage++;
                                         currentY = contentTop;
-                                    } else {
-                                        currentY += slicePdfHeight + PDF_CONFIG.contentGap;
                                     }
+
+                                    const pageHeightInPx = (usableHeight * canvas.width) / imgWidth;
+                                    let remainingHeightPx = canvas.height;
+                                    let sourceY = 0;
+
+                                    while (remainingHeightPx > 0) {
+                                        const currentSliceHeightPx = Math.min(remainingHeightPx, pageHeightInPx);
+
+                                        // Create a slice logic to avoid breaking items inside the canvas
+                                        let adjustedSliceHeightPx = currentSliceHeightPx;
+                                        
+                                        // Check if we need to avoid cutting something in half on this individual large canvas
+                                        if (remainingHeightPx > pageHeightInPx) {
+                                            const sliceBottom = sourceY + currentSliceHeightPx;
+                                            
+                                            // Attempt to identify elements that shouldn't break inside the CURRENT section we are processing
+                                            const breakAvoidElements = Array.from(section.element.querySelectorAll(".break-inside-avoid, .page-break-avoid"));
+                                            
+                                            if (breakAvoidElements.length > 0) {
+                                                const sectionRect = section.element.getBoundingClientRect();
+                                                const cssToCanvasFactor = canvas.width / section.element.offsetWidth;
+                                                
+                                                const breakPoints = breakAvoidElements.map(el => {
+                                                    const rect = (el as HTMLElement).getBoundingClientRect();
+                                                    return {
+                                                        top: (rect.top - sectionRect.top) * cssToCanvasFactor,
+                                                        bottom: (rect.bottom - sectionRect.top) * cssToCanvasFactor
+                                                    };
+                                                }).sort((a, b) => a.top - b.top);
+                                                
+                                                const brokenElement = breakPoints.find(bp => 
+                                                    bp.top < sliceBottom && bp.bottom > sliceBottom
+                                                );
+                                                
+                                                // Only cut earlier if the element starts after our current Y and isn't bigger than the page itself
+                                                if (brokenElement && brokenElement.top > sourceY + 10) {
+                                                    adjustedSliceHeightPx = brokenElement.top - sourceY - 10;
+                                                }
+                                            }
+                                        }
+
+                                        // SAFEGUARD: Clamp to positive minimum and ensure it doesn't exceed remaining height
+                                        adjustedSliceHeightPx = Math.max(1, Math.floor(adjustedSliceHeightPx));
+                                        if (adjustedSliceHeightPx > remainingHeightPx) adjustedSliceHeightPx = remainingHeightPx;
+                                        
+                                        // Fatal loop check
+                                        if (adjustedSliceHeightPx <= 0) break;
+
+                                        const tempCanvas = document.createElement('canvas');
+                                        tempCanvas.width = canvas.width;
+                                        tempCanvas.height = adjustedSliceHeightPx;
+                                        const tCtx = tempCanvas.getContext('2d');
+                                        if (!tCtx) break;
+
+                                        tCtx.fillStyle = "#ffffff";
+                                        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+                                        tCtx.drawImage(
+                                            canvas,
+                                            0, sourceY, canvas.width, adjustedSliceHeightPx,
+                                            0, 0, tempCanvas.width, adjustedSliceHeightPx
+                                        );
+
+                                        const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
+                                        const slicePdfHeight = (adjustedSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
+
+                                        pdf.addImage(sliceImgData, "JPEG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
+
+                                        sourceY += adjustedSliceHeightPx;
+                                        remainingHeightPx -= adjustedSliceHeightPx;
+
+                                        if (remainingHeightPx > 0) {
+                                            pdf.addPage();
+                                            currentPage++;
+                                            currentY = contentTop;
+                                        } else {
+                                            currentY += slicePdfHeight + PDF_CONFIG.contentGap;
+                                        }
+                                    }
+                                } else {
+                                    // Section fits on a fresh page but not current - start new page
+                                    if (hasContentOnCurrentPage) {
+                                        pdf.addPage();
+                                        currentPage++;
+                                        currentY = contentTop;
+                                    }
+
+                                    const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                                    pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
+                                    currentY += scaledHeight + PDF_CONFIG.contentGap;
                                 }
                             } else {
-                                // Section fits on a fresh page but not current - start new page
-                                if (hasContentOnCurrentPage) {
-                                    pdf.addPage();
-                                    currentPage++;
-                                    currentY = contentTop;
-                                }
-
+                                // Fits on current page
                                 const imgData = canvas.toDataURL("image/jpeg", 0.92);
                                 pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
                                 currentY += scaledHeight + PDF_CONFIG.contentGap;
                             }
-                        } else {
-                            // Fits on current page
-                            const imgData = canvas.toDataURL("image/jpeg", 0.92);
-                            pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
-                            currentY += scaledHeight + PDF_CONFIG.contentGap;
+                        } catch (sectionError) {
+                            console.error("Error capturing section:", section.label, sectionError);
                         }
-                    } catch (sectionError) {
-                        console.error("Error capturing section:", section.label, sectionError);
                     }
+                } finally {
+                    // Restore original document state
+                    document.documentElement.style.overflow = "";
+                    window.scrollTo(originalScrollX, originalScrollY);
                 }
                 } // End of if (validSections.length > 0)
 

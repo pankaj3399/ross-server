@@ -255,17 +255,44 @@ export const styleBadges = (root: HTMLElement) => {
 
 export const styleTypography = (root: HTMLElement) => {
     // Section headings
-    root.querySelectorAll("h3, h4").forEach((el) => {
+    root.querySelectorAll("h1, h2, h3, h4").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.fontWeight = "600";
         elem.style.color = "#0f172a";
         elem.style.letterSpacing = "-0.01em";
+        elem.style.lineHeight = "2.0";
+        elem.style.paddingTop = "12px";
+        elem.style.paddingBottom = "8px";
+        elem.style.display = "block";
+        elem.style.overflow = "visible";
+        elem.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     });
 
     // Main content text
-    root.querySelectorAll("p").forEach((el) => {
+    root.querySelectorAll("p, span, div, label, li").forEach((el) => {
         const elem = el as HTMLElement;
-        if (!elem.style.color || elem.style.color === "inherit") {
+        
+        // Ensure nothing is clipped
+        elem.style.overflow = "visible";
+        elem.style.fontFamily = "inherit";
+        
+        let hasDirectText = false;
+        if (elem.childNodes.length > 0) {
+            for (let i = 0; i < elem.childNodes.length; i++) {
+                if (elem.childNodes[i].nodeType === 3 && elem.childNodes[i].nodeValue?.trim() !== "") {
+                    hasDirectText = true;
+                    break;
+                }
+            }
+        }
+        
+        if (hasDirectText) {
+            elem.style.lineHeight = "2.0";
+            elem.style.paddingTop = "4px";
+            elem.style.paddingBottom = "4px";
+        }
+
+        if (elem.tagName === "P" && (!elem.style.color || elem.style.color === "inherit")) {
             elem.style.color = "#374151"; // gray-700
         }
     });
