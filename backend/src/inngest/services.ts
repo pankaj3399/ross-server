@@ -692,16 +692,7 @@ export async function markJobCompleted(
             await pool.query(
                 `INSERT INTO api_test_reports 
                  (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                 ON CONFLICT (job_id) DO UPDATE SET
-                   total_prompts = EXCLUDED.total_prompts,
-                   success_count = EXCLUDED.success_count,
-                   failure_count = EXCLUDED.failure_count,
-                   average_scores = EXCLUDED.average_scores,
-                   results = EXCLUDED.results,
-                   errors = EXCLUDED.errors,
-                   config = EXCLUDED.config,
-                   updated_at = CURRENT_TIMESTAMP`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
                 [
                     user_id,
                     project_id,
@@ -817,16 +808,7 @@ export async function markSecurityScanCompleted(
       await pool.query(
         `INSERT INTO api_test_reports
          (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (job_id) DO UPDATE SET
-           total_prompts = EXCLUDED.total_prompts,
-           success_count = EXCLUDED.success_count,
-           failure_count = EXCLUDED.failure_count,
-           average_scores = EXCLUDED.average_scores,
-           results = EXCLUDED.results,
-           errors = EXCLUDED.errors,
-           config = EXCLUDED.config,
-           updated_at = CURRENT_TIMESTAMP`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           user_id,
           project_id,

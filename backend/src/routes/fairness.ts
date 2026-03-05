@@ -926,6 +926,32 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
     }
 });
 
+// GET /fairness/api-reports/job/:jobId - Get an API report by its associated Job ID
+router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
+    try {
+        const { jobId } = req.params;
+        const userId = req.user!.id;
+        
+        const result = await pool.query(
+            `SELECT id FROM api_test_reports
+             WHERE job_id = $1 AND user_id = $2`,
+            [jobId, userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Report not found or access denied" });
+        }
+        
+        res.json({ 
+            success: true, 
+            reportId: result.rows[0].id
+        });
+    } catch (error: any) {
+        console.error("Error fetching API test report by job ID:", error);
+        res.status(500).json({ error: "Failed to fetch API test report by job ID" });
+    }
+});
+
 // DELETE /fairness/api-reports/:reportId - Delete an API test report
 router.delete("/api-reports/:reportId", authenticateToken, async (req, res) => {
     try {

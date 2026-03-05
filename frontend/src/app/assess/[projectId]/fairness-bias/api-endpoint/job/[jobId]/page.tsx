@@ -41,6 +41,7 @@ export default function FairnessJobPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [redirectScheduled, setRedirectScheduled] = useState(false);
+  const [reportId, setReportId] = useState<string | null>(null);
 
   const fetchStatus = async (showLoader = false) => {
     if (showLoader) {
@@ -91,12 +92,34 @@ export default function FairnessJobPage() {
     const completedStatuses = ["completed", "success", "partial_success"];
     if (jobStatus?.status && completedStatuses.includes(jobStatus.status) && !redirectScheduled) {
       setRedirectScheduled(true);
-      const timeout = setTimeout(() => {
-        router.push(`/assess/${projectId}/fairness-bias/report`);
-      }, 2000);
-      return () => clearTimeout(timeout);
+
+      const fetchAndRedirect = async () => {
+        // Retry logic: try up to 4 times with delay
+        for (let i = 0; i < 4; i++) {
+          try {
+            const res = await apiService.getApiReportByJobId(jobId as string);
+            if (res.success && res.reportId) {
+              setReportId(res.reportId);
+              setTimeout(() => {
+                router.push(`/assess/${projectId}/fairness-bias/api-history/${res.reportId}`);
+              }, 1500);
+              return;
+            }
+          } catch (error) {
+            console.error(`Attempt ${i + 1} failed to fetch report ID:`, error);
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        }
+
+        // Fallback
+        setTimeout(() => {
+          router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
+        }, 1500);
+      };
+
+      fetchAndRedirect();
     }
-  }, [jobStatus, projectId, redirectScheduled, router]);
+  }, [jobStatus, projectId, jobId, redirectScheduled, router]);
 
   const progressLabel = useMemo(() => {
     if (!jobStatus) return "Fetching job…";
@@ -343,8 +366,22 @@ export default function FairnessJobPage() {
             Refresh now
           </button>
           <button
-            onClick={() => router.push(`/assess/${projectId}/fairness-bias/report`)}
-            disabled={!["completed", "success", "partial_success"].includes(jobStatus.status)}
+            onClick={async () => {
+              if (reportId) {
+                router.push(`/assess/${projectId}/fairness-bias/api-history/${reportId}`);
+              } else {
+                try {
+                  const res = await apiService.getApiReportByJobId(jobId);
+                  if (res.success && res.reportId) {
+                    router.push(`/assess/${projectId}/fairness-bias/api-history/${res.reportId}`);
+                    return;
+                  }
+                } catch (e) {
+                  alert("Report is finalizing. Please wait a few seconds and try again!");
+                }
+              }
+            }}
+            disabled={!jobStatus || !["completed", "success", "partial_success"].includes(jobStatus.status)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             View report

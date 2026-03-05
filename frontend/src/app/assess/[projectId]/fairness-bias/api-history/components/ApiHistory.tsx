@@ -26,7 +26,7 @@ type ApiReport = {
         categories?: Record<string, number>;
         failures?: Array<{ prompt: string; reason: string }>;
     };
-    config: { testType?: string; apiUrl?: string; [key: string]: unknown };
+    config: { testType?: string; apiUrl?: string;[key: string]: unknown };
     created_at: string;
 };
 
@@ -223,47 +223,49 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
                                                     ? `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%`
                                                     : "N/A")}
                                         </td>
-                                        <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewReport(report);
-                                                }}
-                                                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                                                type="button"
-                                            >
-                                                View Details
-                                                <ChevronRight className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    if (confirm("Are you sure you want to delete this report?")) {
-                                                        try {
-                                                            const res = await fetch(`${API_BASE_URL}/fairness/api-reports/${report.id}`, {
-                                                                method: 'DELETE',
-                                                                headers: {
-                                                                    "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewReport(report);
+                                                    }}
+                                                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                                    type="button"
+                                                >
+                                                    View Details
+                                                    <ChevronRight className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (confirm("Are you sure you want to delete this report?")) {
+                                                            try {
+                                                                const res = await fetch(`${API_BASE_URL}/fairness/api-reports/${report.id}`, {
+                                                                    method: 'DELETE',
+                                                                    headers: {
+                                                                        "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+                                                                    }
+                                                                });
+                                                                if (res.ok) {
+                                                                    setReports(prev => prev.filter(r => r.id !== report.id));
+                                                                } else {
+                                                                    // Show feedback for failure
+                                                                    alert("Failed to delete report. Please try again.");
                                                                 }
-                                                            });
-                                                            if (res.ok) {
-                                                                setReports(prev => prev.filter(r => r.id !== report.id));
-                                                            } else {
-                                                                // Show feedback for failure
-                                                                alert("Failed to delete report. Please try again.");
+                                                            } catch (err) {
+                                                                console.error("Failed to delete report:", err);
+                                                                alert("An error occurred while deleting the report.");
                                                             }
-                                                        } catch (err) {
-                                                            console.error("Failed to delete report:", err);
-                                                            alert("An error occurred while deleting the report.");
                                                         }
-                                                    }
-                                                }}
-                                                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                title="Delete report"
-                                                type="button"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                                    }}
+                                                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Delete report"
+                                                    type="button"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
