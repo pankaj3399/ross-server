@@ -23,17 +23,17 @@ export async function listComments(
   projectId: string,
   filters: ListFilters = {},
 ): Promise<Comment[]> {
-  const conditions: string[] = ["project_id = $1"];
+  const conditions: string[] = ["c.project_id = $1"];
   const values: any[] = [projectId];
   let idx = 2;
 
   if (filters.objectType) {
-    conditions.push(`object_type = $${idx++}`);
+    conditions.push(`c.object_type = $${idx++}`);
     values.push(filters.objectType);
   }
 
   if (filters.objectId) {
-    conditions.push(`object_id = $${idx++}`);
+    conditions.push(`c.object_id = $${idx++}`);
     values.push(filters.objectId);
   }
 
@@ -44,10 +44,12 @@ export async function listComments(
   values.push(offset);
 
   const result = await pool.query(
-    `SELECT id, project_id, author_id, object_type, object_id, body, parent_comment_id, created_at, updated_at
-     FROM comments
+    `SELECT c.id, c.project_id, c.author_id, c.object_type, c.object_id, c.body, c.parent_comment_id, c.created_at, c.updated_at,
+            u.name AS author_name, u.email AS author_email
+     FROM comments c
+     JOIN users u ON c.author_id = u.id
      WHERE ${conditions.join(" AND ")}
-     ORDER BY created_at DESC
+     ORDER BY c.created_at ASC
      LIMIT $${idx++} OFFSET $${idx}`,
     values,
   );

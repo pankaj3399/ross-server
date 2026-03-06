@@ -788,6 +788,49 @@ router.post("/cleanup-tokens", async (req, res) => {
 
 // --- Invitation acceptance flows ---
 
+// Get pending invitations for the logged-in user
+router.get("/invitations/me", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user!;
+    console.log(`[DEBUG] Fetching invitations for email: [${user.email}]`);
+    
+    // Find all pending invitations for this user's email
+    const result = await pool.query(
+      `SELECT i.*, p.name as project_name, u.name as inviter_name 
+       FROM project_invitations i
+       JOIN projects p ON i.project_id = p.id
+       LEFT JOIN users u ON i.inviter_id = u.id
+       WHERE TRIM(LOWER(i.email)) = TRIM(LOWER($1)) AND i.status = 'pending'
+       ORDER BY i.created_at DESC`,
+      [user.email]
+    );
+
+    console.log(`[DEBUG] Found ${result.rows.length} pending invitations for [${user.email}]`);
+
+    // Format the response structure
+    const invitations = result.rows.map(row => ({
+      id: row.id,
+      token: row.token,
+      project: {
+        id: row.project_id,
+        name: row.project_name
+      },
+      inviter: row.inviter_id ? {
+        id: row.inviter_id,
+        name: row.inviter_name || "Someone"
+      } : null,
+      role: row.role,
+      expires_at: row.expires_at,
+      created_at: row.created_at
+    }));
+
+    res.json({ invitations });
+  } catch (error) {
+    console.error("Error fetching user invitations:", error);
+    res.status(500).json({ error: "Failed to fetch user invitations" });
+  }
+});
+
 // Get invitation metadata by token
 router.get("/invitations/:token", async (req, res) => {
   try {
@@ -835,6 +878,35 @@ router.get("/invitations/:token", async (req, res) => {
   } catch (error) {
     console.error("Error fetching invitation by token:", error);
     res.status(500).json({ error: "Failed to load invitation" });
+  }
+});
+
+// Decline an invitation
+router.post("/invitations/:token/decline", authenticateToken, async (req, res) => {
+  try {
+    const { token } = req.params;
+    const user = req.user!;
+
+    const invitation = await findInvitationByToken(token);
+    
+    if (!invitation) {
+      return res.status(404).json({ error: "Invitation not found" });
+    }
+
+    if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
+      return res.status(403).json({ error: "Unauthorized to decline this invitation" });
+    }
+
+    // Update status to revoked/declined
+    await pool.query(
+      "UPDATE project_invitations SET status = 'revoked', updated_at = CURRENT_TIMESTAMP WHERE token = $1",
+      [token]
+    );
+
+    res.json({ message: "Invitation declined successfully" });
+  } catch (error) {
+    console.error("Error declining invitation:", error);
+    res.status(500).json({ error: "Failed to decline invitation" });
   }
 });
 

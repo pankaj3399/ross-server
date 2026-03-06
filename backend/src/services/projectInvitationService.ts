@@ -171,7 +171,7 @@ export async function listInvitationsForProject(
   const result = await pool.query(
     `SELECT id, project_id, inviter_id, email, role, permissions, token, status, expires_at, created_at, updated_at
      FROM project_invitations
-     WHERE project_id = $1
+     WHERE project_id = $1 AND status = 'pending'
      ORDER BY created_at DESC`,
     [projectId],
   );

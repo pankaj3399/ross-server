@@ -5,7 +5,7 @@ import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion"; // Assuming this service exists as per original file
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
-import { addMember } from "../services/projectMembershipService";
+import { addMember, listMembersForProject, updateMember, removeMember } from "../services/projectMembershipService";
 import { loadProject, requireProjectRole } from "../middleware/projectAccess";
 import {
   createInvitation,
@@ -60,10 +60,15 @@ setInterval(() => {
 router.get("/", authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT DISTINCT p.*
+      `SELECT 
+          p.*,
+          CASE 
+            WHEN p.user_id = $1 THEN 'OWNER'
+            ELSE pm.role 
+          END as role
        FROM projects p
-       LEFT JOIN project_members pm ON pm.project_id = p.id
-       WHERE pm.user_id = $1 OR p.user_id = $1
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
+       WHERE p.user_id = $1 OR pm.user_id = $1
        ORDER BY p.created_at DESC`,
       [req.user!.id],
     );
@@ -427,37 +432,25 @@ router.post(
       const project = req.project as { id: string; name: string };
       const inviterId = req.user!.id;
 
-      // See if a user already exists for this email
+      // Check if the user is already a member
       const userResult = await pool.query(
-        "SELECT id, name FROM users WHERE LOWER(email) = LOWER($1)",
+        "SELECT id FROM users WHERE LOWER(email) = LOWER($1)",
         [email],
       );
 
       if (userResult.rows.length > 0) {
         const existingUser = userResult.rows[0];
-        const membership = await addMember(
-          project.id,
-          existingUser.id,
-          role,
-          permissions ?? [],
+        const membershipResult = await pool.query(
+          "SELECT id FROM project_members WHERE project_id = $1 AND user_id = $2",
+          [project.id, existingUser.id]
         );
-
-        await recordEvent({
-          projectId: project.id,
-          actorId: inviterId,
-          action: "project.member.added",
-          objectType: "MEMBERSHIP",
-          objectId: membership.id,
-          metadata: { userId: existingUser.id, role },
-        });
-
-        return res.status(200).json({
-          mode: "existing_user",
-          membership,
-        });
+        
+        if (membershipResult.rows.length > 0) {
+          return res.status(400).json({ error: "User is already a member of this project." });
+        }
       }
 
-      // Create invitation for new or not-yet-registered user
+      // Create a pending invitation for all users (new or existing)
       const invitation = await createInvitation(
         project.id,
         inviterId,
@@ -559,6 +552,122 @@ router.delete(
       res.status(500).json({ error: "Failed to revoke invitation" });
     }
   },
+);
+
+// ==========================================
+// MEMBER MANAGEMENT ROUTES
+// ==========================================
+
+// List all members of a project
+router.get(
+  "/:projectId/members",
+  authenticateToken,
+  loadProject,
+  async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      
+      // Get membership data
+      const members = await listMembersForProject(projectId);
+      
+      // We need to fetch the actual user names and emails for these members
+      // The `listMembersForProject` might not include them so we join here or fetch it.
+      // Wait, listMembersForProject returns `id, project_id, user_id, role, permissions, added_at, updated_at`
+      
+      const enrichedMembersResult = await pool.query(
+        `SELECT pm.*, u.name, u.email 
+         FROM project_members pm
+         JOIN users u ON pm.user_id = u.id
+         WHERE pm.project_id = $1
+         ORDER BY pm.created_at ASC`,
+        [projectId]
+      );
+
+      res.json({ members: enrichedMembersResult.rows });
+    } catch (error) {
+      console.error("Error listing project members:", error);
+      res.status(500).json({ error: "Failed to list project members" });
+    }
+  }
+);
+
+// Update a member's role
+router.patch(
+  "/:projectId/members/:userId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { projectId, userId } = req.params;
+      const { role } = req.body;
+
+      if (!role || !["OWNER", "EDITOR", "VIEWER"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role specified" });
+      }
+
+      // Prevent owner from demoting themselves
+      if (req.user!.id === userId) {
+        return res.status(400).json({ error: "You cannot change your own role" });
+      }
+
+      const membership = await updateMember(projectId, userId, { role });
+      
+      if (!membership) {
+        return res.status(404).json({ error: "Member not found" });
+      }
+
+      await recordEvent({
+        projectId,
+        actorId: req.user!.id,
+        action: "project.member_updated",
+        objectType: "MEMBERSHIP",
+        objectId: membership.id,
+        metadata: { targetUserId: userId, newRole: role }
+      });
+
+      res.json({ member: membership });
+    } catch (error: any) {
+      console.error("Error updating project member:", error);
+      if (error.message === "Membership not found") {
+        return res.status(404).json({ error: "Member not found" });
+      }
+      res.status(500).json({ error: "Failed to update project member" });
+    }
+  }
+);
+
+// Remove a member
+router.delete(
+  "/:projectId/members/:userId",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { projectId, userId } = req.params;
+
+      // Prevent owner from removing themselves
+      if (req.user!.id === userId) {
+        return res.status(400).json({ error: "You cannot remove yourself from the project" });
+      }
+      
+      await removeMember(projectId, userId);
+      
+      await recordEvent({
+        projectId,
+        actorId: req.user!.id,
+        action: "project.member_removed",
+        objectType: "USER",
+        objectId: userId,
+      });
+
+      res.json({ message: "Member removed successfully" });
+    } catch (error) {
+      console.error("Error removing project member:", error);
+      res.status(500).json({ error: "Failed to remove project member" });
+    }
+  }
 );
 
 /**

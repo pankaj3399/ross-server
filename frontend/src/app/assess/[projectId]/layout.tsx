@@ -14,6 +14,7 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
     if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
     if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
+    if (pathname.includes("team")) return "Team Management";
     return "AI Maturity Assessment (AIMA)";
 };
 
@@ -32,6 +33,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         isPremium,
         projectName,
         answers,
+        loading,
     } = useAssessmentContext();
 
     const {
@@ -44,6 +46,14 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         currentPracticeId,
         currentQuestionIndex,
     });
+
+    if (loading) {
+        return (
+            <div className="h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     const handleDomainClick = (domainId: string) => {
         // Logic to select first practice/question if needed

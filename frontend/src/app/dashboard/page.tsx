@@ -7,6 +7,7 @@ import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
+import { useNotificationStore } from "../../store/notificationStore";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -107,6 +108,10 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Pending Invitations State from Store
+  const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
+  const [decliningToken, setDecliningToken] = useState<string | null>(null);
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -235,14 +240,30 @@ export default function DashboardPage() {
 
   const loadProjects = async () => {
     try {
-      const data = await apiService.getProjects();
-      setProjects(Array.isArray(data) ? data : []);
+      // Fetch both projects and pending invitations
+      const projectsData = await apiService.getProjects();
+      await fetchInvitations();
+
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
       console.error("Failed to load projects:", error);
-      showToast.error("Failed to load projects. Please try again.");
+      showToast.error("Failed to load dashboard data. Please try again.");
       setProjects([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeclineInvitation = async (token: string) => {
+    setDecliningToken(token);
+    try {
+      await apiService.declineInvitation(token);
+      showToast.success("Invitation declined");
+      removeInvitation(token);
+    } catch (error: any) {
+      showToast.error(error.message || "Failed to decline invitation");
+    } finally {
+      setDecliningToken(null);
     }
   };
 
@@ -386,6 +407,63 @@ export default function DashboardPage() {
             </motion.div>
           )}
 
+          {/* Pending Invitations Section */}
+          {!loading && myInvitations.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mb-8"
+            >
+              <h2 className="text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
+                Pending Invitations
+                <Badge variant="secondary" className="bg-primary/10 text-primary">
+                  {myInvitations.length}
+                </Badge>
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {myInvitations.map((invitation: any) => (
+                  <Card key={invitation.id} className="border-primary/20 bg-primary/5 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg font-bold">{invitation.project.name}</CardTitle>
+                          <CardDescription className="mt-1">
+                            Invited by <span className="font-semibold text-foreground">{invitation.inviter?.name || "Someone"}</span>
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline" className="bg-background">
+                          {invitation.role}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardFooter className="flex gap-3 pt-2 pb-4">
+                      <Button
+                        className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={() => router.push(`/invite/accept?token=${invitation.token}`)}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 border-destructive/20 text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDeclineInvitation(invitation.token)}
+                        disabled={decliningToken === invitation.token}
+                      >
+                        {decliningToken === invitation.token ? (
+                          <IconLoader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Decline"
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+              <Separator className="mt-8 mb-2 opacity-50" />
+            </motion.div>
+          )}
+
           {/* Projects */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -433,18 +511,32 @@ export default function DashboardPage() {
                       <CardHeader className="pb-3">
                         <div className="flex justify-between items-start">
                           <div className="flex-1 mr-2">
-                            <CardTitle className="text-lg mb-1">{project.name}</CardTitle>
-                            <Link
-                              href={`/assess/${project.id}`}
-                              className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-                            >
-                              <span>
-                                {project.status === 'completed' ? 'Completed' :
-                                  project.status === 'in_progress' ? 'In Progress' :
-                                    'Start'}
-                              </span>
-                              <IconArrowRight className="w-3.5 h-3.5" />
-                            </Link>
+                            <CardTitle className="text-lg mb-1 flex items-center justify-between">
+                              <span className="truncate pr-2">{project.name}</span>
+                              {project.user_id && user?.id && project.user_id !== user.id && (
+                                <Badge variant="secondary" className="text-[10px] px-2 py-0 h-5 font-medium bg-primary/10 text-primary border-primary/20 shrink-0">
+                                  Shared
+                                </Badge>
+                              )}
+                            </CardTitle>
+                            <div className="flex items-center gap-2">
+                              {project.role && project.role !== 'OWNER' && (
+                                <Badge variant="secondary" className="text-[10px] h-4 px-1.5 uppercase font-bold tracking-wider opacity-70">
+                                  {project.role}
+                                </Badge>
+                              )}
+                              <Link
+                                href={`/assess/${project.id}`}
+                                className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+                              >
+                                <span>
+                                  {project.status === 'completed' ? 'Completed' :
+                                    project.status === 'in_progress' ? 'In Progress' :
+                                      'Start'}
+                                </span>
+                                <IconArrowRight className="w-3.5 h-3.5" />
+                              </Link>
+                            </div>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -454,18 +546,31 @@ export default function DashboardPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEditProject(project)}>
-                                <IconPencil className="mr-2 h-4 w-4" />
-                                <span>Edit</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setDeletingProjectId(project.id)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <IconTrash className="mr-2 h-4 w-4" />
-                                <span>Delete</span>
-                              </DropdownMenuItem>
+                              {(project.role === 'OWNER' || project.role === 'EDITOR') && (
+                                <DropdownMenuItem onClick={() => handleEditProject(project)}>
+                                  <IconPencil className="mr-2 h-4 w-4" />
+                                  <span>Edit</span>
+                                </DropdownMenuItem>
+                              )}
+
+                              {project.role === 'OWNER' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setDeletingProjectId(project.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <IconTrash className="mr-2 h-4 w-4" />
+                                    <span>Delete</span>
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {(!project.role || project.role === 'VIEWER') && (
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                                  Read-only access
+                                </div>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

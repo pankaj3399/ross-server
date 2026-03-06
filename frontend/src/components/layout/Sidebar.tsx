@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +16,7 @@ import {
   IconSun,
   IconCrown,
   IconShieldCheck,
+  IconBell,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -48,6 +49,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { showToast } from "@/lib/toast";
+import { useNotificationStore } from "@/store/notificationStore";
 
 export interface SidebarItem {
   id: string;
@@ -92,16 +96,39 @@ const defaultSidebarItems: SidebarItem[] = [
   },
 ];
 
+import { apiService } from "../../lib/api";
+
 function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const { setOpenMobile } = useSidebar();
+  const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
+  const [decliningToken, setDecliningToken] = useState<string | null>(null);
 
   useEffect(() => {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchInvitations();
+    }
+  }, [isAuthenticated, pathname, fetchInvitations]); // Re-check when path changes (e.g. going back to dashboard)
+
+  const handleDecline = async (token: string) => {
+    setDecliningToken(token);
+    try {
+      await apiService.declineInvitation(token);
+      showToast.success("Invitation declined");
+      removeInvitation(token);
+    } catch (error: any) {
+      showToast.error(error.message || "Failed to decline invitation");
+    } finally {
+      setDecliningToken(null);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -199,14 +226,14 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                       isActive={active}
                       disabled={item.disabled}
                       tooltip={item.label}
-                      className="group-data-[collapsible=icon]:!p-1.5"
+                      className="group-data-[collapsible=icon]:!p-1.5 relative"
                     >
                       <Link
                         href={item.disabled ? "#" : item.href}
-                        className="flex items-center gap-3"
+                        className="flex items-center gap-3 w-full"
                       >
-                        <Icon className="size-7" />
-                        <span className="text-base font-medium">{item.label}</span>
+                        <Icon className="size-7 shrink-0" />
+                        <span className="text-base font-medium group-data-[collapsible=icon]:hidden">{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -219,6 +246,65 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
 
       <SidebarFooter className="group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:gap-2">
         <SidebarSeparator />
+
+        {/* Notifications */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  tooltip="Notifications"
+                  className="group-data-[collapsible=icon]:!p-1.5 relative"
+                >
+                  <IconBell className="size-7" />
+                  <span className="text-base font-medium group-data-[collapsible=icon]:hidden">Notifications</span>
+                  {myInvitations.length > 0 && (
+                    <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-primary rounded-full border border-sidebar" />
+                  )}
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-80 ml-4 group-data-[collapsible=icon]:ml-0"
+                side="top"
+                align="start"
+              >
+                <DropdownMenuLabel>Pending Invitations</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {myInvitations.length > 0 ? (
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {myInvitations.map((inv) => (
+                      <div key={inv.id} className="p-3 text-sm flex flex-col gap-2 border-b last:border-0 hover:bg-muted/50 transition-colors">
+                        <p className="text-foreground leading-snug">
+                          <span className="font-semibold">{inv.inviter?.name || "Someone"}</span> invited you to join <span className="font-semibold text-primary">{inv.project.name}</span>
+                        </p>
+                        <div className="flex gap-2 mt-1">
+                          <Button
+                            size="sm"
+                            className="flex-1 h-8 text-xs"
+                            onClick={() => router.push(`/invite/accept?token=${inv.token}`)}
+                          >
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-8 text-xs text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDecline(inv.token)}
+                            disabled={decliningToken === inv.token}
+                          >
+                            {decliningToken === inv.token ? "Declining..." : "Decline"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-sm text-muted-foreground text-center">No new notifications</div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
         {/* Theme Toggle */}
         <SidebarMenu>
