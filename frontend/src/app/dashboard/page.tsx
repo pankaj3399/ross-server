@@ -111,7 +111,7 @@ export default function DashboardPage() {
   const decliningTokensRef = useRef<Set<string>>(new Set());
 
   // Pending Invitations State from Store
-  const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
+  const { invitations: myInvitations, fetchInvitations, removeInvitation, clearInvitations } = useNotificationStore();
   const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
 
   const saveReturnUrlForCheckout = () => {
@@ -250,6 +250,7 @@ export default function DashboardPage() {
       console.error("Failed to load projects:", error);
       showToast.error("Failed to load dashboard data. Please try again.");
       setProjects([]);
+      clearInvitations();
     } finally {
       setLoading(false);
     }
@@ -450,7 +451,7 @@ export default function DashboardPage() {
                     <CardFooter className="flex gap-3 pt-2 pb-4">
                       <Button
                         className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={() => router.push(`/invite/accept?token=${invitation.token}`)}
+                        onClick={() => router.push(`/invite/accept?token=${encodeURIComponent(invitation.token)}`)}
                       >
                         Accept
                       </Button>

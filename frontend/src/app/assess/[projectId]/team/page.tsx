@@ -278,7 +278,7 @@ export default function TeamManagementPage() {
                             </TableHeader>
                             <TableBody>
                                 {members.map((member) => {
-                                    const isSelf = member.user_id === user?.id;
+                                    const isSelf = String(member.canonicalId) === String(user?.id);
                                     return (
                                         <TableRow key={member.id}>
                                             <TableCell className="font-medium">

@@ -5,7 +5,7 @@ import { authenticateToken } from "../middleware/auth";
 import { getCurrentVersion } from "../services/getCurrentVersion"; // Assuming this service exists as per original file
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
-import { addMember, listMembersForProject, updateMember, removeMember } from "../services/projectMembershipService";
+import { addMember, updateMember, removeMember } from "../services/projectMembershipService";
 import { loadProject, requireProjectRole } from "../middleware/projectAccess";
 import {
   createInvitation,
@@ -470,6 +470,10 @@ router.post(
         role,
         permissions ?? [],
       );
+
+      if (!invitation) {
+        return res.status(400).json({ error: "A pending invitation already exists for this email." });
+      }
 
       // Send email (best-effort)
       const inviteUrl = `${process.env.FRONTEND_URL}/invite/accept?token=${invitation.token}`;

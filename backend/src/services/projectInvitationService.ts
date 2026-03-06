@@ -34,17 +34,29 @@ export async function createInvitation(
   role: ProjectRole,
   permissions: string[] = [],
   ttlHours = 72,
-): Promise<ProjectInvitation> {
+): Promise<ProjectInvitation | null> {
   const token = generateToken();
   const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+
+  await pool.query(
+    `UPDATE project_invitations 
+     SET status = 'expired', updated_at = CURRENT_TIMESTAMP
+     WHERE project_id = $1 AND LOWER(email) = $2 AND status IN ('pending', 'sent') AND expires_at <= CURRENT_TIMESTAMP`,
+    [projectId, email.toLowerCase()]
+  );
 
   const result = await pool.query(
     `INSERT INTO project_invitations 
        (project_id, inviter_id, email, role, permissions, token, status, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+     ON CONFLICT DO NOTHING
      RETURNING id, project_id, inviter_id, email, role, permissions, token, status, expires_at, created_at, updated_at`,
     [projectId, inviterId, email.toLowerCase(), role, JSON.stringify(permissions), token, expiresAt],
   );
+
+  if (result.rows.length === 0) {
+    return null;
+  }
 
   const row = result.rows[0];
   return {

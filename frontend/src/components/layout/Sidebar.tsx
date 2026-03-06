@@ -296,7 +296,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                           <Button
                             size="sm"
                             className="flex-1 h-8 text-xs"
-                            onClick={() => router.push(`/invite/accept?token=${inv.token}`)}
+                            onClick={() => router.push(`/invite/accept?token=${encodeURIComponent(inv.token)}`)}
                           >
                             Accept
                           </Button>
