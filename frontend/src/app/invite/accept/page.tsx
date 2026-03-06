@@ -261,6 +261,22 @@ function InviteAcceptContent() {
                                         </div>
                                     </div>
 
+                                    {showMFA && (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="mfaCode">MFA Code</Label>
+                                            <Input
+                                                id="mfaCode"
+                                                type="text"
+                                                placeholder="123456"
+                                                value={mfaCode}
+                                                onChange={(e) => setMFACode(e.target.value)}
+                                                className="h-12 text-center text-2xl tracking-[0.5em] font-mono"
+                                                maxLength={6}
+                                                required
+                                            />
+                                        </div>
+                                    )}
+
                                     {error && (
                                         <div className="text-destructive text-sm text-center bg-destructive/10 p-3 rounded-md">
                                             {error}

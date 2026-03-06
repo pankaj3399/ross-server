@@ -54,21 +54,25 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
     const [editBody, setEditBody] = useState("");
     const [deletingComment, setDeletingComment] = useState<Comment | null>(null);
 
-    useEffect(() => {
-        fetchComments();
-    }, [projectId, objectType, objectId]);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchComments = useCallback(async () => {
         try {
             setLoading(true);
+            setError(null);
             const data = await apiService.getProjectComments(projectId, { objectType, objectId });
             setComments(data.comments || []);
         } catch (err: any) {
             console.error("Failed to load comments", err);
+            setError(err.message || "Failed to load comments. Please try again.");
         } finally {
             setLoading(false);
         }
     }, [projectId, objectType, objectId]);
+
+    useEffect(() => {
+        fetchComments();
+    }, [fetchComments]);
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -118,10 +122,14 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
         }
     };
 
-    if (loading) {
+    if (error) {
         return (
-            <div className="flex justify-center p-8">
-                <IconLoader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center p-8 border rounded-xl bg-destructive/5 text-destructive border-destructive/20 shadow-sm">
+                <IconAlertCircle className="w-8 h-8 mb-4" />
+                <p className="text-center font-medium mb-4">{error}</p>
+                <Button variant="outline" onClick={fetchComments} className="border-destructive/30 hover:bg-destructive/10 text-destructive">
+                    Retry
+                </Button>
             </div>
         );
     }
@@ -133,7 +141,7 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
         if (!acc[parentId]) acc[parentId] = [];
         acc[parentId].push(reply);
         return acc;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, Comment[]>);
 
     return (
         <div className="space-y-6">

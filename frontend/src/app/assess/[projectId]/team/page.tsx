@@ -54,7 +54,7 @@ import {
 
 export default function TeamManagementPage() {
     const { projectId } = useParams() as { projectId: string };
-    const { user } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     // Removed useAssessmentContext as role is not present
 
     const [members, setMembers] = useState<any[]>([]);
@@ -85,14 +85,14 @@ export default function TeamManagementPage() {
         setLoading(true);
         try {
             const memRes = await apiService.getProjectMembers(projectId);
-            const fetchedMembers = memRes.members || [];
+            const fetchedMembers = (memRes.members || []).map((m: any) => ({
+                ...m,
+                canonicalId: m.user_id || m.id
+            }));
             setMembers(fetchedMembers);
 
             const currentUserMember = fetchedMembers.find(
-                (m: any) =>
-                    (m.user_id && user?.id && String(m.user_id) === String(user.id)) ||
-                    (m.id && user?.id && String(m.id).includes(String(user.id))) ||
-                    (user?.email && m.email === user?.email)
+                (m: any) => String(m.canonicalId) === String(user?.id) || (user?.email && m.email === user?.email)
             );
             const currentUserIsOwner = currentUserMember?.role === "OWNER";
             setIsOwner(currentUserIsOwner);
@@ -139,7 +139,7 @@ export default function TeamManagementPage() {
         if (!memberToEdit) return;
         setProcessing(true);
         try {
-            await apiService.updateProjectMember(projectId, memberToEdit.user_id, { role: editRole });
+            await apiService.updateProjectMember(projectId, memberToEdit.canonicalId, { role: editRole });
             showToast.success("Member role updated");
             setMemberToEdit(null);
             fetchData();
@@ -154,7 +154,7 @@ export default function TeamManagementPage() {
         if (!memberToRemove) return;
         setProcessing(true);
         try {
-            await apiService.removeProjectMember(projectId, memberToRemove.user_id);
+            await apiService.removeProjectMember(projectId, memberToRemove.canonicalId);
             showToast.success("Member removed");
             setMemberToRemove(null);
             fetchData();

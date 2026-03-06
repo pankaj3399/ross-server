@@ -23,6 +23,7 @@ interface NotificationState {
   fetchInvitations: () => Promise<void>;
   removeInvitation: (token: string) => void;
   setInvitations: (invitations: Invitation[]) => void;
+  clearInvitations: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({

@@ -1339,12 +1339,6 @@ class ApiService {
   public async getMyInvitations(): Promise<{ invitations: any[] }> {
     return this.request<{ invitations: any[] }>("/auth/invitations/me");
   }
-
-  public async declineInvitation(token: string): Promise<any> {
-    return this.request(`/auth/invitations/${token}/decline`, {
-      method: "POST",
-    });
-  }
 }
 
 export const apiService = new ApiService();

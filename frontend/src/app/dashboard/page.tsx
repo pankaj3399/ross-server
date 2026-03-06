@@ -7,7 +7,7 @@ import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
-import { useNotificationStore } from "../../store/notificationStore";
+import { useNotificationStore, Invitation } from "../../store/notificationStore";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -426,7 +426,7 @@ export default function DashboardPage() {
                 </Badge>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {myInvitations.map((invitation: any) => (
+                {myInvitations.map((invitation: Invitation) => (
                   <Card key={invitation.id} className="border-primary/20 bg-primary/5 shadow-sm">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
@@ -550,14 +550,14 @@ export default function DashboardPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              {(project.role === 'OWNER' || project.role === 'EDITOR') && (
+                              {(project.role === 'OWNER' || project.role === 'EDITOR' || project.user_id === user?.id) && (
                                 <DropdownMenuItem onClick={() => handleEditProject(project)}>
                                   <IconPencil className="mr-2 h-4 w-4" />
                                   <span>Edit</span>
                                 </DropdownMenuItem>
                               )}
 
-                              {project.role === 'OWNER' && (
+                              {(project.role === 'OWNER' || project.user_id === user?.id) && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
@@ -570,7 +570,7 @@ export default function DashboardPage() {
                                 </>
                               )}
 
-                              {(!project.role || project.role === 'VIEWER') && (
+                              {(!project.role || project.role === 'VIEWER') && project.user_id !== user?.id && (
                                 <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
                                   Read-only access
                                 </div>

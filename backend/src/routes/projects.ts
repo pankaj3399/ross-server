@@ -450,6 +450,18 @@ router.post(
         }
       }
 
+      // Check for existing pending/sent invitation
+      const existingInvitationResult = await pool.query(
+        `SELECT id FROM project_invitations 
+         WHERE project_id = $1 AND LOWER(email) = LOWER($2) AND status IN ('pending', 'sent')
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+        [project.id, email]
+      );
+
+      if (existingInvitationResult.rows.length > 0) {
+        return res.status(400).json({ error: "A pending invitation already exists for this email." });
+      }
+
       // Create a pending invitation for all users (new or existing)
       const invitation = await createInvitation(
         project.id,
@@ -559,7 +571,7 @@ router.delete(
 // ==========================================
 
 // GET /projects/:projectId/members
-router.get("/:projectId/members", authenticateToken, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
+router.get("/:projectId/members", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
     try {
       const { projectId } = req.params;
       

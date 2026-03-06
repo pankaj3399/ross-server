@@ -107,6 +107,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
   const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
   const fetchInProgress = useRef(false);
+  const decliningTokensRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     setOpenMobile(false);
@@ -122,7 +123,11 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   }, [isAuthenticated, pathname, fetchInvitations]); // Re-check when path changes (e.g. going back to dashboard)
 
   const handleDecline = async (token: string) => {
+    if (decliningTokensRef.current.has(token)) return;
+
+    decliningTokensRef.current.add(token);
     setDecliningTokens(prev => new Set(prev).add(token));
+
     try {
       await apiService.declineInvitation(token);
       showToast.success("Invitation declined");
@@ -130,6 +135,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
     } catch (error: any) {
       showToast.error(error.message || "Failed to decline invitation");
     } finally {
+      decliningTokensRef.current.delete(token);
       setDecliningTokens(prev => {
         const next = new Set(prev);
         next.delete(token);
@@ -234,7 +240,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                       isActive={active}
                       disabled={item.disabled}
                       tooltip={item.label}
-                      className="group-data-[collapsible=icon]:!p-1.5 relative"
+                      className="group-data-[collapsible=icon]:p-1.5! relative"
                     >
                       <Link
                         href={item.disabled ? "#" : item.href}
@@ -262,7 +268,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   tooltip="Notifications"
-                  className="group-data-[collapsible=icon]:!p-1.5 relative"
+                  className="group-data-[collapsible=icon]:p-1.5! relative"
                 >
                   <IconBell className="size-7" />
                   <span className="text-base font-medium group-data-[collapsible=icon]:hidden">Notifications</span>
@@ -320,7 +326,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
             <SidebarMenuButton
               asChild
               tooltip={theme === "dark" ? "Light mode" : "Dark mode"}
-              className="group-data-[collapsible=icon]:!p-1.5"
+              className="group-data-[collapsible=icon]:p-1.5!"
             >
               <div
                 onClick={toggleTheme}
