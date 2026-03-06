@@ -37,7 +37,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       set({ invitations: data.invitations || [], loading: false });
     } catch (error) {
       console.error("Failed to fetch invitations:", error);
-      set({ loading: false });
+      set({ invitations: [], loading: false });
     }
   },
 

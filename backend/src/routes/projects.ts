@@ -615,6 +615,11 @@ router.patch(
         return res.status(400).json({ error: "You cannot change your own role" });
       }
 
+      // Prevent changing canonical project owner's role
+      if (userId === (req.project as any).user_id) {
+        return res.status(400).json({ error: "Cannot change canonical project owner role" });
+      }
+
       const membership = await updateMember(projectId, userId, { role });
       
       if (!membership) {
@@ -654,6 +659,20 @@ router.delete(
       // Prevent owner from removing themselves
       if (req.user!.id === userId) {
         return res.status(400).json({ error: "You cannot remove yourself from the project" });
+      }
+
+      // Prevent removal of the project's canonical owner
+      if (userId === (req.project as any).user_id) {
+        return res.status(400).json({ error: "Cannot remove the canonical project owner" });
+      }
+
+      // Verify membership exists in project_members
+      const membershipCheck = await pool.query(
+        "SELECT 1 FROM project_members WHERE project_id = $1 AND user_id = $2",
+        [projectId, userId]
+      );
+      if (membershipCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Member not found" });
       }
       
       await removeMember(projectId, userId);

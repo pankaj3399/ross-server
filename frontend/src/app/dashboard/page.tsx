@@ -108,6 +108,7 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const decliningTokensRef = useRef<Set<string>>(new Set());
 
   // Pending Invitations State from Store
   const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
@@ -255,7 +256,11 @@ export default function DashboardPage() {
   };
 
   const handleDeclineInvitation = async (token: string) => {
+    if (decliningTokensRef.current.has(token)) return;
+
+    decliningTokensRef.current.add(token);
     setDecliningTokens(prev => new Set(prev).add(token));
+
     try {
       await apiService.declineInvitation(token);
       showToast.success("Invitation declined");
@@ -263,6 +268,7 @@ export default function DashboardPage() {
     } catch (error: any) {
       showToast.error(error.message || "Failed to decline invitation");
     } finally {
+      decliningTokensRef.current.delete(token);
       setDecliningTokens(prev => {
         const next = new Set(prev);
         next.delete(token);

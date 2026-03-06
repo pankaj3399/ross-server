@@ -111,6 +111,8 @@ export default function TeamManagementPage() {
         } catch (error) {
             console.error("Failed to fetch team data", error);
             showToast.error("Failed to load team data");
+            setMembers([]);
+            setIsOwner(false);
             setInvitations([]);
         } finally {
             setLoading(false);

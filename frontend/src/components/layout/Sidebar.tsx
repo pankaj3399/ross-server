@@ -104,7 +104,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
   const { setOpenMobile, state } = useSidebar();
-  const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
+  const { invitations: myInvitations, fetchInvitations, removeInvitation, clearInvitations } = useNotificationStore();
   const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
   const fetchInProgress = useRef(false);
   const decliningTokensRef = useRef<Set<string>>(new Set());
@@ -145,6 +145,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   };
 
   const handleLogout = () => {
+    clearInvitations();
     logout();
     router.replace(AUTH_LOGIN_URL);
   };
