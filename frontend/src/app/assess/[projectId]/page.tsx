@@ -1,13 +1,16 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAssessmentContext } from "../../../contexts/AssessmentContext";
 import { IconAlertTriangle, IconBrain } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../components/Skeleton";
 import QuestionView from "../../../components/assess/QuestionView";
+import CommentsPanel from "../../../components/shared/CommentsPanel";
 
 export default function AssessmentPage() {
   const router = useRouter();
+  const params = useParams();
+  const projectId = params?.projectId as string;
 
   const {
     domains,
@@ -101,5 +104,16 @@ export default function AssessmentPage() {
     return <AssessmentSkeleton />;
   }
 
-  return <QuestionView />;
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-auto">
+        <QuestionView />
+      </div>
+
+      <div className="border-t p-6 bg-muted/10 mx-auto w-full max-w-7xl">
+        <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
+        <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+      </div>
+    </div>
+  );
 }

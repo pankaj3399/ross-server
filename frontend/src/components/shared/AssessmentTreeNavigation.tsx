@@ -12,9 +12,9 @@ import {
   IconScale,
   IconClipboardCheck,
   IconLock,
-  IconClock,
   IconFolder,
   IconShieldCheck,
+  IconUsers,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useAssessmentContext } from "../../contexts/AssessmentContext";
@@ -488,6 +488,24 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
           </SidebarGroup>
 
 
+
+          {/* SECTION 2: TEAM & COLLABORATION */}
+          {projectId && user && (
+            <SidebarGroup className="px-2 py-1">
+              <button
+                type="button"
+                className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+                onClick={() => router.push(`/assess/${projectId}/team`)}
+              >
+                <IconUsers
+                  className="h-5 w-5 transition-transform text-foreground"
+                />
+                <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
+                  Team
+                </span>
+              </button>
+            </SidebarGroup>
+          )}
 
           {/* SECTION 3: PREMIUM FEATURES */}
           {projectId && !hidePremiumFeaturesButton && (

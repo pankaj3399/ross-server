@@ -39,6 +39,8 @@ export interface Project {
   ai_system_type?: string;
   industry?: string;
   status: string;
+  user_id: string;
+  role?: string;
   created_at: string;
   updated_at: string;
 }
@@ -1226,6 +1228,116 @@ class ApiService {
 
   async getCRCResponses(projectId: string): Promise<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }> {
     return this.request<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }>(`/crc/assess/${projectId}`);
+  }
+
+  // ==========================================
+  // INVITATION METHODS
+  // ==========================================
+
+  public async getInvitationByToken(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}`);
+  }
+
+  public async acceptInvitation(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}/accept`, {
+      method: "POST",
+    });
+  }
+
+  public async signupViaInvitation(token: string, data: { name: string; password: string }): Promise<any> {
+    const response = await this.request<any>(`/auth/invitations/${token}/signup`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (response.token) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("auth_token", response.token);
+      }
+    }
+    return response;
+  }
+
+  public async declineInvitation(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}/decline`, {
+      method: "POST",
+    });
+  }
+
+  // ==========================================
+  // MEMBER MANAGEMENT METHODS
+  // ==========================================
+
+  public async getProjectMembers(projectId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/members`);
+  }
+
+  public async updateProjectMember(projectId: string, userId: string, data: { role: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async removeProjectMember(projectId: string, userId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/members/${userId}`, {
+      method: "DELETE",
+    });
+  }
+
+  public async inviteToProject(projectId: string, data: { email: string; role: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async getProjectInvitations(projectId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations`);
+  }
+
+  public async revokeProjectInvitation(projectId: string, invitationId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations/${invitationId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // ==========================================
+  // COMMENTS METHODS
+  // ==========================================
+
+  public async getProjectComments(projectId: string, params?: { objectType?: string; objectId?: string }): Promise<any> {
+    let endpoint = `/projects/${projectId}/comments`;
+    if (params) {
+      const searchParams = new URLSearchParams();
+      if (params.objectType) searchParams.append("objectType", params.objectType);
+      if (params.objectId) searchParams.append("objectId", params.objectId);
+      endpoint += `?${searchParams.toString()}`;
+    }
+    return this.request(endpoint);
+  }
+
+  public async createProjectComment(projectId: string, data: { objectType: string; objectId: string; body: string; parentCommentId?: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  public async updateComment(commentId: string, body: string): Promise<any> {
+    return this.request(`/projects/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
+    });
+  }
+
+  public async deleteComment(commentId: string): Promise<any> {
+    return this.request(`/projects/comments/${commentId}`, {
+      method: "DELETE",
+    });
+  }
+  public async getMyInvitations(): Promise<{ invitations: any[] }> {
+    return this.request<{ invitations: any[] }>("/auth/invitations/me");
   }
 }
 
