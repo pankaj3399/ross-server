@@ -26,19 +26,32 @@ interface NotificationState {
   clearInvitations: () => void;
 }
 
+let fetchInvitationsPromise: Promise<void> | null = null;
+
 export const useNotificationStore = create<NotificationState>((set) => ({
   invitations: [],
   loading: false,
 
   fetchInvitations: async () => {
-    set({ loading: true });
-    try {
-      const data = await apiService.getMyInvitations();
-      set({ invitations: data.invitations || [], loading: false });
-    } catch (error) {
-      console.error("Failed to fetch invitations:", error);
-      set({ invitations: [], loading: false });
+    if (fetchInvitationsPromise) {
+      return fetchInvitationsPromise;
     }
+
+    set({ loading: true });
+
+    fetchInvitationsPromise = (async () => {
+      try {
+        const data = await apiService.getMyInvitations();
+        set({ invitations: data.invitations || [], loading: false });
+      } catch (error) {
+        console.error("Failed to fetch invitations:", error);
+        set({ invitations: [], loading: false });
+      } finally {
+        fetchInvitationsPromise = null;
+      }
+    })();
+
+    return fetchInvitationsPromise;
   },
 
   removeInvitation: (token: string) => {

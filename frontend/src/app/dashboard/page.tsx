@@ -241,9 +241,11 @@ export default function DashboardPage() {
 
   const loadProjects = async () => {
     try {
-      // Fetch both projects and pending invitations
-      const projectsData = await apiService.getProjects();
-      await fetchInvitations();
+      // Fetch both projects and pending invitations concurrently
+      const [projectsData] = await Promise.all([
+        apiService.getProjects(),
+        fetchInvitations()
+      ]);
 
       setProjects(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {

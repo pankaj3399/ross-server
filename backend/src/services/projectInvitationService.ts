@@ -110,7 +110,7 @@ export async function acceptInvitation(
 
     const invite = inviteResult.rows[0] as ProjectInvitation & { expires_at: Date };
 
-    if (invite.status !== "pending") {
+    if (!["pending", "sent"].includes(invite.status)) {
       throw new Error("Invitation is no longer valid");
     }
 
@@ -183,7 +183,7 @@ export async function listInvitationsForProject(
   const result = await pool.query(
     `SELECT id, project_id, inviter_id, email, role, permissions, token, status, expires_at, created_at, updated_at
      FROM project_invitations
-     WHERE project_id = $1 AND status = 'pending'
+     WHERE project_id = $1 AND status IN ('pending', 'sent')
      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
      ORDER BY created_at DESC`,
     [projectId],

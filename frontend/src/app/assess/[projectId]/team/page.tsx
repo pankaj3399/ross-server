@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { showToast } from "@/lib/toast";
@@ -52,26 +52,41 @@ import {
     IconX
 } from "@tabler/icons-react";
 
+export interface ProjectMember {
+    id: string;
+    canonicalId: string;
+    name: string;
+    email: string;
+    role: 'OWNER' | 'EDITOR' | 'VIEWER';
+}
+
+export interface Invitation {
+    id: string;
+    email: string;
+    role: 'OWNER' | 'EDITOR' | 'VIEWER';
+    status: string;
+}
+
 export default function TeamManagementPage() {
     const { projectId } = useParams() as { projectId: string };
     const { user, isAuthenticated } = useAuth();
     // Removed useAssessmentContext as role is not present
 
-    const [members, setMembers] = useState<any[]>([]);
-    const [invitations, setInvitations] = useState<any[]>([]);
+    const [members, setMembers] = useState<ProjectMember[]>([]);
+    const [invitations, setInvitations] = useState<Invitation[]>([]);
     const [loading, setLoading] = useState(true);
     const [isOwner, setIsOwner] = useState(false);
 
     // Invite state
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState("EDITOR");
+    const [inviteRole, setInviteRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER'>('EDITOR');
     const [inviting, setInviting] = useState(false);
 
     // Edit/Remove state
-    const [memberToEdit, setMemberToEdit] = useState<any>(null);
-    const [editRole, setEditRole] = useState("");
-    const [memberToRemove, setMemberToRemove] = useState<any>(null);
-    const [invitationToRevoke, setInvitationToRevoke] = useState<any>(null);
+    const [memberToEdit, setMemberToEdit] = useState<ProjectMember | null>(null);
+    const [editRole, setEditRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER' | string>("");
+    const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
+    const [invitationToRevoke, setInvitationToRevoke] = useState<Invitation | null>(null);
 
     const [processing, setProcessing] = useState(false);
 
@@ -81,18 +96,18 @@ export default function TeamManagementPage() {
         }
     }, [projectId, isAuthenticated, user?.id]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const memRes = await apiService.getProjectMembers(projectId);
             const fetchedMembers = (memRes.members || []).map((m: any) => ({
                 ...m,
                 canonicalId: m.user_id || m.id
-            }));
+            })) as ProjectMember[];
             setMembers(fetchedMembers);
 
             const currentUserMember = fetchedMembers.find(
-                (m: any) => String(m.canonicalId) === String(user?.id) || (user?.email && m.email === user?.email)
+                (m) => String(m.canonicalId) === String(user?.id) || (user?.email && m.email === user?.email)
             );
             const currentUserIsOwner = currentUserMember?.role === "OWNER";
             setIsOwner(currentUserIsOwner);
@@ -117,7 +132,13 @@ export default function TeamManagementPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectId, user?.id, user?.email]);
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchData();
+        }
+    }, [isAuthenticated, fetchData]);
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -230,7 +251,7 @@ export default function TeamManagementPage() {
                             </div>
                             <div className="grid gap-2 sm:col-span-3">
                                 <Label className="text-sm font-medium">Role</Label>
-                                <Select value={inviteRole} onValueChange={setInviteRole}>
+                                <Select value={inviteRole} onValueChange={(val) => setInviteRole(val as 'OWNER' | 'EDITOR' | 'VIEWER')}>
                                     <SelectTrigger className="h-10">
                                         <SelectValue placeholder="Select role" />
                                     </SelectTrigger>
@@ -277,66 +298,74 @@ export default function TeamManagementPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {members.map((member) => {
-                                    const isSelf = String(member.canonicalId) === String(user?.id);
-                                    return (
-                                        <TableRow key={member.id}>
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="h-8 w-8">
-                                                        <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
-                                                            {member.name ? member.name.substring(0, 2) : "US"}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex flex-col">
-                                                        <span>{member.name} {isSelf && "(You)"}</span>
+                                {members.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={isOwner ? 4 : 3} className="h-24 text-center text-muted-foreground">
+                                            No members yet
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    members.map((member) => {
+                                        const isSelf = String(member.canonicalId) === String(user?.id);
+                                        return (
+                                            <TableRow key={member.id}>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarFallback className="bg-primary/10 text-primary uppercase text-xs">
+                                                                {member.name ? member.name.substring(0, 2) : "US"}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="flex flex-col">
+                                                            <span>{member.name} {isSelf && "(You)"}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {member.email}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant={member.role === 'OWNER' ? 'default' : member.role === 'EDITOR' ? 'secondary' : 'outline'}
-                                                >
-                                                    {member.role}
-                                                </Badge>
-                                            </TableCell>
-                                            {isOwner && (
-                                                <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSelf}>
-                                                                <span className="sr-only">Open menu</span>
-                                                                <IconDotsVertical className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem
-                                                                onClick={() => {
-                                                                    setMemberToEdit(member);
-                                                                    setEditRole(member.role);
-                                                                }}
-                                                            >
-                                                                <IconPencil className="mr-2 h-4 w-4" />
-                                                                <span>Change Role</span>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                onClick={() => setMemberToRemove(member)}
-                                                                className="text-destructive focus:text-destructive"
-                                                            >
-                                                                <IconTrash className="mr-2 h-4 w-4" />
-                                                                <span>Remove Member</span>
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
                                                 </TableCell>
-                                            )}
-                                        </TableRow>
-                                    );
-                                })}
+                                                <TableCell className="text-muted-foreground">
+                                                    {member.email}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge
+                                                        variant={member.role === 'OWNER' ? 'default' : member.role === 'EDITOR' ? 'secondary' : 'outline'}
+                                                    >
+                                                        {member.role}
+                                                    </Badge>
+                                                </TableCell>
+                                                {isOwner && (
+                                                    <TableCell className="text-right">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-8 w-8 p-0" disabled={isSelf}>
+                                                                    <span className="sr-only">Open menu</span>
+                                                                    <IconDotsVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setMemberToEdit(member);
+                                                                        setEditRole(member.role);
+                                                                    }}
+                                                                >
+                                                                    <IconPencil className="mr-2 h-4 w-4" />
+                                                                    <span>Change Role</span>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => setMemberToRemove(member)}
+                                                                    className="text-destructive focus:text-destructive"
+                                                                >
+                                                                    <IconTrash className="mr-2 h-4 w-4" />
+                                                                    <span>Remove Member</span>
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
                             </TableBody>
                         </Table>
                     </div>
