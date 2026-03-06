@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
   // Pending Invitations State from Store
   const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
-  const [decliningToken, setDecliningToken] = useState<string | null>(null);
+  const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -255,7 +255,7 @@ export default function DashboardPage() {
   };
 
   const handleDeclineInvitation = async (token: string) => {
-    setDecliningToken(token);
+    setDecliningTokens(prev => new Set(prev).add(token));
     try {
       await apiService.declineInvitation(token);
       showToast.success("Invitation declined");
@@ -263,7 +263,11 @@ export default function DashboardPage() {
     } catch (error: any) {
       showToast.error(error.message || "Failed to decline invitation");
     } finally {
-      setDecliningToken(null);
+      setDecliningTokens(prev => {
+        const next = new Set(prev);
+        next.delete(token);
+        return next;
+      });
     }
   };
 
@@ -448,9 +452,9 @@ export default function DashboardPage() {
                         variant="outline"
                         className="flex-1 border-destructive/20 text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeclineInvitation(invitation.token)}
-                        disabled={decliningToken === invitation.token}
+                        disabled={decliningTokens.has(invitation.token)}
                       >
-                        {decliningToken === invitation.token ? (
+                        {decliningTokens.has(invitation.token) ? (
                           <IconLoader2 className="w-4 h-4 animate-spin" />
                         ) : (
                           "Decline"

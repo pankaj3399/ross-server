@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -103,22 +103,26 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state } = useSidebar();
   const { invitations: myInvitations, fetchInvitations, removeInvitation } = useNotificationStore();
-  const [decliningToken, setDecliningToken] = useState<string | null>(null);
+  const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
+  const fetchInProgress = useRef(false);
 
   useEffect(() => {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchInvitations();
+    if (isAuthenticated && !fetchInProgress.current) {
+      fetchInProgress.current = true;
+      fetchInvitations().finally(() => {
+        fetchInProgress.current = false;
+      });
     }
   }, [isAuthenticated, pathname, fetchInvitations]); // Re-check when path changes (e.g. going back to dashboard)
 
   const handleDecline = async (token: string) => {
-    setDecliningToken(token);
+    setDecliningTokens(prev => new Set(prev).add(token));
     try {
       await apiService.declineInvitation(token);
       showToast.success("Invitation declined");
@@ -126,7 +130,11 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
     } catch (error: any) {
       showToast.error(error.message || "Failed to decline invitation");
     } finally {
-      setDecliningToken(null);
+      setDecliningTokens(prev => {
+        const next = new Set(prev);
+        next.delete(token);
+        return next;
+      });
     }
   };
 
@@ -264,7 +272,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-80 ml-4 group-data-[collapsible=icon]:ml-0"
+                className={`w-80 ${state === "collapsed" ? "ml-0" : "ml-4"}`}
                 side="top"
                 align="start"
               >
@@ -290,9 +298,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                             variant="outline"
                             className="flex-1 h-8 text-xs text-destructive hover:bg-destructive/10"
                             onClick={() => handleDecline(inv.token)}
-                            disabled={decliningToken === inv.token}
+                            disabled={decliningTokens.has(inv.token)}
                           >
-                            {decliningToken === inv.token ? "Declining..." : "Decline"}
+                            {decliningTokens.has(inv.token) ? "Declining..." : "Decline"}
                           </Button>
                         </div>
                       </div>

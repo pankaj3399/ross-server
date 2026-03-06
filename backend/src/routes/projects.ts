@@ -558,21 +558,13 @@ router.delete(
 // MEMBER MANAGEMENT ROUTES
 // ==========================================
 
-// List all members of a project
-router.get(
-  "/:projectId/members",
-  authenticateToken,
-  loadProject,
-  async (req, res) => {
+// GET /projects/:projectId/members
+router.get("/:projectId/members", authenticateToken, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
     try {
       const { projectId } = req.params;
       
-      // Get membership data
-      const members = await listMembersForProject(projectId);
-      
       // We need to fetch the actual user names and emails for these members
-      // The `listMembersForProject` might not include them so we join here or fetch it.
-      // Wait, listMembersForProject returns `id, project_id, user_id, role, permissions, added_at, updated_at`
+      // listMembersForProject(projectId) call removed as we use enriched query below.
       
       const enrichedMembersResult = await pool.query(
         `SELECT pm.*, u.name, u.email 

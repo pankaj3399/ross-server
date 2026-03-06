@@ -1234,188 +1234,116 @@ class ApiService {
   // INVITATION METHODS
   // ==========================================
 
-  public async getInvitationByToken(token: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/invitations/${token}`);
-    if (!response.ok) {
-        throw new Error("Failed to fetch invitation details");
-    }
-    return response.json();
+  public async getInvitationByToken(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}`);
   }
 
-  public async acceptInvitation(token: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/invitations/${token}/accept`, {
-        method: "POST",
-        headers: this.getHeaders(),
+  public async acceptInvitation(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}/accept`, {
+      method: "POST",
     });
-    if (!response.ok) {
-        throw new Error("Failed to accept invitation");
-    }
-    return response.json();
   }
 
-  public async signupViaInvitation(token: string, data: { name: string; password: string }) {
-    const response = await fetch(`${API_BASE_URL}/auth/invitations/${token}/signup`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
+  public async signupViaInvitation(token: string, data: { name: string; password: string }): Promise<any> {
+    const response = await this.request<any>(`/auth/invitations/${token}/signup`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to sign up via invitation");
+
+    if (response.token) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("auth_token", response.token);
+      }
     }
-    return response.json();
+    return response;
+  }
+
+  public async declineInvitation(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}/decline`, {
+      method: "POST",
+    });
   }
 
   // ==========================================
   // MEMBER MANAGEMENT METHODS
   // ==========================================
 
-  public async getProjectMembers(projectId: string) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
-        headers: this.getHeaders(),
-    });
-    if (!response.ok) {
-        throw new Error("Failed to fetch project members");
-    }
-    return response.json();
+  public async getProjectMembers(projectId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/members`);
   }
 
-  public async updateProjectMember(projectId: string, userId: string, data: { role: string }) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${userId}`, {
-        method: "PATCH",
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
+  public async updateProjectMember(projectId: string, userId: string, data: { role: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to update member role");
-    }
-    return response.json();
   }
 
-  public async removeProjectMember(projectId: string, userId: string) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${userId}`, {
-        method: "DELETE",
-        headers: this.getHeaders(),
+  public async removeProjectMember(projectId: string, userId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/members/${userId}`, {
+      method: "DELETE",
     });
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to remove member");
-    }
-    return response.json();
   }
 
-  public async inviteToProject(projectId: string, data: { email: string; role: string }) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/invitations`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
+  public async inviteToProject(projectId: string, data: { email: string; role: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to send invitation");
-    }
-    return response.json();
   }
 
-  public async getProjectInvitations(projectId: string) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/invitations`, {
-        headers: this.getHeaders(),
-    });
-    if (!response.ok) {
-        throw new Error("Failed to fetch project invitations");
-    }
-    return response.json();
+  public async getProjectInvitations(projectId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations`);
   }
 
-  public async revokeProjectInvitation(projectId: string, invitationId: string) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/invitations/${invitationId}`, {
-        method: "DELETE",
-        headers: this.getHeaders(),
+  public async revokeProjectInvitation(projectId: string, invitationId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations/${invitationId}`, {
+      method: "DELETE",
     });
-    if (!response.ok) {
-        throw new Error("Failed to revoke invitation");
-    }
-    return response.json();
   }
 
   // ==========================================
   // COMMENTS METHODS
   // ==========================================
 
-  public async getProjectComments(projectId: string, params?: { objectType?: string; objectId?: string }) {
-    let url = `${API_BASE_URL}/projects/${projectId}/comments`;
+  public async getProjectComments(projectId: string, params?: { objectType?: string; objectId?: string }): Promise<any> {
+    let endpoint = `/projects/${projectId}/comments`;
     if (params) {
       const searchParams = new URLSearchParams();
       if (params.objectType) searchParams.append("objectType", params.objectType);
       if (params.objectId) searchParams.append("objectId", params.objectId);
-      url += `?${searchParams.toString()}`;
+      endpoint += `?${searchParams.toString()}`;
     }
-    const response = await fetch(url, { headers: this.getHeaders() });
-    if (!response.ok) {
-        throw new Error("Failed to fetch comments");
-    }
-    return response.json();
+    return this.request(endpoint);
   }
 
-  public async createProjectComment(projectId: string, data: { objectType: string; objectId: string; body: string; parentCommentId?: string }) {
-    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/comments`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify(data),
+  public async createProjectComment(projectId: string, data: { objectType: string; objectId: string; body: string; parentCommentId?: string }): Promise<any> {
+    return this.request(`/projects/${projectId}/comments`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
-    if (!response.ok) {
-        throw new Error("Failed to add comment");
-    }
-    return response.json();
   }
 
-  public async updateComment(commentId: string, body: string) {
-    const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-        method: "PUT",
-        headers: this.getHeaders(),
-        body: JSON.stringify({ body }),
+  public async updateComment(commentId: string, body: string): Promise<any> {
+    return this.request(`/projects/comments/${commentId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ body }),
     });
-    if (!response.ok) {
-        throw new Error("Failed to update comment");
-    }
-    return response.json();
   }
 
-  public async deleteComment(commentId: string) {
-    const response = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-        method: "DELETE",
-        headers: this.getHeaders(),
+  public async deleteComment(commentId: string): Promise<any> {
+    return this.request(`/projects/comments/${commentId}`, {
+      method: "DELETE",
     });
-    if (!response.ok) {
-        throw new Error("Failed to delete comment");
-    }
-    return response.json();
+  }
+  public async getMyInvitations(): Promise<{ invitations: any[] }> {
+    return this.request<{ invitations: any[] }>("/auth/invitations/me");
   }
 
-  // --- User Pending Invitations ---
-  
-  public async getMyInvitations() {
-    const response = await fetch(`${API_BASE_URL}/auth/invitations/me`, {
-        headers: this.getHeaders(),
+  public async declineInvitation(token: string): Promise<any> {
+    return this.request(`/auth/invitations/${token}/decline`, {
+      method: "POST",
     });
-    if (!response.ok) {
-        throw new Error("Failed to fetch your invitations");
-    }
-    return response.json();
-  }
-
-  public async declineInvitation(token: string) {
-    const response = await fetch(`${API_BASE_URL}/auth/invitations/${token}/decline`, {
-        method: "POST",
-        headers: this.getHeaders(),
-    });
-    if (!response.ok) {
-        throw new Error("Failed to decline invitation");
-    }
-    return response.json();
   }
 }
 

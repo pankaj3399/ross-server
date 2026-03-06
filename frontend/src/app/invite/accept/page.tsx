@@ -41,6 +41,10 @@ function InviteAcceptContent() {
         password: "",
     });
 
+    const [showMFA, setShowMFA] = useState(false);
+    const [mfaCode, setMFACode] = useState("");
+    const [loginCompleted, setLoginCompleted] = useState(false);
+
     useEffect(() => {
         if (!token) {
             setError("No invitation token provided.");
@@ -100,7 +104,9 @@ function InviteAcceptContent() {
 
         try {
             // First login
-            await login(inviteData.email, loginData.password);
+            await login(inviteData.email, loginData.password, mfaCode);
+
+            setLoginCompleted(true);
             // Wait a tiny bit for auth state to catch up if needed
             await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -111,6 +117,11 @@ function InviteAcceptContent() {
             showToast.success("Invitation accepted!");
             router.push(inviteData?.project?.id ? `/assess/${inviteData.project.id}` : "/dashboard");
         } catch (err: any) {
+            if (err.message === "MFA_REQUIRED") {
+                setShowMFA(true);
+                setSubmitting(false);
+                return;
+            }
             setError(err.message || "Login or acceptance failed");
             setSubmitting(false);
         }

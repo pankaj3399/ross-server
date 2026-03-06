@@ -12,6 +12,11 @@ export interface Comment {
   updated_at: string;
 }
 
+export interface CommentWithAuthor extends Comment {
+  author_name: string | null;
+  author_email: string | null;
+}
+
 interface ListFilters {
   objectType?: string;
   objectId?: string;
@@ -22,7 +27,7 @@ interface ListFilters {
 export async function listComments(
   projectId: string,
   filters: ListFilters = {},
-): Promise<Comment[]> {
+): Promise<CommentWithAuthor[]> {
   const conditions: string[] = ["c.project_id = $1"];
   const values: any[] = [projectId];
   let idx = 2;
@@ -47,7 +52,7 @@ export async function listComments(
     `SELECT c.id, c.project_id, c.author_id, c.object_type, c.object_id, c.body, c.parent_comment_id, c.created_at, c.updated_at,
             u.name AS author_name, u.email AS author_email
      FROM comments c
-     JOIN users u ON c.author_id = u.id
+     LEFT JOIN users u ON c.author_id = u.id
      WHERE ${conditions.join(" AND ")}
      ORDER BY c.created_at ASC
      LIMIT $${idx++} OFFSET $${idx}`,

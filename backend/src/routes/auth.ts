@@ -792,7 +792,7 @@ router.post("/cleanup-tokens", async (req, res) => {
 router.get("/invitations/me", authenticateToken, async (req, res) => {
   try {
     const user = req.user!;
-    console.log(`[DEBUG] Fetching invitations for email: [${user.email}]`);
+    console.log(`[DEBUG] Fetching invitations for user ID: [${user.id}]`);
     
     // Find all pending invitations for this user's email
     const result = await pool.query(
@@ -800,12 +800,14 @@ router.get("/invitations/me", authenticateToken, async (req, res) => {
        FROM project_invitations i
        JOIN projects p ON i.project_id = p.id
        LEFT JOIN users u ON i.inviter_id = u.id
-       WHERE TRIM(LOWER(i.email)) = TRIM(LOWER($1)) AND i.status = 'pending'
+       WHERE TRIM(LOWER(i.email)) = TRIM(LOWER($1)) 
+       AND i.status = 'pending'
+       AND (i.expires_at IS NULL OR i.expires_at > CURRENT_TIMESTAMP)
        ORDER BY i.created_at DESC`,
       [user.email]
     );
 
-    console.log(`[DEBUG] Found ${result.rows.length} pending invitations for [${user.email}]`);
+    console.log(`[DEBUG] Found ${result.rows.length} pending invitations for user ID: ${user.id}`);
 
     // Format the response structure
     const invitations = result.rows.map(row => ({
@@ -887,21 +889,20 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
     const { token } = req.params;
     const user = req.user!;
 
-    const invitation = await findInvitationByToken(token);
-    
-    if (!invitation) {
-      return res.status(404).json({ error: "Invitation not found" });
-    }
-
-    if (invitation.email.toLowerCase() !== user.email.toLowerCase()) {
-      return res.status(403).json({ error: "Unauthorized to decline this invitation" });
-    }
-
-    // Update status to revoked/declined
-    await pool.query(
-      "UPDATE project_invitations SET status = 'revoked', updated_at = CURRENT_TIMESTAMP WHERE token = $1",
-      [token]
+    // Update status to revoked/declined atomically
+    const { rows } = await pool.query(
+      `UPDATE project_invitations 
+       SET status = 'revoked', updated_at = CURRENT_TIMESTAMP 
+       WHERE token = $1 
+       AND TRIM(LOWER(email)) = TRIM(LOWER($2)) 
+       AND status = 'pending'
+       RETURNING *`,
+      [token, user.email]
     );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Invitation not found or already processed" });
+    }
 
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {

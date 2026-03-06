@@ -46,7 +46,11 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     }));
   },
 
-  setInvitations: (invitations: any[]) => {
+  setInvitations: (invitations: Invitation[]) => {
     set({ invitations });
+  },
+
+  clearInvitations: () => {
+    set({ invitations: [] });
   },
 }));

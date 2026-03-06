@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { showToast } from "@/lib/toast";
@@ -23,6 +23,20 @@ import {
 import { IconSend, IconDotsVertical, IconPencil, IconTrash, IconLoader2, IconAlertCircle } from "@tabler/icons-react";
 import { formatDistanceToNow } from "date-fns";
 
+export interface Comment {
+    id: string;
+    project_id: string;
+    author_id: string;
+    object_type: string;
+    object_id: string;
+    body: string;
+    parent_comment_id: string | null;
+    created_at: string;
+    updated_at: string;
+    author_name: string | null;
+    author_email: string | null;
+}
+
 interface CommentsPanelProps {
     projectId: string;
     objectType: string;
@@ -31,20 +45,20 @@ interface CommentsPanelProps {
 
 export default function CommentsPanel({ projectId, objectType, objectId }: CommentsPanelProps) {
     const { user } = useAuth();
-    const [comments, setComments] = useState<any[]>([]);
+    const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
     const [newCommentBody, setNewCommentBody] = useState("");
     const [submitting, setSubmitting] = useState(false);
 
-    const [editingComment, setEditingComment] = useState<any>(null);
+    const [editingComment, setEditingComment] = useState<Comment | null>(null);
     const [editBody, setEditBody] = useState("");
-    const [deletingComment, setDeletingComment] = useState<any>(null);
+    const [deletingComment, setDeletingComment] = useState<Comment | null>(null);
 
     useEffect(() => {
         fetchComments();
     }, [projectId, objectType, objectId]);
 
-    const fetchComments = async () => {
+    const fetchComments = useCallback(async () => {
         try {
             setLoading(true);
             const data = await apiService.getProjectComments(projectId, { objectType, objectId });
@@ -54,7 +68,7 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
         } finally {
             setLoading(false);
         }
-    };
+    }, [projectId, objectType, objectId]);
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -115,8 +129,9 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
     // Organize nested comments (1 level deep)
     const topLevelComments = comments.filter(c => !c.parent_comment_id);
     const repliesByParentId = comments.filter(c => c.parent_comment_id).reduce((acc, reply) => {
-        if (!acc[reply.parent_comment_id]) acc[reply.parent_comment_id] = [];
-        acc[reply.parent_comment_id].push(reply);
+        const parentId = reply.parent_comment_id!;
+        if (!acc[parentId]) acc[parentId] = [];
+        acc[parentId].push(reply);
         return acc;
     }, {} as Record<string, any[]>);
 
@@ -210,8 +225,20 @@ export default function CommentsPanel({ projectId, objectType, objectId }: Comme
     );
 }
 
+interface CommentItemProps {
+    comment: Comment;
+    replies: Comment[];
+    currentUser: any;
+    onEdit: (comment: Comment) => void;
+    onDelete: (comment: Comment) => void;
+    onReplySuccess: () => void;
+    projectId: string;
+    objectType: string;
+    objectId: string;
+}
+
 // Sub-component for individual comments and their replies
-function CommentItem({ comment, replies, currentUser, onEdit, onDelete, onReplySuccess, projectId, objectType, objectId }: any) {
+function CommentItem({ comment, replies, currentUser, onEdit, onDelete, onReplySuccess, projectId, objectType, objectId }: CommentItemProps) {
     const [isReplying, setIsReplying] = useState(false);
     const [replyBody, setReplyBody] = useState("");
     const [submitting, setSubmitting] = useState(false);

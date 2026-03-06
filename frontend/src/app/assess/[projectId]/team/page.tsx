@@ -76,8 +76,10 @@ export default function TeamManagementPage() {
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
-        fetchData();
-    }, [projectId]);
+        if (isAuthenticated) {
+            fetchData();
+        }
+    }, [projectId, isAuthenticated, user?.id]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -88,8 +90,8 @@ export default function TeamManagementPage() {
 
             const currentUserMember = fetchedMembers.find(
                 (m: any) =>
-                    m.user_id === user?.id ||
-                    (m.id && m.id.includes(user?.id)) ||
+                    (m.user_id && user?.id && String(m.user_id) === String(user.id)) ||
+                    (m.id && user?.id && String(m.id).includes(String(user.id))) ||
                     (user?.email && m.email === user?.email)
             );
             const currentUserIsOwner = currentUserMember?.role === "OWNER";
@@ -101,12 +103,15 @@ export default function TeamManagementPage() {
                     setInvitations(invRes.invitations || []);
                 } catch (invErr) {
                     console.error("Failed to fetch invitations", invErr);
-                    // Don't crash the whole page if just invitations fail to load
+                    setInvitations([]);
                 }
+            } else {
+                setInvitations([]);
             }
         } catch (error) {
             console.error("Failed to fetch team data", error);
             showToast.error("Failed to load team data");
+            setInvitations([]);
         } finally {
             setLoading(false);
         }

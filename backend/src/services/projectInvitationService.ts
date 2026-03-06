@@ -172,6 +172,7 @@ export async function listInvitationsForProject(
     `SELECT id, project_id, inviter_id, email, role, permissions, token, status, expires_at, created_at, updated_at
      FROM project_invitations
      WHERE project_id = $1 AND status = 'pending'
+     AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
      ORDER BY created_at DESC`,
     [projectId],
   );
