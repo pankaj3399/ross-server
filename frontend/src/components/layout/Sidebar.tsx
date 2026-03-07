@@ -220,7 +220,8 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader className="p-4 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
         <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
-          <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="h-8 group-data-[collapsible=icon]:hidden" />
+          <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="h-8 group-data-[collapsible=icon]:hidden dark:hidden" />
+          <img src="/matur-dark.png" alt="MATUR.ai" className="h-8 group-data-[collapsible=icon]:hidden hidden dark:block" />
           <SidebarTrigger className="size-8" />
         </div>
       </SidebarHeader>
