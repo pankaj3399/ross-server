@@ -23,8 +23,8 @@ export function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo Section */}
           <Link href="/" className="flex items-center space-x-3">
-            <img src="/matur-logo-slogan.png" alt="Matur AI" className="h-8 dark:hidden" />
-            <img src="/matur-dark.png" alt="Matur AI" className="h-8 hidden dark:block" />
+            <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="h-8 dark:hidden" />
+            <img src="/matur-dark.png" alt="MATUR.ai" className="h-8 hidden dark:block" />
           </Link>
 
           {/* Navigation Section */}
