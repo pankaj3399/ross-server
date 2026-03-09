@@ -9,6 +9,7 @@ import {
   IconCircle,
   IconFileText,
   IconBrain,
+  IconShield,
   IconScale,
   IconClipboardCheck,
   IconLock,
@@ -348,10 +349,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     };
   }, [isResizing]);
 
-
-
-
-
   const currentQuestionRef = useRef<HTMLLIElement>(null);
 
   // Sync expansions with navigation
@@ -389,8 +386,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       [domainId]: prev[domainId] === practiceId ? null : practiceId,
     }));
   };
-
-
 
   return (
     <div className="relative flex-shrink-0" style={{ width: sidebarWidth }}>
@@ -487,8 +482,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             </AnimatePresence>
           </SidebarGroup>
 
-
-
           {/* SECTION 2: TEAM & COLLABORATION */}
           {projectId && user && (
             <SidebarGroup className="px-2 py-1">
@@ -538,6 +531,14 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                     <SidebarGroupContent>
                       <SidebarMenu className="gap-1">
                         {[
+                          {
+                            id: "vulnerability",
+                            label: "AI Vulnerability Assessment",
+                            icon: IconShield,
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : setShowSubscriptionModal(true),
+                            locked: !premiumStatus,
+                            color: "text-blue-500"
+                          },
                           {
                             id: "fairness",
                             label: "Automated Bias & Fairness Testing",
@@ -646,10 +647,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
               </AnimatePresence>
             </SidebarGroup>
           )}
-
-
-
-
 
         </SidebarContent >
       </Sidebar >
