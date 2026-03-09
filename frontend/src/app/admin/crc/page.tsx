@@ -47,6 +47,34 @@ const PRIORITIES = ["High", "Medium", "Low"];
 const STATUSES = ["Draft", "In Review", "Published", "Archived"];
 const TIMELINES = ["Immediate", "Short-term (1-3 months)", "Medium-term (3-6 months)", "Long-term (6+ months)"];
 
+// --- Sample Data for Bulk Upload ---
+
+const SAMPLE_CSV = `control_id,control_title,category,priority,control_statement
+CRC-001,AI System Accountability,Governance,High,Establish clear lines of responsibility for AI system development and deployment.
+CRC-002,Data Quality Standards,Data Quality,Medium,Implement rigorous data validation and cleansing processes.
+CRC-003,Model Transparency,Transparency,Low,Provide clear documentation of model architecture and training data.`;
+
+const SAMPLE_JSON = [
+    {
+        control_id: "CRC-001",
+        control_title: "AI System Accountability",
+        category: "Governance",
+        priority: "High",
+        control_statement: "Establish clear lines of responsibility for AI system development and deployment."
+    },
+    {
+        control_id: "CRC-002",
+        control_title: "Data Quality Standards",
+        category: "Data Quality",
+        priority: "Medium",
+        control_statement: "Implement rigorous data validation and cleansing processes."
+    }
+];
+
+const SAMPLE_TEXT = `How is human oversight maintained for the AI model?
+What data encryption standards are used for stored PII?
+Is there a clear incident response plan for AI failures?`;
+
 // --- Interfaces ---
 
 interface Implementation {
@@ -599,6 +627,24 @@ export default function CRCAdminPage() {
         } catch (e: any) {
             toast.error(e?.message || "Failed to parse input");
         }
+    };
+
+    const handleDownloadSample = (type: "csv" | "json") => {
+        const content = type === "csv" ? SAMPLE_CSV : JSON.stringify(SAMPLE_JSON, null, 2);
+        const blob = new Blob([content], { type: type === "csv" ? "text/csv" : "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `crc_sample.${type}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleLoadSampleText = () => {
+        setBulkPastedText(SAMPLE_TEXT);
+        toast.info("Sample text loaded");
     };
 
     const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -1184,8 +1230,13 @@ export default function CRCAdminPage() {
                                     <TabsTrigger value="csv">Upload CSV</TabsTrigger>
                                     <TabsTrigger value="json">Upload JSON</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="paste" className="space-y-2 mt-4">
-                                    <p className="text-sm text-muted-foreground">One question per line. Control ID and category/priority will be auto-filled.</p>
+                                <TabsContent value="paste" className="space-y-4 mt-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-muted-foreground">One question per line. Control ID and category/priority will be auto-filled.</p>
+                                        <Button variant="outline" size="sm" onClick={handleLoadSampleText}>
+                                            Load Sample Text
+                                        </Button>
+                                    </div>
                                     <textarea
                                         className="flex min-h-[200px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                         placeholder="Paste your list of questions here..."
@@ -1193,8 +1244,13 @@ export default function CRCAdminPage() {
                                         onChange={(e) => setBulkPastedText(e.target.value)}
                                     />
                                 </TabsContent>
-                                <TabsContent value="csv" className="space-y-2 mt-4">
-                                    <p className="text-sm text-muted-foreground">Upload a CSV with headers: control_id, control_title, category, priority (optional columns: control_statement).</p>
+                                <TabsContent value="csv" className="space-y-4 mt-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-muted-foreground">Upload a CSV with headers: control_id, control_title, category, priority (optional columns: control_statement).</p>
+                                        <Button variant="outline" size="sm" onClick={() => handleDownloadSample("csv")}>
+                                            <IconDownload className="mr-2 size-4" /> Download Sample CSV
+                                        </Button>
+                                    </div>
                                     <Input
                                         type="file"
                                         accept=".csv,.txt"
@@ -1213,8 +1269,13 @@ export default function CRCAdminPage() {
                                         />
                                     )}
                                 </TabsContent>
-                                <TabsContent value="json" className="space-y-2 mt-4">
-                                    <p className="text-sm text-muted-foreground">Upload a JSON file with an array of objects (control_id, control_title, category, priority, etc.).</p>
+                                <TabsContent value="json" className="space-y-4 mt-4">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm text-muted-foreground">Upload a JSON file with an array of objects (control_id, control_title, category, priority, etc.).</p>
+                                        <Button variant="outline" size="sm" onClick={() => handleDownloadSample("json")}>
+                                            <IconDownload className="mr-2 size-4" /> Download Sample JSON
+                                        </Button>
+                                    </div>
                                     <Input
                                         type="file"
                                         accept=".json"

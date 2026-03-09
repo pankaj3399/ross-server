@@ -1,0 +1,4 @@
+control_id,control_title,category,priority,control_statement
+CRC-001,AI System Accountability,Governance,High,Establish clear lines of responsibility for AI system development and deployment.
+CRC-002,Data Quality Standards,Data Quality,Medium,Implement rigorous data validation and cleansing processes.
+CRC-003,Model Transparency,Transparency,Low,Provide clear documentation of model architecture and training data.
