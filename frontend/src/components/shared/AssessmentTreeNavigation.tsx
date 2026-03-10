@@ -535,7 +535,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             id: "vulnerability",
                             label: "AI Vulnerability Assessment",
                             icon: IconShield,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : setShowSubscriptionModal(true),
+                            onClick: () => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`),
                             locked: !premiumStatus,
                             color: "text-blue-500"
                           },

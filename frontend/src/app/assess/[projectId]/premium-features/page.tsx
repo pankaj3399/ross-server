@@ -75,7 +75,7 @@ export default function PremiumFeaturesPage() {
               }
               title="AI Vulnerability Assessment"
               description="Automated scanning for security risks in models."
-              href={`/assess/${projectId}/premium-domains`}
+              href={`/assess/${projectId}/fairness-bias/api-endpoint`}
               delay={0.1}
             />
 
