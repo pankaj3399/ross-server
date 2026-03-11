@@ -298,6 +298,10 @@ export const usePdfReport = ({
                     const selector = sectionSelector || ".pdf-section, .pdf-break-safe, .bg-card, section";
                     const rawElements = Array.from(clone.querySelectorAll(selector)) as HTMLElement[];
                     
+                    if (rawElements.length === 0) {
+                        throw new Error(`No PDF sections matched selector: ${selector}`);
+                    }
+                    
                     // Filter to only top-level blocks to avoid duplicates
                     const blocks = rawElements.filter(el => {
                         let parent = el.parentElement;

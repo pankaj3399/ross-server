@@ -246,7 +246,7 @@ export const styleTypography = (root: HTMLElement) => {
     });
 
     // Handle small labels (often used above input/data boxes)
-    root.querySelectorAll(".text-\\[10px\\], label").forEach((el) => {
+    root.querySelectorAll(".text-\\[10px\\]:not(.rounded-md):not(.rounded-full):not(.pdf-badge), label").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.setProperty("font-size", "11px", "important");
         elem.style.setProperty("letter-spacing", "0.05em", "important");
@@ -617,7 +617,12 @@ export const styleMutedBackgrounds = (root: HTMLElement) => {
 export const styleUploadInfo = (root: HTMLElement) => { /* Logic integrated into styleCards */ };
 export const styleAnalysisParams = (root: HTMLElement) => {
     // 1. Force consistent padding below all labels in the configuration section
-    root.querySelectorAll(".grid .text-xs.font-bold, .grid .text-\\[10px\\]").forEach(el => {
+    const configCard = Array.from(root.querySelectorAll("h3"))
+        .find((h) => h.textContent?.includes("Assessment Configuration"))
+        ?.closest(".bg-card, .rounded-2xl") as HTMLElement | null;
+    const configLabels = configCard?.querySelectorAll(".grid .text-xs.font-bold, .grid .text-\\[10px\\]") ?? [];
+
+    configLabels.forEach((el) => {
         const label = el as HTMLElement;
         label.style.setProperty("margin-bottom", "12px", "important");
         label.style.setProperty("display", "block", "important");
