@@ -82,7 +82,8 @@ router.get("/", authenticateToken, async (req, res) => {
 
 // Create new project
 router.post("/", authenticateToken, async (req, res) => {
-  const client = await pool.connect();
+  let client;
+  let beganTxn = false;
   try {
     const userId = req.user!.id;
     const status = req.user!.subscription_status;
@@ -94,7 +95,9 @@ router.post("/", authenticateToken, async (req, res) => {
       });
     }
 
+    client = await pool.connect();
     await client.query("BEGIN");
+    beganTxn = true;
 
     // Lock the user row to prevent race conditions on project count
     await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
@@ -109,6 +112,7 @@ router.post("/", authenticateToken, async (req, res) => {
       
       if (projectCount >= 1) {
         await client.query("ROLLBACK");
+        beganTxn = false;
         return res.status(403).json({
           error: "Free plan only supports 1 project. Please upgrade to create more.",
           code: "LIMIT_EXCEEDED"
@@ -120,8 +124,8 @@ router.post("/", authenticateToken, async (req, res) => {
       req.body,
     );
 
-    // Get current AIMA version
-    const currentVersion = await getCurrentVersion();
+    // Get current AIMA version using transactional client
+    const currentVersion = await getCurrentVersion(client);
 
     const result = await client.query(
       "INSERT INTO projects (user_id, name, description, ai_system_type, industry, version_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
@@ -130,9 +134,10 @@ router.post("/", authenticateToken, async (req, res) => {
 
     const project = result.rows[0];
 
-    // Ensure creator is recorded as OWNER in project_members
-    await addMember(project.id, userId, "OWNER");
+    // Ensure creator is recorded as OWNER in project_members using transactional client
+    await addMember(project.id, userId, "OWNER", [], client);
 
+    // Record audit event using transactional client
     await recordEvent({
       projectId: project.id,
       actorId: userId,
@@ -140,9 +145,11 @@ router.post("/", authenticateToken, async (req, res) => {
       objectType: "PROJECT",
       objectId: project.id,
       metadata: { name, industry },
+      client
     });
 
     await client.query("COMMIT");
+    beganTxn = false;
 
     res.status(201).json({
       project,
@@ -152,14 +159,18 @@ router.post("/", authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (client && beganTxn) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error creating project:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to create project" });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 });
 
