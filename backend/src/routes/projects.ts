@@ -85,7 +85,7 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     // Enforce subscription for creating/owning projects
     const status = req.user!.subscription_status;
-    if (!["basic_premium", "pro_premium", "trial"].includes(status)) {
+    if (!["basic_premium", "pro_premium", "trial", "free"].includes(status)) {
       return res.status(403).json({
         error: "Subscription required to create projects",
       });
