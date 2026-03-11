@@ -43,11 +43,11 @@ const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; v
     <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px] pdf-score-badge">
       <div className="flex-shrink-0">
         {isGood ? (
-          <CheckCircle2 className="w-4 h-4 text-success" />
+          <CheckCircle2 className="w-4 h-4 text-success pdf-icon" />
         ) : isMedium ? (
-          <AlertCircle className="w-4 h-4 text-warning" />
+          <AlertCircle className="w-4 h-4 text-warning pdf-icon" />
         ) : (
-          <XCircle className="w-4 h-4 text-destructive" />
+          <XCircle className="w-4 h-4 text-destructive pdf-icon" />
         )}
       </div>
       <div className="flex flex-col justify-center">
@@ -67,8 +67,10 @@ const ResponseSection = ({ response }: { response: string }) => {
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         Your Response
       </div>
-      <div className={`text-sm text-foreground leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
-        {response}
+      <div className="pdf-prompt-box">
+        <div className={`text-sm text-foreground leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
+          {response}
+        </div>
       </div>
       {isLongResponse && (
         <button
@@ -122,7 +124,8 @@ export default function FairnessBiasReport() {
     fileName: `fairness-bias-report-${projectId}.pdf`,
     reportTitle: "Fairness & Bias Report",
     projectName: projectId, // Or fetch project name if available, projectId is fallback
-    generatedAt: new Date()
+    generatedAt: new Date(),
+    sectionSelector: ".pdf-section"
   });
 
   useEffect(() => {
@@ -195,7 +198,7 @@ export default function FairnessBiasReport() {
   return (
     <div ref={reportRef} className="min-h-screen bg-background">
       {/* Compact Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm pdf-section">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -204,7 +207,7 @@ export default function FairnessBiasReport() {
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
                 className="hide-in-pdf"
               >
-                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+                <ArrowLeft className="w-5 h-5 text-muted-foreground pdf-icon" />
               </button>
               <div>
                 <h1 className="text-xl font-bold text-foreground pb-1 leading-relaxed">Fairness & Bias Report</h1>
@@ -266,12 +269,12 @@ export default function FairnessBiasReport() {
           let questionNumber = 0;
 
           return (
-            <div key={category.label} className="mb-12">
-              {/* Category Title */}
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2 pb-1 leading-relaxed">
-                  {category.label}
-                </h2>
+              <div key={category.label} className="mb-12">
+                {/* Category Title */}
+                <div className="mb-6 pdf-section">
+                  <h2 className="text-2xl font-bold text-foreground mb-2 pb-1 leading-relaxed">
+                    {category.label}
+                  </h2>
                 <div className="h-1 w-20 bg-primary rounded-full" />
               </div>
 
@@ -288,7 +291,8 @@ export default function FairnessBiasReport() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: promptIdx * 0.05 }}
-                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow break-inside-avoid"
+                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow break-inside-avoid pdf-section"
+                      data-pdf-iteration="true"
                     >
                       {/* Question */}
                       <div className="p-6 border-b border-border">
@@ -312,7 +316,7 @@ export default function FairnessBiasReport() {
                           {/* Scores Row */}
                           <div className="flex flex-wrap gap-3">
                             <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20 pdf-score-badge pdf-overall-badge">
-                              <TrendingUp className="w-5 h-5 text-primary" />
+                              <TrendingUp className="w-5 h-5 text-primary pdf-icon" />
                               <div className="flex flex-col justify-center">
                                 <div className="text-[10px] text-primary/80 font-bold uppercase tracking-wider leading-none mb-1 pdf-label">Overall</div>
                                 <div className="text-xl font-extrabold text-primary leading-none pdf-value">
