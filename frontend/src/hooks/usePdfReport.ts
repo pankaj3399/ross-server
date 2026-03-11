@@ -331,6 +331,7 @@ export const usePdfReport = ({
 
                     for (const block of blocks) {
                         const blockHeightMm = (block.offsetHeight * usableWidth) / block.offsetWidth;
+                        const isIteration = block.hasAttribute('data-pdf-iteration') || block.querySelector('[data-pdf-iteration]');
                         
                         // If a single block is taller than the whole page, it must be sliced (fallback)
                         if (blockHeightMm > usableHeight) {

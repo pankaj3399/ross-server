@@ -87,7 +87,8 @@ export default function ManualReportDetailPage() {
         fileName: `manual-prompt-fairness-report-${reportId}.pdf`,
         reportTitle: "Manual Prompt Fairness & Bias Report",
         projectName: projectId,
-        generatedAt: normalizedGeneratedAt
+        generatedAt: normalizedGeneratedAt,
+        sectionSelector: ".pdf-section"
     });
 
     useEffect(() => {
@@ -156,7 +157,7 @@ export default function ManualReportDetailPage() {
 
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
-            <div className="bg-card border-b border-border">
+            <div className="bg-card border-b border-border pdf-section">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -201,7 +202,7 @@ export default function ManualReportDetailPage() {
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 break-inside-avoid">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 break-inside-avoid pdf-section">
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
                         <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
@@ -242,7 +243,7 @@ export default function ManualReportDetailPage() {
 
                 {/* Detailed Results */}
                 <div className="space-y-6">
-                    <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid">
+                    <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid pdf-section">
                         <FileJson className="w-5 h-5" />
                         Detailed Results
                     </h3>
@@ -256,7 +257,7 @@ export default function ManualReportDetailPage() {
                         }, {} as Record<string, typeof allItems>)
                     ).map(([category, items], catIdx) => (
                         <div key={category} className="space-y-4">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid pdf-section">
                                 <span>{category}</span>
                                 <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
                                     {items.length}
@@ -264,7 +265,7 @@ export default function ManualReportDetailPage() {
                             </div>
 
                             {items.map((item, idx) => (
-                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
+                                <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid pdf-section" data-pdf-iteration="true">
                                     <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
                                         }`}>
                                         <div className="flex items-center gap-3">

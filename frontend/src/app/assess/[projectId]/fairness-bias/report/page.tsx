@@ -124,7 +124,8 @@ export default function FairnessBiasReport() {
     fileName: `fairness-bias-report-${projectId}.pdf`,
     reportTitle: "Fairness & Bias Report",
     projectName: projectId, // Or fetch project name if available, projectId is fallback
-    generatedAt: new Date()
+    generatedAt: new Date(),
+    sectionSelector: ".pdf-section"
   });
 
   useEffect(() => {
@@ -197,7 +198,7 @@ export default function FairnessBiasReport() {
   return (
     <div ref={reportRef} className="min-h-screen bg-background">
       {/* Compact Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm pdf-section">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -268,12 +269,12 @@ export default function FairnessBiasReport() {
           let questionNumber = 0;
 
           return (
-            <div key={category.label} className="mb-12">
-              {/* Category Title */}
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-foreground mb-2 pb-1 leading-relaxed">
-                  {category.label}
-                </h2>
+              <div key={category.label} className="mb-12">
+                {/* Category Title */}
+                <div className="mb-6 pdf-section">
+                  <h2 className="text-2xl font-bold text-foreground mb-2 pb-1 leading-relaxed">
+                    {category.label}
+                  </h2>
                 <div className="h-1 w-20 bg-primary rounded-full" />
               </div>
 
@@ -290,7 +291,8 @@ export default function FairnessBiasReport() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: promptIdx * 0.05 }}
-                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow break-inside-avoid"
+                      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg transition-shadow break-inside-avoid pdf-section"
+                      data-pdf-iteration="true"
                     >
                       {/* Question */}
                       <div className="p-6 border-b border-border">

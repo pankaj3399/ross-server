@@ -490,9 +490,9 @@ export const fixProgressBars = (root: HTMLElement) => {
 
         // Force container to be a stable relative base
         containerEl.style.setProperty("background-color", PDF_COLORS.background.slate200, "important");
-        containerEl.style.setProperty("height", "6px", "important");
+        containerEl.style.setProperty("height", "8px", "important"); // Increased from 6px
         containerEl.style.setProperty("width", "100%", "important");
-        containerEl.style.setProperty("border-radius", "20px", "important");
+        containerEl.style.setProperty("border-radius", "4px", "important"); // Slightly smaller radius is more stable
         containerEl.style.setProperty("overflow", "hidden", "important");
         containerEl.style.setProperty("margin-top", "8px", "important");
         containerEl.style.setProperty("position", "relative", "important");
@@ -502,7 +502,7 @@ export const fixProgressBars = (root: HTMLElement) => {
         const bar = containerEl.querySelector("div") as HTMLElement;
         if (bar) {
             bar.style.setProperty("height", "100%", "important");
-            bar.style.setProperty("border-radius", "20px", "important");
+            bar.style.setProperty("border-radius", "0", "important"); // NEW: Remove inner radius, let container clip it
             bar.style.setProperty("position", "absolute", "important");
             bar.style.setProperty("left", "0", "important");
             bar.style.setProperty("top", "0", "important");

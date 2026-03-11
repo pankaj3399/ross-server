@@ -400,14 +400,14 @@ export default function ApiReportDetailPage() {
                                     return acc;
                                 }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
                             ).map(([category, items]) => (
-                                <div key={category} className="space-y-6 pdf-break-safe pdf-section">
-                                    <div className="flex items-center gap-3 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1">
+                                <div key={category} className="space-y-6 pdf-break-safe">
+                                    <div className="flex items-center gap-3 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1 pdf-section">
                                         <span>{category.replace(/_/g, " ")}</span>
                                         <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold">{items.length} OVERALL</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         {items.map((item, idx) => (
-                                            <div key={idx} className="bg-card border border-border rounded-2xl overflow-hidden ml-4 break-inside-avoid pdf-break-safe shadow-sm hover:shadow-md transition-shadow duration-300 pdf-section">
+                                            <div key={idx} className="bg-card border border-border rounded-2xl overflow-hidden ml-4 break-inside-avoid pdf-break-safe shadow-sm hover:shadow-md transition-shadow duration-300 pdf-section" data-pdf-iteration="true">
                                                 <div className={`px-6 py-3 border-b flex items-center justify-between ${item.passed ? "bg-emerald-500/10 border-emerald-500/20" : "bg-rose-500/10 border-rose-500/20"} pdf-break-safe`}>
                                                     <div className="flex items-center gap-3">
                                                         <div className={`p-1.5 rounded-full ${item.passed ? "bg-emerald-500/20" : "bg-rose-500/20"}`}>
@@ -460,7 +460,7 @@ export default function ApiReportDetailPage() {
                                 }, {} as Record<string, typeof allItems>)
                             ).map(([category, items], catIdx) => (
                                 <div key={category} className="space-y-4">
-                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid pdf-section">
                                         <span>{category}</span>
                                         <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
                                             {items.length}
@@ -468,7 +468,7 @@ export default function ApiReportDetailPage() {
                                     </div>
 
                                     {items.map((item, idx) => (
-                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid pdf-section">
+                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid pdf-section" data-pdf-iteration="true">
                                             <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
                                                 }`}>
                                                 <div className="flex items-center gap-3">
