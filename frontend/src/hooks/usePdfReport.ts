@@ -13,17 +13,17 @@ interface PdfExportOptions {
     reportTitle?: string;
     projectName?: string;
     generatedAt?: string | Date;
+    sectionSelector?: string; // CSS selector for top-level report sections
 }
 
 /** Time to wait for React re-render and chart rendering before PDF capture */
-const PDF_RENDERING_DELAY_MS = 2000;
+const PDF_RENDERING_DELAY_MS = 10;
 
 // PDF Constants - A4 dimensions are 210mm x 297mm
 const PDF_CONFIG = {
-    margin: 20,
-    headerHeight: 22,
+    margin: 10,
+    headerHeight: 28, 
     footerHeight: 12,
-    contentGap: 3,
 } as const;
 
 type jsPDFType = any;
@@ -139,15 +139,15 @@ const applyPdfStyles = (clonedElement: HTMLElement) => {
         (details as HTMLDetailsElement).open = true;
     });
 
-    // Apply additional styling functions
-    styleHeader(clonedElement);
+    // Remove hidden elements before styling
+    clonedElement.querySelectorAll(".hide-in-pdf").forEach(el => el.remove());
+
+    // Apply additional styling functions in strict order
     styleGrid(clonedElement);
     styleCards(clonedElement);
     styleSectionCards(clonedElement);
     styleUploadInfo(clonedElement);
-    styleAnalysisParams(clonedElement);
     styleVerdictColors(clonedElement);
-    styleBadges(clonedElement);
     styleTypography(clonedElement);
     styleTables(clonedElement);
     styleMetricCards(clonedElement);
@@ -156,6 +156,9 @@ const applyPdfStyles = (clonedElement: HTMLElement) => {
     styleCircleScores(clonedElement);
     styleScoreBadges(clonedElement);
     fixProgressBars(clonedElement);
+    styleBadges(clonedElement);
+    styleAnalysisParams(clonedElement); // Fixes labels and Auth strategy box
+    styleHeader(clonedElement); // Applied last to override any generic flex rules
 };
 
 export const usePdfReport = ({ 
@@ -163,7 +166,8 @@ export const usePdfReport = ({
     fileName,
     reportTitle = "Assessment Report",
     projectName,
-    generatedAt = new Date()
+    generatedAt = new Date(),
+    sectionSelector
 }: PdfExportOptions) => {
     const [isExporting, setIsExporting] = useState(false);
     const isExportingRef = useRef(false);
@@ -183,122 +187,92 @@ export const usePdfReport = ({
                 import("jspdf"),
                 import("html2canvas")
             ]);
+            
             const jsPDFConstructor = (jsPDFModule as any).jsPDF || jsPDFModule.default;
-            const html2canvas = html2canvasModule.default;
+            const html2canvas = html2canvasModule.default || html2canvasModule;
+
+            if (!jsPDFConstructor) {
+                throw new Error("Could not find jsPDF constructor");
+            }
+            if (!html2canvas) {
+                throw new Error("Could not find html2canvas function");
+            }
 
             const pdf = new jsPDFConstructor({ orientation: "p", unit: "mm", format: "a4", compress: true });
             const pageWidth = pdf.internal.pageSize.getWidth();  // 210mm
             const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
             const { margin, headerHeight, footerHeight } = PDF_CONFIG;
-            const usableWidth = pageWidth - 2 * margin; // 186mm
-            const contentTop = margin + headerHeight + 5;
-            const contentBottom = pageHeight - footerHeight - 2;
+            const usableWidth = pageWidth - 2 * margin; // 190mm
+            const contentTop = 30; // Almost flush with header (28mm)
+            const contentBottom = pageHeight - footerHeight - 5;
             const usableHeight = contentBottom - contentTop;
 
             // Helper: Add header to current page
             const addPageHeader = (pdfDoc: any, pageNum: number, totalPages: number) => {
-                // Header background - box inside margins
+                // Clear the header area with white rect first to avoid content bleed
+                pdfDoc.setFillColor(255, 255, 255);
+                pdfDoc.rect(0, 0, pageWidth, 28, "F");
+
+                // FULL BLEED Header background
                 pdfDoc.setFillColor(66, 133, 244); 
-                pdfDoc.rect(margin, margin, usableWidth, headerHeight, "F");
+                pdfDoc.rect(0, 0, pageWidth, 28, "F");
 
-                // Add subtle accent line at bottom of header box
-                pdfDoc.setFillColor(51, 103, 214);
-                pdfDoc.rect(margin, margin + headerHeight - 1, usableWidth, 1, "F");
-
-                // Logo/Brand text
+                // Report title - centered white text
                 pdfDoc.setFont("helvetica", "bold");
-                pdfDoc.setFontSize(13);
+                pdfDoc.setFontSize(11);
                 pdfDoc.setTextColor(255, 255, 255);
-                pdfDoc.text("MATUR.ai", margin + 6, margin + 12);
-
-                // Report title - centered
-                pdfDoc.setFont("helvetica", "normal");
-                pdfDoc.setFontSize(10);
-                pdfDoc.setTextColor(255, 255, 255);
-                pdfDoc.text(reportTitle, pageWidth / 2, margin + 12, { align: "center" });
-
-                // Project name and page number removed from header as per request
+                pdfDoc.text(reportTitle.toUpperCase(), pageWidth / 2, 17, { align: "center" });
+                
+                // Brand indicator
+                pdfDoc.setFontSize(9);
+                pdfDoc.text("MATUR.ai", margin, 17);
             };
 
             // Helper: Add footer to current page
             const addPageFooter = (pdfDoc: any, pageNum: number, totalPages: number) => {
-                const footerY = pageHeight - 6;
+                const footerY = pageHeight - 12;
 
-                // Footer line
-                pdfDoc.setDrawColor(226, 232, 240);
-                pdfDoc.setLineWidth(0.3);
-                pdfDoc.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
-
-                pdfDoc.setFont("helvetica", "normal");
-                pdfDoc.setFontSize(7);
-                pdfDoc.setTextColor(100, 116, 139);
-
-                let dateObj: Date;
-                if (generatedAt instanceof Date) {
-                    dateObj = generatedAt;
-                } else if (typeof generatedAt === 'string') {
-                    dateObj = new Date(generatedAt);
-                    // Check if the string resulted in an invalid date
-                    if (isNaN(dateObj.getTime())) {
-                        dateObj = new Date();
-                    }
-                } else {
-                    dateObj = new Date();
-                }
-
-                const dateStr = dateObj.toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric"
-                });
-                pdfDoc.text(`Generated: ${dateStr}`, margin, footerY);
-
-                pdfDoc.setFont("helvetica", "italic");
-                pdfDoc.text("Confidential", pageWidth / 2, footerY, { align: "center" });
+                // Clear the footer area
+                pdfDoc.setFillColor(255, 255, 255);
+                pdfDoc.rect(0, pageHeight - 15, pageWidth, 15, "F");
 
                 pdfDoc.setFont("helvetica", "normal");
-                pdfDoc.text(`Page ${pageNum}/${totalPages}`, pageWidth - margin, footerY, { align: "right" });
+                pdfDoc.setFontSize(8);
+                pdfDoc.setTextColor(148, 163, 184); // slate-400
+
+                pdfDoc.text("CONFIDENTIAL", margin, footerY);
+                pdfDoc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin, footerY, { align: "right" });
+                pdfDoc.text("MATUR.ai Assessment Report", pageWidth / 2, footerY, { align: "center" });
             };
 
-            // Create a temporary container with our color reset CSS
+            // Setup temporary container
             const container = document.createElement("div");
             container.id = "pdf-export-container";
             container.style.position = "absolute";
             container.style.top = "0";
-            container.style.left = "-10000px"; // Offscreen to avoid user seeing it
-            container.style.width = "1400px"; 
-            container.style.padding = "40px"; // Extra safety space around the entire capture
+            container.style.left = "-10000px"; 
+            container.style.width = "1100px";
+            container.style.padding = "0px";
             container.style.backgroundColor = "#ffffff";
             container.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
             container.style.boxSizing = "border-box";
 
-            // Add CSS reset stylesheet
             const styleEl = document.createElement("style");
             styleEl.textContent = PDF_COLOR_RESET_CSS;
             container.appendChild(styleEl);
 
-            // Clone and add the report content
             const clone = reportRef.current.cloneNode(true) as HTMLElement;
             clone.style.width = "100%";
-            clone.style.padding = "48px";
+            clone.style.padding = "0px";
             clone.style.backgroundColor = "#ffffff";
             clone.style.color = "#0f172a";
             clone.style.boxSizing = "border-box";
             clone.style.height = "auto";
             clone.style.minHeight = "min-content";
-            clone.style.maxHeight = "none";
             clone.style.overflow = "visible";
             
-            // Apply inline styles to override any CSS variables or computed oklab colors
             clone.querySelectorAll("*").forEach((el) => {
                 const elem = el as HTMLElement;
-                if (!elem.style.color) {
-                    elem.style.color = "inherit";
-                }
-                if (!elem.style.backgroundColor) {
-                    elem.style.backgroundColor = "inherit";
-                }
-                // Force overflow visible on everything to prevent clipping
                 elem.style.overflow = "visible";
                 elem.style.maxHeight = "none";
                 elem.style.minHeight = "auto";
@@ -307,182 +281,181 @@ export const usePdfReport = ({
             container.appendChild(clone);
             document.body.appendChild(container);
 
-            // Wait for styles to be applied and layout to settle
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            // Apply PDF-specific styling
+            // Wait for charts and styles to settle
+            await new Promise(resolve => setTimeout(resolve, 500));
             applyPdfStyles(clone);
 
-            // The most reliable fix for html2canvas text decapitation when scrolled
-            const originalScrollX = window.scrollX;
-            const originalScrollY = window.scrollY;
+            // PDF Generation Logic: Page Composition Engine (ZERO SPLIT + FAST)
+            const generateSectionalPdf = async () => {
+                const originalScrollX = window.scrollX;
+                const originalScrollY = window.scrollY;
 
-            try {
-                // Temporarily hide main content scrollbar to prevent layout shift
-                document.documentElement.style.overflow = "hidden";
-                window.scrollTo(0, 0);
+                try {
+                    document.documentElement.style.overflow = "hidden";
+                    window.scrollTo(0, 0);
 
-                    // Capture with reasonable scale for balance between quality and size
-                    const canvas = await html2canvas(container, {
-                        scale: 1.5,
-                        useCORS: true,
-                        backgroundColor: "#ffffff",
-                        logging: false,
-                        windowWidth: 1600, // Slightly wider to ensure no content-shift
-                        windowHeight: container.offsetHeight + 1000,
-                        scrollX: 0,
-                        scrollY: 0,
-                        imageTimeout: 15000,
-                        removeContainer: false,
-                    });
-
-                    // Restore scroll immediately after capture inside finally below
+                    // 1. Identify all "Atomic" blocks
+                    const selector = sectionSelector || ".pdf-section, .pdf-break-safe, .bg-card, section";
+                    const rawElements = Array.from(clone.querySelectorAll(selector)) as HTMLElement[];
                     
-                    if (canvas.width === 0 || canvas.height === 0) {
-                        throw new Error("Failed to capture report content");
-                    }
+                    // Filter to only top-level blocks to avoid duplicates
+                    const blocks = rawElements.filter(el => {
+                        let parent = el.parentElement;
+                        while (parent && parent !== clone) {
+                            if (rawElements.includes(parent)) return false;
+                            parent = parent.parentElement;
+                        }
+                        return true;
+                    }).filter(el => el.offsetHeight > 2);
 
-                // Calculate dimensions
-                const imgWidth = usableWidth;
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    // Sort by vertical position
+                    const cloneRect = clone.getBoundingClientRect();
+                    blocks.sort((a, b) => (a.getBoundingClientRect().top - cloneRect.top) - (b.getBoundingClientRect().top - cloneRect.top));
 
-                // Single page case
-                if (imgHeight <= usableHeight) {
-                    const imgData = canvas.toDataURL("image/jpeg", 0.8);
-                    pdf.addImage(imgData, "JPEG", margin, contentTop, imgWidth, imgHeight);
-                } else {
-                    // Multi-page: Calculate proper slicing with break avoidance
-                    const pxPerMm = canvas.width / imgWidth;
-                    const pageHeightPx = usableHeight * pxPerMm;
-                    
-                    // Precise coordinate mapping: canvas pixels vs container CSS pixels
-                    const containerWidth = container.offsetWidth;
-                    const cssToCanvasFactor = canvas.width / containerWidth;
-                    const containerRect = container.getBoundingClientRect();
-                    
-                    // Logic: Identify logical groups that should not be split
-                    const breakAvoidSelectors = [
-                        ".break-inside-avoid",
-                        ".page-break-avoid",
-                        ".pdf-metric-grid > div",
-                        ".bg-card",
-                        ".divide-y > div",
-                        "[class*='rounded-xl']",
-                        "section",
-                        ".grid > div",
-                        "tr",
-                        ".p-6",
-                        ".space-y-6 > div",
-                        ".space-y-4 > div"
-                    ].join(", ");
-                    
-                    const breakAvoidElements = Array.from(container.querySelectorAll(breakAvoidSelectors));
-                    const breakPoints = breakAvoidElements
-                        .map(el => {
-                            const rect = (el as HTMLElement).getBoundingClientRect();
-                            const top = (rect.top - containerRect.top) * cssToCanvasFactor;
-                            const bottom = (rect.bottom - containerRect.top) * cssToCanvasFactor;
-                            const height = bottom - top;
-                            return { top, bottom, height };
-                        })
-                        // Oversized elements MUST break, otherwise we get infinite pages
-                        .filter(bp => bp.height > 5 && bp.height < pageHeightPx * 0.9)
-                        .sort((a, b) => a.top - b.top);
-                    
-                    let currentY = 0;
-                    let pageNum = 0;
-                    // Min height for a page slice (approx 15mm)
-                    const minSliceHeight = 15 * pxPerMm;
-                    // Padding before the cut (3mm)
-                    const breakPaddingPx = 3 * pxPerMm;
+                    console.log(`[PDF] Packaging ${blocks.length} blocks into virtual pages`);
 
-                    while (currentY < canvas.height - 10) { // Small buffer for end of canvas
-                        if (pageNum > 0) {
-                            pdf.addPage();
+                    // 2. Measure and Pack into "Virtual Pages"
+                    const virtualPages: HTMLElement[][] = [];
+                    let currentPage: HTMLElement[] = [];
+                    let currentHeightMm = 0;
+                    
+                    const pxToMm = usableWidth / blocks[0]?.offsetWidth || 0.2645; // Approx if measurement fails
+
+                    for (const block of blocks) {
+                        const blockHeightMm = (block.offsetHeight * usableWidth) / block.offsetWidth;
+                        
+                        // If a single block is taller than the whole page, it must be sliced (fallback)
+                        if (blockHeightMm > usableHeight) {
+                            if (currentPage.length > 0) {
+                                virtualPages.push(currentPage);
+                                currentPage = [];
+                                currentHeightMm = 0;
+                            }
+                            virtualPages.push([block]); // This page contains only the giant block
+                            continue;
                         }
 
-                        const remainingHeight = canvas.height - currentY;
-                        let sliceHeight = Math.min(pageHeightPx, remainingHeight);
+                        // If it doesn't fit in current page, start a new one
+                        if (currentHeightMm + blockHeightMm > usableHeight) {
+                            virtualPages.push(currentPage);
+                            currentPage = [block];
+                            currentHeightMm = blockHeightMm + 4; // 4mm spacer
+                        } else {
+                            currentPage.push(block);
+                            currentHeightMm += blockHeightMm + 4;
+                        }
+                    }
+                    if (currentPage.length > 0) virtualPages.push(currentPage);
+
+                    // 3. Capture each Virtual Page
+                    for (let p = 0; p < virtualPages.length; p++) {
+                        if (p > 0) pdf.addPage();
                         
-                        // Check if this slice cuts through any break-avoid units
-                        if (remainingHeight > pageHeightPx) {
-                            const sliceBottom = currentY + sliceHeight;
+                        const pageBlocks = virtualPages[p];
+                        
+                        // Check if it's a giant block that needs slicing
+                        if (pageBlocks.length === 1 && (pageBlocks[0].offsetHeight * usableWidth / pageBlocks[0].offsetWidth) > usableHeight) {
+                            const giantBlock = pageBlocks[0];
+                            const canvas = await html2canvas(giantBlock, {
+                                scale: 1.8,
+                                useCORS: true,
+                                backgroundColor: "#ffffff",
+                                windowWidth: 1100,
+                            });
                             
-                            // Find all elements that are currently being split by the page boundary
-                            const brokenElements = breakPoints.filter(bp => 
-                                bp.top < sliceBottom && bp.bottom > sliceBottom
-                            );
+                            const pxPerMm = canvas.width / usableWidth;
+                            let sourceY = 0;
+                            let pdfY = contentTop;
                             
-                            if (brokenElements.length > 0) {
-                                // Find the FIRST element in the list (the highest parent) 
-                                // that starts after the top of the current PDF page
-                                const bestBreak = brokenElements.reduce((earliest, current) => 
-                                    current.top < earliest.top ? current : earliest
-                                );
+                            while (sourceY < canvas.height) {
+                                const remainingPagePx = (contentBottom - pdfY) * pxPerMm;
+                                const sliceHeightPx = Math.min(canvas.height - sourceY, remainingPagePx);
                                 
-                                // Only move to next page if the element doesn't start at the very top
-                                if (bestBreak.top > currentY + minSliceHeight) {
-                                    sliceHeight = bestBreak.top - currentY - breakPaddingPx;
+                                await addSliceToPdf(pdf, canvas, sourceY, sliceHeightPx, margin, pdfY, usableWidth, sliceHeightPx / pxPerMm);
+                                
+                                sourceY += sliceHeightPx;
+                                if (sourceY < canvas.height) {
+                                    pdf.addPage();
+                                    pdfY = contentTop;
                                 }
                             }
+                        } else {
+                            // Normal page: Capture all blocks together
+                            // Create a temporary container for this specific page's blocks
+                            const pageContainer = document.createElement("div");
+                            pageContainer.style.width = "1100px";
+                            pageContainer.style.backgroundColor = "#ffffff";
+                            pageContainer.style.display = "flex";
+                            pageContainer.style.flexDirection = "column";
+                            pageContainer.style.gap = "16px";
+                            pageContainer.style.padding = "0";
+                            document.body.appendChild(pageContainer);
+
+                            pageBlocks.forEach(b => {
+                                const bClone = b.cloneNode(true) as HTMLElement;
+                                bClone.style.width = "100%";
+                                bClone.style.margin = "0";
+                                pageContainer.appendChild(bClone);
+                            });
+
+                            const canvas = await html2canvas(pageContainer, {
+                                scale: 2.0,
+                                useCORS: true,
+                                backgroundColor: "#ffffff",
+                                logging: false,
+                            });
+                            
+                            document.body.removeChild(pageContainer);
+                            
+                            const imgData = canvas.toDataURL("image/jpeg", 0.9);
+                            const imgHeight = (canvas.height * usableWidth) / canvas.width;
+                            pdf.addImage(imgData, "JPEG", margin, contentTop, usableWidth, imgHeight);
                         }
-                        
-                        // Safety check: ensure slice height is reasonable
-                        sliceHeight = Math.max(sliceHeight, Math.min(minSliceHeight, remainingHeight));
-                        
-                        // Create slice canvas
-                        const sliceCanvas = document.createElement("canvas");
-                        sliceCanvas.width = canvas.width;
-                        sliceCanvas.height = sliceHeight;
-                        const ctx = sliceCanvas.getContext("2d");
-                        
-                        if (!ctx) break;
-
-                        ctx.fillStyle = "#ffffff";
-                        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-                        ctx.drawImage(
-                            canvas,
-                            0, currentY, canvas.width, sliceHeight,
-                            0, 0, canvas.width, sliceHeight
-                        );
-
-                        const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.85);
-                        const sliceHeightMm = sliceHeight / pxPerMm;
-
-                        pdf.addImage(sliceData, "JPEG", margin, contentTop, imgWidth, sliceHeightMm);
-
-                        currentY += sliceHeight;
-                        pageNum++;
                     }
+                } finally {
+                    document.documentElement.style.overflow = "";
+                    window.scrollTo(originalScrollX, originalScrollY);
                 }
+            };
 
-                // Add headers and footers to all pages
-                const totalPages = (pdf.internal as any).getNumberOfPages();
-                for (let i = 1; i <= totalPages; i++) {
-                    pdf.setPage(i);
-                    addPageHeader(pdf, i, totalPages);
-                    addPageFooter(pdf, i, totalPages);
+            // Helper: Draw and add a slice to the PDF
+            const addSliceToPdf = async (pdfDoc: any, sourceCanvas: HTMLCanvasElement, y: number, h: number, xMm: number, yMm: number, wMm: number, hMm: number) => {
+                const sliceCanvas = document.createElement("canvas");
+                sliceCanvas.width = sourceCanvas.width;
+                sliceCanvas.height = Math.floor(h);
+                const ctx = sliceCanvas.getContext("2d");
+                if (ctx) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+                    ctx.drawImage(sourceCanvas, 0, y, sourceCanvas.width, h, 0, 0, sourceCanvas.width, h);
+                    const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.9);
+                    pdfDoc.addImage(sliceData, "JPEG", xMm, yMm, wMm, hMm);
                 }
+            };
 
-                pdf.save(fileName);
+            // ALWAYS use sectional capture for Security reports
+            await generateSectionalPdf();
 
-            } finally {
-                // CRITICAL: Always restore original document state
-                document.documentElement.style.overflow = "";
-                window.scrollTo(originalScrollX, originalScrollY);
-
-                if (container && document.body.contains(container)) {
-                    document.body.removeChild(container);
-                }
+            const totalPages = (pdf as any).internal.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+                addPageHeader(pdf, i, totalPages);
+                addPageFooter(pdf, i, totalPages);
             }
+
+            pdf.save(fileName);
 
         } catch (error) {
             console.error("Failed to export PDF", error);
         } finally {
+            const container = document.getElementById("pdf-export-container");
+            if (container && document.body.contains(container)) {
+                document.body.removeChild(container);
+            }
             setIsExporting(false);
             isExportingRef.current = false;
         }
-    }, [reportRef, fileName, reportTitle, projectName, generatedAt]);
+    }, [reportRef, fileName, reportTitle, projectName, generatedAt, sectionSelector]);
 
     return { exportPdf, isExporting };
 };
