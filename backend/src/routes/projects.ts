@@ -90,6 +90,22 @@ router.post("/", authenticateToken, async (req, res) => {
         error: "Subscription required to create projects",
       });
     }
+
+    // Enforce 1-project limit for free tier
+    if (status === "free") {
+      const projectCountResult = await pool.query(
+        "SELECT COUNT(*) as count FROM projects WHERE user_id = $1",
+        [req.user!.id]
+      );
+      const projectCount = parseInt(projectCountResult.rows[0].count);
+      
+      if (projectCount >= 1) {
+        return res.status(403).json({
+          error: "Free plan only supports 1 project. Please upgrade to create more.",
+          code: "LIMIT_EXCEEDED"
+        });
+      }
+    }
     const { name, description, aiSystemType, industry } = createProjectSchema.parse(
       req.body,
     );
