@@ -63,12 +63,14 @@ const ResponseSection = ({ response }: { response: string }) => {
   const isLongResponse = response.length > 200; // Consider responses over 200 chars as long
 
   return (
-    <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-info pdf-prompt-box">
+    <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-info">
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         Your Response
       </div>
-      <div className={`text-sm text-foreground leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
-        {response}
+      <div className="pdf-prompt-box">
+        <div className={`text-sm text-foreground leading-relaxed ${!isExpanded && isLongResponse ? 'line-clamp-3' : ''}`}>
+          {response}
+        </div>
       </div>
       {isLongResponse && (
         <button

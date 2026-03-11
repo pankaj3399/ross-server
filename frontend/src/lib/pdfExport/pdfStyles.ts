@@ -198,7 +198,7 @@ export const styleCards = (root: HTMLElement) => {
 };
 
 export const styleSectionCards = (root: HTMLElement) => {
-    root.querySelectorAll("section.space-y-8, section.space-y-6, .max-w-7xl > .space-y-8, .space-y-6, .space-y-4").forEach((el) => {
+    root.querySelectorAll("section.space-y-8, section.space-y-6, .max-w-7xl > .space-y-8, .max-w-7xl > .space-y-6, .max-w-7xl > .space-y-4").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.display = "flex";
         elem.style.flexDirection = "column";
@@ -246,7 +246,8 @@ export const styleTypography = (root: HTMLElement) => {
     });
 
     // Handle small labels (often used above input/data boxes)
-    root.querySelectorAll(".text-\\[10px\\]:not(.rounded-md):not(.rounded-full):not(.pdf-badge), label").forEach((el) => {
+    // Scope to avoid restyling contextual semantic labels like status badges
+    root.querySelectorAll(".pdf-prompt-box ~ label, .pdf-reason-box ~ label, .grid label, .space-y-4 > label, .text-\\[10px\\]:not(.rounded-md):not(.rounded-full):not(.pdf-badge):not(.status):not(.severity)").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.setProperty("font-size", "11px", "important");
         elem.style.setProperty("letter-spacing", "0.05em", "important");

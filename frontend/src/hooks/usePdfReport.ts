@@ -295,7 +295,7 @@ export const usePdfReport = ({
                     window.scrollTo(0, 0);
 
                     // 1. Identify all "Atomic" blocks
-                    const selector = sectionSelector || ".pdf-section, .pdf-break-safe, .bg-card, section";
+                    const selector = sectionSelector || ".pdf-section, .pdf-break-safe, .bg-card, section, :scope > *";
                     const rawElements = Array.from(clone.querySelectorAll(selector)) as HTMLElement[];
                     
                     if (rawElements.length === 0) {
