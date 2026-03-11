@@ -1,8 +1,12 @@
 import pool from "../config/database";
+import type { PoolClient } from "pg";
 
-async function getNextVersion() {
+type DbClient = PoolClient | typeof pool;
+
+async function getNextVersion(client?: DbClient) {
+  const db = client ?? pool;
   try {
-    const result = await pool.query(`
+    const result = await db.query(`
       SELECT version_number
       FROM versions
       ORDER BY
@@ -23,7 +27,7 @@ async function getNextVersion() {
       }
     }
 
-    const versionResult = await pool.query(
+    const versionResult = await db.query(
       "INSERT INTO versions (version_number) VALUES ($1) RETURNING id",
       [nextVersion]
     );

@@ -1,9 +1,13 @@
 import pool from "../config/database";
 import { getNextVersion } from "./getNextVersion";
+import type { PoolClient } from "pg";
 
-export async function getCurrentVersion() {
+type DbClient = PoolClient | typeof pool;
+
+export async function getCurrentVersion(client?: DbClient) {
+    const db = client ?? pool;
     try {
-      const result = await pool.query(`
+      const result = await db.query(`
         SELECT id, version_number
         FROM versions
         ORDER BY
@@ -13,7 +17,7 @@ export async function getCurrentVersion() {
       `);
   
       if (result.rows.length === 0) {
-        const { nextVersion, versionId } = await getNextVersion();
+        const { nextVersion, versionId } = await getNextVersion(client);
         return { id: versionId, version_number: nextVersion };
       }
   

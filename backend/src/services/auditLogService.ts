@@ -1,4 +1,7 @@
 import pool from "../config/database";
+import type { PoolClient } from "pg";
+
+type DbClient = PoolClient | typeof pool;
 
 export interface AuditLogEntry {
   id: string;
@@ -18,12 +21,14 @@ interface RecordEventParams {
   objectType: string;
   objectId: string;
   metadata?: Record<string, any>;
+  client?: DbClient;
 }
 
 export async function recordEvent(params: RecordEventParams): Promise<void> {
-  const { projectId = null, actorId = null, action, objectType, objectId, metadata = {} } = params;
+  const { projectId = null, actorId = null, action, objectType, objectId, metadata = {}, client } = params;
+  const db = client ?? pool;
 
-  await pool.query(
+  await db.query(
     `INSERT INTO audit_logs (project_id, actor_id, action, object_type, object_id, metadata)
      VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
     [projectId, actorId, action, objectType, objectId, JSON.stringify(metadata)],

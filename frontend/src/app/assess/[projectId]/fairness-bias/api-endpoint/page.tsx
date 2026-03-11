@@ -13,7 +13,11 @@ import {
   Loader2,
   AlertCircle,
   Shield,
+  Lock,
 } from "lucide-react";
+import { PREMIUM_STATUS } from "@/lib/constants";
+import { AnimatePresence } from "framer-motion";
+import UnlockPremium from "@/components/features/subscriptions/UnlockPremium";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "../api-history/components/ApiHistory";
 
@@ -67,6 +71,12 @@ const API_KEY_FIELD_HINTS: Record<ApiKeyPlacement, string> = {
   body_field: "api_key",
 };
 
+type SubscriptionStatus = typeof PREMIUM_STATUS[number];
+
+const isSubscriptionStatus = (value: unknown): value is SubscriptionStatus => {
+  return typeof value === 'string' && (PREMIUM_STATUS as readonly string[]).includes(value);
+};
+
 export default function ApiEndpointPage() {
   const params = useParams();
   const router = useRouter();
@@ -83,6 +93,10 @@ export default function ApiEndpointPage() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyPlacement, setApiKeyPlacement] = useState<ApiKeyPlacement>("none");
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+
+  const isPremium = isSubscriptionStatus(user?.subscription_status) && 
+    PREMIUM_STATUS.includes(user.subscription_status);
 
   useEffect(() => {
     if (apiEndpoint) {
@@ -178,6 +192,11 @@ export default function ApiEndpointPage() {
     )
       return;
 
+    if (!isPremium) {
+      setShowUnlockPremium(true);
+      return;
+    }
+
     setJobStartError(null);
     setJobStarting(true);
 
@@ -214,6 +233,12 @@ export default function ApiEndpointPage() {
           Show all pending jobs
         </Button>
       </div>
+
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        featureName="Security Scan"
+        onClose={() => setShowUnlockPremium(false)}
+      />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-12">
@@ -586,6 +611,7 @@ export default function ApiEndpointPage() {
                   <>
                     <Shield className="w-5 h-5 mr-2" />
                     Run Security Scan
+                    {!isPremium && <Lock className="w-4 h-4 ml-2 text-amber-500" />}
                   </>
                 )}
               </Button>
