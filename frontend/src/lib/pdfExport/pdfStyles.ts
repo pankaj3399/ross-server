@@ -442,7 +442,6 @@ export const styleMetricCards = (root: HTMLElement) => {
         elem.style.setProperty("align-items", "center", "important");
         elem.style.setProperty("min-height", "60px", "important"); 
         elem.style.setProperty("width", "100%", "important");
-        elem.style.setProperty("text-transform", "lowercase", "important"); 
         
         // Target any direct text node or child for a forceful nudge
         elem.querySelectorAll("*").forEach(child => {
@@ -584,7 +583,7 @@ export const styleBadges = (root: HTMLElement) => {
         }
     });
 
-    root.querySelectorAll(".rounded-lg.text-sm.font-semibold, .inline-flex.rounded-lg, .rounded-md.text-\\[10px\\], .pdf-badge, .rounded-full").forEach(el => {
+    root.querySelectorAll(".rounded-lg.text-sm.font-semibold, .inline-flex.rounded-lg, .rounded-md.text-\\[10px\\], .pdf-badge").forEach(el => {
         const badge = el as HTMLElement;
         badge.style.setProperty("display", "inline-flex", "important");
         badge.style.setProperty("align-items", "center", "important");

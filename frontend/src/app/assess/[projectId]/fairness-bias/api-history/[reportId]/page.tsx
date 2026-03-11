@@ -288,7 +288,7 @@ export default function ApiReportDetailPage() {
                                     <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wide truncate">{name.replace(/_/g, " ")}</div>
                                     <div className={`text-2xl font-black ${getScoreColor(score / 100)}`}>{score}%</div>
                                     <div className="mt-3 h-1.5 w-full bg-secondary/30 rounded-full overflow-hidden">
-                                        <div 
+                                        <div
                                             className={`h-full rounded-full ${score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-500'}`}
                                             style={{ width: `${score}%` }}
                                         />
@@ -366,8 +366,12 @@ export default function ApiReportDetailPage() {
                                 <div>
                                     <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Authentication Strategy</div>
                                     <div className="bg-slate-50 dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 font-medium text-slate-700 dark:text-slate-300">
-                                        {report.config?.apiKeyPlacement === "header" ? "HTTP Header" : "Query Param"}
-                                        {report.config?.apiKeyFieldName ? (
+                                        {report.config?.apiKeyPlacement === "header"
+                                            ? "HTTP Header"
+                                            : report.config?.apiKeyPlacement === "query"
+                                                ? "Query Param"
+                                                : "Not configured"}
+                                        {report.config?.apiKeyFieldName && (report.config?.apiKeyPlacement === "header" || report.config?.apiKeyPlacement === "query") ? (
                                             <span className="ml-2 text-[10px] font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-foreground">
                                                 KEY: {report.config.apiKeyFieldName}
                                             </span>
@@ -455,7 +459,7 @@ export default function ApiReportDetailPage() {
                                     return acc;
                                 }, {} as Record<string, typeof allItems>)
                             ).map(([category, items], catIdx) => (
-                                <div key={category} className="space-y-4">
+                                <div key={category} className="space-y-4 pdf-section">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
                                         <span>{category}</span>
                                         <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
@@ -464,7 +468,7 @@ export default function ApiReportDetailPage() {
                                     </div>
 
                                     {items.map((item, idx) => (
-                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid">
+                                        <div key={idx} className="bg-card border border-border rounded-xl overflow-hidden ml-4 break-inside-avoid pdf-section">
                                             <div className={`px-6 py-3 border-b border-border flex items-center justify-between ${item.success ? "bg-green-500/5" : "bg-red-500/5"
                                                 }`}>
                                                 <div className="flex items-center gap-3">

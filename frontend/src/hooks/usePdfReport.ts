@@ -33,7 +33,7 @@ type jsPDFType = any;
  * This prevents html2canvas from encountering oklab() colors
  */
 const PDF_COLOR_RESET_CSS = `
-    * {
+    #pdf-export-container * {
         color: inherit;
         background-color: inherit;
         border-color: inherit;
@@ -41,73 +41,73 @@ const PDF_COLOR_RESET_CSS = `
         animation: none !important;
     }
     
-    :root, html, body {
+    #pdf-export-container, #pdf-export-container :is(root, html, body) {
         color: #0f172a !important;
         background-color: #ffffff !important;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
     }
     
-    * {
+    #pdf-export-container * {
         font-family: inherit !important;
         text-rendering: auto !important;
         -webkit-font-smoothing: antialiased !important;
     }
     
-    .hide-in-pdf {
+    #pdf-export-container .hide-in-pdf {
         display: none !important;
     }
     
     /* Force common color classes to standard values */
-    .text-foreground, .text-primary, [class*="text-slate"], [class*="text-gray"] {
+    #pdf-export-container .text-foreground, #pdf-export-container .text-primary, #pdf-export-container [class*="text-slate"], #pdf-export-container [class*="text-gray"] {
         color: #0f172a !important;
     }
-    .text-muted-foreground, .text-muted {
+    #pdf-export-container .text-muted-foreground, #pdf-export-container .text-muted {
         color: #64748b !important;
     }
-    .text-success, [class*="text-green"], [class*="text-emerald"] {
+    #pdf-export-container .text-success, #pdf-export-container [class*="text-green"], #pdf-export-container [class*="text-emerald"] {
         color: #059669 !important;
     }
-    .text-warning, [class*="text-amber"], [class*="text-yellow"] {
+    #pdf-export-container .text-warning, #pdf-export-container [class*="text-amber"], #pdf-export-container [class*="text-yellow"] {
         color: #d97706 !important;
     }
-    .text-destructive, [class*="text-red"] {
+    #pdf-export-container .text-destructive, #pdf-export-container [class*="text-red"] {
         color: #dc2626 !important;
     }
     
-    .bg-background, .bg-card, .bg-white, [class*="bg-slate-50"] {
+    #pdf-export-container .bg-background, #pdf-export-container .bg-card, #pdf-export-container .bg-white, #pdf-export-container [class*="bg-slate-50"] {
         background-color: #ffffff !important;
     }
-    .bg-muted, [class*="bg-slate-100"], [class*="bg-gray-100"] {
+    #pdf-export-container .bg-muted, #pdf-export-container [class*="bg-slate-100"], #pdf-export-container [class*="bg-gray-100"] {
         background-color: #f1f5f9 !important;
     }
-    .bg-success, [class*="bg-green"], [class*="bg-emerald"] {
+    #pdf-export-container .bg-success, #pdf-export-container [class*="bg-green"], #pdf-export-container [class*="bg-emerald"] {
         background-color: #d1fae5 !important;
     }
-    .bg-warning, [class*="bg-amber"], [class*="bg-yellow"] {
+    #pdf-export-container .bg-warning, #pdf-export-container [class*="bg-amber"], #pdf-export-container [class*="bg-yellow"] {
         background-color: #fef3c7 !important;
     }
-    .bg-destructive, [class*="bg-red"] {
+    #pdf-export-container .bg-destructive, #pdf-export-container [class*="bg-red"] {
         background-color: #fee2e2 !important;
     }
     
-    .border, .border-border, [class*="border-slate"], [class*="border-gray"] {
+    #pdf-export-container .border, #pdf-export-container .border-border, #pdf-export-container [class*="border-slate"], #pdf-export-container [class*="border-gray"] {
         border-color: #e2e8f0 !important;
     }
 
     /* Ensure charts and SVGs are visible */
-    svg {
+    #pdf-export-container svg {
         overflow: visible !important;
         display: block !important;
     }
     
-    .recharts-responsive-container {
+    #pdf-export-container .recharts-responsive-container {
         width: 100% !important;
         height: 220px !important;
         min-height: 220px !important;
     }
 
     /* Better print styling */
-    .recharts-wrapper, .recharts-surface {
+    #pdf-export-container .recharts-wrapper, #pdf-export-container .recharts-surface {
         overflow: visible !important;
     }
 `;
@@ -389,27 +389,32 @@ export const usePdfReport = ({
                             pageContainer.style.flexDirection = "column";
                             pageContainer.style.gap = "16px";
                             pageContainer.style.padding = "0";
-                            document.body.appendChild(pageContainer);
+                            pageContainer.style.position = "absolute";
+                            pageContainer.style.left = "-10000px";
+                            pageContainer.style.top = "0";
+                            container.appendChild(pageContainer);
 
-                            pageBlocks.forEach(b => {
-                                const bClone = b.cloneNode(true) as HTMLElement;
-                                bClone.style.width = "100%";
-                                bClone.style.margin = "0";
-                                pageContainer.appendChild(bClone);
-                            });
+                            try {
+                                pageBlocks.forEach(b => {
+                                    const bClone = b.cloneNode(true) as HTMLElement;
+                                    bClone.style.width = "100%";
+                                    bClone.style.margin = "0";
+                                    pageContainer.appendChild(bClone);
+                                });
 
-                            const canvas = await html2canvas(pageContainer, {
-                                scale: 2.0,
-                                useCORS: true,
-                                backgroundColor: "#ffffff",
-                                logging: false,
-                            });
-                            
-                            document.body.removeChild(pageContainer);
-                            
-                            const imgData = canvas.toDataURL("image/jpeg", 0.9);
-                            const imgHeight = (canvas.height * usableWidth) / canvas.width;
-                            pdf.addImage(imgData, "JPEG", margin, contentTop, usableWidth, imgHeight);
+                                const canvas = await html2canvas(pageContainer, {
+                                    scale: 2.0,
+                                    useCORS: true,
+                                    backgroundColor: "#ffffff",
+                                    logging: false,
+                                });
+
+                                const imgData = canvas.toDataURL("image/jpeg", 0.9);
+                                const imgHeight = (canvas.height * usableWidth) / canvas.width;
+                                pdf.addImage(imgData, "JPEG", margin, contentTop, usableWidth, imgHeight);
+                            } finally {
+                                pageContainer.remove();
+                            }
                         }
                     }
                 } finally {
