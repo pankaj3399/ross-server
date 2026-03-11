@@ -71,6 +71,12 @@ const API_KEY_FIELD_HINTS: Record<ApiKeyPlacement, string> = {
   body_field: "api_key",
 };
 
+type SubscriptionStatus = typeof PREMIUM_STATUS[number];
+
+const isSubscriptionStatus = (value: unknown): value is SubscriptionStatus => {
+  return typeof value === 'string' && (PREMIUM_STATUS as readonly string[]).includes(value);
+};
+
 export default function ApiEndpointPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,9 +95,8 @@ export default function ApiEndpointPage() {
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
   const [showUnlockPremium, setShowUnlockPremium] = useState(false);
 
-  const isPremium = user?.subscription_status
-    ? PREMIUM_STATUS.includes(user.subscription_status as any)
-    : false;
+  const isPremium = isSubscriptionStatus(user?.subscription_status) && 
+    PREMIUM_STATUS.includes(user.subscription_status);
 
   useEffect(() => {
     if (apiEndpoint) {
@@ -229,14 +234,11 @@ export default function ApiEndpointPage() {
         </Button>
       </div>
 
-      <AnimatePresence>
-        {showUnlockPremium && (
-          <UnlockPremium
-            featureName="Security Scan"
-            onClose={() => setShowUnlockPremium(false)}
-          />
-        )}
-      </AnimatePresence>
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        featureName="Security Scan"
+        onClose={() => setShowUnlockPremium(false)}
+      />
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-12">

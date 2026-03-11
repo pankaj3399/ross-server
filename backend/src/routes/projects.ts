@@ -82,30 +82,40 @@ router.get("/", authenticateToken, async (req, res) => {
 
 // Create new project
 router.post("/", authenticateToken, async (req, res) => {
+  const client = await pool.connect();
   try {
-    // Enforce subscription for creating/owning projects
+    const userId = req.user!.id;
     const status = req.user!.subscription_status;
+
+    // Enforce subscription for creating/owning projects
     if (!["basic_premium", "pro_premium", "trial", "free"].includes(status)) {
       return res.status(403).json({
         error: "Subscription required to create projects",
       });
     }
 
+    await client.query("BEGIN");
+
+    // Lock the user row to prevent race conditions on project count
+    await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
+
     // Enforce 1-project limit for free tier
     if (status === "free") {
-      const projectCountResult = await pool.query(
+      const projectCountResult = await client.query(
         "SELECT COUNT(*) as count FROM projects WHERE user_id = $1",
-        [req.user!.id]
+        [userId]
       );
       const projectCount = parseInt(projectCountResult.rows[0].count);
       
       if (projectCount >= 1) {
+        await client.query("ROLLBACK");
         return res.status(403).json({
           error: "Free plan only supports 1 project. Please upgrade to create more.",
           code: "LIMIT_EXCEEDED"
         });
       }
     }
+
     const { name, description, aiSystemType, industry } = createProjectSchema.parse(
       req.body,
     );
@@ -113,24 +123,26 @@ router.post("/", authenticateToken, async (req, res) => {
     // Get current AIMA version
     const currentVersion = await getCurrentVersion();
 
-    const result = await pool.query(
+    const result = await client.query(
       "INSERT INTO projects (user_id, name, description, ai_system_type, industry, version_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [req.user!.id, name, description || null, aiSystemType || null, industry || null, currentVersion.id],
+      [userId, name, description || null, aiSystemType || null, industry || null, currentVersion.id],
     );
 
     const project = result.rows[0];
 
     // Ensure creator is recorded as OWNER in project_members
-    await addMember(project.id, req.user!.id, "OWNER");
+    await addMember(project.id, userId, "OWNER");
 
     await recordEvent({
       projectId: project.id,
-      actorId: req.user!.id,
+      actorId: userId,
       action: "project.created",
       objectType: "PROJECT",
       objectId: project.id,
       metadata: { name, industry },
     });
+
+    await client.query("COMMIT");
 
     res.status(201).json({
       project,
@@ -140,8 +152,14 @@ router.post("/", authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error("Error creating project:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Validation failed", details: error.errors });
+    }
     res.status(500).json({ error: "Failed to create project" });
+  } finally {
+    client.release();
   }
 });
 
