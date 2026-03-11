@@ -430,7 +430,7 @@ export const styleMetricCards = (root: HTMLElement) => {
     });
     
     // Specifically target the prompt/reason boxes to be very readable - LOWERCASE & COMPACT
-    root.querySelectorAll(".italic.font-mono, .italic.leading-relaxed, .font-medium.leading-relaxed, .bg-slate-50\\/50, .bg-white\\/80").forEach(el => {
+    root.querySelectorAll(".pdf-prompt-box, .pdf-reason-box, .pdf-prompt-box .bg-slate-50\\/50, .pdf-reason-box .bg-white\\/80").forEach(el => {
         const elem = el as HTMLElement;
         elem.style.setProperty("font-size", "14px", "important"); 
         elem.style.setProperty("line-height", "1.6", "important");
@@ -597,7 +597,7 @@ export const styleBadges = (root: HTMLElement) => {
 };
 
 export const styleIcons = (root: HTMLElement) => {
-    root.querySelectorAll("svg").forEach(svg => {
+    root.querySelectorAll("svg.pdf-icon, .pdf-icon svg, svg[data-pdf-icon]").forEach(svg => {
         const el = svg as unknown as HTMLElement;
         el.style.width = "20px";
         el.style.height = "20px";

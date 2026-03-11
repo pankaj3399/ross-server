@@ -182,7 +182,7 @@ export default function ApiReportDetailPage() {
                         <div>
                             <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed flex items-center gap-2">
                                 {isSecurityReport ? (
-                                    <> <Shield className="w-6 h-6" /> Security Scan Report </>
+                                    <> <Shield className="w-6 h-6 pdf-icon" /> Security Scan Report </>
                                 ) : (
                                     "API Report Details"
                                 )}
@@ -279,7 +279,7 @@ export default function ApiReportDetailPage() {
                 {isSecurityReport && securityPayload?.categories && Object.keys(securityPayload.categories).length > 0 && (
                     <div className="space-y-4 break-inside-avoid pdf-break-safe pdf-section">
                         <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                            <Shield className="w-5 h-5 text-primary" />
+                            <Shield className="w-5 h-5 text-primary pdf-icon" />
                             Security Category Analysis
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
@@ -302,7 +302,7 @@ export default function ApiReportDetailPage() {
                 {isSecurityReport && securityPayload?.failures && securityPayload.failures.length > 0 && (
                     <div className="space-y-6">
                         <h3 className="text-xl font-bold flex items-center gap-2 break-inside-avoid text-foreground pdf-section">
-                            <XCircle className="w-6 h-6 text-red-500" />
+                            <XCircle className="w-6 h-6 text-red-500 pdf-icon" />
                             Critical Vulnerabilities Identified
                         </h3>
                         <div className="space-y-4">
@@ -310,18 +310,18 @@ export default function ApiReportDetailPage() {
                                 <div key={idx} className="bg-red-50/30 dark:bg-red-950/20 border border-red-100 dark:border-red-900/40 rounded-2xl overflow-hidden break-inside-avoid pdf-break-safe shadow-sm group pdf-section">
                                     <div className="bg-red-500/10 dark:bg-red-500/20 px-6 py-3 border-b border-red-100 dark:border-red-900/40 flex items-center justify-between">
                                         <span className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-widest">Failure #{idx + 1}</span>
-                                        <XCircle className="w-4 h-4 text-red-500" />
+                                        <XCircle className="w-4 h-4 text-red-500 pdf-icon" />
                                     </div>
                                     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
                                             <div className="text-[10px] font-black text-red-900/40 dark:text-red-400/40 mb-2 uppercase tracking-tighter">Attack Prompt</div>
-                                            <div className="bg-white/80 dark:bg-slate-900/60 p-4 rounded-xl text-sm border border-red-100/50 dark:border-red-900/30 shadow-inner font-mono text-slate-800 dark:text-slate-200 italic leading-relaxed">
+                                            <div className="bg-white/80 dark:bg-slate-900/60 p-4 rounded-xl text-sm border border-red-100/50 dark:border-red-900/30 shadow-inner font-mono text-slate-800 dark:text-slate-200 italic leading-relaxed pdf-prompt-box">
                                                 "{f.prompt}"
                                             </div>
                                         </div>
                                         <div>
                                             <div className="text-[10px] font-black text-red-900/40 dark:text-red-400/40 mb-2 uppercase tracking-tighter">Detrimental Impact / Reason</div>
-                                            <div className="text-sm text-red-700 dark:text-red-400 font-medium leading-relaxed bg-white/50 dark:bg-slate-900/40 p-4 rounded-xl border border-red-100/30 dark:border-red-900/20">
+                                            <div className="text-sm text-red-700 dark:text-red-400 font-medium leading-relaxed bg-white/50 dark:bg-slate-900/40 p-4 rounded-xl border border-red-100/30 dark:border-red-900/20 pdf-reason-box">
                                                 {f.reason}
                                             </div>
                                         </div>
@@ -336,7 +336,7 @@ export default function ApiReportDetailPage() {
                 <div className="bg-card border border-border rounded-2xl overflow-hidden break-inside-avoid pdf-break-safe shadow-sm pdf-section">
                     <div className="px-6 py-4 border-b border-border bg-slate-50/50 dark:bg-slate-900/50">
                         <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                            <Terminal className="w-5 h-5 text-primary" />
+                            <Terminal className="w-5 h-5 text-primary pdf-icon" />
                             Assessment Configuration
                         </h3>
                     </div>
@@ -386,7 +386,7 @@ export default function ApiReportDetailPage() {
                 {/* Detailed Results */}
                 <div className="space-y-6">
                     <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid pdf-section">
-                        <FileJson className="w-5 h-5 text-primary" />
+                        <FileJson className="w-5 h-5 text-primary pdf-icon" />
                         Detailed Results
                     </h3>
 
@@ -401,7 +401,7 @@ export default function ApiReportDetailPage() {
                                 }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
                             ).map(([category, items]) => (
                                 <div key={category} className="space-y-6 pdf-break-safe">
-                                    <div className="flex items-center gap-3 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1 pdf-section">
+                                    <div className="flex items-center gap-3 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1">
                                         <span>{category.replace(/_/g, " ")}</span>
                                         <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold">{items.length} OVERALL</span>
                                     </div>
@@ -412,9 +412,9 @@ export default function ApiReportDetailPage() {
                                                     <div className="flex items-center gap-3">
                                                         <div className={`p-1.5 rounded-full ${item.passed ? "bg-emerald-500/20" : "bg-rose-500/20"}`}>
                                                             {item.passed ? (
-                                                                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 pdf-icon" />
                                                             ) : (
-                                                                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                                                                <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 pdf-icon" />
                                                             )}
                                                         </div>
                                                         <span className={`font-bold text-sm ${item.passed ? "text-emerald-800 dark:text-emerald-300" : "text-rose-800 dark:text-rose-300"}`}>
@@ -429,14 +429,14 @@ export default function ApiReportDetailPage() {
                                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                         <div className="md:col-span-2 break-inside-avoid pdf-break-safe">
                                                             <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-2 uppercase tracking-widest">Injected Prompt</div>
-                                                            <div className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl text-sm text-slate-700 dark:text-slate-300 leading-relaxed border border-slate-100 dark:border-slate-800 shadow-inner italic font-mono">
+                                                            <div className="bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-xl text-sm text-slate-700 dark:text-slate-300 leading-relaxed border border-slate-100 dark:border-slate-800 shadow-inner italic font-mono pdf-prompt-box">
                                                                 "{item.prompt}"
                                                             </div>
                                                         </div>
                                                         {!item.passed && item.reason && (
                                                             <div className="break-inside-avoid pdf-break-safe">
                                                                 <div className="text-[10px] font-bold text-rose-400 dark:text-rose-500 mb-2 uppercase tracking-widest">Vulnerability Reason</div>
-                                                                <div className="text-xs text-rose-700 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 p-4 rounded-xl border border-rose-100 dark:border-rose-900/30 leading-relaxed font-medium">
+                                                                <div className="text-xs text-rose-700 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/20 p-4 rounded-xl border border-rose-100 dark:border-rose-900/30 leading-relaxed font-medium pdf-reason-box">
                                                                     {item.reason}
                                                                 </div>
                                                             </div>
@@ -459,7 +459,7 @@ export default function ApiReportDetailPage() {
                                     return acc;
                                 }, {} as Record<string, typeof allItems>)
                             ).map(([category, items], catIdx) => (
-                                <div key={category} className="space-y-4 pdf-section">
+                                <div key={category} className="space-y-4">
                                     <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid">
                                         <span>{category}</span>
                                         <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
@@ -473,9 +473,9 @@ export default function ApiReportDetailPage() {
                                                 }`}>
                                                 <div className="flex items-center gap-3">
                                                     {item.success ? (
-                                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                                        <CheckCircle className="w-5 h-5 text-green-500 pdf-icon" />
                                                     ) : (
-                                                        <XCircle className="w-5 h-5 text-red-500" />
+                                                        <XCircle className="w-5 h-5 text-red-500 pdf-icon" />
                                                     )}
                                                     <span className="font-medium text-foreground/80">
                                                         Prompt #{idx + 1}
@@ -488,7 +488,7 @@ export default function ApiReportDetailPage() {
                                             <div className="p-6 space-y-4">
                                                 <div>
                                                     <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal text-balance">Prompt</div>
-                                                    <div className="bg-secondary/10 p-3 rounded-lg text-sm text-foreground/90">{item.prompt}</div>
+                                                    <div className="bg-secondary/10 p-3 rounded-lg text-sm text-foreground/90 pdf-prompt-box">{item.prompt}</div>
                                                 </div>
 
                                                 {(item as any).success && (item as any).evaluation ? (
@@ -523,7 +523,7 @@ export default function ApiReportDetailPage() {
                                                                             : "N/A"}
                                                                     </span>
                                                                 </div>
-                                                                <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
+                                                                <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded pdf-reason-box">
                                                                     {(item as any).evaluation?.overallVerdict || "No verdict"}
                                                                 </div>
                                                             </div>

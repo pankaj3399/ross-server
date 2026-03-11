@@ -43,11 +43,11 @@ const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; v
     <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px] pdf-score-badge">
       <div className="flex-shrink-0">
         {isGood ? (
-          <CheckCircle2 className="w-4 h-4 text-success" />
+          <CheckCircle2 className="w-4 h-4 text-success pdf-icon" />
         ) : isMedium ? (
-          <AlertCircle className="w-4 h-4 text-warning" />
+          <AlertCircle className="w-4 h-4 text-warning pdf-icon" />
         ) : (
-          <XCircle className="w-4 h-4 text-destructive" />
+          <XCircle className="w-4 h-4 text-destructive pdf-icon" />
         )}
       </div>
       <div className="flex flex-col justify-center">
@@ -63,7 +63,7 @@ const ResponseSection = ({ response }: { response: string }) => {
   const isLongResponse = response.length > 200; // Consider responses over 200 chars as long
 
   return (
-    <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-info">
+    <div className="bg-muted/50 rounded-lg p-4 border-l-4 border-info pdf-prompt-box">
       <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
         Your Response
       </div>
@@ -204,7 +204,7 @@ export default function FairnessBiasReport() {
                 onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
                 className="hide-in-pdf"
               >
-                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+                <ArrowLeft className="w-5 h-5 text-muted-foreground pdf-icon" />
               </button>
               <div>
                 <h1 className="text-xl font-bold text-foreground pb-1 leading-relaxed">Fairness & Bias Report</h1>
@@ -312,7 +312,7 @@ export default function FairnessBiasReport() {
                           {/* Scores Row */}
                           <div className="flex flex-wrap gap-3">
                             <div className="flex items-center gap-2 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20 pdf-score-badge pdf-overall-badge">
-                              <TrendingUp className="w-5 h-5 text-primary" />
+                              <TrendingUp className="w-5 h-5 text-primary pdf-icon" />
                               <div className="flex flex-col justify-center">
                                 <div className="text-[10px] text-primary/80 font-bold uppercase tracking-wider leading-none mb-1 pdf-label">Overall</div>
                                 <div className="text-xl font-extrabold text-primary leading-none pdf-value">

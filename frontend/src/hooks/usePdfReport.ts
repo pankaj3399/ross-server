@@ -311,6 +311,10 @@ export const usePdfReport = ({
                         }
                         return true;
                     }).filter(el => el.offsetHeight > 2);
+                    
+                    if (blocks.length === 0) {
+                        throw new Error(`No top-level PDF blocks found for selector: ${selector}`);
+                    }
 
                     // Sort by vertical position
                     const cloneRect = clone.getBoundingClientRect();
