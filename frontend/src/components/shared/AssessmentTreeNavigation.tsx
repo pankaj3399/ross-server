@@ -608,17 +608,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       {isFairness && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowSubscriptionModal(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowUnlockPremium(true)} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowSubscriptionModal(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowUnlockPremium(true)} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowSubscriptionModal(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowUnlockPremium(true)} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
@@ -652,19 +652,18 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
               </SidebarGroup>
             )}
 
-          </SidebarContent >
-        </Sidebar >
-        <SubscriptionModal
-          isOpen={showSubscriptionModal}
-          onClose={() => setShowSubscriptionModal(false)}
-        />
-        {!premiumStatus && showUnlockPremium && (
-          <UnlockPremium
-            featureName="AI Vulnerability Assessment"
-            onClose={() => setShowUnlockPremium(false)}
-          />
-        )}
-      </div >
+        </SidebarContent>
+      </Sidebar>
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+      />
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        featureName="AI Vulnerability Assessment"
+        onClose={() => setShowUnlockPremium(false)}
+      />
+    </div>
   );
 };
 
