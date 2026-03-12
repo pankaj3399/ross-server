@@ -24,6 +24,7 @@ import { PREMIUM_STATUS } from "../../lib/constants";
 import { apiService } from "../../lib/api";
 import { cn } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
+import UnlockPremium from "../features/subscriptions/UnlockPremium";
 import {
   Sidebar,
   SidebarContent,
@@ -305,6 +306,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
   const [isCrcExpanded, setIsCrcExpanded] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
 
   // Sidebar resize logic
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default 20rem = 320px
@@ -535,7 +537,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             id: "vulnerability",
                             label: "AI Vulnerability Assessment",
                             icon: IconShield,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/premium-domains`) : setShowSubscriptionModal(true),
+                            onClick: () => premiumStatus 
+                              ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)
+                              : setShowUnlockPremium(true),
                             locked: !premiumStatus,
                             color: "text-blue-500"
                           },
@@ -556,105 +560,110 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             color: "text-emerald-500"
                           }
                         ].map((item, idx) => {
-                          const isFairness = item.id === "fairness";
-                          const showToggle = isFairness;
+                            const isFairness = item.id === "fairness";
+                            const showToggle = isFairness;
 
-                          let isExpanded = false;
-                          if (isFairness) isExpanded = isFairnessExpanded;
-                          if (item.id === "crc") isExpanded = isCrcExpanded;
+                            let isExpanded = false;
+                            if (isFairness) isExpanded = isFairnessExpanded;
+                            if (item.id === "crc") isExpanded = isCrcExpanded;
 
-                          return (
-                            <SidebarMenuItem key={idx}>
-                              <SidebarMenuButton
-                                onClick={() => {
-                                  if (isFairness) {
-                                    setIsFairnessExpanded(!isFairnessExpanded);
-                                    item.onClick();
-                                  } else if (item.id === "crc") {
-                                    setIsCrcExpanded(!isCrcExpanded);
-                                    item.onClick();
-                                  } else {
-                                    item.onClick();
-                                  }
-                                }}
-                                className="group/premium-btn h-10 px-2"
-                              >
-                                <IconChevronRight
-                                  className={cn(
-                                    "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
-                                    isExpanded && "rotate-90",
-                                    (!showToggle && item.id !== "crc") && "invisible"
-                                  )}
-                                />
-                                <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
-                                <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
-                                  {item.label}
-                                </span>
-                                {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
-                              </SidebarMenuButton>
-
-                              <AnimatePresence>
-                                {isExpanded && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
-                                  >
-                                    {isFairness && (
-                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowSubscriptionModal(true)} className="h-8 px-2">
-                                            <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowSubscriptionModal(true)} className="h-8 px-2">
-                                            <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowSubscriptionModal(true)} className="h-8 px-2">
-                                            <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                      </SidebarMenuSub>
+                            return (
+                              <SidebarMenuItem key={idx}>
+                                <SidebarMenuButton
+                                  onClick={() => {
+                                    if (isFairness) {
+                                      setIsFairnessExpanded(!isFairnessExpanded);
+                                      item.onClick();
+                                    } else if (item.id === "crc") {
+                                      setIsCrcExpanded(!isCrcExpanded);
+                                      item.onClick();
+                                    } else {
+                                      item.onClick();
+                                    }
+                                  }}
+                                  className="group/premium-btn h-10 px-2"
+                                >
+                                  <IconChevronRight
+                                    className={cn(
+                                      "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
+                                      isExpanded && "rotate-90",
+                                      (!showToggle && item.id !== "crc") && "invisible"
                                     )}
-                                    {item.id === "crc" && crcCategories.length > 0 && (
-                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                        {crcCategories.map((cat, catIdx) => (
-                                          <SidebarMenuSubItem key={catIdx}>
-                                            <SidebarMenuSubButton
-                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : setShowSubscriptionModal(true)}
-                                              className="h-8 px-2"
-                                            >
-                                              <span className="text-[13px] truncate ml-2 text-foreground/70">{cat}</span>
+                                  />
+                                  <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
+                                  <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
+                                    {item.label}
+                                  </span>
+                                  {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
+                                </SidebarMenuButton>
+
+                                <AnimatePresence>
+                                  {isExpanded && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      className="overflow-hidden"
+                                    >
+                                      {isFairness && (
+                                        <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                              <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
-                                        ))}
-                                      </SidebarMenuSub>
-                                    )}
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </SidebarMenu>
-                    </SidebarGroupContent>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </SidebarGroup>
-          )}
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                              <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                              <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                        </SidebarMenuSub>
+                                      )}
+                                      {item.id === "crc" && crcCategories.length > 0 && (
+                                        <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                          {crcCategories.map((cat, catIdx) => (
+                                            <SidebarMenuSubItem key={catIdx}>
+                                              <SidebarMenuSubButton
+                                                onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : setShowSubscriptionModal(true)}
+                                                className="h-8 px-2"
+                                              >
+                                                <span className="text-[13px] truncate ml-2 text-foreground/70">{cat}</span>
+                                              </SidebarMenuSubButton>
+                                            </SidebarMenuSubItem>
+                                          ))}
+                                        </SidebarMenuSub>
+                                      )}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </SidebarMenuItem>
+                            );
+                          })}
+                        </SidebarMenu>
+                      </SidebarGroupContent>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </SidebarGroup>
+            )}
 
-        </SidebarContent >
-      </Sidebar >
+        </SidebarContent>
+      </Sidebar>
       <SubscriptionModal
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
       />
-    </div >
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        featureName="AI Vulnerability Assessment"
+        onClose={() => setShowUnlockPremium(false)}
+      />
+    </div>
   );
 };
 

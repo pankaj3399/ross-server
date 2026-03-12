@@ -31,6 +31,12 @@ export default function PremiumDomainsPage() {
     if (hasInitializedRef.current) return;
     if (loading) return;
 
+    if (isPremium) {
+      hasInitializedRef.current = true;
+      router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
+      return;
+    }
+
     if (!isPremium) {
       hasInitializedRef.current = true;
       router.push(`/assess/${projectId}/premium-features`);
