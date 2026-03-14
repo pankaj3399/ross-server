@@ -16,6 +16,7 @@ interface AuthContextType {
     email: string;
     password: string;
     name: string;
+    lastName?: string;
     organization?: string;
   }) => Promise<AuthResponse>;
   logout: () => void;
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string;
     password: string;
     name: string;
+    lastName?: string;
     organization?: string;
   }) => {
     const response = await apiService.register(data);
