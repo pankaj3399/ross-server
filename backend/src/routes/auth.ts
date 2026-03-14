@@ -21,14 +21,15 @@ import { recordEvent } from "../services/auditLogService";
 const router = Router();
 
 const registerSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z.string().trim().email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
-  name: z.string().min(1, "Name is required"),
-  organization: z.string().optional(),
+  name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers"),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers"),
+  organization: z.string().trim().optional(),
 });
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z.string().trim().email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
   mfaCode: z.string().optional(),
   backupCode: z.string().optional(),
@@ -53,16 +54,17 @@ const mfaSetupSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100, "Name is too long").optional(),
-  email: z.string().email("Invalid email format").optional(),
-}).refine((data) => data.name !== undefined || data.email !== undefined, {
-  message: "At least one field (name or email) must be provided",
+  name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers").optional(),
+  lastName: z.string().trim().max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
+  email: z.string().trim().email("Invalid email format").optional(),
+}).refine((data) => data.name !== undefined || data.email !== undefined || data.lastName !== undefined, {
+  message: "At least one field (name, last name or email) must be provided",
 });
 
 // Register
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, name, organization } = registerSchema.parse(
+    const { email, password, name, lastName, organization } = registerSchema.parse(
       req.body,
     );
 
@@ -101,8 +103,8 @@ router.post("/register", async (req, res) => {
 
     // Create user
     const result = await pool.query(
-      "INSERT INTO users (email, password_hash, name, organization, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, subscription_status, email_verified",
-      [email, passwordHash, name, organization || null, false],
+      "INSERT INTO users (email, password_hash, name, last_name, organization, email_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name, last_name, role, subscription_status, email_verified",
+      [email, passwordHash, name, lastName, organization || null, false],
     );
 
     const user = result.rows[0];
@@ -124,6 +126,7 @@ router.post("/register", async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        lastName: user.last_name,
         role: user.role,
         subscription_status: user.subscription_status,
         email_verified: user.email_verified,
@@ -159,7 +162,7 @@ router.post("/verify-email", async (req, res) => {
 
     // Get updated user info
     const userResult = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified FROM users WHERE id = $1",
       [result.userId],
     );
 
@@ -181,6 +184,7 @@ router.post("/verify-email", async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        lastName: user.last_name,
         role: user.role,
         subscription_status: user.subscription_status,
         email_verified: user.email_verified,
@@ -272,7 +276,7 @@ router.post("/login", async (req, res) => {
 
     // Get user
     const result = await pool.query(
-      "SELECT id, email, password_hash, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, name, last_name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE email = $1",
       [email],
     );
 
@@ -333,6 +337,7 @@ router.post("/login", async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        lastName: user.last_name,
         role: user.role,
         subscription_status: user.subscription_status,
         email_verified: user.email_verified,
@@ -501,12 +506,12 @@ router.post("/change-password", authenticateToken, async (req, res) => {
 // Update profile (name and/or email)
 router.put("/update-profile", authenticateToken, async (req, res) => {
   try {
-    const { name, email } = updateProfileSchema.parse(req.body);
+    const { name, lastName, email } = updateProfileSchema.parse(req.body);
     const userId = req.user!.id;
 
     // Get current user data (widen SELECT to include all fields needed for response)
     const currentUserResult = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled FROM users WHERE id = $1",
       [userId],
     );
 
@@ -515,6 +520,11 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     }
 
     const currentUser = currentUserResult.rows[0];
+    const { last_name: current_last_name, ...current_rest } = currentUser;
+    const currentUserNormalized = {
+      ...current_rest,
+      lastName: current_last_name
+    };
     let emailChanged = false;
 
     // Check if email is being changed and if it's already taken
@@ -542,6 +552,12 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
       paramIndex++;
     }
 
+    if (lastName !== undefined && lastName !== currentUser.last_name) {
+      updates.push(`last_name = $${paramIndex}`);
+      values.push(lastName);
+      paramIndex++;
+    }
+
     if (email !== undefined && email !== currentUser.email) {
       updates.push(`email = $${paramIndex}`);
       values.push(email);
@@ -554,7 +570,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
       // Reuse the initial query result instead of querying again
       return res.status(200).json({ 
         message: "Profile is already up to date",
-        user: currentUser
+        user: currentUserNormalized
       });
     }
 
@@ -563,11 +579,16 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
 
     // Execute update
     values.push(userId);
-    const updateQuery = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, email, name, role, subscription_status, email_verified, mfa_enabled`;
+    const updateQuery = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled`;
 
     const result = await pool.query(updateQuery, values);
 
     const updatedUser = result.rows[0];
+    const { last_name, ...rest } = updatedUser;
+    const userResponse = {
+      ...rest,
+      lastName: last_name
+    };
 
     // If email changed, send verification email
     if (emailChanged) {
@@ -585,7 +606,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     }
 
     res.json({
-      user: updatedUser,
+      user: userResponse,
       message: emailChanged
         ? "Profile updated successfully. Please verify your new email address."
         : "Profile updated successfully",
@@ -758,7 +779,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 
     // Get updated user info
     const result = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified, mfa_enabled, updated_at FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, updated_at FROM users WHERE id = $1",
       [userId],
     );
 
@@ -766,8 +787,13 @@ router.get("/me", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
-    res.json({ user });
+    const { last_name, ...rest } = result.rows[0];
+    res.json({ 
+      user: {
+        ...rest,
+        lastName: last_name
+      } 
+    });
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Failed to get user info" });
@@ -966,8 +992,8 @@ router.post("/invitations/:token/signup", async (req, res) => {
     }
 
     const { email } = invitation;
-    const { password, name } = registerSchema
-      .pick({ password: true, name: true })
+    const { password, name, lastName } = registerSchema
+      .pick({ password: true, name: true, lastName: true })
       .parse(req.body);
 
     // Check if a verified user already exists for this email (case-insensitive)
@@ -1002,8 +1028,8 @@ router.post("/invitations/:token/signup", async (req, res) => {
 
       // Create user with default free subscription
       const result = await client.query(
-        "INSERT INTO users (email, password_hash, name, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, subscription_status, email_verified",
-        [email, passwordHash, name, true],
+        "INSERT INTO users (email, password_hash, name, last_name, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, last_name, role, subscription_status, email_verified",
+        [email, passwordHash, name, lastName, true],
       );
 
       const user = result.rows[0];
@@ -1044,6 +1070,7 @@ router.post("/invitations/:token/signup", async (req, res) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          lastName: user.last_name,
           role: user.role,
           subscription_status: user.subscription_status,
           email_verified: user.email_verified,
