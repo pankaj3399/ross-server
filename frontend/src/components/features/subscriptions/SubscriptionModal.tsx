@@ -121,15 +121,23 @@ export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free
     if (planName === "basic") {
       // If they are on pro and want basic, it's a downgrade
       if (currentPlan === "pro_premium") {
-        if (onDowngrade) onDowngrade();
-        onClose();
+        if (onDowngrade) {
+          onDowngrade();
+          onClose();
+          return;
+        }
+        // If onDowngrade is not defined, we don't close the modal or do anything
         return;
       }
     } else if (planName === "pro") {
       // If they are on basic and want pro, it's an upgrade
       if (currentPlan === "basic_premium") {
-        if (onUpgrade) onUpgrade();
-        onClose();
+        if (onUpgrade) {
+          onUpgrade();
+          onClose();
+          return;
+        }
+        // If onUpgrade is not defined, we don't close the modal or do anything
         return;
       }
     }

@@ -615,13 +615,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Unlock Premium Modal */}
-      {showUnlockPremium && (
-        <UnlockPremium
-          isOpen={showUnlockPremium}
-          onClose={() => setShowUnlockPremium(false)}
-          featureName="Multiple Projects"
-        />
-      )}
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        onClose={() => setShowUnlockPremium(false)}
+        featureName="Multiple Projects"
+      />
 
       {/* Create Project Modal */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
