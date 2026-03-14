@@ -83,10 +83,15 @@ export default function SettingsPage() {
     setLoading(false);
   }, [isAuthenticated, authLoading, router]);
 
-  const isProfileInitialized = useRef(false);
+  const initializedForEmailRef = useRef<string | null>(null);
   useEffect(() => {
-    // Initialize profile form with user data only once
-    if (user && !isProfileInitialized.current) {
+    if (!user) {
+      initializedForEmailRef.current = null;
+      return;
+    }
+
+    // Initialize profile form if user changed or not yet initialized
+    if (initializedForEmailRef.current !== user.email) {
       let initialName = user.name || "";
       let initialLastName = user.lastName || "";
 
@@ -104,7 +109,7 @@ export default function SettingsPage() {
         lastName: initialLastName,
         email: user.email || "",
       });
-      isProfileInitialized.current = true;
+      initializedForEmailRef.current = user.email || null;
     }
   }, [user]);
 
@@ -355,8 +360,8 @@ export default function SettingsPage() {
     const normalizedUserLastName = user?.lastName?.trim() || "";
     const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
 
-    // Determine if user is currently using the legacy schema (no last_name)
-    const isLegacy = !user?.lastName;
+    // Legacy only when the field is actually absent/null, not merely empty.
+    const isLegacy = user?.lastName == null;
 
     // Build update payload only with fields that differ
     const updateData: { name?: string; lastName?: string; email?: string } = {};
