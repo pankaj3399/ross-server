@@ -60,6 +60,7 @@ export default function SettingsPage() {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
     name: "",
+    lastName: "",
     email: "",
   });
   const [profileLoading, setProfileLoading] = useState(false);
@@ -84,13 +85,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Initialize profile form with user data only if form is empty/unmodified
-    if (user && (!profileForm.name && !profileForm.email)) {
+    if (user && (!profileForm.name && !profileForm.lastName && !profileForm.email)) {
       setProfileForm({
         name: user.name || "",
+        lastName: user.lastName || "",
         email: user.email || "",
       });
     }
-  }, [user, profileForm.name, profileForm.email]);
+  }, [user, profileForm.name, profileForm.lastName, profileForm.email]);
 
   const isMountedRef = useRef(true);
 
@@ -269,6 +271,7 @@ export default function SettingsPage() {
     if (user) {
       setProfileForm({
         name: user.name || "",
+        lastName: user.lastName || "",
         email: user.email || "",
       });
     }
@@ -288,13 +291,28 @@ export default function SettingsPage() {
     const trimmedEmail = profileForm.email.trim();
 
     if (!trimmedName || trimmedName.length === 0) {
-      setProfileError("Name is required");
+      setProfileError("First name is required");
       return false;
     }
-    if (trimmedName.length > 100) {
-      setProfileError("Name must be less than 100 characters");
+    if (trimmedName.length > 50) {
+      setProfileError("First name must be less than 50 characters");
       return false;
     }
+    if (/[0-9]/.test(trimmedName)) {
+      setProfileError("First name should not contain numbers");
+      return false;
+    }
+
+    const trimmedLastName = profileForm.lastName.trim();
+    if (trimmedLastName && trimmedLastName.length > 50) {
+      setProfileError("Last name must be less than 50 characters");
+      return false;
+    }
+    if (trimmedLastName && /[0-9]/.test(trimmedLastName)) {
+      setProfileError("Last name should not contain numbers");
+      return false;
+    }
+
     if (!trimmedEmail || trimmedEmail.length === 0) {
       setProfileError("Email is required");
       return false;
@@ -315,22 +333,27 @@ export default function SettingsPage() {
 
     // Trim values upfront for comparison and payload
     const trimmedName = profileForm.name.trim();
+    const trimmedLastName = profileForm.lastName.trim();
     const trimmedEmail = profileForm.email.trim().toLowerCase();
 
     // Normalize user values for comparison
     const normalizedUserName = user?.name?.trim() || "";
+    const normalizedUserLastName = user?.lastName?.trim() || "";
     const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
 
     // Check if anything changed using normalized values
-    if (trimmedName === normalizedUserName && trimmedEmail === normalizedUserEmail) {
+    if (trimmedName === normalizedUserName && trimmedLastName === normalizedUserLastName && trimmedEmail === normalizedUserEmail) {
       setProfileError("No changes to save");
       return;
     }
 
     // Build update payload only with fields that differ
-    const updateData: { name?: string; email?: string } = {};
+    const updateData: { name?: string; lastName?: string; email?: string } = {};
     if (trimmedName !== normalizedUserName) {
       updateData.name = trimmedName;
+    }
+    if (trimmedLastName !== normalizedUserLastName) {
+      updateData.lastName = trimmedLastName;
     }
     if (trimmedEmail !== normalizedUserEmail) {
       updateData.email = trimmedEmail;
@@ -513,20 +536,39 @@ export default function SettingsPage() {
               {isEditingProfile ? (
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
                   {/* Name Field */}
-                  <div className="space-y-2">
-                    <Label htmlFor="profile-name">Name</Label>
-                    <div className="relative">
-                      <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="profile-name"
-                        name="name"
-                        value={profileForm.name}
-                        onChange={handleProfileInputChange}
-                        placeholder="Enter your name"
-                        disabled={profileLoading}
-                        maxLength={100}
-                        className="pl-10"
-                      />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-name">First Name</Label>
+                      <div className="relative">
+                        <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="profile-name"
+                          name="name"
+                          value={profileForm.name}
+                          onChange={handleProfileInputChange}
+                          placeholder="Enter your first name"
+                          disabled={profileLoading}
+                          maxLength={50}
+                          className="pl-10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="profile-lastName">Last Name</Label>
+                      <div className="relative">
+                        <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="profile-lastName"
+                          name="lastName"
+                          value={profileForm.lastName}
+                          onChange={handleProfileInputChange}
+                          placeholder="Enter your last name"
+                          disabled={profileLoading}
+                          maxLength={50}
+                          className="pl-10"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -588,10 +630,18 @@ export default function SettingsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                        FULL NAME
+                        FIRST NAME
                       </p>
                       <p className="text-base font-medium text-foreground">
                         {user?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        LAST NAME
+                      </p>
+                      <p className="text-base font-medium text-foreground">
+                        {user?.lastName || "N/A"}
                       </p>
                     </div>
                     <div>

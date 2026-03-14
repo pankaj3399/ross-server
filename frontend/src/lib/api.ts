@@ -4,6 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  lastName?: string;
   role: string;
   subscription_status: string;
   organization?: string;
@@ -229,6 +230,7 @@ class ApiService {
     email: string;
     password: string;
     name: string;
+    lastName?: string;
     organization?: string;
   }): Promise<AuthResponse> {
     const response = await this.request<AuthResponse>("/auth/register", {
@@ -266,6 +268,7 @@ class ApiService {
 
   async updateProfile(data: {
     name?: string;
+    lastName?: string;
     email?: string;
   }): Promise<{
     user: User;

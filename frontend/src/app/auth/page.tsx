@@ -29,6 +29,7 @@ export default function AuthPage() {
     password: "",
     confirmPassword: "",
     name: "",
+    lastName: "",
     organization: "",
     mfaCode: "",
     backupCode: "",
@@ -67,6 +68,7 @@ export default function AuthPage() {
           email: formData.email,
           password: formData.password,
           name: formData.name,
+          lastName: formData.lastName,
           organization: formData.organization,
         });
 
@@ -148,19 +150,47 @@ export default function AuthPage() {
               <form className="space-y-6" onSubmit={handleSubmit}>
                 {!isLogin && (
                   <>
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <div className="relative">
-                        <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="name"
-                          name="name"
-                          type="text"
-                          required={!isLogin}
-                          value={formData.name}
-                          onChange={handleChange}
-                          className="h-12 pl-10"
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">First Name</Label>
+                        <div className="relative">
+                          <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="name"
+                            name="name"
+                            type="text"
+                            required={!isLogin}
+                            value={formData.name}
+                            onChange={handleChange}
+                            placeholder="First Name"
+                            maxLength={50}
+                            pattern="^[^0-9]*$"
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("First name should not contain numbers")}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
+                            className="h-12 pl-10"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <div className="relative">
+                          <IconUser className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="lastName"
+                            name="lastName"
+                            type="text"
+                            required={!isLogin}
+                            value={formData.lastName}
+                            onChange={handleChange}
+                            placeholder="Last Name"
+                            maxLength={50}
+                            pattern="^[^0-9]*$"
+                            onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("Last name should not contain numbers")}
+                            onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
+                            className="h-12 pl-10"
+                          />
+                        </div>
                       </div>
                     </div>
 
