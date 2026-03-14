@@ -34,9 +34,12 @@ const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  currentPlan?: string;
+  onUpgrade?: () => void;
+  onDowngrade?: () => void;
 }
 
-export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModalProps) {
+export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free", onUpgrade, onDowngrade }: SubscriptionModalProps) {
   const [prices, setPrices] = useState<{ basic: number | null; pro: number | null }>({
     basic: null,
     pro: null,
@@ -113,6 +116,24 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
   }, [isOpen]);
 
   const handleSelectPlan = async (priceId: string, planName: string) => {
+    // If user is already on a paid plan, we should route them through the callbacks
+    // instead of creating a new checkout session directly
+    if (planName === "basic") {
+      // If they are on pro and want basic, it's a downgrade
+      if (currentPlan === "pro_premium") {
+        if (onDowngrade) onDowngrade();
+        onClose();
+        return;
+      }
+    } else if (planName === "pro") {
+      // If they are on basic and want pro, it's an upgrade
+      if (currentPlan === "basic_premium") {
+        if (onUpgrade) onUpgrade();
+        onClose();
+        return;
+      }
+    }
+
     if (!priceId) {
       showToast.warning("Plan price configuration missing. Please contact support.");
       return;
@@ -249,17 +270,22 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 <CardFooter>
                   <Button
                     onClick={() => handleSelectPlan(BASIC_PRICE_ID, "basic")}
-                    disabled={upgradingPlan === "basic" || loadingPrices}
+                    disabled={upgradingPlan === "basic" || loadingPrices || currentPlan === "basic_premium"}
+                    variant={currentPlan === "pro_premium" ? "outline" : "default"}
                     className="w-full h-12 text-base font-semibold"
                   >
                     {upgradingPlan === "basic" ? (
                       <>
-                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                        <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
                         Processing...
                       </>
+                    ) : currentPlan === "basic_premium" ? (
+                      "Current Plan"
+                    ) : currentPlan === "pro_premium" ? (
+                      "Downgrade to BLOOM"
                     ) : (
                       <>
-                        <IconStar className="w-4 h-4" />
+                        <IconStar className="w-4 h-4 mr-2" />
                         Choose BLOOM
                       </>
                     )}
@@ -338,17 +364,21 @@ export default function SubscriptionModal({ isOpen, onClose }: SubscriptionModal
                 <CardFooter>
                   <Button
                     onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
-                    disabled={upgradingPlan === "pro" || loadingPrices}
+                    disabled={upgradingPlan === "pro" || loadingPrices || currentPlan === "pro_premium"}
                     className="w-full h-12 text-base font-semibold"
                   >
                     {upgradingPlan === "pro" ? (
                       <>
-                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                        <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
                         Processing...
                       </>
+                    ) : currentPlan === "pro_premium" ? (
+                      "Current Plan"
+                    ) : currentPlan === "basic_premium" ? (
+                      "Upgrade to BLOOM PLUS"
                     ) : (
                       <>
-                        <IconAward className="w-5 h-5" />
+                        <IconAward className="w-5 h-5 mr-2" />
                         Choose BLOOM PLUS
                       </>
                     )}

@@ -85,10 +85,22 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     // Enforce subscription for creating/owning projects
     const status = req.user!.subscription_status;
-    if (!["basic_premium", "pro_premium", "trial"].includes(status)) {
-      return res.status(403).json({
-        error: "Subscription required to create projects",
-      });
+    const isPremium = ["basic_premium", "pro_premium", "trial"].includes(status);
+
+    if (!isPremium) {
+      // Free users are allowed 1 project
+      const projectCountResult = await pool.query(
+        "SELECT COUNT(*) FROM projects WHERE user_id = $1",
+        [req.user!.id]
+      );
+      const projectCount = parseInt(projectCountResult.rows[0].count);
+
+      if (projectCount >= 1) {
+        return res.status(403).json({
+          error: "PROJECT_LIMIT_REACHED",
+          message: "Free plan is limited to 1 project. Please upgrade to create more.",
+        });
+      }
     }
     const { name, description, aiSystemType, industry } = createProjectSchema.parse(
       req.body,
