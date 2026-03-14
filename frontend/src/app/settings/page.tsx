@@ -551,6 +551,9 @@ export default function SettingsPage() {
                           placeholder="Enter your first name"
                           disabled={profileLoading}
                           maxLength={50}
+                          pattern="^[^0-9]*$"
+                          onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("First name should not contain numbers")}
+                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                           className="pl-10"
                         />
                       </div>
@@ -568,6 +571,9 @@ export default function SettingsPage() {
                           placeholder="Enter your last name"
                           disabled={profileLoading}
                           maxLength={50}
+                          pattern="^[^0-9]*$"
+                          onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("Last name should not contain numbers")}
+                          onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
                           className="pl-10"
                         />
                       </div>

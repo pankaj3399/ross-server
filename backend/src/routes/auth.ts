@@ -21,11 +21,11 @@ import { recordEvent } from "../services/auditLogService";
 const router = Router();
 
 const registerSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z.string().email("Invalid email format").trim(),
   password: z.string().min(1, "Password is required"),
-  name: z.string().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers"),
-  organization: z.string().optional(),
+  name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers"),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers"),
+  organization: z.string().trim().optional(),
 });
 
 const loginSchema = z.object({
@@ -54,9 +54,9 @@ const mfaSetupSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
-  name: z.string().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers").optional(),
-  lastName: z.string().max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
-  email: z.string().email("Invalid email format").optional(),
+  name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers").optional(),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
+  email: z.string().email("Invalid email format").trim().optional(),
 }).refine((data) => data.name !== undefined || data.email !== undefined || data.lastName !== undefined, {
   message: "At least one field (name, last name or email) must be provided",
 });
@@ -64,7 +64,7 @@ const updateProfileSchema = z.object({
 // Register
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, name, organization } = registerSchema.parse(
+    const { email, password, name, lastName, organization } = registerSchema.parse(
       req.body,
     );
 
@@ -104,7 +104,7 @@ router.post("/register", async (req, res) => {
     // Create user
     const result = await pool.query(
       "INSERT INTO users (email, password_hash, name, last_name, organization, email_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name, last_name, role, subscription_status, email_verified",
-      [email, passwordHash, name, req.body.lastName || null, organization || null, false],
+      [email, passwordHash, name, lastName, organization || null, false],
     );
 
     const user = result.rows[0];
@@ -520,6 +520,11 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     }
 
     const currentUser = currentUserResult.rows[0];
+    const { last_name: current_last_name, ...current_rest } = currentUser;
+    const currentUserNormalized = {
+      ...current_rest,
+      lastName: current_last_name
+    };
     let emailChanged = false;
 
     // Check if email is being changed and if it's already taken
@@ -565,7 +570,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
       // Reuse the initial query result instead of querying again
       return res.status(200).json({ 
         message: "Profile is already up to date",
-        user: currentUser
+        user: currentUserNormalized
       });
     }
 
