@@ -180,7 +180,6 @@ export default function AuthPage() {
                             id="lastName"
                             name="lastName"
                             type="text"
-                            required={!isLogin}
                             value={formData.lastName}
                             onChange={handleChange}
                             placeholder="Last Name"
