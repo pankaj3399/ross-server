@@ -21,7 +21,7 @@ import { recordEvent } from "../services/auditLogService";
 const router = Router();
 
 const registerSchema = z.object({
-  email: z.string().email("Invalid email format").trim(),
+  email: z.string().trim().email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
   name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers"),
   lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers"),
@@ -29,7 +29,7 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email format"),
+  email: z.string().trim().email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
   mfaCode: z.string().optional(),
   backupCode: z.string().optional(),
@@ -54,9 +54,9 @@ const mfaSetupSchema = z.object({
 });
 
 const updateProfileSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers").optional(),
-  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
-  email: z.string().email("Invalid email format").trim().optional(),
+  name: z.string().trim().max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers").optional(),
+  lastName: z.string().trim().max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
+  email: z.string().trim().email("Invalid email format").optional(),
 }).refine((data) => data.name !== undefined || data.email !== undefined || data.lastName !== undefined, {
   message: "At least one field (name, last name or email) must be provided",
 });

@@ -87,9 +87,21 @@ export default function SettingsPage() {
   useEffect(() => {
     // Initialize profile form with user data only once
     if (user && !isProfileInitialized.current) {
+      let initialName = user.name || "";
+      let initialLastName = user.lastName || "";
+
+      // Legacy split: if last name is missing but name contains a space
+      if (!initialLastName && initialName.trim().includes(" ")) {
+        const parts = initialName.trim().split(/\s+/);
+        if (parts.length > 1) {
+          initialName = parts[0];
+          initialLastName = parts.slice(1).join(" ");
+        }
+      }
+
       setProfileForm({
-        name: user.name || "",
-        lastName: user.lastName || "",
+        name: initialName,
+        lastName: initialLastName,
         email: user.email || "",
       });
       isProfileInitialized.current = true;
