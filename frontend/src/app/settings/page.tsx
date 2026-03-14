@@ -355,20 +355,30 @@ export default function SettingsPage() {
     const normalizedUserLastName = user?.lastName?.trim() || "";
     const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
 
-    // Check if anything changed using normalized values
-    if (trimmedName === normalizedUserName && trimmedLastName === normalizedUserLastName && trimmedEmail === normalizedUserEmail) {
-      setProfileError("No changes to save");
-      return;
-    }
+    // Determine if user is currently using the legacy schema (no last_name)
+    const isLegacy = !user?.lastName;
 
     // Build update payload only with fields that differ
     const updateData: { name?: string; lastName?: string; email?: string } = {};
-    if (trimmedName !== normalizedUserName) {
-      updateData.name = trimmedName;
+
+    if (isLegacy) {
+      // In legacy mode, we merge fields back to 'name' to maintain compatibility
+      const combinedFullName = `${trimmedName} ${trimmedLastName}`.trim();
+      if (combinedFullName !== normalizedUserName) {
+        updateData.name = combinedFullName;
+      }
+      // Note: We don't send lastName here if it wasn't previously present,
+      // avoiding a schema migration until a global backfill is performed.
+    } else {
+      // In new mode, we update name (first name) and lastName independently
+      if (trimmedName !== normalizedUserName) {
+        updateData.name = trimmedName;
+      }
+      if (trimmedLastName !== normalizedUserLastName) {
+        updateData.lastName = trimmedLastName;
+      }
     }
-    if (trimmedLastName !== normalizedUserLastName) {
-      updateData.lastName = trimmedLastName;
-    }
+
     if (trimmedEmail !== normalizedUserEmail) {
       updateData.email = trimmedEmail;
     }
