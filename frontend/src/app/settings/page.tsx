@@ -83,16 +83,18 @@ export default function SettingsPage() {
     setLoading(false);
   }, [isAuthenticated, authLoading, router]);
 
+  const isProfileInitialized = useRef(false);
   useEffect(() => {
-    // Initialize profile form with user data only if form is empty/unmodified
-    if (user && (!profileForm.name && !profileForm.lastName && !profileForm.email)) {
+    // Initialize profile form with user data only once
+    if (user && !isProfileInitialized.current) {
       setProfileForm({
         name: user.name || "",
         lastName: user.lastName || "",
         email: user.email || "",
       });
+      isProfileInitialized.current = true;
     }
-  }, [user, profileForm.name, profileForm.lastName, profileForm.email]);
+  }, [user]);
 
   const isMountedRef = useRef(true);
 

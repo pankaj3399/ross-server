@@ -24,7 +24,7 @@ const registerSchema = z.object({
   email: z.string().email("Invalid email format"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required").max(50, "Name is too long").regex(/^[^0-9]*$/, "Name should not contain numbers"),
-  lastName: z.string().max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers").optional(),
+  lastName: z.string().min(1, "Last name is required").max(50, "Last name is too long").regex(/^[^0-9]*$/, "Last name should not contain numbers"),
   organization: z.string().optional(),
 });
 
@@ -162,7 +162,7 @@ router.post("/verify-email", async (req, res) => {
 
     // Get updated user info
     const userResult = await pool.query(
-      "SELECT id, email, name, role, subscription_status, email_verified FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified FROM users WHERE id = $1",
       [result.userId],
     );
 
@@ -579,11 +579,11 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     const result = await pool.query(updateQuery, values);
 
     const updatedUser = result.rows[0];
+    const { last_name, ...rest } = updatedUser;
     const userResponse = {
-      ...updatedUser,
-      lastName: updatedUser.last_name
+      ...rest,
+      lastName: last_name
     };
-    delete userResponse.last_name;
 
     // If email changed, send verification email
     if (emailChanged) {
@@ -782,11 +782,11 @@ router.get("/me", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const user = result.rows[0];
+    const { last_name, ...rest } = result.rows[0];
     res.json({ 
       user: {
-        ...user,
-        lastName: user.last_name
+        ...rest,
+        lastName: last_name
       } 
     });
   } catch (error) {
@@ -987,8 +987,8 @@ router.post("/invitations/:token/signup", async (req, res) => {
     }
 
     const { email } = invitation;
-    const { password, name } = registerSchema
-      .pick({ password: true, name: true })
+    const { password, name, lastName } = registerSchema
+      .pick({ password: true, name: true, lastName: true })
       .parse(req.body);
 
     // Check if a verified user already exists for this email (case-insensitive)
@@ -1023,8 +1023,8 @@ router.post("/invitations/:token/signup", async (req, res) => {
 
       // Create user with default free subscription
       const result = await client.query(
-        "INSERT INTO users (email, password_hash, name, email_verified) VALUES ($1, $2, $3, $4) RETURNING id, email, name, role, subscription_status, email_verified",
-        [email, passwordHash, name, true],
+        "INSERT INTO users (email, password_hash, name, last_name, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, last_name, role, subscription_status, email_verified",
+        [email, passwordHash, name, lastName, true],
       );
 
       const user = result.rows[0];
@@ -1065,6 +1065,7 @@ router.post("/invitations/:token/signup", async (req, res) => {
           id: user.id,
           email: user.email,
           name: user.name,
+          lastName: user.last_name,
           role: user.role,
           subscription_status: user.subscription_status,
           email_verified: user.email_verified,
