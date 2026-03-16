@@ -284,6 +284,7 @@ export default function DashboardPage() {
 
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
+    const ERROR_PROJECT_LIMIT_REACHED = "PROJECT_LIMIT_REACHED";
     setIsCreating(true);
     try {
       const response = await apiService.createProject(newProject);
@@ -291,8 +292,6 @@ export default function DashboardPage() {
       setNewProject({ name: "", description: "", aiSystemType: "", industry: "" });
       setShowCreateForm(false);
       showToast.success("Project created successfully!");
-    const ERROR_PROJECT_LIMIT_REACHED = "PROJECT_LIMIT_REACHED";
-    
     } catch (error: any) {
       console.error("Failed to create project:", error);
       if (error.message === ERROR_PROJECT_LIMIT_REACHED) {
@@ -895,11 +894,6 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      <UnlockPremium 
-        isOpen={showUnlockPremium} 
-        onClose={() => setShowUnlockPremium(false)} 
-        featureName="more than one project"
-      />
     </div>
   );
 }

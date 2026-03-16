@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { PREMIUM_STATUS } from "@/lib/constants";
 import { AnimatePresence } from "framer-motion";
-import UnlockPremium from "@/components/features/subscriptions/UnlockPremium";
+import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "../api-history/components/ApiHistory";
 
@@ -93,7 +93,7 @@ export default function ApiEndpointPage() {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyPlacement, setApiKeyPlacement] = useState<ApiKeyPlacement>("none");
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const isPremium = isSubscriptionStatus(user?.subscription_status) && 
     PREMIUM_STATUS.includes(user.subscription_status);
@@ -193,7 +193,7 @@ export default function ApiEndpointPage() {
       return;
 
     if (!isPremium) {
-      setShowUnlockPremium(true);
+      setShowSubscriptionModal(true);
       return;
     }
 
@@ -234,10 +234,11 @@ export default function ApiEndpointPage() {
         </Button>
       </div>
 
-      <UnlockPremium
-        isOpen={showUnlockPremium}
-        featureName="Security Scan"
-        onClose={() => setShowUnlockPremium(false)}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        title="Unlock Security Scan"
+        description="Run comprehensive security scans on your AI systems to identify vulnerabilities and ensure compliance."
       />
 
       {/* Main Content */}
