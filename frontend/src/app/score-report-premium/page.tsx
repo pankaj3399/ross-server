@@ -102,6 +102,9 @@ export default function ScoreReportPage() {
       const projectResults = getProjectResults(projectId);
       if (projectResults) {
         setResults(projectResults);
+      } else if (projectId) {
+        // Handle case where we have a projectId but no results yet
+        // This might happen if user bookmarked or manually navigated
       }
 
       try {
@@ -229,7 +232,9 @@ export default function ScoreReportPage() {
         <div className="text-center p-8 bg-card rounded-3xl border border-border">
           <h1 className="text-3xl font-bold text-foreground mb-4">No Results Found</h1>
           <p className="text-muted-foreground mb-8">Assessment results not found.</p>
-          <Button onClick={() => router.push(`/assess/${projectId}`)}>Back to Assessment</Button>
+          <Button onClick={() => router.push(projectId ? `/assess/${projectId}` : "/dashboard")}>
+            {projectId ? "Back to Assessment" : "Go to Dashboard"}
+          </Button>
         </div>
       </div>
     );
@@ -255,7 +260,7 @@ export default function ScoreReportPage() {
           <div className="flex justify-between items-center mb-8">
             <Button
               variant="ghost"
-              onClick={() => router.push(`/assess/${projectId}`)}
+              onClick={() => router.push(projectId ? `/assess/${projectId}` : "/dashboard")}
               className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all pl-0 hover:bg-transparent hide-in-pdf"
             >
               <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
@@ -428,7 +433,7 @@ export default function ScoreReportPage() {
           <div className="space-y-12">
             {results.results.domains.map((domain: any, index: number) => {
               const domainMaturity = getMaturityLevel(domain.maturityScore);
-              const domainInsights = parseInsightText(insights[domain.domainId] || domain.insights || "");
+              const domainInsights = parseInsightText(insights[domain.domainId] || (isUserPremium ? domain.insights : "") || "");
 
               return (
                 <motion.div

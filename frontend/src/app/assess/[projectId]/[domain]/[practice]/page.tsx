@@ -50,6 +50,13 @@ const normalizeQuestionEntry = (
   };
 };
 
+const maturityLabels: Record<number, string> = {
+  0: "No Maturity (0)",
+  1: "Initial (1)",
+  2: "Developing (2)",
+  3: "Mature (3)",
+};
+
 export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,7 +96,7 @@ export default function AssessmentPage() {
           Object.entries(
             streams as Record<string, LevelQuestionEntry[]>,
           ).forEach(([stream, questionEntries]) => {
-            questionEntries.forEach((questionEntry, index) => {
+            questionEntries.forEach((questionEntry) => {
               const normalized = normalizeQuestionEntry(questionEntry);
               if (!normalized) {
                 return;
@@ -159,6 +166,13 @@ export default function AssessmentPage() {
       </div>
     );
   }
+
+  // Calculate practice-specific progress
+  const practiceAnswers = Object.entries(answers).filter(([key]) => 
+    key.startsWith(`${domainId}:${practiceId}:`)
+  );
+  const answeredCount = practiceAnswers.length;
+  const progressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   return (
     <div className="min-h-screen">
@@ -259,13 +273,7 @@ export default function AssessmentPage() {
                         </div>
                       </div>
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        {value === 0
-                          ? "No Maturity (0)"
-                          : value === 1
-                            ? "Initial (1)"
-                            : value === 2
-                              ? "Developing (2)"
-                              : "Mature (3)"}
+                        {maturityLabels[value] || `Unknown (${value})`}
                       </span>
                     </label>
                   ))}
@@ -290,23 +298,19 @@ export default function AssessmentPage() {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Questions answered</span>
               <span className="text-card-foreground font-medium">
-                {Object.keys(answers).length} / {questions.length}
+                {answeredCount} / {questions.length}
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-3">
               <div
                 className="bg-primary h-3 rounded-full transition-all duration-300"
                 style={{
-                  width: `${(Object.keys(answers).length / questions.length) * 100
-                    }%`,
+                  width: `${progressPercent}%`,
                 }}
               />
             </div>
             <div className="text-xs text-muted-foreground text-center">
-              {Math.round(
-                (Object.keys(answers).length / questions.length) * 100,
-              )}
-              % Complete
+              {Math.round(progressPercent)}% Complete
             </div>
           </div>
         </motion.div>

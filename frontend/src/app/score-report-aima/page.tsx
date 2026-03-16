@@ -32,6 +32,7 @@ export default function ScoreReportPage() {
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(new Set());
+  const [premiumDomainError, setPremiumDomainError] = useState(false);
 
   const { exportPdf, isExporting } = usePdfReport({
     reportRef,
@@ -74,7 +75,7 @@ export default function ScoreReportPage() {
         setPremiumDomainIds(premiumIds);
       } catch (error) {
         console.error("Failed to fetch domain details:", error);
-        setPremiumDomainIds(null);
+        setPremiumDomainError(true);
       } finally {
         setLoading(false);
       }
@@ -109,9 +110,11 @@ export default function ScoreReportPage() {
   const performance = getMaturityLevel(results.results.overall.overallMaturityScore);
 
   // Filter to show only non-premium domains
-  const nonPremiumDomains = premiumDomainIds === null 
-    ? [] 
-    : results.results.domains.filter((domain: any) => !premiumDomainIds.has(domain.domainId));
+  const nonPremiumDomains = (premiumDomainIds || new Set()).size === 0 && premiumDomainError
+    ? [] // If error and no data, show nothing (fail-closed)
+    : results.results.domains.filter((domain: any) => 
+        premiumDomainIds ? !premiumDomainIds.has(domain.domainId) : false
+      );
 
   return (
     <div ref={reportRef} className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
@@ -225,9 +228,16 @@ export default function ScoreReportPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col h-full"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3 flex-shrink-0">
-                <div className="w-1 h-8 rounded-full bg-primary" />
-                Domain Maturity Breakdown
+              <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center justify-between gap-3 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 rounded-full bg-primary" />
+                  Domain Maturity Breakdown
+                </div>
+                {premiumDomainError && (
+                  <span className="text-xs font-medium text-warning bg-warning/10 px-3 py-1 rounded-full border border-warning/20">
+                    Live status unavailable - showing cached results
+                  </span>
+                )}
               </h2>
 
               <div className="flex-1 space-y-4 overflow-y-auto scrollbar-hide">

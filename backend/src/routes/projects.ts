@@ -270,7 +270,7 @@ router.post(
     let questionsQuery = `
       SELECT d.id as domain_id, d.title as domain_title, COALESCE(d.is_premium, false) as is_premium,
              p.id as practice_id, p.title as practice_title,
-             COUNT(aq.id) as questions_in_practice
+             aq.level, aq.stream, aq.question_index
       FROM aima_domains d
       JOIN aima_practices p ON d.id = p.domain_id
       JOIN aima_questions aq ON p.id = aq.practice_id
@@ -311,7 +311,7 @@ router.post(
       questionsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
     }
     
-    questionsQuery += ` GROUP BY d.id, d.title, d.is_premium, p.id, p.title`;
+    // No GROUP BY needed here as we want individual questions
     
     const questionsResult = await pool.query(questionsQuery, queryParams);
 
@@ -327,11 +327,20 @@ router.post(
         });
       }
       const domain = structure.get(row.domain_id);
-      domain.practices.set(row.practice_id, {
-        title: row.practice_title,
-        totalQuestions: parseInt(row.questions_in_practice),
-        totalScore: 0
-      });
+      if (!domain.practices.has(row.practice_id)) {
+        domain.practices.set(row.practice_id, {
+          title: row.practice_title,
+          totalQuestions: 0,
+          totalScore: 0,
+          validQuestionKeys: new Set()
+        });
+      }
+      const practice = domain.practices.get(row.practice_id);
+      const questionKey = `${row.level}:${row.stream}:${row.question_index}`;
+      if (!practice.validQuestionKeys.has(questionKey)) {
+        practice.validQuestionKeys.add(questionKey);
+        practice.totalQuestions++;
+      }
     });
 
     // Populate scores from answers
@@ -340,7 +349,8 @@ router.post(
       const domain = structure.get(answer.domain_id);
       if (domain) {
         const practice = domain.practices.get(answer.practice_id);
-        if (practice) {
+        const questionKey = `${answer.level}:${answer.stream}:${answer.question_index}`;
+        if (practice && practice.validQuestionKeys.has(questionKey)) {
           practice.totalScore += parseFloat(answer.value);
         }
       }
