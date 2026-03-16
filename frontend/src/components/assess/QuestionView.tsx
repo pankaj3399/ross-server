@@ -11,9 +11,20 @@ import {
     IconLoader2,
 } from "@tabler/icons-react";
 import { SecureTextarea } from "../shared/SecureTextarea";
-import { safeRenderHTML } from "../../lib/htmlUtils";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
+/**
+ * HTML entities for escaping.
+ */
+const htmlEscape = (str: string): string => {
+    if (!str) return "";
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
 
 /**
  * Formats AIMA question descriptions with bolding and bullet points.
@@ -23,16 +34,20 @@ import { Button } from "../ui/button";
 const formatAimaDescription = (description: string | null | undefined): string => {
     if (!description || typeof description !== "string") return "";
 
-    // 1. Bold "Maturity Level X"
-    let formatted = description.replace(/(Maturity Level \d+)/g, "<strong>$1</strong>");
-
-    // 2. Bold "Stream A/B (...):"
-    formatted = formatted.replace(/(Stream [A|B] \([^)]+\):)/g, "<strong>$1</strong>");
-
-    // 3. Handle bullet points and line breaks
-    const lines = formatted.split("\n");
+    // 1. Process line by line and escape before adding tags
+    const lines = description.split("\n");
     const resultLines: string[] = [];
     let inList = false;
+
+    // Helper to bold specific markers safely
+    const applyMarkers = (text: string) => {
+        let escaped = htmlEscape(text);
+        // Bold "Maturity Level X"
+        escaped = escaped.replace(/(Maturity Level \d+)/g, "<strong>$1</strong>");
+        // Bold "Stream A/B (...):"
+        escaped = escaped.replace(/(Stream [A|B] \([^)]+\):)/g, "<strong>$1</strong>");
+        return escaped;
+    };
 
     for (let line of lines) {
         const trimmedLine = line.trim();
@@ -45,16 +60,19 @@ const formatAimaDescription = (description: string | null | undefined): string =
             // Handle various separators: colons, various dashes
             const bulletMatch = trimmedLine.match(/^[•]\s*(.*?)([:\-–—])\s*(.*)$/);
             if (bulletMatch) {
-                resultLines.push(`<li><strong>${bulletMatch[1]}${bulletMatch[2]}</strong> ${bulletMatch[3]}</li>`);
+                const title = htmlEscape(bulletMatch[1]);
+                const separator = htmlEscape(bulletMatch[2]);
+                const rest = htmlEscape(bulletMatch[3]);
+                resultLines.push(`<li><strong>${title}${separator}</strong> ${rest}</li>`);
             } else {
                 // Fallback: Bold the first 3-4 words if no separator is found
                 const words = trimmedLine.replace(/^[•]\s*/, "").split(/\s+/);
                 if (words.length > 4) {
-                    const title = words.slice(0, 3).join(" ");
-                    const rest = words.slice(3).join(" ");
+                    const title = htmlEscape(words.slice(0, 3).join(" "));
+                    const rest = htmlEscape(words.slice(3).join(" "));
                     resultLines.push(`<li><strong>${title}</strong> ${rest}</li>`);
                 } else {
-                    resultLines.push(`<li>${trimmedLine.replace(/^[•]\s*/, "")}</li>`);
+                    resultLines.push(`<li>${htmlEscape(trimmedLine.replace(/^[•]\s*/, ""))}</li>`);
                 }
             }
         } else {
@@ -63,7 +81,7 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 inList = false;
             }
             if (trimmedLine) {
-                resultLines.push(`<p>${trimmedLine}</p>`);
+                resultLines.push(`<p>${applyMarkers(trimmedLine)}</p>`);
             }
         }
     }
@@ -72,7 +90,9 @@ const formatAimaDescription = (description: string | null | undefined): string =
         resultLines.push("</ul>");
     }
 
-    return safeRenderHTML(resultLines.join("\n"));
+    // We don't call safeRenderHTML again because we've already manually escaped 
+    // and we're controlling the HTML tags injected. Return raw string for dangerouslySetInnerHTML.
+    return resultLines.join("\n");
 };
 
 export default function QuestionView() {
@@ -253,8 +273,18 @@ export default function QuestionView() {
                                         Level {currentQuestion.level}
                                     </span>
                                     <div className="relative group">
-                                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
-                                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[200px]">
+                                        <button
+                                            type="button"
+                                            aria-describedby="tooltip-level"
+                                            className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                                        >
+                                            <IconInfoCircle size={16} className="text-muted-foreground hover:text-foreground" />
+                                        </button>
+                                        <div 
+                                            id="tooltip-level"
+                                            role="tooltip"
+                                            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block group-focus-within:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[200px]"
+                                        >
                                             <p>Represents the maturity stage of the AI practice</p>
                                             <p className="mt-1">from <span className="font-bold">basic (Level 1)</span> to <span className="font-bold">advanced (Level 3)</span>.</p>
                                         </div>
@@ -266,8 +296,18 @@ export default function QuestionView() {
                                         Stream {currentQuestion.stream}
                                     </span>
                                     <div className="relative group">
-                                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
-                                        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[240px]">
+                                        <button
+                                            type="button"
+                                            aria-describedby="tooltip-stream"
+                                            className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                                        >
+                                            <IconInfoCircle size={16} className="text-muted-foreground hover:text-foreground" />
+                                        </button>
+                                        <div 
+                                            id="tooltip-stream"
+                                            role="tooltip"
+                                            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block group-focus-within:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[240px]"
+                                        >
                                             <p className="mb-1">Each domain has two complementary streams:</p>
                                             <ul className="space-y-1 list-disc pl-4">
                                                 <li><span className="font-bold">Stream A:</span> Create & Promote</li>
