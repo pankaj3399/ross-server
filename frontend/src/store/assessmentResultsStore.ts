@@ -5,16 +5,22 @@ import { persist } from 'zustand/middleware';
 interface DomainResult {
   domainId: string;
   domainTitle: string;
-  correctAnswers: number;
+  maturityScore: number;
+  practiceScores: {
+    practiceId: string;
+    practiceTitle: string;
+    maturityScore: number;
+    totalQuestions: number;
+  }[];
   totalQuestions: number;
-  percentage: number;
+  percentage: number; // For compatibility
   isPremium?: boolean;
 }
 
 interface OverallResult {
-  totalCorrectAnswers: number;
+  overallMaturityScore: number;
   totalQuestions: number;
-  overallPercentage: number;
+  overallPercentage: number; // For compatibility
 }
 
 interface AssessmentResults {

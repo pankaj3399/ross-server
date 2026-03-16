@@ -266,9 +266,11 @@ router.post(
       [projectId, userId]
     );
 
-    // Get total questions for each domain (filtering for no-premium, premium and version_id)
-    let totalQuestionsQuery = `
-      SELECT d.id as domain_id, d.title as domain_title, COALESCE(d.is_premium, false) as is_premium, COUNT(aq.id) as total_questions
+    // Get total questions for each domain and practice
+    let questionsQuery = `
+      SELECT d.id as domain_id, d.title as domain_title, COALESCE(d.is_premium, false) as is_premium,
+             p.id as practice_id, p.title as practice_title,
+             COUNT(aq.id) as questions_in_practice
       FROM aima_domains d
       JOIN aima_practices p ON d.id = p.domain_id
       JOIN aima_questions aq ON p.id = aq.practice_id
@@ -279,11 +281,9 @@ router.post(
     let paramIndex = 1;
     
     if (!isPremium) {
-      // For free users: filter out premium domains, show all non-premium domains
       whereConditions.push(`COALESCE(d.is_premium, false) = false`);
     }
     
-    // Add version filtering if project has a version_id
     if (projectVersionId) {
       whereConditions.push(`(d.version_id IS NULL OR EXISTS (
         SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
@@ -308,84 +308,86 @@ router.post(
     }
     
     if (whereConditions.length > 0) {
-      totalQuestionsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
+      questionsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
     }
     
-    totalQuestionsQuery += ` GROUP BY d.id, d.title, d.is_premium`;
+    questionsQuery += ` GROUP BY d.id, d.title, d.is_premium, p.id, p.title`;
     
-    const totalQuestionsResult = await pool.query(totalQuestionsQuery, queryParams);
+    const questionsResult = await pool.query(questionsQuery, queryParams);
 
-    // Create a map of domain_id to total questions, domain title, and is_premium flag
-    const domainStats = new Map();
-    totalQuestionsResult.rows.forEach(row => {
-      domainStats.set(row.domain_id, {
-        title: row.domain_title,
-        totalQuestions: parseInt(row.total_questions),
-        isPremium: row.is_premium
+    // Organize structure for scoring
+    const structure = new Map(); // domainId -> { title, isPremium, practices: Map(practiceId -> { title, totalQuestions, totalScore }) }
+    
+    questionsResult.rows.forEach(row => {
+      if (!structure.has(row.domain_id)) {
+        structure.set(row.domain_id, {
+          title: row.domain_title,
+          isPremium: row.is_premium,
+          practices: new Map()
+        });
+      }
+      const domain = structure.get(row.domain_id);
+      domain.practices.set(row.practice_id, {
+        title: row.practice_title,
+        totalQuestions: parseInt(row.questions_in_practice),
+        totalScore: 0
       });
     });
 
-    // Initialize domain results only for domains that should be shown
-    const domainResults = new Map();
-    let totalCorrectAnswers = 0;
+    // Populate scores from answers
     let totalQuestions = 0;
-
-    // Initialize domains with 0 correct answers
-    domainStats.forEach((stats, domainId) => {
-      domainResults.set(domainId, {
-        domainId,
-        domainTitle: stats.title,
-        correctAnswers: 0,
-        totalQuestions: stats.totalQuestions,
-        isPremium: stats.isPremium
-      });
-    });
-
-    // Count correct answers from actual assessment data
     answersResult.rows.forEach(answer => {
-      const domainId = answer.domain_id;
-      const value = parseFloat(answer.value);
-      const isCorrect = value === 1;
-
-      // Only process answers for domains that are in domainResults
-      if (domainResults.has(domainId)) {
-        const domainResult = domainResults.get(domainId);
-        if (isCorrect) {
-          domainResult.correctAnswers++;
-          // Only count non-premium domains in overall percentage
-          if (!domainResult.isPremium) {
-            totalCorrectAnswers++;
-          }
+      const domain = structure.get(answer.domain_id);
+      if (domain) {
+        const practice = domain.practices.get(answer.practice_id);
+        if (practice) {
+          practice.totalScore += parseFloat(answer.value);
         }
       }
     });
 
-    // Calculate percentages and prepare response
-    const domains = Array.from(domainResults.values()).map(domain => {
-      const percentage = domain.totalQuestions > 0 
-        ? Math.round((domain.correctAnswers / domain.totalQuestions) * 100 * 100) / 100
+    // Calculate Maturity Scores
+    const domains = (Array.from(structure.entries()) as [string, any][]).map(([domainId, domain]) => {
+      const practices = (Array.from(domain.practices.entries()) as [string, any][]).map(([practiceId, practice]) => {
+        const maturityScore = practice.totalQuestions > 0 
+          ? Math.round((practice.totalScore / practice.totalQuestions) * 100) / 100
+          : 0;
+        
+        return {
+          practiceId,
+          practiceTitle: practice.title,
+          maturityScore,
+          totalQuestions: practice.totalQuestions
+        };
+      });
+
+      const domainScore = practices.length > 0
+        ? Math.round((practices.reduce((sum: number, p: any) => sum + p.maturityScore, 0) / practices.length) * 100) / 100
         : 0;
       
-      // Only include non-premium domains in overall totalQuestions
+      const domainTotalQuestions = practices.reduce((sum: number, p: any) => sum + p.totalQuestions, 0);
       if (!domain.isPremium) {
-        totalQuestions += domain.totalQuestions;
+        totalQuestions += domainTotalQuestions;
       }
-      
-      const domainResponse: any = {
-        domainId: domain.domainId,
-        domainTitle: domain.domainTitle,
-        correctAnswers: domain.correctAnswers,
-        totalQuestions: domain.totalQuestions,
-        percentage,
-        isPremium: domain.isPremium
+
+      return {
+        domainId,
+        domainTitle: domain.title,
+        maturityScore: domainScore,
+        practiceScores: practices,
+        totalQuestions: domainTotalQuestions,
+        isPremium: domain.isPremium,
+        // Legacy percentage field for compatibility during transition if needed
+        percentage: (domainScore / 3) * 100 
       };
-      
-      return domainResponse;
     });
 
-    const overallPercentage = totalQuestions > 0 
-      ? Math.round((totalCorrectAnswers / totalQuestions) * 100 * 100) / 100
+    const nonPremiumDomains = domains.filter(d => !d.isPremium);
+    const overallMaturityScore = nonPremiumDomains.length > 0
+      ? Math.round((nonPremiumDomains.reduce((sum, d) => sum + d.maturityScore, 0) / nonPremiumDomains.length) * 100) / 100
       : 0;
+
+    const overallPercentage = (overallMaturityScore / 3) * 100;
 
     // Update project status to completed
     const result = await pool.query(
@@ -400,7 +402,7 @@ router.post(
       objectType: "PROJECT",
       objectId: projectId,
       metadata: {
-        totalCorrectAnswers,
+        overallMaturityScore,
         totalQuestions,
         overallPercentage,
       },
@@ -412,7 +414,7 @@ router.post(
       results: {
         domains,
         overall: {
-          totalCorrectAnswers,
+          overallMaturityScore,
           totalQuestions,
           overallPercentage
         }
@@ -744,27 +746,49 @@ const generateInsightsAsync = async (
       existingInsights[row.domain_id] = row.insight_text;
     });
 
-    // 3. Get domains with their data - we must query again to get performance stats
+    // 3. Get domains and practices with their data
     let domainsQuery = `
-      SELECT d.id, d.title, d.description, COALESCE(d.is_premium, false) as is_premium,
-              COUNT(DISTINCT aq.id) as total_questions,
-              COUNT(DISTINCT CASE WHEN aa.value = 1 THEN aa.id END) as correct_answers
+      SELECT d.id as domain_id, d.title as domain_title, d.description as domain_description, COALESCE(d.is_premium, false) as is_premium,
+             p.id as practice_id, p.title as practice_title,
+             COUNT(aq.id) as total_questions,
+             SUM(COALESCE(aa.value, 0)) as total_score
        FROM aima_domains d
        LEFT JOIN aima_practices p ON d.id = p.domain_id
        LEFT JOIN aima_questions aq ON p.id = aq.practice_id
-       LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1 AND aa.user_id = $2
+       LEFT JOIN assessment_answers aa ON aq.id = aa.id AND aa.project_id = $1 AND aa.user_id = $2
     `;
     
+    // Note: the join aa.id = aq.id is a bit weird if it's not the same ID. 
+    // In schema.sql: assessment_answers has (project_id, domain_id, practice_id, level, stream, question_index)
+    // aima_questions has (practice_id, level, stream, question_index)
+    // So we should join on those fields.
+    
+    domainsQuery = `
+      SELECT d.id as domain_id, d.title as domain_title, d.description as domain_description, COALESCE(d.is_premium, false) as is_premium,
+             p.id as practice_id, p.title as practice_title,
+             COUNT(aq.id) as questions_in_practice,
+             SUM(COALESCE(aa.value, 0)) as practice_total_score
+       FROM aima_domains d
+       JOIN aima_practices p ON d.id = p.domain_id
+       JOIN aima_questions aq ON p.id = aq.practice_id
+       LEFT JOIN assessment_answers aa ON 
+          aa.project_id = $1 AND 
+          aa.user_id = $2 AND
+          aa.domain_id = d.id AND
+          aa.practice_id = p.id AND
+          aa.level = aq.level AND
+          aa.stream = aq.stream AND
+          aa.question_index = aq.question_index
+    `;
+
     const whereConditions: string[] = [];
     const queryParams: any[] = [projectId, userId];
     let paramIndex = 3;
     
-    // Filter domains based on user subscription
     if (!isPremium) {
       whereConditions.push(`COALESCE(d.is_premium, false) = false`);
     }
     
-    // Add version filtering if project has a version_id
     if (projectVersionId) {
       whereConditions.push(`(d.version_id IS NULL OR EXISTS (
         SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
@@ -792,11 +816,38 @@ const generateInsightsAsync = async (
       domainsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
     }
     
-    domainsQuery += ` GROUP BY d.id, d.title, d.description, d.is_premium
-       HAVING COUNT(DISTINCT aq.id) > 0`;
+    domainsQuery += ` GROUP BY d.id, d.title, d.description, d.is_premium, p.id, p.title`;
     
     const domainsResult = await pool.query(domainsQuery, queryParams);
-    const domains = domainsResult.rows;
+    
+    // Group and calculate scores
+    const domainMap = new Map();
+    domainsResult.rows.forEach(row => {
+      if (!domainMap.has(row.domain_id)) {
+        domainMap.set(row.domain_id, {
+          id: row.domain_id,
+          title: row.domain_title,
+          description: row.domain_description,
+          is_premium: row.is_premium,
+          practices: []
+        });
+      }
+      const domain = domainMap.get(row.domain_id);
+      const practiceScore = row.questions_in_practice > 0 
+        ? row.practice_total_score / row.questions_in_practice
+        : 0;
+      domain.practices.push(practiceScore);
+    });
+
+    const domains = Array.from(domainMap.values()).map(d => {
+      const maturityScore = d.practices.length > 0
+        ? d.practices.reduce((a: number, b: number) => a + b, 0) / d.practices.length
+        : 0;
+      return {
+        ...d,
+        percentage: (maturityScore / 3) * 100 // for compatibility if used in prompts
+      };
+    });
 
     if (domains.length === 0) {
       job.status = 'completed';

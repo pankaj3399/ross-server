@@ -12,7 +12,7 @@ const AnswerItemSchema = z.object({
   level: z.enum(["1", "2", "3"]),
   stream: z.enum(["A", "B"]),
   questionIndex: z.number().int().min(0),
-  value: z.number().min(0).max(1),
+  value: z.number().int().min(0).max(3),
 });
 
 const AnswerSchema = z.object({

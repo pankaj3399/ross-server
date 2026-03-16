@@ -227,7 +227,7 @@ export default function AssessmentPage() {
                 </div>
 
                 <div className="flex gap-6">
-                  {[0, 0.5, 1].map((value) => (
+                  {[0, 1, 2, 3].map((value) => (
                     <label
                       key={value}
                       className="flex items-center cursor-pointer group"
@@ -256,10 +256,12 @@ export default function AssessmentPage() {
                       </div>
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
                         {value === 0
-                          ? "No"
-                          : value === 0.5
-                            ? "Partially"
-                            : "Yes"}
+                          ? "No Maturity (0)"
+                          : value === 1
+                            ? "Initial (1)"
+                            : value === 2
+                              ? "Developing (2)"
+                              : "Mature (3)"}
                       </span>
                     </label>
                   ))}
