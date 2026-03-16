@@ -377,7 +377,6 @@ export default function TeamManagementPage() {
                 <Card className="shadow-sm border-amber-200/50 dark:border-amber-900/50">
                     <CardHeader className="bg-amber-50/30 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/30 pb-4">
                         <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-500">
-                            <IconLoader2 className="w-5 h-5 animate-spin-slow" />
                             Pending Invitations
                         </CardTitle>
                     </CardHeader>
@@ -401,7 +400,6 @@ export default function TeamManagementPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center text-amber-600 dark:text-amber-500 text-sm">
-                                                    <IconLoader2 className="w-3 h-3 animate-spin mr-1" />
                                                     Pending
                                                 </div>
                                             </TableCell>

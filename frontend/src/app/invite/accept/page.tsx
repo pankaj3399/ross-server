@@ -382,6 +382,22 @@ function InviteAcceptContent() {
                                         {submitting ? <IconLoader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                         Create Account & Accept
                                     </Button>
+
+                                    <div className="mt-6 text-center">
+                                        <p className="text-sm text-muted-foreground">
+                                            Already have an account?{" "}
+                                            <Button
+                                                variant="link"
+                                                className="p-0 h-auto font-medium text-primary"
+                                                onClick={() => {
+                                                    const currentUrl = window.location.pathname + window.location.search;
+                                                    router.push(`/auth?isLogin=true&redirect=${encodeURIComponent(currentUrl)}`);
+                                                }}
+                                            >
+                                                Sign in
+                                            </Button>
+                                        </p>
+                                    </div>
                                 </form>
                             )}
                         </CardContent>

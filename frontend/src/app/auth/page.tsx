@@ -16,7 +16,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 export default function AuthPage() {
-  const isLogin = useSearchParams().get("isLogin") === "true";
+  const searchParams = useSearchParams();
+  const isLogin = searchParams.get("isLogin") === "true";
+  const redirectTo = searchParams.get("redirect");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -56,7 +58,11 @@ export default function AuthPage() {
           formData.backupCode || undefined,
         );
         showToast.success("Login successful!");
-        router.push("/dashboard")
+        if (redirectTo) {
+          router.push(redirectTo);
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError("Passwords do not match");
