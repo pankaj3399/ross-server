@@ -517,6 +517,15 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
         const { projectId, apiUrl, responseKey, requestTemplate, apiKey, apiKeyPlacement, apiKeyFieldName } = evaluateApiSchema.parse(req.body);
         const userId = req.user!.id;
 
+        // Check for premium subscription
+        const isPremium = ["basic_premium", "pro_premium"].includes(req.user!.subscription_status);
+        if (!isPremium) {
+            return res.status(403).json({
+                error: "Security Scan is a premium-only feature. Please upgrade your subscription.",
+                required: "Premium subscription required"
+            });
+        }
+
         const projectCheck = await pool.query(
             "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
             [projectId, userId]
