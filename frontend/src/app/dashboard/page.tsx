@@ -631,7 +631,9 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleCreateProject} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="project-name">Project Name</Label>
+              <Label htmlFor="project-name">
+                Project Name <span className="text-destructive">*</span>
+              </Label>
               <div className="relative">
                 <IconFolder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -643,7 +645,13 @@ export default function DashboardPage() {
                   placeholder="Enter project name"
                   required
                   className="pl-10"
+                  maxLength={50}
                 />
+              </div>
+              <div className="flex justify-end pt-1">
+                <span className={`text-[10px] ${newProject.name.length >= 50 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                  {newProject.name.length}/50
+                </span>
               </div>
             </div>
             <div className="space-y-2">
@@ -743,7 +751,9 @@ export default function DashboardPage() {
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-project-name">Project Name</Label>
+              <Label htmlFor="edit-project-name">
+                Project Name <span className="text-destructive">*</span>
+              </Label>
               <div className="relative">
                 <IconFolder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -755,7 +765,13 @@ export default function DashboardPage() {
                   placeholder="Enter project name"
                   required
                   className="pl-10"
+                  maxLength={50}
                 />
+              </div>
+              <div className="flex justify-end pt-1">
+                <span className={`text-[10px] ${editProjectData.name.length >= 50 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                  {editProjectData.name.length}/50
+                </span>
               </div>
             </div>
             <div className="space-y-2">
