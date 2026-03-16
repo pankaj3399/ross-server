@@ -18,7 +18,7 @@ import {
   FileText,
   BarChart3,
 } from "lucide-react";
-import UnlockPremium from "../../../../components/features/subscriptions/UnlockPremium";
+import SubscriptionModal from "../../../../components/features/subscriptions/SubscriptionModal";
 import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
 import { Button } from "@/components/ui/button";
 import { ManualTestHistory } from "./manual-history/components/ManualTestHistory";
@@ -47,7 +47,7 @@ export default function FairnessBiasTest() {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [hasShownDangerWarning, setHasShownDangerWarning] = useState<Set<string>>(new Set());
 
   const projectId = params.projectId as string;
@@ -57,9 +57,16 @@ export default function FairnessBiasTest() {
 
   useEffect(() => {
     if (!loading && user) {
-      setShowUnlockPremium(!isPremium);
+      setShowSubscriptionModal(!isPremium);
     }
   }, [loading, user, isPremium]);
+
+  const handleSubscriptionModalClose = () => {
+    setShowSubscriptionModal(false);
+    if (!isPremium) {
+      router.push(`/dashboard`);
+    }
+  };
 
   const categories: CategoryNode[] = fairnessQuestions.map((category, catIdx) => ({
     id: `cat-${catIdx}`,
@@ -135,11 +142,13 @@ export default function FairnessBiasTest() {
         {!isPremium && (
           <>
             <div className="absolute inset-0 bg-overlay/20 backdrop-blur-sm z-40" />
-            {showUnlockPremium && (
+            {showSubscriptionModal && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
-                <UnlockPremium
-                  featureName="Fairness & Bias Test"
-                  onClose={() => setShowUnlockPremium(false)}
+                <SubscriptionModal
+                  isOpen={true}
+                  onClose={handleSubscriptionModalClose}
+                  title="Unlock Premium to Access Fairness & Bias Test"
+                  description="Upgrade to premium to unlock this feature and many more advanced capabilities."
                 />
               </div>
             )}
@@ -158,11 +167,13 @@ export default function FairnessBiasTest() {
         {!isPremium && (
           <>
             <div className="absolute inset-0 bg-overlay/20 backdrop-blur-sm z-40" />
-            {showUnlockPremium && (
+            {showSubscriptionModal && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
-                <UnlockPremium
-                  featureName="Fairness & Bias Test"
-                  onClose={() => setShowUnlockPremium(false)}
+                <SubscriptionModal
+                  isOpen={true}
+                  onClose={handleSubscriptionModalClose}
+                  title="Unlock Premium to Access Fairness & Bias Test"
+                  description="Upgrade to premium to unlock this feature and many more advanced capabilities."
                 />
               </div>
             )}
@@ -274,10 +285,12 @@ export default function FairnessBiasTest() {
 
   return (
     <div className="min-h-screen flex bg-background relative">
-      {!isPremium && showUnlockPremium && (
-        <UnlockPremium
-          featureName="Fairness & Bias Test"
-          onClose={() => setShowUnlockPremium(false)}
+      {!isPremium && showSubscriptionModal && (
+        <SubscriptionModal
+          isOpen={true}
+          onClose={handleSubscriptionModalClose}
+          title="Unlock Premium to Access Fairness & Bias Test"
+          description="Upgrade to premium to unlock this feature and many more advanced capabilities."
         />
       )}
 

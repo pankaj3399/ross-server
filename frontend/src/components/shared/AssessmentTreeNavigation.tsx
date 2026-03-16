@@ -24,7 +24,6 @@ import { PREMIUM_STATUS } from "../../lib/constants";
 import { apiService } from "../../lib/api";
 import { cn } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
-import UnlockPremium from "../features/subscriptions/UnlockPremium";
 import {
   Sidebar,
   SidebarContent,
@@ -306,7 +305,14 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
   const [isCrcExpanded, setIsCrcExpanded] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [modalTitle, setModalTitle] = useState("Choose Your Plan");
+  const [modalDescription, setModalDescription] = useState<string | undefined>();
+
+  const openSubscriptionModal = (title?: string, description?: string) => {
+    setModalTitle(title || "Choose Your Plan");
+    setModalDescription(description);
+    setShowSubscriptionModal(true);
+  };
 
   // Sidebar resize logic
   const [sidebarWidth, setSidebarWidth] = useState(320); // Default 20rem = 320px
@@ -539,7 +545,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             icon: IconShield,
                             onClick: () => premiumStatus 
                               ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)
-                              : setShowUnlockPremium(true),
+                              : openSubscriptionModal("Unlock Premium to Access AI Vulnerability Assessment", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
                             color: "text-blue-500"
                           },
@@ -555,7 +561,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             id: "crc",
                             label: "Compliance Readiness Controls",
                             icon: IconShieldCheck,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : setShowSubscriptionModal(true),
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
                             color: "text-emerald-500"
                           }
@@ -608,17 +614,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       {isFairness && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : setShowUnlockPremium(true)} className="h-8 px-2">
+                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
                                               <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
@@ -629,7 +635,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           {crcCategories.map((cat, catIdx) => (
                                             <SidebarMenuSubItem key={catIdx}>
                                               <SidebarMenuSubButton
-                                                onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : setShowSubscriptionModal(true)}
+                                                onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.")}
                                                 className="h-8 px-2"
                                               >
                                                 <span className="text-[13px] truncate ml-2 text-foreground/70">{cat}</span>
@@ -657,11 +663,8 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       <SubscriptionModal
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
-      />
-      <UnlockPremium
-        isOpen={showUnlockPremium}
-        featureName="AI Vulnerability Assessment"
-        onClose={() => setShowUnlockPremium(false)}
+        title={modalTitle}
+        description={modalDescription}
       />
     </div>
   );

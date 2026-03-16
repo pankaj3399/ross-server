@@ -18,7 +18,7 @@ import {
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, Project } from "../../lib/api";
 import { Button } from "@/components/ui/button";
-import UnlockPremium from "@/components/features/subscriptions/UnlockPremium";
+import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -74,7 +74,7 @@ export default function PremiumFeaturesPage() {
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithAccess[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(false);
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
@@ -133,7 +133,7 @@ export default function PremiumFeaturesPage() {
 
   const handleCardClick = (featureType: FeatureType) => {
     if (!isPremium) {
-      setShowUnlockPremium(true);
+      setShowSubscriptionModal(true);
       return;
     }
     setSelectedFeature(featureType);
@@ -336,10 +336,11 @@ export default function PremiumFeaturesPage() {
         </DialogContent>
       </Dialog>
 
-      <UnlockPremium
-        isOpen={showUnlockPremium}
-        onClose={() => setShowUnlockPremium(false)}
-        featureName="Premium Features"
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        title="Unlock Premium to Access Premium Features"
+        description="Upgrade to premium to unlock advanced AI governance tools and many more capabilities."
       />
     </div>
   );

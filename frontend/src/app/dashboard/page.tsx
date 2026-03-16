@@ -24,7 +24,7 @@ import {
   IconPencil,
 } from "@tabler/icons-react";
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
-import UnlockPremium from "../../components/features/subscriptions/UnlockPremium";
+import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,7 +106,7 @@ export default function DashboardPage() {
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
-  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -297,7 +297,7 @@ export default function DashboardPage() {
       console.error("Failed to create project:", error);
       if (error.message === ERROR_PROJECT_LIMIT_REACHED) {
         setShowCreateForm(false);
-        setShowUnlockPremium(true);
+        setShowSubscriptionModal(true);
       } else {
         showToast.error("Failed to create project. Please try again.");
       }
@@ -616,10 +616,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Unlock Premium Modal */}
-      <UnlockPremium
-        isOpen={showUnlockPremium}
-        onClose={() => setShowUnlockPremium(false)}
-        featureName="Multiple Projects"
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        title="Unlock Premium to Access Multiple Projects"
+        description="Upgrade to premium to create unlimited projects and unlock many more advanced capabilities."
       />
 
       {/* Create Project Modal */}
