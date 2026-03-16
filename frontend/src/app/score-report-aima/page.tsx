@@ -31,7 +31,7 @@ export default function ScoreReportPage() {
   const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string>>(new Set());
+  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(new Set());
 
   const { exportPdf, isExporting } = usePdfReport({
     reportRef,
@@ -74,6 +74,7 @@ export default function ScoreReportPage() {
         setPremiumDomainIds(premiumIds);
       } catch (error) {
         console.error("Failed to fetch domain details:", error);
+        setPremiumDomainIds(null);
       } finally {
         setLoading(false);
       }
@@ -108,9 +109,9 @@ export default function ScoreReportPage() {
   const performance = getMaturityLevel(results.results.overall.overallMaturityScore);
 
   // Filter to show only non-premium domains
-  const nonPremiumDomains = results.results.domains.filter((domain: any) =>
-    !premiumDomainIds.has(domain.domainId)
-  );
+  const nonPremiumDomains = premiumDomainIds === null 
+    ? [] 
+    : results.results.domains.filter((domain: any) => !premiumDomainIds.has(domain.domainId));
 
   return (
     <div ref={reportRef} className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">

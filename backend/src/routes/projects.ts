@@ -747,23 +747,13 @@ const generateInsightsAsync = async (
     });
 
     // 3. Get domains and practices with their data
-    let domainsQuery = `
-      SELECT d.id as domain_id, d.title as domain_title, d.description as domain_description, COALESCE(d.is_premium, false) as is_premium,
-             p.id as practice_id, p.title as practice_title,
-             COUNT(aq.id) as total_questions,
-             SUM(COALESCE(aa.value, 0)) as total_score
-       FROM aima_domains d
-       LEFT JOIN aima_practices p ON d.id = p.domain_id
-       LEFT JOIN aima_questions aq ON p.id = aq.practice_id
-       LEFT JOIN assessment_answers aa ON aq.id = aa.id AND aa.project_id = $1 AND aa.user_id = $2
-    `;
     
     // Note: the join aa.id = aq.id is a bit weird if it's not the same ID. 
     // In schema.sql: assessment_answers has (project_id, domain_id, practice_id, level, stream, question_index)
     // aima_questions has (practice_id, level, stream, question_index)
     // So we should join on those fields.
     
-    domainsQuery = `
+    let domainsQuery = `
       SELECT d.id as domain_id, d.title as domain_title, d.description as domain_description, COALESCE(d.is_premium, false) as is_premium,
              p.id as practice_id, p.title as practice_title,
              COUNT(aq.id) as questions_in_practice,
@@ -845,6 +835,7 @@ const generateInsightsAsync = async (
         : 0;
       return {
         ...d,
+        maturity_score: maturityScore,
         percentage: (maturityScore / 3) * 100 // for compatibility if used in prompts
       };
     });

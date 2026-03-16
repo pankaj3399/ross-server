@@ -49,7 +49,7 @@ const parseInsightText = (text: string) => {
   const recommendationsMatch = text.match(recommendationsPattern);
 
   if (analysisMatch) sections.analysis = analysisMatch[1].trim();
-  else if (!strengthsMatch && !improvementsMatch) sections.analysis = text;
+  else if (!strengthsMatch && !improvementsMatch && !recommendationsMatch) sections.analysis = text;
 
   if (strengthsMatch) sections.strengths = strengthsMatch[1].trim();
 
@@ -94,7 +94,7 @@ export default function ScoreReportPage() {
 
   useEffect(() => {
     if (authLoading || !isAuthenticated || !projectId) {
-      if (!authLoading && !isAuthenticated) setLoading(false);
+      if (!authLoading) setLoading(false);
       return;
     }
 
@@ -125,61 +125,68 @@ export default function ScoreReportPage() {
   useEffect(() => {
     if (!projectId || !results || loading || !isUserPremium) return;
 
-    const hasExistingInsights = results.results.domains.some((domain: any) => domain.insights);
-    if (hasExistingInsights) {
-      const existingInsights: Record<string, string> = {};
-      results.results.domains.forEach((domain: any) => {
-        if (domain.insights) {
-          existingInsights[domain.domainId] = domain.insights;
-        }
-      });
-      if (Object.keys(existingInsights).length > 0) {
-        setInsights(existingInsights);
+    // Collect all existing insights from results
+    const existingInsights: Record<string, string> = {};
+    results.results.domains.forEach((domain: any) => {
+      if (domain.insights) {
+        existingInsights[domain.domainId] = domain.insights;
       }
-      return;
+    });
+
+    if (Object.keys(existingInsights).length > 0) {
+      setInsights(prev => ({ ...prev, ...existingInsights }));
     }
 
-    let pollInterval: NodeJS.Timeout | null = null;
     let safetyTimeout: NodeJS.Timeout | null = null;
+    let isPolling = true;
+
+    const pullInsightsStatus = async (jobId: string) => {
+        if (!isPolling) return;
+        try {
+            const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
+
+            if (jobStatus.status === 'completed' && jobStatus.insights) {
+                setInsights(prev => ({ ...prev, ...jobStatus.insights }));
+                updateResultsWithInsights(jobStatus.insights);
+                setGeneratingInsights(false);
+                isPolling = false;
+                if (safetyTimeout) clearTimeout(safetyTimeout);
+            } else if (jobStatus.status === 'failed') {
+                setGeneratingInsights(false);
+                isPolling = false;
+                if (safetyTimeout) clearTimeout(safetyTimeout);
+            } else if (isPolling) {
+                // Schedule next poll
+                setTimeout(() => pullInsightsStatus(jobId), 2000);
+            }
+        } catch (pollError) {
+            console.error("Polling error:", pollError);
+            setGeneratingInsights(false);
+            isPolling = false;
+        }
+    };
 
     const generateInsights = async () => {
+      // Check if we already have insights for ALL domains
+      const allDomainsHaveInsights = results.results.domains.every((d: any) => d.insights || existingInsights[d.domainId]);
+      if (allDomainsHaveInsights) return;
+
       setGeneratingInsights(true);
       try {
         const response = await apiService.generateDomainInsights(projectId);
 
         if (response.success && response.insights && response.status === 'completed') {
-          setInsights(response.insights);
+          setInsights(prev => ({ ...prev, ...response.insights }));
           updateResultsWithInsights(response.insights);
           setGeneratingInsights(false);
           return;
         }
 
         if (response.success && response.jobId && response.status === 'processing') {
-          const jobId = response.jobId;
-
-          pollInterval = setInterval(async () => {
-            try {
-              const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
-
-              if (jobStatus.status === 'completed' && jobStatus.insights) {
-                if (pollInterval) clearInterval(pollInterval);
-                if (safetyTimeout) clearTimeout(safetyTimeout);
-                setInsights(jobStatus.insights);
-                updateResultsWithInsights(jobStatus.insights);
-                setGeneratingInsights(false);
-              } else if (jobStatus.status === 'failed') {
-                if (pollInterval) clearInterval(pollInterval);
-                if (safetyTimeout) clearTimeout(safetyTimeout);
-                setGeneratingInsights(false);
-              }
-            } catch (pollError) {
-              if (pollInterval) clearInterval(pollInterval);
-              setGeneratingInsights(false);
-            }
-          }, 2000);
+          pullInsightsStatus(response.jobId);
 
           safetyTimeout = setTimeout(() => {
-            if (pollInterval) clearInterval(pollInterval);
+            isPolling = false;
             setGeneratingInsights(false);
           }, 300000);
         } else {
@@ -207,7 +214,7 @@ export default function ScoreReportPage() {
     generateInsights();
 
     return () => {
-      if (pollInterval) clearInterval(pollInterval);
+      isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
   }, [projectId, results, loading, isUserPremium]);

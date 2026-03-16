@@ -71,13 +71,17 @@ export default function AssessmentPage() {
       return;
     }
 
-    const fetchPractice = async () => {
+    const fetchData = async () => {
       try {
-        const data = await apiService.getPracticeQuestions(
-          domainId,
-          practiceId,
-        );
+        const [data, answersData] = await Promise.all([
+          apiService.getPracticeQuestions(domainId, practiceId),
+          apiService.getAnswers(projectId)
+        ]);
+
         setPractice(data);
+        if (answersData?.answers) {
+          setAnswers(answersData.answers);
+        }
 
         // Flatten questions from levels
         const questionsList: Question[] = [];
@@ -85,7 +89,7 @@ export default function AssessmentPage() {
           Object.entries(
             streams as Record<string, LevelQuestionEntry[]>,
           ).forEach(([stream, questionEntries]) => {
-            questionEntries.forEach((questionEntry) => {
+            questionEntries.forEach((questionEntry, index) => {
               const normalized = normalizeQuestionEntry(questionEntry);
               if (!normalized) {
                 return;
@@ -108,8 +112,8 @@ export default function AssessmentPage() {
       }
     };
 
-    fetchPractice();
-  }, [domainId, practiceId, isAuthenticated, authLoading, router]);
+    fetchData();
+  }, [domainId, practiceId, projectId, isAuthenticated, authLoading]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
