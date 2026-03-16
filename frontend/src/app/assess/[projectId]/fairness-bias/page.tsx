@@ -61,6 +61,13 @@ export default function FairnessBiasTest() {
     }
   }, [loading, user, isPremium]);
 
+  const handleSubscriptionModalClose = () => {
+    setShowSubscriptionModal(false);
+    if (!isPremium) {
+      router.push(`/dashboard`);
+    }
+  };
+
   const categories: CategoryNode[] = fairnessQuestions.map((category, catIdx) => ({
     id: `cat-${catIdx}`,
     label: category.label,
@@ -139,7 +146,7 @@ export default function FairnessBiasTest() {
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <SubscriptionModal
                   isOpen={showSubscriptionModal}
-                  onClose={() => setShowSubscriptionModal(false)}
+                  onClose={handleSubscriptionModalClose}
                   title="Unlock Premium to Access Fairness & Bias Test"
                   description="Upgrade to premium to unlock this feature and many more advanced capabilities."
                 />
@@ -164,7 +171,7 @@ export default function FairnessBiasTest() {
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <SubscriptionModal
                   isOpen={showSubscriptionModal}
-                  onClose={() => setShowSubscriptionModal(false)}
+                  onClose={handleSubscriptionModalClose}
                   title="Unlock Premium to Access Fairness & Bias Test"
                   description="Upgrade to premium to unlock this feature and many more advanced capabilities."
                 />
@@ -281,7 +288,7 @@ export default function FairnessBiasTest() {
       {!isPremium && showSubscriptionModal && (
         <SubscriptionModal
           isOpen={showSubscriptionModal}
-          onClose={() => setShowSubscriptionModal(false)}
+          onClose={handleSubscriptionModalClose}
           title="Unlock Premium to Access Fairness & Bias Test"
           description="Upgrade to premium to unlock this feature and many more advanced capabilities."
         />
