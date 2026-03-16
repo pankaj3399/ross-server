@@ -145,7 +145,7 @@ export default function FairnessBiasTest() {
             {showSubscriptionModal && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <SubscriptionModal
-                  isOpen={showSubscriptionModal}
+                  isOpen={true}
                   onClose={handleSubscriptionModalClose}
                   title="Unlock Premium to Access Fairness & Bias Test"
                   description="Upgrade to premium to unlock this feature and many more advanced capabilities."
@@ -170,7 +170,7 @@ export default function FairnessBiasTest() {
             {showSubscriptionModal && (
               <div className="absolute inset-0 flex items-center justify-center z-50">
                 <SubscriptionModal
-                  isOpen={showSubscriptionModal}
+                  isOpen={true}
                   onClose={handleSubscriptionModalClose}
                   title="Unlock Premium to Access Fairness & Bias Test"
                   description="Upgrade to premium to unlock this feature and many more advanced capabilities."
@@ -287,7 +287,7 @@ export default function FairnessBiasTest() {
     <div className="min-h-screen flex bg-background relative">
       {!isPremium && showSubscriptionModal && (
         <SubscriptionModal
-          isOpen={showSubscriptionModal}
+          isOpen={true}
           onClose={handleSubscriptionModalClose}
           title="Unlock Premium to Access Fairness & Bias Test"
           description="Upgrade to premium to unlock this feature and many more advanced capabilities."
