@@ -366,9 +366,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                         <IconUser className="size-6" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                      <span className="text-sm font-semibold">{user.name || "User"}</span>
-                      <span className="text-xs text-muted-foreground">{user.email || ""}</span>
+                    <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden overflow-hidden">
+                      <span className="text-sm font-semibold truncate">{user.name || "User"}</span>
+                      <span className="text-xs text-muted-foreground truncate">{user.email || ""}</span>
                     </div>
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
@@ -378,9 +378,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                   align="start"
                 >
                   <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                    <div className="flex flex-col space-y-1 overflow-hidden">
+                      <p className="text-sm font-medium leading-none truncate">{user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

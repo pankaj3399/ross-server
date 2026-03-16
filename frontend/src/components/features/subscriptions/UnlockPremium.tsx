@@ -278,7 +278,7 @@ export default function UnlockPremium({
                     onClick={() => handleSelectPlan(PRO_PRICE_ID, "pro")}
                     disabled={upgradingPlan !== null || loadingPrices || !PRO_PRICE_ID}
                     className="w-full"
-                    variant="secondary"
+                    variant="default"
                   >
                     {upgradingPlan === "pro" ? (
                       <>

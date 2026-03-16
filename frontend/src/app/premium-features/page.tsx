@@ -18,6 +18,7 @@ import {
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, Project } from "../../lib/api";
 import { Button } from "@/components/ui/button";
+import UnlockPremium from "@/components/features/subscriptions/UnlockPremium";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Dialog,
@@ -46,8 +47,8 @@ const FEATURE_CONFIGS: Record<Exclude<FeatureType, null>, FeatureConfig> = {
   "vulnerability": {
     title: "AI Vulnerability Assessment",
     description: "Select a project to run vulnerability assessment",
-    getPath: (projectId: string) => `/assess/${projectId}/premium-domains`,
-    requiresPremiumDomains: true,
+    getPath: (projectId: string) => `/assess/${projectId}/fairness-bias/api-endpoint`,
+    requiresPremiumDomains: false,
   },
   "bias-fairness": {
     title: "Automated Bias & Fairness Testing",
@@ -73,6 +74,7 @@ export default function PremiumFeaturesPage() {
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithAccess[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(false);
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
 
   const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
@@ -131,7 +133,7 @@ export default function PremiumFeaturesPage() {
 
   const handleCardClick = (featureType: FeatureType) => {
     if (!isPremium) {
-      router.push("/manage-subscription");
+      setShowUnlockPremium(true);
       return;
     }
     setSelectedFeature(featureType);
@@ -244,21 +246,6 @@ export default function PremiumFeaturesPage() {
             </motion.div>
           </div>
 
-          {/* Manage Subscription Button - Only show for free plan users */}
-          {!isPremium && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="flex justify-center"
-            >
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 h-14 px-8">
-                <Link href="/manage-subscription">
-                  Manage Subscription
-                </Link>
-              </Button>
-            </motion.div>
-          )}
         </div>
       </div>
 
@@ -348,6 +335,12 @@ export default function PremiumFeaturesPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        onClose={() => setShowUnlockPremium(false)}
+        featureName="Premium Features"
+      />
     </div>
   );
 }

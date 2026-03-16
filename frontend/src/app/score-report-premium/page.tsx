@@ -291,7 +291,7 @@ export default function ScoreReportPage() {
           <h1 className="text-3xl font-bold text-foreground mb-4">No Results Found</h1>
           <p className="text-muted-foreground mb-8 text-lg">Assessment results not found for this project.</p>
           <Button
-            onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
+            onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
             disabled={!projectId}
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -364,7 +364,7 @@ export default function ScoreReportPage() {
           <div className="flex justify-between items-center mb-8">
             <Button
               variant="ghost"
-              onClick={() => router.push(`/assess/${projectId}/premium-domains`)}
+              onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
               className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors pl-0 hover:bg-transparent hide-in-pdf"
             >
               <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
