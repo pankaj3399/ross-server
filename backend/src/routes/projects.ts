@@ -392,9 +392,9 @@ router.post(
       };
     });
 
-    const nonPremiumDomains = domains.filter(d => !d.isPremium);
-    const overallMaturityScore = nonPremiumDomains.length > 0
-      ? Math.round((nonPremiumDomains.reduce((sum, d) => sum + d.maturityScore, 0) / nonPremiumDomains.length) * 100) / 100
+    const relevantDomains = domains.filter(d => isPremium || !d.isPremium);
+    const overallMaturityScore = relevantDomains.length > 0
+      ? Math.round((relevantDomains.reduce((sum: number, d: any) => sum + d.maturityScore, 0) / relevantDomains.length) * 100) / 100
       : 0;
 
     const overallPercentage = (overallMaturityScore / 3) * 100;

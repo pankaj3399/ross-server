@@ -80,15 +80,9 @@ export default function AssessmentPage() {
 
     const fetchData = async () => {
       try {
-        const [data, answersData] = await Promise.all([
-          apiService.getPracticeQuestions(domainId, practiceId),
-          apiService.getAnswers(projectId)
-        ]);
-
+        // 1. Fetch practice questions (required)
+        const data = await apiService.getPracticeQuestions(domainId, practiceId);
         setPractice(data);
-        if (answersData?.answers) {
-          setAnswers(answersData.answers);
-        }
 
         // Flatten questions from levels
         const questionsList: Question[] = [];
@@ -110,8 +104,17 @@ export default function AssessmentPage() {
             });
           });
         });
-
         setQuestions(questionsList);
+
+        // 2. Fetch answers (resilient)
+        try {
+          const answersData = await apiService.getAnswers(projectId);
+          if (answersData?.answers) {
+            setAnswers(answersData.answers);
+          }
+        } catch (ansErr) {
+          console.error("Failed to fetch answers, continuing without them:", ansErr);
+        }
       } catch (error) {
         console.error("Failed to fetch practice:", error);
       } finally {
@@ -168,11 +171,11 @@ export default function AssessmentPage() {
   }
 
   // Calculate practice-specific progress
-  const practiceAnswers = Object.entries(answers).filter(([key]) => 
-    key.startsWith(`${domainId}:${practiceId}:`)
-  );
-  const answeredCount = practiceAnswers.length;
-  const progressPercent = questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
+  const answeredCount = questions.reduce((count, _, idx) => {
+    const key = `${domainId}:${practiceId}:${questions[idx].level}:${questions[idx].stream}:${idx}`;
+    return answers[key] !== undefined ? count + 1 : count;
+  }, 0);
+  const progressPercent = questions.length > 0 ? Math.min(100, (answeredCount / questions.length) * 100) : 0;
 
   return (
     <div className="min-h-screen">

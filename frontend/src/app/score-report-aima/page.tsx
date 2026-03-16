@@ -73,6 +73,7 @@ export default function ScoreReportPage() {
             .map((d: any) => d.id)
         );
         setPremiumDomainIds(premiumIds);
+        setPremiumDomainError(false);
       } catch (error) {
         console.error("Failed to fetch domain details:", error);
         setPremiumDomainError(true);
