@@ -24,6 +24,7 @@ import {
   IconPencil,
 } from "@tabler/icons-react";
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
+import UnlockPremium from "../../components/features/subscriptions/UnlockPremium";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -105,6 +106,7 @@ export default function DashboardPage() {
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showErrorMessage, setShowErrorMessage] = useState(false);
+  const [showUnlockPremium, setShowUnlockPremium] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -289,9 +291,14 @@ export default function DashboardPage() {
       setNewProject({ name: "", description: "", aiSystemType: "", industry: "" });
       setShowCreateForm(false);
       showToast.success("Project created successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create project:", error);
-      showToast.error("Failed to create project. Please try again.");
+      if (error.message === "PROJECT_LIMIT_REACHED") {
+        setShowCreateForm(false);
+        setShowUnlockPremium(true);
+      } else {
+        showToast.error("Failed to create project. Please try again.");
+      }
     } finally {
       setIsCreating(false);
     }
@@ -861,6 +868,12 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <UnlockPremium 
+        isOpen={showUnlockPremium} 
+        onClose={() => setShowUnlockPremium(false)} 
+        featureName="more than one project"
+      />
     </div>
   );
 }

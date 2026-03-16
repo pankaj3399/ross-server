@@ -87,9 +87,10 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
     const status = req.user!.subscription_status;
+    const isPremium = ["basic_premium", "pro_premium", "trial"].includes(status);
 
     // Enforce subscription for creating/owning projects
-    if (!["basic_premium", "pro_premium", "trial", "free"].includes(status)) {
+    if (!isPremium && status !== "free") {
       return res.status(403).json({
         error: "Subscription required to create projects",
       });
@@ -103,7 +104,7 @@ router.post("/", authenticateToken, async (req, res) => {
     await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
 
     // Enforce 1-project limit for free tier
-    if (status === "free") {
+    if (!isPremium) {
       const projectCountResult = await client.query(
         "SELECT COUNT(*) as count FROM projects WHERE user_id = $1",
         [userId]
@@ -114,8 +115,8 @@ router.post("/", authenticateToken, async (req, res) => {
         await client.query("ROLLBACK");
         beganTxn = false;
         return res.status(403).json({
-          error: "Free plan only supports 1 project. Please upgrade to create more.",
-          code: "LIMIT_EXCEEDED"
+          error: "PROJECT_LIMIT_REACHED",
+          message: "Free plan is limited to 1 project. Please upgrade to create more.",
         });
       }
     }
