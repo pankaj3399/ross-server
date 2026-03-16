@@ -897,8 +897,13 @@ const generateInsightsAsync = async (
             // Build context strings
             groupedAnswers.forEach((rows, domainId) => {
                  const context = "\n\nDetailed Question Analysis:\n" + rows.map(row => {
-                    const status = parseFloat(row.user_score) === 1 ? "Correct" : "Incorrect";
-                    return `- [${status}] Practice: ${row.practice_title}\n  Question: ${row.question_text}`;
+                    const score = parseFloat(row.user_score);
+                    let label = "No Maturity";
+                    if (score >= 3) label = "Mature";
+                    else if (score >= 2) label = "Developing";
+                    else if (score >= 1) label = "Initial";
+                    
+                    return `- [Maturity: ${label} (score: ${score})] Practice: ${row.practice_title}\n  Question: ${row.question_text}`;
                   }).join("\n");
                   detailedContextMap.set(domainId, context);
             });
@@ -913,29 +918,27 @@ const generateInsightsAsync = async (
         // Add delay between requests (except the first one) to respect rate limits
         if (index > 0) await sleep(2000); // reduced delay to be nice to API but faster than 5s
 
-        const totalQuestions = parseInt(domain.total_questions) || 0;
-        const correctAnswers = parseInt(domain.correct_answers) || 0;
-        const percentage = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+        const maturityScore = parseFloat(domain.maturity_score) || 0;
 
         let detailedContext = "";
         if (isPremium && detailedContextMap.has(domain.id)) {
             detailedContext = detailedContextMap.get(domain.id) || "";
         }
 
-        const prompt = `You are an AI assessment expert analyzing domain performance. Generate actionable insights and recommendations for the following domain assessment:
-
-Domain: ${domain.title}
-Description: ${domain.description || 'N/A'}
-Performance: ${correctAnswers}/${totalQuestions} questions correct (${percentage}%)
-Project: ${projectName}${detailedContext}
-
-Based on this performance data${isPremium ? ' and the detailed question analysis above' : ''}, provide:
-1. A brief analysis of the current performance level
-2. Key strengths (if any)
-3. Areas that need improvement
-4. Specific actionable recommendations${isPremium ? ' based on the specific incorrect answers' : ''}
-
-Keep the response concise (2-3 paragraphs) and focused on practical next steps. Format as plain text without markdown.`;
+        const prompt = `You are an AI assessment expert analyzing domain maturity based on the OWASP AIMA model. Generate actionable insights and recommendations for the following domain:
+ 
+ Domain: ${domain.title}
+ Description: ${domain.description || 'N/A'}
+ Maturity Score: ${maturityScore.toFixed(2)} / 3.0
+ Project: ${projectName}${detailedContext}
+ 
+ Based on this maturity scoring${isPremium ? ' and the detailed question analysis above' : ''}, provide:
+ 1. A brief analysis of the current maturity level
+ 2. Key strengths (if any)
+ 3. Areas that need improvement
+ 4. Specific actionable recommendations${isPremium ? ' based on the specific question scores' : ''}
+ 
+ Keep the response concise (2-3 paragraphs) and focused on practical next steps. Format as plain text without markdown.`;
 
         let lastError: any = null;
         let insightText = "";

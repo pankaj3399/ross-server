@@ -23,9 +23,9 @@ import {
   IconCheck
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
-import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
+import { ReportSkeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
+import { getMaturityLevel, getRiskExposure } from "../../lib/maturity";
 
 // Helper to parse insight text into structured sections
 const parseInsightText = (text: string) => {
@@ -66,37 +66,6 @@ const parseInsightText = (text: string) => {
   return sections;
 };
 
-// Performance variants mapped to Tailwind classes
-const PERFORMANCE_VARIANTS = {
-  excellent: {
-    text: "text-success",
-    bg: "bg-success/20",
-    border: "border-success/30",
-    fill: "fill-success",
-    color: "var(--success)"
-  },
-  good: {
-    text: "text-chart-4",
-    bg: "bg-chart-4/20",
-    border: "border-chart-4/30",
-    fill: "fill-chart-4",
-    color: "var(--chart-4)"
-  },
-  average: {
-    text: "text-warning",
-    bg: "bg-warning/20",
-    border: "border-warning/30",
-    fill: "fill-warning",
-    color: "var(--warning)"
-  },
-  poor: {
-    text: "text-destructive",
-    bg: "bg-destructive/20",
-    border: "border-destructive/30",
-    fill: "fill-destructive",
-    color: "var(--destructive)"
-  },
-};
 
 export default function ScoreReportPage() {
   const searchParams = useSearchParams();
@@ -259,12 +228,6 @@ export default function ScoreReportPage() {
     );
   }
 
-  const getMaturityLevel = (score: number) => {
-    if (score >= 2.5) return { level: "Mature", ...PERFORMANCE_VARIANTS.excellent };
-    if (score >= 1.5) return { level: "Developing", ...PERFORMANCE_VARIANTS.good };
-    if (score >= 0.5) return { level: "Initial", ...PERFORMANCE_VARIANTS.average };
-    return { level: "No Maturity", ...PERFORMANCE_VARIANTS.poor };
-  };
 
   const performance = getMaturityLevel(results.results.overall.overallMaturityScore);
 
@@ -368,7 +331,7 @@ export default function ScoreReportPage() {
                       initial={{ width: 0 }}
                       animate={{ width: `${(results.results.overall.overallMaturityScore / 3) * 100}%` }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
-                      className={`h-full rounded-full ${performance.bg.replace('/20', '')}`}
+                      className={`h-full rounded-full ${performance.bgSolid}`}
                     />
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed font-medium">
@@ -384,7 +347,9 @@ export default function ScoreReportPage() {
                 </div>
                 <div className="p-5 rounded-3xl bg-muted/50 border border-border flex flex-col gap-1">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Risk Exposure</span>
-                  <span className="text-2xl font-black text-warning">MEDIUM</span>
+                  <span className={`text-2xl font-black ${getRiskExposure(results.results.overall.overallMaturityScore).colorClass}`}>
+                    {getRiskExposure(results.results.overall.overallMaturityScore).label}
+                  </span>
                 </div>
               </div>
             </div>
@@ -505,7 +470,7 @@ export default function ScoreReportPage() {
                                 initial={{ width: 0 }}
                                 animate={{ width: `${(domain.maturityScore / 3) * 100}%` }}
                                 transition={{ duration: 1, delay: 0.5 }}
-                                className={`h-full rounded-full ${domainMaturity.bg.replace('/20', '')} shadow-lg`}
+                                className={`h-full rounded-full ${domainMaturity.bgSolid} shadow-lg`}
                             />
                         </div>
 
@@ -525,7 +490,7 @@ export default function ScoreReportPage() {
                                         </div>
                                         <div className="w-full bg-muted/50 rounded-full h-1.5 overflow-hidden">
                                             <div 
-                                                className={`h-full rounded-full ${practiceMaturity.bg.replace('/20', '')}`}
+                                                 className={`h-full rounded-full ${practiceMaturity.bgSolid}`}
                                                 style={{ width: `${(practice.maturityScore / 3) * 100}%` }}
                                             />
                                         </div>

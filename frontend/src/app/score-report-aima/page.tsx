@@ -15,41 +15,10 @@ import {
   IconLoader
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
-import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
+import { ReportSkeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
+import { getMaturityLevel } from "../../lib/maturity";
 
-// Performance variants mapped to Tailwind classes
-const PERFORMANCE_VARIANTS = {
-  excellent: {
-    text: "text-success",
-    bg: "bg-success/20",
-    border: "border-success/30",
-    fill: "fill-success",
-    color: "var(--success)"
-  },
-  good: {
-    text: "text-chart-4",
-    bg: "bg-chart-4/20",
-    border: "border-chart-4/30",
-    fill: "fill-chart-4",
-    color: "var(--chart-4)"
-  },
-  average: {
-    text: "text-warning",
-    bg: "bg-warning/20",
-    border: "border-warning/30",
-    fill: "fill-warning",
-    color: "var(--warning)"
-  },
-  poor: {
-    text: "text-destructive",
-    bg: "bg-destructive/20",
-    border: "border-destructive/30",
-    fill: "fill-destructive",
-    color: "var(--destructive)"
-  },
-};
 
 export default function ScoreReportPage() {
   const searchParams = useSearchParams();
@@ -135,12 +104,6 @@ export default function ScoreReportPage() {
     );
   }
 
-  const getMaturityLevel = (score: number) => {
-    if (score >= 2.5) return { level: "Mature", ...PERFORMANCE_VARIANTS.excellent };
-    if (score >= 1.5) return { level: "Developing", ...PERFORMANCE_VARIANTS.good };
-    if (score >= 0.5) return { level: "Initial", ...PERFORMANCE_VARIANTS.average };
-    return { level: "No Maturity", ...PERFORMANCE_VARIANTS.poor };
-  };
 
   const performance = getMaturityLevel(results.results.overall.overallMaturityScore);
 
@@ -302,7 +265,7 @@ export default function ScoreReportPage() {
                           {/* Progress Bar (0-3 scale) */}
                           <div className="w-full bg-muted rounded-full h-3 mb-8 overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${domainMaturity.bg.replace('/20', '')}`}
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${domainMaturity.bgSolid}`}
                               style={{ width: `${(domain.maturityScore / 3) * 100}%` }}
                             />
                           </div>
@@ -323,7 +286,7 @@ export default function ScoreReportPage() {
                                          </div>
                                          <div className="w-full bg-muted rounded-full h-1.5">
                                              <div 
-                                                className={`h-full rounded-full ${practiceMaturity.bg.replace('/20', '')}`}
+                                                className={`h-full rounded-full ${practiceMaturity.bgSolid}`}
                                                 style={{ width: `${(practice.maturityScore / 3) * 100}%` }}
                                              />
                                          </div>

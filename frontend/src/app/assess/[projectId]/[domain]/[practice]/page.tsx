@@ -197,7 +197,7 @@ export default function AssessmentPage() {
         <div className="space-y-6">
           {questions.map((question, index) => {
             const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${index}`;
-            const currentAnswer = answers[key] || 0;
+            const currentAnswer = answers[key] ?? undefined;
 
             return (
               <motion.div
