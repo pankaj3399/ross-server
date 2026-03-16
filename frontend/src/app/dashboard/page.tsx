@@ -291,14 +291,15 @@ export default function DashboardPage() {
       setNewProject({ name: "", description: "", aiSystemType: "", industry: "" });
       setShowCreateForm(false);
       showToast.success("Project created successfully!");
+    const ERROR_PROJECT_LIMIT_REACHED = "PROJECT_LIMIT_REACHED";
+    
     } catch (error: any) {
       console.error("Failed to create project:", error);
-      // ApiService throws an Error object with the backend error message as error.message
-      if (error?.message === "PROJECT_LIMIT_REACHED") {
+      if (error.message === ERROR_PROJECT_LIMIT_REACHED) {
         setShowCreateForm(false);
         setShowUnlockPremium(true);
       } else {
-        showToast.error(error.message || "Failed to create project. Please try again.");
+        showToast.error("Failed to create project. Please try again.");
       }
     } finally {
       setIsCreating(false);
