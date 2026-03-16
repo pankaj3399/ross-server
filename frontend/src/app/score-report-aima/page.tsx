@@ -191,7 +191,7 @@ export default function ScoreReportPage() {
                     {/* Radial Gauge / Big Score */}
                     <div className="text-center">
                        <div className="text-7xl font-bold text-foreground mb-2">
-                         {results.results.overall.overallMaturityScore.toFixed(2)}
+                         {(results.results.overall.overallMaturityScore ?? 0).toFixed(2)}
                        </div>
                        <div className="text-xl font-medium text-muted-foreground uppercase tracking-widest">
                          OUT OF 3.0
@@ -266,7 +266,7 @@ export default function ScoreReportPage() {
                             </div>
                             <div className="text-right">
                                 <div className="text-3xl font-bold text-foreground">
-                                    {domain.maturityScore.toFixed(2)}
+                                    {(domain.maturityScore != null ? domain.maturityScore : 0).toFixed(2)}
                                 </div>
                                 <div className="text-xs text-muted-foreground uppercase font-bold tracking-widest">
                                     Score / 3.0
@@ -283,7 +283,7 @@ export default function ScoreReportPage() {
                           </div>
 
                           {/* Practice Level Breakdown */}
-                          <div className="space-y-4 grid md:grid-cols-2 gap-x-8 gap-y-4">
+                          <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                              {domain.practiceScores?.map((practice: any) => {
                                  const practiceMaturity = getMaturityLevel(practice.maturityScore);
                                  return (
@@ -293,7 +293,7 @@ export default function ScoreReportPage() {
                                                  {practice.practiceTitle}
                                              </span>
                                              <span className={`text-sm font-bold ${practiceMaturity.text}`}>
-                                                 {practice.maturityScore.toFixed(1)}
+                                                 {(practice.maturityScore != null ? practice.maturityScore : 0).toFixed(1)}
                                              </span>
                                          </div>
                                          <div className="w-full bg-muted rounded-full h-1.5">

@@ -171,8 +171,8 @@ export default function AssessmentPage() {
   }
 
   // Calculate practice-specific progress
-  const answeredCount = questions.reduce((count, _, idx) => {
-    const key = `${domainId}:${practiceId}:${questions[idx].level}:${questions[idx].stream}:${idx}`;
+  const answeredCount = questions.reduce((count, question, idx) => {
+    const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${idx}`;
     return answers[key] !== undefined ? count + 1 : count;
   }, 0);
   const progressPercent = questions.length > 0 ? Math.min(100, (answeredCount / questions.length) * 100) : 0;
