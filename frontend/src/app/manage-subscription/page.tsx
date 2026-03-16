@@ -696,6 +696,14 @@ export default function ManageSubscriptionPage() {
                     Upgrade to BLOOM
                     <IconArrowRight className="w-4 h-4" />
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="gap-2"
+                    onClick={() => setShowUpgradeModal(true)}
+                  >
+                    Compare Plans
+                  </Button>
                 </>
               )}
 
@@ -720,6 +728,15 @@ export default function ManageSubscriptionPage() {
                       </>
                     )}
                   </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="gap-2"
+                    onClick={() => setShowUpgradeModal(true)}
+                    disabled={!!processingAction}
+                  >
+                    Compare Plans
+                  </Button>
                   <Button
                     onClick={handleCancelSubscription}
                     variant="outline"
@@ -737,6 +754,15 @@ export default function ManageSubscriptionPage() {
                 <>
                   <Button onClick={handleDowngradeToBasic} variant="outline" size="lg" className="gap-2" disabled={!!processingAction}>
                     Downgrade to BLOOM
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    className="gap-2"
+                    onClick={() => setShowUpgradeModal(true)}
+                    disabled={!!processingAction}
+                  >
+                    Compare Plans
                   </Button>
                   <Button onClick={handleCancelSubscription} variant="ghost" size="lg" className="gap-2 text-destructive hover:bg-destructive/10" disabled={!!processingAction}>
                     Cancel Subscription
@@ -980,10 +1006,13 @@ export default function ManageSubscriptionPage() {
         </div>
       </div>
 
-      {/* Upgrade Modal - Only shown for free users */}
+      {/* Upgrade Modal - Shows plans side-by-side */}
       <SubscriptionModal
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
+        currentPlan={subscription_status}
+        onUpgrade={() => setShowUpgradeConfirmation(true)}
+        onDowngrade={() => setShowDowngradeConfirmation(true)}
       />
 
       {/* Cancel Confirmation Modal */}

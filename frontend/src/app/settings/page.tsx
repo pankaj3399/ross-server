@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
+import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import { validatePassword } from "../../lib/passwordValidation";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ export default function SettingsPage() {
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetailsResponse | null>(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -1056,19 +1058,35 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                {/* Manage Subscription Button */}
-                <Button asChild className="w-full h-14 text-base gap-3 group">
-                  <Link href="/manage-subscription">
-                    <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    <span>Manage Subscription</span>
-                    <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </Button>
+                <div className="flex gap-3">
+                  <Button asChild className="flex-1 h-14 text-base gap-3 group">
+                    <Link href="/manage-subscription">
+                      <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span>Manage Subscription</span>
+                      <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 h-14 text-base gap-3 group"
+                    onClick={() => setShowSubscriptionModal(true)}
+                  >
+                    <span>Compare Plans</span>
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentPlan={user?.subscription_status || "free"}
+        onUpgrade={() => router.push("/manage-subscription")}
+        onDowngrade={() => router.push("/manage-subscription")}
+      />
     </div>
   );
 }

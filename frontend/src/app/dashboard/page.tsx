@@ -293,11 +293,12 @@ export default function DashboardPage() {
       showToast.success("Project created successfully!");
     } catch (error: any) {
       console.error("Failed to create project:", error);
-      if (error.message === "PROJECT_LIMIT_REACHED") {
+      // ApiService throws an Error object with the backend error message as error.message
+      if (error?.message === "PROJECT_LIMIT_REACHED") {
         setShowCreateForm(false);
         setShowUnlockPremium(true);
       } else {
-        showToast.error("Failed to create project. Please try again.");
+        showToast.error(error.message || "Failed to create project. Please try again.");
       }
     } finally {
       setIsCreating(false);
@@ -612,6 +613,13 @@ export default function DashboardPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Unlock Premium Modal */}
+      <UnlockPremium
+        isOpen={showUnlockPremium}
+        onClose={() => setShowUnlockPremium(false)}
+        featureName="Multiple Projects"
+      />
 
       {/* Create Project Modal */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
