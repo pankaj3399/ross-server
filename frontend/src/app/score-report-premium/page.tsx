@@ -23,9 +23,9 @@ import {
   IconCheck
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PieChart, Cell, ResponsiveContainer, Pie } from "recharts";
-import { ReportSkeleton, Skeleton } from "../../components/Skeleton";
+import { ReportSkeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
+import { getMaturityLevel, getRiskExposure } from "../../lib/maturity";
 
 // Helper to parse insight text into structured sections
 const parseInsightText = (text: string) => {
@@ -38,8 +38,6 @@ const parseInsightText = (text: string) => {
 
   if (!text) return sections;
 
-  // Patterns to look for section headers
-  // Using [\s\S]*? instead of .*? to match across newlines (ES5 compatible)
   const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
   const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?\s*([\s\S]*?)(?=(?:Areas|Improvements|3\.|Specific|$))/i;
   const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?\s*([\s\S]*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
@@ -51,7 +49,7 @@ const parseInsightText = (text: string) => {
   const recommendationsMatch = text.match(recommendationsPattern);
 
   if (analysisMatch) sections.analysis = analysisMatch[1].trim();
-  else if (!strengthsMatch && !improvementsMatch) sections.analysis = text; // Fallback if no headers found
+  else if (!strengthsMatch && !improvementsMatch && !recommendationsMatch) sections.analysis = text;
 
   if (strengthsMatch) sections.strengths = strengthsMatch[1].trim();
 
@@ -59,7 +57,6 @@ const parseInsightText = (text: string) => {
 
   if (recommendationsMatch) {
     const rawRecs = recommendationsMatch[1].trim();
-    // Split by numbered lists (1., 2.) or bullets (-, •)
     sections.recommendations = rawRecs
       .split(/(?:\r\n|\r|\n)?(?:\d+\.|-|\u2022)\s+/)
       .map(r => r.trim())
@@ -69,37 +66,6 @@ const parseInsightText = (text: string) => {
   return sections;
 };
 
-// Performance variants mapped to Tailwind classes
-const PERFORMANCE_VARIANTS = {
-  excellent: {
-    text: "text-success",
-    bg: "bg-success/20",
-    border: "border-success/30",
-    fill: "fill-success",
-    color: "var(--success)"
-  },
-  good: {
-    text: "text-chart-4",
-    bg: "bg-chart-4/20",
-    border: "border-chart-4/30",
-    fill: "fill-chart-4",
-    color: "var(--chart-4)"
-  },
-  average: {
-    text: "text-warning",
-    bg: "bg-warning/20",
-    border: "border-warning/30",
-    fill: "fill-warning",
-    color: "var(--warning)"
-  },
-  poor: {
-    text: "text-destructive",
-    bg: "bg-destructive/20",
-    border: "border-destructive/30",
-    fill: "fill-destructive",
-    color: "var(--destructive)"
-  },
-};
 
 export default function ScoreReportPage() {
   const searchParams = useSearchParams();
@@ -109,7 +75,6 @@ export default function ScoreReportPage() {
   const { getProjectResults } = useAssessmentResultsStore();
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Check if user is premium
   const isUserPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
   const projectId = searchParams.get("projectId");
@@ -128,28 +93,20 @@ export default function ScoreReportPage() {
   });
 
   useEffect(() => {
-    // Wait for auth to finish loading
-    if (authLoading) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      return;
-    }
-
-    if (!projectId) {
-      setLoading(false);
+    if (authLoading || !isAuthenticated || !projectId) {
+      if (!authLoading) setLoading(false);
       return;
     }
 
     const fetchData = async () => {
-      // 1. Get Results
       const projectResults = getProjectResults(projectId);
       if (projectResults) {
         setResults(projectResults);
+      } else if (projectId) {
+        // Handle case where we have a projectId but no results yet
+        // This might happen if user bookmarked or manually navigated
       }
 
-      // 2. Get Domain Details to check for premium status
       try {
         const domainsData = await apiService.getDomainsFull(projectId);
         const premiumIds = new Set(
@@ -166,116 +123,101 @@ export default function ScoreReportPage() {
     };
 
     fetchData();
-  }, [projectId, isAuthenticated, authLoading, router, getProjectResults]);
+  }, [projectId, isAuthenticated, authLoading, getProjectResults]);
 
-  // Auto-generate insights when page loads - ONLY FOR PREMIUM USERS
   useEffect(() => {
     if (!projectId || !results || loading || !isUserPremium) return;
 
-    // Don't regenerate if insights already exist in results
-    const hasExistingInsights = results.results.domains.some((domain: any) => domain.insights);
-    if (hasExistingInsights) {
-      // If insights exist in results, populate the insights state
-      const existingInsights: Record<string, string> = {};
-      results.results.domains.forEach((domain: any) => {
-        if (domain.insights) {
-          existingInsights[domain.domainId] = domain.insights;
-        }
-      });
-      if (Object.keys(existingInsights).length > 0) {
-        setInsights(existingInsights);
+    // Collect all existing insights from results
+    const existingInsights: Record<string, string> = {};
+    results.results.domains.forEach((domain: any) => {
+      if (domain.insights) {
+        existingInsights[domain.domainId] = domain.insights;
       }
-      return;
+    });
+
+    if (Object.keys(existingInsights).length > 0) {
+      setInsights(prev => ({ ...prev, ...existingInsights }));
     }
 
-    let pollInterval: NodeJS.Timeout | null = null;
     let safetyTimeout: NodeJS.Timeout | null = null;
+    let isPolling = true;
+
+    const pullInsightsStatus = async (jobId: string) => {
+        if (!isPolling) return;
+        try {
+            const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
+
+            if (jobStatus.status === 'completed' && jobStatus.insights) {
+                setInsights(prev => ({ ...prev, ...jobStatus.insights }));
+                updateResultsWithInsights(jobStatus.insights);
+                setGeneratingInsights(false);
+                isPolling = false;
+                if (safetyTimeout) clearTimeout(safetyTimeout);
+            } else if (jobStatus.status === 'failed') {
+                setGeneratingInsights(false);
+                isPolling = false;
+                if (safetyTimeout) clearTimeout(safetyTimeout);
+            } else if (isPolling) {
+                // Schedule next poll
+                setTimeout(() => pullInsightsStatus(jobId), 2000);
+            }
+        } catch (pollError) {
+            console.error("Polling error:", pollError);
+            setGeneratingInsights(false);
+            isPolling = false;
+        }
+    };
 
     const generateInsights = async () => {
+      // Check if we already have insights for ALL domains
+      const allDomainsHaveInsights = results.results.domains.every((d: any) => d.insights || existingInsights[d.domainId]);
+      if (allDomainsHaveInsights) return;
+
       setGeneratingInsights(true);
       try {
         const response = await apiService.generateDomainInsights(projectId);
 
-        // CASE 1: Instant results (cached)
         if (response.success && response.insights && response.status === 'completed') {
-          setInsights(response.insights);
+          setInsights(prev => ({ ...prev, ...response.insights }));
           updateResultsWithInsights(response.insights);
           setGeneratingInsights(false);
           return;
         }
 
-        // CASE 2: Background job started
         if (response.success && response.jobId && response.status === 'processing') {
-          const jobId = response.jobId;
+          pullInsightsStatus(response.jobId);
 
-          // Poll every 2 seconds
-          pollInterval = setInterval(async () => {
-            try {
-              const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
-
-              if (jobStatus.status === 'completed' && jobStatus.insights) {
-                if (pollInterval) clearInterval(pollInterval);
-                if (safetyTimeout) clearTimeout(safetyTimeout);
-                setInsights(jobStatus.insights);
-                updateResultsWithInsights(jobStatus.insights);
-                setGeneratingInsights(false);
-              } else if (jobStatus.status === 'failed') {
-                if (pollInterval) clearInterval(pollInterval);
-                if (safetyTimeout) clearTimeout(safetyTimeout);
-                setGeneratingInsights(false);
-                console.error("Insights generation job failed:", jobStatus.error);
-              }
-            } catch (pollError) {
-              console.error("Error polling insights status:", pollError);
-              if (pollInterval) clearInterval(pollInterval);
-              if (safetyTimeout) clearTimeout(safetyTimeout);
-              setGeneratingInsights(false);
-            }
-          }, 2000); // Poll every 2 seconds
-
-          // Safety timeout after 5 minutes
           safetyTimeout = setTimeout(() => {
-            if (pollInterval) clearInterval(pollInterval);
-            if (safetyTimeout) clearTimeout(safetyTimeout);
+            isPolling = false;
             setGeneratingInsights(false);
           }, 300000);
         } else {
-          // Fallback/Error case
           setGeneratingInsights(false);
         }
-
       } catch (error) {
-        console.error("Error generating insights:", error);
         setGeneratingInsights(false);
       }
     };
 
     const updateResultsWithInsights = (newInsights: Record<string, string>) => {
-      const updatedDomains = results.results.domains.map((domain: any) => {
-        if (newInsights[domain.domainId]) {
+      setResults((prevResults: any) => {
+          if (!prevResults) return null;
+          const updatedDomains = prevResults.results.domains.map((domain: any) => ({
+              ...domain,
+              insights: newInsights[domain.domainId] || domain.insights
+          }));
           return {
-            ...domain,
-            insights: newInsights[domain.domainId]
+              ...prevResults,
+              results: { ...prevResults.results, domains: updatedDomains }
           };
-        }
-        return domain;
       });
-
-      // Use functional update to ensure we have latest state if needed, 
-      // though here 'results' from closure is likely fine due to dependency array
-      setResults((prevResults: any) => ({
-        ...prevResults,
-        results: {
-          ...prevResults.results,
-          domains: updatedDomains
-        }
-      }));
     };
 
     generateInsights();
 
     return () => {
-      if (pollInterval) clearInterval(pollInterval);
+      isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
   }, [projectId, results, loading, isUserPremium]);
@@ -286,75 +228,29 @@ export default function ScoreReportPage() {
 
   if (!results) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted transition-colors duration-300">
-        <div className="text-center p-8 bg-card backdrop-blur-lg rounded-3xl border border-border shadow-xl">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
+        <div className="text-center p-8 bg-card rounded-3xl border border-border">
           <h1 className="text-3xl font-bold text-foreground mb-4">No Results Found</h1>
-          <p className="text-muted-foreground mb-8 text-lg">Assessment results not found for this project.</p>
-          <Button
-            onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
-            disabled={!projectId}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Back to Assessment
+          <p className="text-muted-foreground mb-8">Assessment results not found.</p>
+          <Button onClick={() => router.push(projectId ? `/assess/${projectId}` : "/dashboard")}>
+            {projectId ? "Back to Assessment" : "Go to Dashboard"}
           </Button>
         </div>
       </div>
     );
   }
 
-  const getPerformanceLevel = (percentage: number) => {
-    if (percentage >= 80) return { level: "Excellent", ...PERFORMANCE_VARIANTS.excellent };
-    if (percentage >= 60) return { level: "Good", ...PERFORMANCE_VARIANTS.good };
-    if (percentage >= 40) return { level: "Average", ...PERFORMANCE_VARIANTS.average };
-    return { level: "Needs Improvement", ...PERFORMANCE_VARIANTS.poor };
-  };
 
-  // Show all domains for premium users (backend already filters non-visible domains)
-  // But we want to ensure we're showing the full report
-  const displayDomains = results.results.domains;
+  const performance = getMaturityLevel(results.results.overall.overallMaturityScore);
 
-  // Calculate overall score for all displayed domains
-  const overallStats = displayDomains.reduce(
-    (acc: { totalCorrectAnswers: number; totalQuestions: number }, domain: any) => {
-
-      acc.totalCorrectAnswers += domain.correctAnswers;
-      acc.totalQuestions += domain.totalQuestions;
-      return acc;
-    },
-    { totalCorrectAnswers: 0, totalQuestions: 0 }
-  );
-
-  const overallPercentage = overallStats.totalQuestions > 0
-    ? Math.round((overallStats.totalCorrectAnswers / overallStats.totalQuestions) * 100 * 100) / 100
-    : 0;
-
-  const performance = getPerformanceLevel(overallPercentage);
-
-  // Prepare data for charts - using premium domains only
-  const overallPieData = [
-    {
-      name: "Correct",
-      value: overallStats.totalCorrectAnswers,
-      color: PERFORMANCE_VARIANTS.excellent.color,
-      fill: PERFORMANCE_VARIANTS.excellent.color
-    },
-    {
-      name: "Incorrect",
-      value: overallStats.totalQuestions - overallStats.totalCorrectAnswers,
-      color: PERFORMANCE_VARIANTS.poor.color,
-      fill: PERFORMANCE_VARIANTS.poor.color
-    },
-  ];
-
-  // Filter domains that have insights
-  const domainsWithInsights = displayDomains.filter((domain: any) =>
-    insights[domain.domainId]
-  );
+  const totalDomains = results.results.domains.length;
+  const highMaturityDomains = results.results.domains.filter((d: any) => d.maturityScore >= 2.5).length;
+  const initialMaturityDomains = results.results.domains.filter((d: any) => d.maturityScore < 1.5).length;
 
   return (
-    <div ref={reportRef} className="min-h-screen bg-background text-foreground selection:bg-primary/30 transition-colors duration-300">
+    <div ref={reportRef} className="min-h-screen bg-background text-foreground transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
+        {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -364,8 +260,8 @@ export default function ScoreReportPage() {
           <div className="flex justify-between items-center mb-8">
             <Button
               variant="ghost"
-              onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
-              className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors pl-0 hover:bg-transparent hide-in-pdf"
+              onClick={() => router.push(projectId ? `/assess/${projectId}` : "/dashboard")}
+              className="group flex items-center gap-2 text-muted-foreground hover:text-foreground transition-all pl-0 hover:bg-transparent hide-in-pdf"
             >
               <div className="p-2 rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
                 <IconArrowLeft className="w-5 h-5" />
@@ -376,7 +272,7 @@ export default function ScoreReportPage() {
             <Button
               onClick={exportPdf}
               disabled={isExporting}
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf"
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf px-6 py-2 rounded-xl"
             >
               {isExporting ? (
                 <IconLoader className="w-5 h-5 animate-spin" />
@@ -387,342 +283,312 @@ export default function ScoreReportPage() {
             </Button>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 pb-1 leading-relaxed">
-                Premium Assessment Report
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-bold uppercase tracking-wider mb-2">
+                <IconSparkles className="w-4 h-4 fill-primary" />
+                Premium Maturity Report
+              </div>
+              <h1 className="text-4xl md:text-6xl font-extrabold text-foreground tracking-tight leading-tight">
+                AI Governance maturity <br />Insights
               </h1>
-              <div className="flex items-center gap-4 text-muted-foreground">
-                <span className="text-xl font-medium text-foreground">{results.project.name}</span>
+              <div className="flex items-center gap-4 text-lg">
+                <span className="font-semibold text-foreground">{results.project.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-                <span>{new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                <span className="text-muted-foreground">
+                    {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
               </div>
             </div>
-
-            {!isUserPremium && (
-              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-warning/10 border border-warning/20 text-warning shadow-sm">
-                <IconLock className="w-5 h-5" />
-                <span className="font-medium">Unlock AI Insights with Premium</span>
-                <Button
-                  size="sm"
-                  onClick={() => router.push(`/assess/${projectId}/premium-features`)}
-                  className="ml-2 px-4 py-1.5 rounded-lg bg-warning hover:bg-warning/90 text-warning-foreground font-bold text-sm transition-colors shadow-md hover:shadow-lg"
-                >
-                  Upgrade
-                </Button>
-              </div>
-            )}
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Overall Performance */}
+        {/* Executive Summary Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+          {/* Main Overall Maturity Card */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-1 space-y-8"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-2 relative overflow-hidden rounded-[3rem] bg-card border border-border p-10 shadow-2xl group"
           >
-            <div className="relative overflow-hidden rounded-[2.5rem] bg-card border border-border p-8 shadow-xl">
-              <div className="absolute top-0 right-0 p-8 opacity-5 dark:opacity-10">
-                <IconTrophy className="w-32 h-32 text-foreground" />
+            <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-500" />
+            
+            <div className="relative z-10 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-10">
+                <h2 className="text-xl font-bold text-muted-foreground flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-warning/10 text-warning">
+                    <IconTrophy className="w-6 h-6" />
+                  </div>
+                  Overall Maturity Score
+                </h2>
+                <div className={`px-4 py-1.5 rounded-full ${performance.bg} ${performance.text} border ${performance.border} text-sm font-black uppercase tracking-widest`}>
+                  {performance.level}
+                </div>
               </div>
 
-              <div className="relative z-10">
-                <h2 className="text-xl font-semibold text-muted-foreground mb-8 flex items-center gap-2">
-                  <IconTrophy className="w-5 h-5 text-warning" />
-                  Overall Score
-                </h2>
-
-                <div className="flex flex-col items-center justify-center mb-8">
-                  <div className="relative w-64 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={overallPieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={85}
-                          outerRadius={110}
-                          dataKey="value"
-                          startAngle={90}
-                          endAngle={450}
-                          stroke="none"
-                          cornerRadius={10}
-                          paddingAngle={5}
-                        >
-                          {overallPieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pdf-overall-score-container">
-                      <span className="text-6xl font-bold text-foreground tracking-tight py-1 leading-normal pdf-overall-score-value">
-                        {overallPercentage.toFixed(0)}%
-                      </span>
-                      <span className="text-sm font-medium text-muted-foreground mt-1 pdf-overall-score-label">Total Score</span>
-                    </div>
+              <div className="flex items-center gap-12 mb-10">
+                <div className="relative">
+                  <div className="text-8xl font-black text-foreground tracking-tighter">
+                    {results.results.overall.overallMaturityScore.toFixed(2)}
+                  </div>
+                  <div className="text-sm font-bold text-muted-foreground uppercase tracking-[0.3em] mt-2 ml-1">
+                    OUT OF 3.0
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground font-medium">Performance Level</span>
-                    <div
-                      className={`flex items-center font-medium text-sm ${performance.text} whitespace-nowrap`}
-                    >
-                      {performance.level}
-                    </div>
+                
+                <div className="flex-1 space-y-3">
+                  <div className="h-4 w-full bg-muted rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(results.results.overall.overallMaturityScore / 3) * 100}%` }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      className={`h-full rounded-full ${performance.bgSolid}`}
+                    />
                   </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed font-medium">
+                    Your organization is currently at the <span className={`font-bold ${performance.text}`}>{performance.level}</span> stage of the OWASP AIMA maturity model.
+                  </p>
+                </div>
+              </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 p-5 rounded-2xl bg-muted border border-border">
-                    <span className="text-muted-foreground font-medium">Correct Answers</span>
-                    <span className="font-semibold text-foreground whitespace-nowrap">
-                      {overallStats.totalCorrectAnswers} <span className="text-muted-foreground">/ {overallStats.totalQuestions}</span>
-                    </span>
-                  </div>
+              <div className="grid grid-cols-2 gap-4 mt-auto">
+                <div className="p-5 rounded-3xl bg-muted/50 border border-border flex flex-col gap-1">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Questions Analyzed</span>
+                  <span className="text-2xl font-black text-foreground">{results.results.overall.totalQuestions}</span>
+                </div>
+                <div className="p-5 rounded-3xl bg-muted/50 border border-border flex flex-col gap-1">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Risk Exposure</span>
+                  <span className={`text-2xl font-black ${getRiskExposure(results.results.overall.overallMaturityScore).colorClass}`}>
+                    {getRiskExposure(results.results.overall.overallMaturityScore).label}
+                  </span>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Right Column: Domain Performance & Insights */}
-          <div className="lg:col-span-2 flex flex-col">
-            {/* Domain Grid */}
+          {/* Stat Cards */}
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6 h-full">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col h-full"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="rounded-[2.5rem] bg-success/5 border border-success/10 p-8 flex flex-col justify-between group hover:bg-success/10 transition-all duration-300"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-3 flex-shrink-0">
-                <div className="w-1 h-8 rounded-full bg-primary" />
-                Domain Breakdown
-              </h2>
-
-              <div className="flex-1 overflow-y-auto scrollbar-hide">
-                {displayDomains.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {displayDomains.map((domain: any, index: number) => {
-                      const domainPerformance = getPerformanceLevel(domain.percentage);
-
-                      return (
-                        <motion.div
-                          key={domain.domainId}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.4, delay: 0.1 * index }}
-                          className="group relative overflow-hidden rounded-3xl bg-card hover:bg-muted border border-border p-6 transition-all duration-300 shadow-sm hover:shadow-md break-inside-avoid"
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-lg text-foreground pr-2 break-words" title={domain.domainTitle}>
-                                {domain.domainTitle}
-                              </h3>
-                              {premiumDomainIds.has(domain.domainId) && (
-                                <div className="px-2 py-0.5 rounded-full bg-primary/10 text-xs font-medium text-primary border border-primary/30">
-                                  Premium
-                                </div>
-                              )}
-                            </div>
-                            <div
-                              className={`flex items-center justify-center w-12 h-12 rounded-full bg-muted font-bold border pdf-percentage-circle ${domainPerformance.border} ${domainPerformance.text}`}
-                            >
-                              {domain.percentage.toFixed(0)}%
-                            </div>
-                          </div>
-
-                          <div className="w-full bg-muted rounded-full h-2 mb-4 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${domainPerformance.bg.replace('/20', '')}`}
-                              style={{ width: `${domain.percentage}%` }}
-                            />
-                          </div>
-
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">{domain.correctAnswers}/{domain.totalQuestions} Correct</span>
-                            <span className={`font-medium ${domainPerformance.text}`}>
-                              {domainPerformance.level}
-                            </span>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-muted/50 rounded-3xl border border-border">
-                    <p className="text-muted-foreground">
-                      No domains found in this assessment.
-                    </p>
-                  </div>
-                )}
+              <div className="p-3 rounded-2xl bg-success/10 text-success w-fit mb-4">
+                <IconTrendingUp className="w-6 h-6" />
               </div>
+              <div>
+                <div className="text-4xl font-black text-success mb-2">{highMaturityDomains}</div>
+                <div className="text-sm font-bold text-success/70 uppercase tracking-widest">Mature Domains</div>
+                <p className="text-xs text-muted-foreground mt-3 font-medium">Areas where you meet level 2.5 or higher.</p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="rounded-[2.5rem] bg-warning/5 border border-warning/10 p-8 flex flex-col justify-between group hover:bg-warning/10 transition-all duration-300"
+            >
+              <div className="p-3 rounded-2xl bg-warning/10 text-warning w-fit mb-4">
+                <IconAlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="text-4xl font-black text-warning mb-2">{initialMaturityDomains}</div>
+                <div className="text-sm font-bold text-warning/70 uppercase tracking-widest">Action Required</div>
+                <p className="text-xs text-muted-foreground mt-3 font-medium">Areas scoring below 1.5 maturity.</p>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="sm:col-span-2 rounded-[2.5rem] bg-primary/5 border border-primary/10 p-8 flex items-center justify-between group hover:bg-primary/10 transition-all duration-300"
+            >
+              <div className="flex items-center gap-6">
+                <div className="p-4 rounded-[1.5rem] bg-primary/10 text-primary">
+                  <IconBrain className="w-8 h-8" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold text-foreground">AI Intelligence</div>
+                  <p className="text-sm text-muted-foreground font-medium">Domain-specific recommendations generated via LLM.</p>
+                </div>
+              </div>
+              <div className="hidden sm:block text-2xl font-black text-primary/30 uppercase tracking-widest -rotate-12">ACTIVE</div>
             </motion.div>
           </div>
         </div>
 
-        {/* AI Insights Section - Conditional Rendering */}
-        <div className="mt-12 hide-in-pdf">
-          {isUserPremium ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="relative overflow-hidden rounded-[2.5rem] bg-primary/5 border border-primary/20 p-8 shadow-lg"
-            >
-              <div className="absolute top-0 right-0 p-8 opacity-10 dark:opacity-20">
-                <IconBrain className="w-64 h-64 text-primary" />
-              </div>
+        {/* Detailed Domain Findings */}
+        <div className="mb-16">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-black text-foreground flex items-center gap-4">
+              <div className="w-2 h-10 rounded-full bg-primary" />
+              Detailed Domain Findings
+            </h2>
+          </div>
 
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                    <IconSparkles className="w-6 h-6" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-foreground">AI Strategic Insights</h2>
-                </div>
-                <p className="text-muted-foreground mb-8 ml-14">
-                  {generatingInsights
-                    ? "Analyzing your performance data to generate personalized recommendations..."
-                    : "Tailored strategic recommendations for your assessment."}
-                </p>
+          <div className="space-y-12">
+            {results.results.domains.map((domain: any, index: number) => {
+              const domainMaturity = getMaturityLevel(domain.maturityScore);
+              const domainInsights = parseInsightText(insights[domain.domainId] || (isUserPremium ? domain.insights : "") || "");
 
-                {generatingInsights && Object.keys(insights).length === 0 ? (
-                  <div className="grid gap-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />
-                    ))}
-                  </div>
-                ) : domainsWithInsights.length > 0 ? (
-                  <div className="grid gap-6">
-                    {domainsWithInsights.map((domain: any, index: number) => {
-                      const analysis = parseInsightText(insights[domain.domainId]);
-
-                      return (
-                        <motion.div
-                          key={domain.domainId}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.4, delay: index * 0.1 }}
-                          className="rounded-3xl bg-card border border-primary/10 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 break-inside-avoid"
-                        >
-                          <div className="p-6 border-b border-border/50 bg-muted/30">
-                            <div className="flex items-center gap-3">
-                              <h3 className="text-xl font-bold text-foreground">
-                                {domain.domainTitle}
-                              </h3>
-                              <div className="px-2.5 py-0.5 rounded-full bg-primary/10 text-xs font-semibold text-primary border border-primary/20">
-                                Premium Analysis
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="p-6 space-y-6">
-                            {/* Analysis Section */}
-                            {analysis.analysis && (
-                              <div className="space-y-2">
-                                <h4 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                                  <IconTrendingUp className="w-4 h-4" />
-                                  Current Analysis
-                                </h4>
-                                <p className="text-foreground leading-relaxed">
-                                  {analysis.analysis}
-                                </p>
-                              </div>
-                            )}
-
-                            <div className="grid md:grid-cols-2 gap-6">
-                              {/* Strengths */}
-                              {analysis.strengths && (
-                                <div className="space-y-3 bg-success/5 p-4 rounded-2xl border border-success/10">
-                                  <h4 className="flex items-center gap-2 text-sm font-bold text-success uppercase tracking-wider">
-                                    <IconCheck className="w-4 h-4" />
-                                    Key Strengths
-                                  </h4>
-                                  <p className="text-sm text-foreground/90 leading-relaxed">
-                                    {analysis.strengths}
-                                  </p>
-                                </div>
-                              )}
-
-                              {/* Areas for Improvement */}
-                              {analysis.improvements && (
-                                <div className="space-y-3 bg-warning/5 p-4 rounded-2xl border border-warning/10">
-                                  <h4 className="flex items-center gap-2 text-sm font-bold text-warning uppercase tracking-wider">
-                                    <IconAlertTriangle className="w-4 h-4" />
-                                    Areas for Improvement
-                                  </h4>
-                                  <p className="text-sm text-foreground/90 leading-relaxed">
-                                    {analysis.improvements}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Recommendations */}
-                            {analysis.recommendations && analysis.recommendations.length > 0 && (
-                              <div className="space-y-3">
-                                <h4 className="flex items-center gap-2 text-sm font-semibold text-primary uppercase tracking-wider">
-                                  <IconListCheck className="w-5 h-5" />
-                                  Strategic Recommendations
-                                </h4>
-                                <div className="grid gap-3">
-                                  {analysis.recommendations.map((rec, i) => (
-                                    <div key={i} className="flex gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
-                                      <span className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                                        {i + 1}
-                                      </span>
-                                      <p className="text-sm text-foreground leading-snug pt-0.5">
-                                        {rec}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                ) : !generatingInsights ? (
-                  <div className="text-center py-12 bg-muted/50 rounded-3xl border border-border">
-                    <p className="text-muted-foreground">
-                      {displayDomains.length > 0
-                        ? "No specific insights generated for your domains."
-                        : "You don't have enough data in this assessment."}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="relative overflow-hidden rounded-[2.5rem] bg-muted border border-border p-8 text-center"
-            >
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-muted/50 pointer-events-none" />
-              <div className="relative z-10 flex flex-col items-center justify-center py-12">
-                <div className="w-16 h-16 rounded-full bg-card flex items-center justify-center mb-6 shadow-md">
-                  <IconLock className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-2xl font-bold text-foreground mb-3">Unlock Premium Insights</h3>
-                <p className="text-muted-foreground max-w-md mx-auto mb-8">
-                  Upgrade to Premium to get detailed AI-powered strategic recommendations tailored to your assessment results.
-                </p>
-                <Button
-                  onClick={() => router.push(`/assess/${projectId}/premium-features`)}
-                  className="group flex items-center gap-2 px-8 py-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold transition-all duration-300 shadow-lg hover:shadow-xl"
+              return (
+                <motion.div
+                  key={domain.domainId}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.1 * index }}
+                  className="rounded-[3rem] bg-card border border-border shadow-soft overflow-hidden group"
                 >
-                  Upgrade Now
-                  <IconChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
+                  <div className="grid grid-cols-1 lg:grid-cols-12">
+                    {/* Domain Metadata & Practice Breakdown */}
+                    <div className="lg:col-span-12 p-10 bg-muted/30 border-b border-border">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                            <div className="space-y-2">
+                                <h3 className="text-3xl font-black text-foreground tracking-tight">
+                                    {domain.domainTitle}
+                                </h3>
+                                <div className={`inline-flex items-center px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${domainMaturity.bg} ${domainMaturity.text} border ${domainMaturity.border}`}>
+                                    {domainMaturity.level} Level
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-6">
+                                <div className="text-right">
+                                    <div className="text-5xl font-black text-foreground">
+                                        {domain.maturityScore.toFixed(2)}
+                                    </div>
+                                    <div className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest mt-1">
+                                        Score / 3.0
+                                    </div>
+                                </div>
+                                <div className="h-16 w-[1.5px] bg-border hidden md:block" />
+                                <div className="hidden md:block">
+                                    <div className="text-lg font-bold text-foreground">
+                                        {((domain.maturityScore / 3) * 100).toFixed(0)}%
+                                    </div>
+                                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                        Maturity
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Progress Indicator */}
+                        <div className="w-full bg-muted rounded-full h-4 mb-10 overflow-hidden shadow-inner">
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${(domain.maturityScore / 3) * 100}%` }}
+                                transition={{ duration: 1, delay: 0.5 }}
+                                className={`h-full rounded-full ${domainMaturity.bgSolid} shadow-lg`}
+                            />
+                        </div>
+
+                        {/* Practice Scores Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {domain.practiceScores?.map((practice: any) => {
+                                const practiceMaturity = getMaturityLevel(practice.maturityScore);
+                                return (
+                                    <div key={practice.practiceId} className="p-5 rounded-3xl bg-background border border-border/50 shadow-sm hover:shadow-md transition-all">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="text-xs font-black text-muted-foreground uppercase tracking-wider line-clamp-2 pr-2" title={practice.practiceTitle}>
+                                                {practice.practiceTitle}
+                                            </span>
+                                            <span className={`text-sm font-black ${practiceMaturity.text}`}>
+                                                {practice.maturityScore.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-muted/50 rounded-full h-1.5 overflow-hidden">
+                                            <div 
+                                                 className={`h-full rounded-full ${practiceMaturity.bgSolid}`}
+                                                style={{ width: `${(practice.maturityScore / 3) * 100}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {/* AI Insights Section */}
+                    <div className="lg:col-span-12 p-10 bg-card">
+                      <div className="flex items-center gap-3 mb-8">
+                        <div className="p-2.5 rounded-2xl bg-primary/10 text-primary">
+                          <IconSparkles className="w-5 h-5 fill-primary" />
+                        </div>
+                        <h4 className="text-xl font-black text-foreground tracking-tight">AI Generated Insights</h4>
+                        {generatingInsights && !insights[domain.domainId] && (
+                          <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase animate-pulse ml-auto bg-primary/5 px-4 py-2 rounded-full">
+                            <IconLoader className="w-4 h-4 animate-spin" />
+                            Analyzing domain data...
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {/* Analysis Card */}
+                        <div className="space-y-4">
+                          <h5 className="flex items-center gap-2 text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">
+                            <IconTrendingUp className="w-4 h-4" />
+                            Strategic Analysis
+                          </h5>
+                          <div className="p-6 rounded-3xl bg-muted/40 border border-border min-h-[160px]">
+                            <p className="text-foreground leading-relaxed text-sm font-medium">
+                              {domainInsights.analysis || "No direct analysis available for this domain. Our AI is evaluating your practice scores to provide strategic context."}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Strengths & Improvements */}
+                        <div className="space-y-4">
+                          <h5 className="flex items-center gap-2 text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">
+                            <IconCheck className="w-4 h-4" />
+                            Key Indicators
+                          </h5>
+                          <div className="space-y-4">
+                            <div className="p-5 rounded-3xl bg-success/5 border border-success/10 text-sm">
+                              <span className="block font-black text-success uppercase text-[10px] tracking-widest mb-1">Strengths</span>
+                              <p className="text-foreground/90 font-medium leading-relaxed">{domainInsights.strengths || "Strengths identified in high-scoring practices."}</p>
+                            </div>
+                            <div className="p-5 rounded-3xl bg-warning/5 border border-warning/10 text-sm">
+                              <span className="block font-black text-warning uppercase text-[10px] tracking-widest mb-1">Gap Analysis</span>
+                              <p className="text-foreground/90 font-medium leading-relaxed">{domainInsights.improvements || "Improving baseline standards in developing areas."}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actionable Recommendations */}
+                        <div className="space-y-4">
+                          <h5 className="flex items-center gap-2 text-sm font-black text-muted-foreground uppercase tracking-[0.2em]">
+                            <IconListCheck className="w-4 h-4" />
+                            Action Plan
+                          </h5>
+                          <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 shadow-sm min-h-[160px]">
+                            <div className="space-y-4">
+                              {domainInsights.recommendations.length > 0 ? (
+                                domainInsights.recommendations.map((rec, i) => (
+                                  <div key={i} className="flex gap-4 group/item">
+                                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground text-[10px] font-black flex items-center justify-center shadow-lg group-hover/item:scale-110 transition-transform">
+                                      {i + 1}
+                                    </div>
+                                    <p className="text-sm text-foreground/90 leading-tight pt-0.5 font-medium">{rec}</p>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">No specific recommendations at this stage. Increase assessment coverage for detailed AI action plans.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

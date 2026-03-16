@@ -50,6 +50,13 @@ const normalizeQuestionEntry = (
   };
 };
 
+const maturityLabels: Record<number, string> = {
+  0: "No Maturity (0)",
+  1: "Initial (1)",
+  2: "Developing (2)",
+  3: "Mature (3)",
+};
+
 export default function AssessmentPage() {
   const params = useParams();
   const router = useRouter();
@@ -71,12 +78,10 @@ export default function AssessmentPage() {
       return;
     }
 
-    const fetchPractice = async () => {
+    const fetchData = async () => {
       try {
-        const data = await apiService.getPracticeQuestions(
-          domainId,
-          practiceId,
-        );
+        // 1. Fetch practice questions (required)
+        const data = await apiService.getPracticeQuestions(domainId, practiceId);
         setPractice(data);
 
         // Flatten questions from levels
@@ -99,8 +104,17 @@ export default function AssessmentPage() {
             });
           });
         });
-
         setQuestions(questionsList);
+
+        // 2. Fetch answers (resilient)
+        try {
+          const answersData = await apiService.getAnswers(projectId);
+          if (answersData?.answers) {
+            setAnswers(answersData.answers);
+          }
+        } catch (ansErr) {
+          console.error("Failed to fetch answers, continuing without them:", ansErr);
+        }
       } catch (error) {
         console.error("Failed to fetch practice:", error);
       } finally {
@@ -108,8 +122,8 @@ export default function AssessmentPage() {
       }
     };
 
-    fetchPractice();
-  }, [domainId, practiceId, isAuthenticated, authLoading, router]);
+    fetchData();
+  }, [domainId, practiceId, projectId, isAuthenticated, authLoading]);
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
@@ -156,6 +170,13 @@ export default function AssessmentPage() {
     );
   }
 
+  // Calculate practice-specific progress
+  const answeredCount = questions.reduce((count, question, idx) => {
+    const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${idx}`;
+    return answers[key] !== undefined ? count + 1 : count;
+  }, 0);
+  const progressPercent = questions.length > 0 ? Math.min(100, (answeredCount / questions.length) * 100) : 0;
+
   return (
     <div className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -197,7 +218,7 @@ export default function AssessmentPage() {
         <div className="space-y-6">
           {questions.map((question, index) => {
             const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${index}`;
-            const currentAnswer = answers[key] || 0;
+            const currentAnswer = answers[key] ?? undefined;
 
             return (
               <motion.div
@@ -227,7 +248,7 @@ export default function AssessmentPage() {
                 </div>
 
                 <div className="flex gap-6">
-                  {[0, 0.5, 1].map((value) => (
+                  {[0, 1, 2, 3].map((value) => (
                     <label
                       key={value}
                       className="flex items-center cursor-pointer group"
@@ -255,11 +276,7 @@ export default function AssessmentPage() {
                         </div>
                       </div>
                       <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                        {value === 0
-                          ? "No"
-                          : value === 0.5
-                            ? "Partially"
-                            : "Yes"}
+                        {maturityLabels[value] || `Unknown (${value})`}
                       </span>
                     </label>
                   ))}
@@ -284,23 +301,19 @@ export default function AssessmentPage() {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Questions answered</span>
               <span className="text-card-foreground font-medium">
-                {Object.keys(answers).length} / {questions.length}
+                {answeredCount} / {questions.length}
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-3">
               <div
                 className="bg-primary h-3 rounded-full transition-all duration-300"
                 style={{
-                  width: `${(Object.keys(answers).length / questions.length) * 100
-                    }%`,
+                  width: `${progressPercent}%`,
                 }}
               />
             </div>
             <div className="text-xs text-muted-foreground text-center">
-              {Math.round(
-                (Object.keys(answers).length / questions.length) * 100,
-              )}
-              % Complete
+              {Math.round(progressPercent)}% Complete
             </div>
           </div>
         </motion.div>
