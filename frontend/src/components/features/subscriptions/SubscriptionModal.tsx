@@ -37,9 +37,19 @@ interface SubscriptionModalProps {
   currentPlan?: string;
   onUpgrade?: () => void;
   onDowngrade?: () => void;
+  title?: string;
+  description?: string;
 }
 
-export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free", onUpgrade, onDowngrade }: SubscriptionModalProps) {
+export default function SubscriptionModal({
+  isOpen,
+  onClose,
+  currentPlan = "free",
+  onUpgrade,
+  onDowngrade,
+  title = "Choose Your Plan",
+  description
+}: SubscriptionModalProps) {
   const [prices, setPrices] = useState<{ basic: number | null; pro: number | null }>({
     basic: null,
     pro: null,
@@ -165,6 +175,7 @@ export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free
     "Compliance Readiness Controls (CRC)",
     "Enhanced Reporting & Analytics",
     "Advanced Exportable Reports (PDF/Excel)",
+    "Teams and Collaboration",
     "Includes everything in SEED",
   ];
 
@@ -175,6 +186,7 @@ export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free
     "Responsible AI implementation support",
     "Documentation, policies, & controls help",
     "ISO 42001/NIST/EU AI Act guidance",
+    "Teams and Collaboration",
     "Priority Support (Faster response & direct access)",
   ];
 
@@ -206,8 +218,13 @@ export default function SubscriptionModal({ isOpen, onClose, currentPlan = "free
               transition={{ delay: 0.2 }}
             >
               <DialogTitle className="text-4xl font-bold">
-                Choose Your Plan
+                {title}
               </DialogTitle>
+              {description && (
+                <div className="mt-2 text-muted-foreground">
+                  {description}
+                </div>
+              )}
             </motion.div>
           </DialogHeader>
 
