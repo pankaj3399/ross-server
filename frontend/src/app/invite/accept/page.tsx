@@ -387,6 +387,7 @@ function InviteAcceptContent() {
                                         <p className="text-sm text-muted-foreground">
                                             Already have an account?{" "}
                                             <Button
+                                                type="button"
                                                 variant="link"
                                                 className="p-0 h-auto font-medium text-primary"
                                                 onClick={() => {

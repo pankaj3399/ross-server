@@ -507,14 +507,11 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                 onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
                 aria-expanded={isSettingsExpanded}
               >
-                <IconChevronRight
+                <IconChevronsRight
                   className={cn(
                     "h-5 w-5 transition-transform text-foreground",
                     isSettingsExpanded && "rotate-90"
                   )}
-                />
-                <IconSettings
-                  className="ml-2 h-5 w-5 transition-transform text-foreground"
                 />
                 <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
                   Settings
