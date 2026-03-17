@@ -7,7 +7,8 @@ export const isSidebarVisible = (pathname: string | null): boolean => {
   // Sidebar should be hidden on the landing page (home)
   if (pathname === "/") return false;
 
-  // Sidebar should be hidden on invite pages
+  // Sidebar should be hidden on invitation pages
+
   if (pathname.startsWith("/invite")) return false;
   
   // Visible on all other pages (dashboard, assess, etc.)

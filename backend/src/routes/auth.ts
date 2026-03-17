@@ -15,8 +15,10 @@ import {
   acceptInvitation,
   findInvitationByToken,
 } from "../services/projectInvitationService";
+
 import { addMember } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
+
 
 const router = Router();
 
@@ -1001,6 +1003,7 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
       console.error("Error in fire-and-forget decline notification:", err),
     );
 
+
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {
     console.error("Error declining invitation:", error);
@@ -1050,6 +1053,7 @@ router.post(
       ).catch((err) =>
         console.error("Error in fire-and-forget accept notification:", err),
       );
+
 
       res.json({
         message: "Invitation accepted",
@@ -1129,6 +1133,16 @@ router.post("/invitations/:token/signup", async (req, res) => {
           objectType: "MEMBERSHIP",
           objectId: membership.id,
           metadata: { email: acceptedInvitation.email },
+        });
+
+        // Send notification to inviter (best-effort)
+        notifyInviterOfInvitationResponse(
+          acceptedInvitation.project_id,
+          acceptedInvitation.inviter_id,
+          acceptedInvitation.email,
+          "accepted",
+        ).catch(err => {
+          console.error("Fire-and-forget notification failed (signup):", err);
         });
       } catch (logError) {
         console.error("Failed to record audit log for invitation signup", {

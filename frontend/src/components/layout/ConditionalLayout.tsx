@@ -15,11 +15,13 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   // Handle pages without sidebar (Home, Auth, Invites)
   // Note: isSidebarVisible already returns false for auth and landing routes
+
   if (!showSidebar) {
     return (
       <div className="min-h-screen flex flex-col">
         {isHomePage && <Header />}
         <main className="flex-1 bg-background">{children}</main>
+
         {isHomePage && <Footer />}
       </div>
     );
@@ -27,6 +29,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   // Show sidebar on all other pages (Dashboard, Assess, etc.)
   const isDashboard = isDashboardRoute(pathname);
+
 
   return (
     <SidebarProvider defaultOpen={!isDashboard} key={isDashboard ? 'dashboard' : 'non-dashboard'}>
