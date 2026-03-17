@@ -40,18 +40,25 @@ async function notifyInviterOfInvitationResponse(
     ]);
 
     if (inviterRes.rows.length > 0 && projectRes.rows.length > 0) {
-      if (type === "accepted") {
-        await emailService.sendInvitationAcceptedNotification(
-          inviterRes.rows[0].email,
-          projectRes.rows[0].name,
+      const sent =
+        type === "accepted"
+          ? await emailService.sendInvitationAcceptedNotification(
+              inviterRes.rows[0].email,
+              projectRes.rows[0].name,
+              inviteeEmail,
+            )
+          : await emailService.sendInvitationDeclinedNotification(
+              inviterRes.rows[0].email,
+              projectRes.rows[0].name,
+              inviteeEmail,
+            );
+
+      if (!sent) {
+        console.error(`Failed to send invitation ${type} notification`, {
+          inviterId,
+          projectId,
           inviteeEmail,
-        );
-      } else {
-        await emailService.sendInvitationDeclinedNotification(
-          inviterRes.rows[0].email,
-          projectRes.rows[0].name,
-          inviteeEmail,
-        );
+        });
       }
     }
   } catch (notifyError) {

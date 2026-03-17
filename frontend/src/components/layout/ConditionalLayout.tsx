@@ -15,7 +15,8 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isAuthPage = isAuthRoute(pathname);
 
   // Handle pages without sidebar (Home, Auth, Invites)
-  if (!showSidebar || isAuthPage) {
+  // Note: isSidebarVisible already returns false for auth and landing routes
+  if (!showSidebar) {
     return (
       <div className="min-h-screen flex flex-col">
         {isHomePage && <Header />}
