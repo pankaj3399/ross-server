@@ -11,9 +11,89 @@ import {
     IconLoader2,
 } from "@tabler/icons-react";
 import { SecureTextarea } from "../shared/SecureTextarea";
-import { safeRenderHTML } from "../../lib/htmlUtils";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
+/**
+ * HTML entities for escaping.
+ */
+const htmlEscape = (str: string): string => {
+    if (!str) return "";
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
+
+/**
+ * Formats AIMA question descriptions with bolding and bullet points.
+ * This function dynamically transforms plain text from the backend into 
+ * structured HTML for better readability.
+ */
+const formatAimaDescription = (description: string | null | undefined): string => {
+    if (!description || typeof description !== "string") return "";
+
+    // 1. Process line by line and escape before adding tags
+    const lines = description.split("\n");
+    const resultLines: string[] = [];
+    let inList = false;
+
+    // Helper to bold specific markers safely
+    const applyMarkers = (text: string) => {
+        let escaped = htmlEscape(text);
+        // Bold "Maturity Level X"
+        escaped = escaped.replace(/(Maturity Level \d+)/g, "<strong>$1</strong>");
+        // Bold "Stream A/B (...):"
+        escaped = escaped.replace(/(Stream [A|B] \([^)]+\):)/g, "<strong>$1</strong>");
+        return escaped;
+    };
+
+    for (let line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith("•")) {
+            if (!inList) {
+                resultLines.push('<ul class="mt-2 space-y-1">');
+                inList = true;
+            }
+            
+            // Handle various separators: colons, various dashes
+            const bulletMatch = trimmedLine.match(/^[•]\s*(.*?)([:\-–—])\s*(.*)$/);
+            if (bulletMatch) {
+                const title = htmlEscape(bulletMatch[1]);
+                const separator = htmlEscape(bulletMatch[2]);
+                const rest = htmlEscape(bulletMatch[3]);
+                resultLines.push(`<li><strong>${title}${separator}</strong> ${rest}</li>`);
+            } else {
+                // Fallback: Bold the first 3-4 words if no separator is found
+                const words = trimmedLine.replace(/^[•]\s*/, "").split(/\s+/);
+                if (words.length > 4) {
+                    const title = htmlEscape(words.slice(0, 3).join(" "));
+                    const rest = htmlEscape(words.slice(3).join(" "));
+                    resultLines.push(`<li><strong>${title}</strong> ${rest}</li>`);
+                } else {
+                    resultLines.push(`<li>${htmlEscape(trimmedLine.replace(/^[•]\s*/, ""))}</li>`);
+                }
+            }
+        } else {
+            if (inList) {
+                resultLines.push("</ul>");
+                inList = false;
+            }
+            if (trimmedLine) {
+                resultLines.push(`<p>${applyMarkers(trimmedLine)}</p>`);
+            }
+        }
+    }
+
+    if (inList) {
+        resultLines.push("</ul>");
+    }
+
+    // We don't call safeRenderHTML again because we've already manually escaped 
+    // and we're controlling the HTML tags injected. Return raw string for dangerouslySetInnerHTML.
+    return resultLines.join("\n");
+};
 
 export default function QuestionView() {
     const router = useRouter();
@@ -193,10 +273,21 @@ export default function QuestionView() {
                                         Level {currentQuestion.level}
                                     </span>
                                     <div className="relative group">
-                                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
-                                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
-                                            Represents the maturity stage of the AI practice — from basic (Level 1) to advanced (Level 3).
-                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-describedby="tooltip-level"
+                                            className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                                        >
+                                            <IconInfoCircle size={16} className="text-muted-foreground hover:text-foreground" />
+                                        </button>
+                                        <div 
+                                            id="tooltip-level"
+                                            role="tooltip"
+                                            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block group-focus-within:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[200px]"
+                                        >
+                                            <p>Represents the maturity stage of the AI practice</p>
+                                            <p className="mt-1">from <span className="font-bold">basic (Level 1)</span> to <span className="font-bold">advanced (Level 3)</span>.</p>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -205,10 +296,24 @@ export default function QuestionView() {
                                         Stream {currentQuestion.stream}
                                     </span>
                                     <div className="relative group">
-                                        <IconInfoCircle size={16} className="cursor-pointer text-muted-foreground hover:text-foreground" />
-                                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1 hidden group-hover:block bg-popover text-popover-foreground text-xs rounded-md px-2 py-1 whitespace-nowrap border border-border shadow-md">
-                                            Each domain has two complementary streams: Stream A – Create & Promote and Stream B – Measure & Improve.
-                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-describedby="tooltip-stream"
+                                            className="focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                                        >
+                                            <IconInfoCircle size={16} className="text-muted-foreground hover:text-foreground" />
+                                        </button>
+                                        <div 
+                                            id="tooltip-stream"
+                                            role="tooltip"
+                                            className="absolute left-full top-1/2 -translate-y-1/2 ml-2 hidden group-hover:block group-focus-within:block bg-popover text-popover-foreground text-xs rounded-md px-3 py-2 border border-border shadow-md z-50 min-w-[240px]"
+                                        >
+                                            <p className="mb-1">Each domain has two complementary streams:</p>
+                                            <ul className="space-y-1 list-disc pl-4">
+                                                <li><span className="font-bold">Stream A:</span> Create & Promote</li>
+                                                <li><span className="font-bold">Stream B:</span> Measure & Improve</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -216,15 +321,18 @@ export default function QuestionView() {
                             <h2 className="text-xl font-semibold text-foreground leading-relaxed">
                                 {currentQuestion.question}
                             </h2>
-                            {/* 
-                  Using safeRenderHTML to render HTML content from backend securely.
-                  Previously used dangerouslySetInnerHTML directly with DOMPurify in page.tsx.
-                  safeRenderHTML likely wraps that or similar logic. 
-                  Checking imports: safeRenderHTML is imported from lib/htmlUtils.
-                */}
+
                             {currentQuestion.description && (
-                                <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/50 p-4 text-sm text-muted-foreground [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:mb-1 [&_strong]:font-bold [&_em]:italic [&_u]:underline [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_p:last-child]:mb-0">
-                                    <div dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentQuestion.description) }} />
+                                <div className="mt-6">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="p-1 rounded-md bg-primary/10">
+                                            <IconInfoCircle size={14} className="text-primary" />
+                                        </div>
+                                        <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
+                                    </div>
+                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_li:before]:font-bold [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
+                                        <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
+                                    </div>
                                 </div>
                             )}
                         </div>
