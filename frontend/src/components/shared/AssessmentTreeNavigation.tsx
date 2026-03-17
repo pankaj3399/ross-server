@@ -18,10 +18,10 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useAssessmentContext } from "../../contexts/AssessmentContext";
+import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
 import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
-import { apiService } from "../../lib/api";
+import { CRCControl } from "../../lib/api";
 import { cn } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import {
@@ -252,14 +252,19 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const { user } = useAuth();
   const router = useRouter();
 
-  // Safe context usage - might be used outside provider in some tests/stories
-  let crcCategories: string[] = [];
-  try {
-    const context = useAssessmentContext();
-    crcCategories = context.crcCategories;
-  } catch (e) {
-    // Ignore if not in provider
-  }
+  // Safe context usage
+  const context = useOptionalAssessmentContext();
+  const crcCategories = context?.crcCategories || [];
+  const crcControls = context?.crcControls || [];
+  const crcResponses = context?.crcResponses || {};
+
+  const controlsByCategory = useMemo(() => {
+    return crcControls.reduce((acc: Record<string, CRCControl[]>, control: CRCControl) => {
+      if (!acc[control.category]) acc[control.category] = [];
+      acc[control.category].push(control);
+      return acc;
+    }, {});
+  }, [crcControls]);
 
   const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
   const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
@@ -303,7 +308,8 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
-  const [isCrcExpanded, setIsCrcExpanded] = useState(false);
+  const [isCrcExpanded, setIsCrcExpanded] = useState(true); // Default to expanded for better visibility if on CRC page
+  const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>({});
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
@@ -632,16 +638,82 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       )}
                                       {item.id === "crc" && crcCategories.length > 0 && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                          {crcCategories.map((cat, catIdx) => (
-                                            <SidebarMenuSubItem key={catIdx}>
-                                              <SidebarMenuSubButton
-                                                onClick={() => premiumStatus ? router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.")}
-                                                className="h-8 px-2"
-                                              >
-                                                <span className="text-[13px] truncate ml-2 text-foreground/70">{cat}</span>
-                                              </SidebarMenuSubButton>
-                                            </SidebarMenuSubItem>
-                                          ))}
+                                          {crcCategories.map((cat: string, catIdx: number) => {
+                                            const catControls = controlsByCategory[cat] || [];
+                                            const answeredInCat = catControls.filter((c: CRCControl) => crcResponses[c.id] !== undefined).length;
+                                            const isCatExpanded = expandedCrcCategories[cat];
+
+                                            return (
+                                              <SidebarMenuSubItem key={cat}>
+                                                <SidebarMenuSubButton
+                                                  onClick={() => {
+                                                    if (premiumStatus) {
+                                                      router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`);
+                                                    } else {
+                                                      openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                    }
+                                                  }}
+                                                  className="h-8 px-2 group/cat"
+                                                >
+                                                   <button
+                                                     type="button"
+                                                     aria-expanded={isCatExpanded}
+                                                     aria-controls={`crc-category-${catIdx}`}
+                                                     onClick={(e) => {
+                                                       e.stopPropagation();
+                                                       setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+                                                     }}
+                                                     className="p-1 hover:bg-sidebar-accent rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+                                                   >
+                                                     <IconChevronRight
+                                                       className={cn(
+                                                         "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
+                                                         isCatExpanded && "rotate-90"
+                                                       )}
+                                                     />
+                                                   </button>
+                                                  <span className="text-[13px] truncate ml-2 text-foreground/70 group-hover/cat:text-foreground">{cat}</span>
+                                                  <CompactProgress
+                                                    current={answeredInCat}
+                                                    total={catControls.length}
+                                                    isCompleted={answeredInCat === catControls.length && catControls.length > 0}
+                                                    size="sm"
+                                                  />
+                                                </SidebarMenuSubButton>
+
+                                                {isCatExpanded && catControls.length > 0 && (
+                                                  <SidebarMenuSub id={`crc-category-${catIdx}`} className="border-l border-sidebar-border/50 ml-2 pl-3 mt-1 gap-0.5">
+                                                    {catControls.map((control: CRCControl) => {
+                                                      const isAnswered = crcResponses[control.id] !== undefined;
+                                                      return (
+                                                        <SidebarMenuSubItem key={control.id}>
+                                                          <SidebarMenuSubButton
+                                                            onClick={() => {
+                                                              if (premiumStatus) {
+                                                                router.push(`/assess/${projectId}/crc?controlId=${control.id}`);
+                                                              } else {
+                                                                openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                              }
+                                                            }}
+                                                            className="h-7 px-2 group/control"
+                                                          >
+                                                            {isAnswered ? (
+                                                              <IconCircleCheck className="h-3.5 w-3.5 text-success" />
+                                                            ) : (
+                                                              <div className="w-1.5 h-1.5 rounded-full border border-muted-foreground/40" />
+                                                            )}
+                                                            <span className="text-[12px] truncate ml-2 text-muted-foreground group-hover/control:text-foreground">
+                                                              {control.control_id}
+                                                            </span>
+                                                          </SidebarMenuSubButton>
+                                                        </SidebarMenuSubItem>
+                                                      );
+                                                    })}
+                                                  </SidebarMenuSub>
+                                                )}
+                                              </SidebarMenuSubItem>
+                                            );
+                                          })}
                                         </SidebarMenuSub>
                                       )}
                                     </motion.div>

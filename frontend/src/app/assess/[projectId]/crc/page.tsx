@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { apiService } from "@/lib/api";
+import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { safeRenderHTML } from "@/lib/htmlUtils";
 import { showToast } from "@/lib/toast";
 import { motion } from "framer-motion";
@@ -84,140 +84,56 @@ export default function CRCAssessmentPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const projectId = params.projectId as string;
+  const controlIdParam = searchParams.get("controlId");
   const categoryParam = searchParams.get("category");
   const { user, loading: authLoading } = useAuth();
 
-  const isPremium = user?.subscription_status
-    ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number])
-    : false;
-  const [controls, setControls] = useState<Control[]>([]);
-  const [responses, setResponses] = useState<Record<string, CRCResponse>>({});
+  const {
+    crcControls: controls,
+    crcResponses: responses,
+    handleCrcAnswerChange,
+    handleCrcNoteSave,
+    isPremium,
+    loading: contextLoading,
+    saving
+  } = useAssessmentContext();
+
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
 
-  // Track which categories are expanded in the left sidebar
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-
-  // Fetch controls and existing responses
-  useEffect(() => {
-    // Short-circuit if not premium
-    if (!user || !isPremium) {
-      if (!authLoading) setLoading(false);
-      return;
+  // Derive current control from URL or category
+  const currentIndex = useMemo(() => {
+    if (controlIdParam) {
+      const idx = controls.findIndex(c => c.id === controlIdParam);
+      if (idx !== -1) return idx;
     }
-
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [controlsRes, responsesRes] = await Promise.all([
-          apiService.getPublishedCRCControls(),
-          apiService.getCRCResponses(projectId),
-        ]);
-
-        setControls(controlsRes.data);
-        setResponses(responsesRes.responses || {});
-
-        // Initialize local notes from saved responses
-        const notesMap: Record<string, string> = {};
-        Object.entries(responsesRes.responses || {}).forEach(([controlId, resp]) => {
-          notesMap[controlId] = resp.notes || "";
-        });
-        setLocalNotes(notesMap);
-
-        // Expand first category by default
-        if (controlsRes.data.length > 0) {
-          setExpandedCategories(new Set([controlsRes.data[0].category]));
-        }
-      } catch (error) {
-        console.error("Error fetching CRC data:", error);
-        showToast.error("Failed to load CRC controls");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [projectId, user, isPremium, authLoading]);
-
-  // Handle deep linking to category
-  useEffect(() => {
-    if (categoryParam && controls.length > 0) {
-      setExpandedCategories(prev => {
-        const next = new Set(prev);
-        next.add(categoryParam);
-        return next;
-      });
-
-      // Find first control in this category to set current index
-      const firstControlIndex = controls.findIndex(c => c.category === categoryParam);
-      if (firstControlIndex !== -1) {
-        setCurrentIndex(firstControlIndex);
-      }
+    if (categoryParam) {
+      const idx = controls.findIndex(c => c.category === categoryParam);
+      if (idx !== -1) return idx;
     }
-  }, [categoryParam, controls]);
+    return 0; // Default to first
+  }, [controlIdParam, categoryParam, controls]);
 
-  // Save answer
-  const handleAnswerChange = useCallback(async (controlId: string, value: number) => {
-    const previousResponse = responses[controlId];
-    const notes = localNotes[controlId] || "";
 
-    // Optimistic update
-    setResponses(prev => ({
-      ...prev,
-      [controlId]: { value, notes, updatedAt: new Date().toISOString() },
-    }));
-
-    setSaving(true);
-    try {
-      await apiService.saveCRCResponse(projectId, { controlId, value, notes });
-    } catch (error) {
-      // Rollback on error
-      if (previousResponse) {
-        setResponses(prev => ({ ...prev, [controlId]: previousResponse }));
-      } else {
-        setResponses(prev => {
-          const copy = { ...prev };
-          delete copy[controlId];
-          return copy;
-        });
-      }
-      showToast.error("Failed to save response");
-    } finally {
-      setSaving(false);
+  // Navigation
+  const handleNext = () => {
+    if (currentIndex < controls.length - 1) {
+      const nextControl = controls[currentIndex + 1];
+      router.push(`/assess/${projectId}/crc?controlId=${nextControl.id}`);
+      setShowDetails(false);
     }
-  }, [projectId, responses, localNotes]);
+  };
 
-  // Save notes
-  const handleNoteSave = useCallback(async (controlId: string, notes: string) => {
-    const currentResponse = responses[controlId];
-    if (currentResponse === undefined) {
-      showToast.error("Please answer the control question before saving notes");
-      return;
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      const prevControl = controls[currentIndex - 1];
+      router.push(`/assess/${projectId}/crc?controlId=${prevControl.id}`);
+      setShowDetails(false);
     }
-
-    setSaving(true);
-    try {
-      await apiService.saveCRCResponse(projectId, {
-        controlId,
-        value: currentResponse.value,
-        notes,
-      });
-      setResponses(prev => ({
-        ...prev,
-        [controlId]: { ...prev[controlId], notes, updatedAt: new Date().toISOString() },
-      }));
-    } catch (error) {
-      showToast.error("Failed to save notes");
-    } finally {
-      setSaving(false);
-    }
-  }, [projectId, responses]);
+  };
 
   // --- Premium Gate Conditional ---
-  if (!authLoading && user && !isPremium) {
+  if (!authLoading && !contextLoading && user && !isPremium) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background h-screen">
         <SubscriptionModal
@@ -234,50 +150,12 @@ export default function CRCAssessmentPage() {
     );
   }
 
-  // Navigation
-  const handleNext = () => {
-    if (currentIndex < controls.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setShowDetails(false);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setShowDetails(false);
-    }
-  };
-
-  const handleControlSelect = (index: number) => {
-    setCurrentIndex(index);
-    setShowDetails(false);
-  };
-
-  // Group controls by category for sidebar
-  const controlsByCategory = controls.reduce((acc, control, index) => {
-    if (!acc[control.category]) acc[control.category] = [];
-    acc[control.category].push({ ...control, globalIndex: index });
-    return acc;
-  }, {} as Record<string, (Control & { globalIndex: number })[]>);
-
-  const categories = Object.keys(controlsByCategory).sort();
-
-  const toggleCategory = (category: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(category)) next.delete(category);
-      else next.add(category);
-      return next;
-    });
-  };
-
   // Progress
   const totalControls = controls.length;
   const answeredControls = Object.keys(responses).length;
   const progress = totalControls > 0 ? (answeredControls / totalControls) * 100 : 0;
 
-  if (loading) {
+  if (authLoading || contextLoading) {
     return <AssessmentSkeleton />;
   }
 
@@ -306,80 +184,10 @@ export default function CRCAssessmentPage() {
   const currentControl = controls[currentIndex];
   const currentResponse = responses[currentControl.id];
   const currentAnswer = currentResponse?.value;
-  const currentNote = localNotes[currentControl.id] || "";
+  const currentNote = localNotes[currentControl.id] ?? currentResponse?.notes ?? "";
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-      {/* LEFT SIDEBAR: Category + Control Navigation */}
-      <div className="w-72 flex-none bg-card border-r border-border overflow-y-auto">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <IconShieldCheck className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-foreground text-sm">CRC Controls</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {answeredControls} of {totalControls} completed
-          </p>
-          <div className="w-full bg-secondary rounded-full h-1.5 mt-2">
-            <div
-              className="bg-primary h-1.5 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="py-2">
-          {categories.map((category) => (
-            <div key={category}>
-              <button
-                type="button"
-                onClick={() => toggleCategory(category)}
-                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
-              >
-                {expandedCategories.has(category) ? (
-                  <IconChevronDown className="w-3.5 h-3.5 text-primary flex-none" />
-                ) : (
-                  <IconChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-none" />
-                )}
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground/80 truncate">
-                  {category}
-                </span>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {controlsByCategory[category].filter(c => responses[c.id] !== undefined).length}/{controlsByCategory[category].length}
-                </span>
-              </button>
-
-              {expandedCategories.has(category) && (
-                <div className="pb-1">
-                  {controlsByCategory[category].map((control) => {
-                    const isActive = control.globalIndex === currentIndex;
-                    const isAnswered = responses[control.id] !== undefined;
-
-                    return (
-                      <button
-                        key={control.id}
-                        type="button"
-                        onClick={() => handleControlSelect(control.globalIndex)}
-                        className={`w-full flex items-center gap-2 pl-9 pr-4 py-2 text-left transition-colors text-sm ${isActive
-                          ? "bg-primary/10 text-primary font-medium border-r-2 border-primary"
-                          : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
-                          }`}
-                      >
-                        {isAnswered ? (
-                          <IconCheck className="w-3.5 h-3.5 text-success flex-none" />
-                        ) : (
-                          <div className="w-3.5 h-3.5 rounded-full border border-border flex-none" />
-                        )}
-                        <span className="truncate text-[13px]">{control.control_id}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -624,7 +432,7 @@ export default function CRCAssessmentPage() {
                         name={`answer-${currentControl.id}`}
                         value={option.value}
                         checked={currentAnswer === option.value}
-                        onChange={() => handleAnswerChange(currentControl.id, option.value)}
+                        onChange={() => handleCrcAnswerChange(currentControl.id, option.value)}
                         className="sr-only peer"
                       />
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200 peer-focus-visible:ring peer-focus-visible:ring-primary/50 peer-focus-visible:ring-offset-1 ${currentAnswer === option.value
@@ -662,7 +470,7 @@ export default function CRCAssessmentPage() {
                   onChange={(note) =>
                     setLocalNotes(prev => ({ ...prev, [currentControl.id]: note }))
                   }
-                  onSave={(value) => handleNoteSave(currentControl.id, value)}
+                  onSave={(value) => handleCrcNoteSave(currentControl.id, value)}
                   placeholder="Add your notes about this control — evidence, gaps, action items..."
                   maxLength={5000}
                   className="w-full"
