@@ -21,6 +21,16 @@ import { recordEvent } from "../services/auditLogService";
 const router = Router();
 
 /**
+ * Helper to mask email for logging purposes
+ */
+function maskEmail(email: string): string {
+  if (!email || !email.includes("@")) return email;
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) return `*@${domain}`;
+  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
+}
+
+/**
  * Helper to notify the inviter about an invitation response.
  * This is meant to be called in a fire-and-forget manner.
  */
@@ -57,7 +67,7 @@ async function notifyInviterOfInvitationResponse(
         console.error(`Failed to send invitation ${type} notification`, {
           inviterId,
           projectId,
-          inviteeEmail,
+          inviteeEmail: maskEmail(inviteeEmail),
         });
       }
     }

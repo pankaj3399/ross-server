@@ -6,13 +6,12 @@ import { Footer } from "./Footer";
 import { AppSidebar } from "./Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-import { isSidebarVisible, isDashboardRoute, isAuthRoute, isLandingRoute } from "../../lib/route-utils";
+import { isSidebarVisible, isDashboardRoute, isLandingRoute } from "../../lib/route-utils";
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showSidebar = isSidebarVisible(pathname);
   const isHomePage = isLandingRoute(pathname);
-  const isAuthPage = isAuthRoute(pathname);
 
   // Handle pages without sidebar (Home, Auth, Invites)
   // Note: isSidebarVisible already returns false for auth and landing routes
