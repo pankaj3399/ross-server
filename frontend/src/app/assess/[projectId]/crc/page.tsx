@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { apiService } from "@/lib/api";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { safeRenderHTML } from "@/lib/htmlUtils";
 import { showToast } from "@/lib/toast";
@@ -145,7 +144,7 @@ export default function CRCAssessmentPage() {
   };
 
   // --- Premium Gate Conditional ---
-  if (!authLoading && user && !isPremium) {
+  if (!authLoading && !contextLoading && user && !isPremium) {
     return (
       <div className="flex-1 flex items-center justify-center bg-background h-screen">
         <SubscriptionModal

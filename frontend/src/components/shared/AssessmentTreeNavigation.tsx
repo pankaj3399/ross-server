@@ -18,7 +18,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useAssessmentContext } from "../../contexts/AssessmentContext";
+import { useAssessmentContext, useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
 import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
 import { apiService, CRCControl } from "../../lib/api";
@@ -252,21 +252,14 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const { user } = useAuth();
   const router = useRouter();
 
-  // Safe context usage - might be used outside provider in some tests/stories
-  let crcCategories: string[] = [];
-  let crcControls: CRCControl[] = [];
-  let crcResponses: Record<string, any> = {};
-  try {
-    const context = useAssessmentContext();
-    crcCategories = context.crcCategories;
-    crcControls = context.crcControls;
-    crcResponses = context.crcResponses;
-  } catch (e) {
-    // Ignore if not in provider
-  }
+  // Safe context usage
+  const context = useOptionalAssessmentContext();
+  const crcCategories = context?.crcCategories || [];
+  const crcControls = context?.crcControls || [];
+  const crcResponses = context?.crcResponses || {};
 
   const controlsByCategory = useMemo(() => {
-    return crcControls.reduce((acc, control: CRCControl) => {
+    return crcControls.reduce((acc: Record<string, CRCControl[]>, control: CRCControl) => {
       if (!acc[control.category]) acc[control.category] = [];
       acc[control.category].push(control);
       return acc;
@@ -645,7 +638,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       )}
                                       {item.id === "crc" && crcCategories.length > 0 && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                          {crcCategories.map((cat, catIdx) => {
+                                          {crcCategories.map((cat: string, catIdx: number) => {
                                             const catControls = controlsByCategory[cat] || [];
                                             const answeredInCat = catControls.filter((c: CRCControl) => crcResponses[c.id] !== undefined).length;
                                             const isCatExpanded = expandedCrcCategories[cat];

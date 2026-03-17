@@ -112,6 +112,10 @@ export const useAssessmentContext = () => {
     return context;
 };
 
+export const useOptionalAssessmentContext = () => {
+    return useContext(AssessmentContext);
+};
+
 // --- Helpers ---
 
 const normalizeQuestionEntry = (
@@ -376,7 +380,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
         fetchData();
         return () => controller.abort();
-    }, [projectId, isAuthenticated, authLoading, setProjectState]);
+    }, [projectId, isAuthenticated, authLoading, setProjectState, isPremium]);
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {
@@ -537,19 +541,29 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             return;
         }
 
+        const sanitizedNotes = sanitizeNoteInput(notes);
+        const previousResponse = { ...currentResponse };
+
+        // Optimistic update
+        setCrcResponses(prev => ({
+            ...prev,
+            [controlId]: { ...prev[controlId], notes: sanitizedNotes, updatedAt: new Date().toISOString() },
+        }));
+
         setSaving(true);
         try {
             await apiService.saveCRCResponse(projectId, {
                 controlId,
                 value: currentResponse.value,
-                notes,
+                notes: sanitizedNotes,
             });
-            setCrcResponses(prev => ({
-                ...prev,
-                [controlId]: { ...prev[controlId], notes, updatedAt: new Date().toISOString() },
-            }));
         } catch (error) {
             console.error("Failed to save CRC notes:", error);
+            // Rollback optimistic update
+            setCrcResponses(prev => ({
+                ...prev,
+                [controlId]: previousResponse,
+            }));
             showToast.error("Failed to save notes");
         } finally {
             setSaving(false);
