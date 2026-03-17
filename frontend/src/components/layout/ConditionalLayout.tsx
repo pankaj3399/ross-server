@@ -25,7 +25,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Show sidebar on all other pages (including home, assess, etc.)
+  // Show sidebar on all other pages (except home)
   const isDashboard = pathname === "/dashboard";
 
   return (

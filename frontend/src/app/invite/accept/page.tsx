@@ -25,6 +25,7 @@ function InviteAcceptContent() {
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [submittingAction, setSubmittingAction] = useState<"accept" | "decline" | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [inviteData, setInviteData] = useState<any>(null);
 
@@ -128,7 +129,7 @@ function InviteAcceptContent() {
     };
 
     const handleAcceptLoggedIn = async () => {
-        setSubmitting(true);
+        setSubmittingAction("accept");
         setError(null);
         try {
             await apiService.acceptInvitation(token as string);
@@ -137,12 +138,12 @@ function InviteAcceptContent() {
             router.push(inviteData?.project?.id ? `/assess/${inviteData.project.id}` : "/dashboard");
         } catch (err: any) {
             setError(err.message || "Failed to accept invitation");
-            setSubmitting(false);
+            setSubmittingAction(null);
         }
     };
 
     const handleDecline = async () => {
-        setSubmitting(true);
+        setSubmittingAction("decline");
         setError(null);
         try {
             await apiService.declineInvitation(token as string);
@@ -151,7 +152,7 @@ function InviteAcceptContent() {
             router.push("/dashboard");
         } catch (err: any) {
             setError(err.message || "Failed to decline invitation");
-            setSubmitting(false);
+            setSubmittingAction(null);
         }
     };
 
@@ -225,18 +226,19 @@ function InviteAcceptContent() {
                                     )}
                                     <Button
                                         onClick={handleAcceptLoggedIn}
-                                        disabled={submitting}
+                                        disabled={submitting || !!submittingAction}
                                         className="w-full bg-primary hover:bg-primary/90 h-12 text-lg"
                                     >
-                                        {submitting ? <IconLoader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
+                                        {submittingAction === "accept" ? <IconLoader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                                         Accept Invitation
                                     </Button>
                                     <Button
                                         onClick={handleDecline}
-                                        disabled={submitting}
+                                        disabled={submitting || !!submittingAction}
                                         variant="outline"
                                         className="w-full mt-3 h-12 text-lg border-destructive/20 text-destructive hover:bg-destructive/5"
                                     >
+                                        {submittingAction === "decline" ? <IconLoader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                                         Decline Invitation
                                     </Button>
                                 </div>

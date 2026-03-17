@@ -15,6 +15,43 @@ import {
   acceptInvitation,
   findInvitationByToken,
 } from "../services/projectInvitationService";
+
+/**
+ * Helper to notify the inviter about invitation acceptance or denial
+ */
+async function notifyInviterOfInvitationResponse(
+  projectId: string,
+  inviterId: string | null,
+  inviteeEmail: string,
+  type: "accepted" | "declined",
+) {
+  if (!inviterId) return;
+
+  try {
+    const [projectRes, inviterRes] = await Promise.all([
+      pool.query("SELECT name FROM projects WHERE id = $1", [projectId]),
+      pool.query("SELECT email FROM users WHERE id = $1", [inviterId]),
+    ]);
+
+    if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
+      if (type === "accepted") {
+        await emailService.sendInvitationAcceptedNotification(
+          inviterRes.rows[0].email,
+          projectRes.rows[0].name,
+          inviteeEmail,
+        );
+      } else {
+        await emailService.sendInvitationDeclinedNotification(
+          inviterRes.rows[0].email,
+          projectRes.rows[0].name,
+          inviteeEmail,
+        );
+      }
+    }
+  } catch (notifyError) {
+    console.error(`Failed to send invitation ${type} notification:`, notifyError);
+  }
+}
 import { addMember } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
 
@@ -933,24 +970,12 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
     const declinedInvitation = rows[0];
 
     // Send notification to inviter (best-effort)
-    if (declinedInvitation.inviter_id) {
-      try {
-        const [projectRes, inviterRes] = await Promise.all([
-          pool.query("SELECT name FROM projects WHERE id = $1", [declinedInvitation.project_id]),
-          pool.query("SELECT email FROM users WHERE id = $1", [declinedInvitation.inviter_id])
-        ]);
-
-        if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
-          emailService.sendInvitationDeclinedNotification(
-            inviterRes.rows[0].email,
-            projectRes.rows[0].name,
-            declinedInvitation.email
-          );
-        }
-      } catch (notifyError) {
-        console.error("Failed to send invitation declined notification:", notifyError);
-      }
-    }
+    await notifyInviterOfInvitationResponse(
+      declinedInvitation.project_id,
+      declinedInvitation.inviter_id,
+      declinedInvitation.email,
+      "declined",
+    );
 
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {
@@ -993,24 +1018,12 @@ router.post(
       });
 
       // Send notification to inviter (best-effort)
-      if (acceptedInvitation.inviter_id) {
-        try {
-          const [projectRes, inviterRes] = await Promise.all([
-            pool.query("SELECT name FROM projects WHERE id = $1", [acceptedInvitation.project_id]),
-            pool.query("SELECT email FROM users WHERE id = $1", [acceptedInvitation.inviter_id])
-          ]);
-
-          if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
-            emailService.sendInvitationAcceptedNotification(
-              inviterRes.rows[0].email,
-              projectRes.rows[0].name,
-              acceptedInvitation.email
-            );
-          }
-        } catch (notifyError) {
-          console.error("Failed to send invitation accepted notification:", notifyError);
-        }
-      }
+      await notifyInviterOfInvitationResponse(
+        acceptedInvitation.project_id,
+        acceptedInvitation.inviter_id,
+        acceptedInvitation.email,
+        "accepted",
+      );
 
       res.json({
         message: "Invitation accepted",
@@ -1093,24 +1106,12 @@ router.post("/invitations/:token/signup", async (req, res) => {
         });
 
         // Send notification to inviter (best-effort)
-        if (acceptedInvitation.inviter_id) {
-          try {
-            const [projectRes, inviterRes] = await Promise.all([
-              pool.query("SELECT name FROM projects WHERE id = $1", [acceptedInvitation.project_id]),
-              pool.query("SELECT email FROM users WHERE id = $1", [acceptedInvitation.inviter_id])
-            ]);
-
-            if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
-              emailService.sendInvitationAcceptedNotification(
-                inviterRes.rows[0].email,
-                projectRes.rows[0].name,
-                acceptedInvitation.email
-              );
-            }
-          } catch (notifyError) {
-            console.error("Failed to send invitation accepted notification:", notifyError);
-          }
-        }
+        await notifyInviterOfInvitationResponse(
+          acceptedInvitation.project_id,
+          acceptedInvitation.inviter_id,
+          acceptedInvitation.email,
+          "accepted",
+        );
       } catch (logError) {
         console.error("Failed to record audit log for invitation signup", {
           error: logError,
