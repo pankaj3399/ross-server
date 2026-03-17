@@ -970,12 +970,14 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
     const declinedInvitation = rows[0];
 
     // Send notification to inviter (best-effort)
-    await notifyInviterOfInvitationResponse(
+    notifyInviterOfInvitationResponse(
       declinedInvitation.project_id,
       declinedInvitation.inviter_id,
       declinedInvitation.email,
       "declined",
-    );
+    ).catch(err => {
+      console.error("Fire-and-forget notification failed (decline):", err);
+    });
 
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {
@@ -1018,12 +1020,14 @@ router.post(
       });
 
       // Send notification to inviter (best-effort)
-      await notifyInviterOfInvitationResponse(
+      notifyInviterOfInvitationResponse(
         acceptedInvitation.project_id,
         acceptedInvitation.inviter_id,
         acceptedInvitation.email,
         "accepted",
-      );
+      ).catch(err => {
+        console.error("Fire-and-forget notification failed (accept):", err);
+      });
 
       res.json({
         message: "Invitation accepted",
@@ -1106,12 +1110,14 @@ router.post("/invitations/:token/signup", async (req, res) => {
         });
 
         // Send notification to inviter (best-effort)
-        await notifyInviterOfInvitationResponse(
+        notifyInviterOfInvitationResponse(
           acceptedInvitation.project_id,
           acceptedInvitation.inviter_id,
           acceptedInvitation.email,
           "accepted",
-        );
+        ).catch(err => {
+          console.error("Fire-and-forget notification failed (signup):", err);
+        });
       } catch (logError) {
         console.error("Failed to record audit log for invitation signup", {
           error: logError,
