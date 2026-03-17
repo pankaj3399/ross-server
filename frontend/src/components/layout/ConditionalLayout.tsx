@@ -14,11 +14,13 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === "/";
   const isAuthPage = pathname?.startsWith("/auth");
 
-  // Only hide sidebar layout on auth pages (user not logged in)
-  if (isAuthPage) {
+  // Only hide sidebar layout on auth pages, home page, or invite pages
+  if (!showSidebar) {
     return (
       <div className="min-h-screen flex flex-col">
+        {isHomePage && <Header />}
         <main className="flex-1">{children}</main>
+        {isHomePage && <Footer />}
       </div>
     );
   }

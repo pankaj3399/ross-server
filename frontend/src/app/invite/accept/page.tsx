@@ -141,6 +141,20 @@ function InviteAcceptContent() {
         }
     };
 
+    const handleDecline = async () => {
+        setSubmitting(true);
+        setError(null);
+        try {
+            await apiService.declineInvitation(token as string);
+            if (token) removeInvitation(token);
+            showToast.success("Invitation declined.");
+            router.push("/dashboard");
+        } catch (err: any) {
+            setError(err.message || "Failed to decline invitation");
+            setSubmitting(false);
+        }
+    };
+
 
     if (loading) {
         return (
@@ -216,6 +230,14 @@ function InviteAcceptContent() {
                                     >
                                         {submitting ? <IconLoader2 className="w-5 h-5 mr-2 animate-spin" /> : null}
                                         Accept Invitation
+                                    </Button>
+                                    <Button
+                                        onClick={handleDecline}
+                                        disabled={submitting}
+                                        variant="outline"
+                                        className="w-full mt-3 h-12 text-lg border-destructive/20 text-destructive hover:bg-destructive/5"
+                                    >
+                                        Decline Invitation
                                     </Button>
                                 </div>
                             ) : inviteData.hasAccount ? (
