@@ -114,17 +114,6 @@ export default function CRCAssessmentPage() {
     return 0; // Default to first
   }, [controlIdParam, categoryParam, controls]);
 
-  // Update local notes when responses change or control changes
-  useEffect(() => {
-    const currentControl = controls[currentIndex];
-    if (currentControl) {
-      const resp = responses[currentControl.id];
-      setLocalNotes(prev => ({
-        ...prev,
-        [currentControl.id]: resp?.notes || ""
-      }));
-    }
-  }, [currentIndex, controls, responses]);
 
   // Navigation
   const handleNext = () => {
@@ -195,7 +184,9 @@ export default function CRCAssessmentPage() {
   const currentControl = controls[currentIndex];
   const currentResponse = responses[currentControl.id];
   const currentAnswer = currentResponse?.value;
-  const currentNote = localNotes[currentControl.id] || "";
+  const currentNote = useMemo(() => {
+    return localNotes[currentControl.id] ?? currentResponse?.notes ?? "";
+  }, [currentControl.id, localNotes, currentResponse]);
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">

@@ -647,10 +647,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                               <SidebarMenuSubItem key={catIdx}>
                                                 <SidebarMenuSubButton
                                                   onClick={() => {
-                                                    setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
                                                     if (premiumStatus) {
-                                                      // Navigate to first control in category if not already there? 
-                                                      // Or just to the category view as before.
                                                       router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`);
                                                     } else {
                                                       openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
@@ -658,7 +655,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                   }}
                                                   className="h-8 px-2 group/cat"
                                                 >
-                                                  <IconChevronRight
                                                     className={cn(
                                                       "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
                                                       isCatExpanded && "rotate-90"
