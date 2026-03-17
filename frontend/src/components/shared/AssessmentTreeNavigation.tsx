@@ -655,11 +655,20 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                   }}
                                                   className="h-8 px-2 group/cat"
                                                 >
-                                                    className={cn(
-                                                      "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
-                                                      isCatExpanded && "rotate-90"
-                                                    )}
-                                                  />
+                                                   <div
+                                                     onClick={(e) => {
+                                                       e.stopPropagation();
+                                                       setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+                                                     }}
+                                                     className="p-1 hover:bg-sidebar-accent rounded transition-colors"
+                                                   >
+                                                     <IconChevronRight
+                                                       className={cn(
+                                                         "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
+                                                         isCatExpanded && "rotate-90"
+                                                       )}
+                                                     />
+                                                   </div>
                                                   <span className="text-[13px] truncate ml-2 text-foreground/70 group-hover/cat:text-foreground">{cat}</span>
                                                   <CompactProgress
                                                     current={answeredInCat}
