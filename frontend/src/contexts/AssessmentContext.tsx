@@ -57,6 +57,12 @@ export interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
     practices: Record<string, PracticeWithLevels>;
 }
 
+export interface CRCResponse {
+    value: number;
+    notes: string;
+    updatedAt: string;
+}
+
 interface AssessmentContextType {
     projectId: string;
     domains: DomainWithLevels[];
@@ -69,6 +75,7 @@ interface AssessmentContextType {
     projectName: string;
     crcControls: CRCControl[];
     crcCategories: string[];
+    crcResponses: Record<string, CRCResponse>;
 
     // Navigation State
     currentDomainId: string;
@@ -82,6 +89,8 @@ interface AssessmentContextType {
     handleAnswerChange: (questionIndex: number, value: number) => Promise<void>;
     handleNoteChange: (questionIndex: number, note: string) => void;
     handleNoteSave: (questionIndex: number, note: string) => Promise<void>;
+    handleCrcAnswerChange: (controlId: string, value: number) => Promise<void>;
+    handleCrcNoteSave: (controlId: string, notes: string) => Promise<void>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
 
@@ -101,6 +110,10 @@ export const useAssessmentContext = () => {
         throw new Error("useAssessmentContext must be used within an AssessmentProvider");
     }
     return context;
+};
+
+export const useOptionalAssessmentContext = () => {
+    return useContext(AssessmentContext);
 };
 
 // --- Helpers ---
@@ -181,6 +194,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     // CRC State
     const [crcControls, setCrcControls] = useState<CRCControl[]>([]);
     const [crcCategories, setCrcCategories] = useState<string[]>([]);
+    const [crcResponses, setCrcResponses] = useState<Record<string, CRCResponse>>({});
 
     const [saving, setSaving] = useState(false);
     const [savingNote, setSavingNote] = useState(false);
@@ -317,18 +331,23 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 });
                 setNotes(notesMap);
 
-                // Fetch CRC Controls if Premium
+                // Fetch CRC Controls and Responses if Premium
                 if (isPremium) {
                     try {
-                        const crcData = await apiService.getPublishedCRCControls();
+                        const [crcData, crcResponsesData] = await Promise.all([
+                            apiService.getPublishedCRCControls(),
+                            apiService.getCRCResponses(projectId),
+                        ]);
+
                         const controls = crcData.data || [];
                         setCrcControls(controls);
+                        setCrcResponses(crcResponsesData.responses || {});
 
                         // Extract unique categories
                         const categories = Array.from(new Set(controls.map(c => c.category))).sort();
                         setCrcCategories(categories);
                     } catch (err) {
-                        console.error("Failed to fetch CRC controls:", err);
+                        console.error("Failed to fetch CRC data:", err);
                         // Don't block main assessment loading for CRC error
                     }
                 }
@@ -361,7 +380,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
         fetchData();
         return () => controller.abort();
-    }, [projectId, isAuthenticated, authLoading, setProjectState]);
+    }, [projectId, isAuthenticated, authLoading, setProjectState, isPremium]);
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {
@@ -484,6 +503,73 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
+    const handleCrcAnswerChange = async (controlId: string, value: number) => {
+        const previousResponse = crcResponses[controlId];
+        const notes = crcResponses[controlId]?.notes || "";
+
+        // Optimistic update
+        setCrcResponses(prev => ({
+            ...prev,
+            [controlId]: { value, notes, updatedAt: new Date().toISOString() },
+        }));
+
+        setSaving(true);
+        try {
+            await apiService.saveCRCResponse(projectId, { controlId, value, notes });
+        } catch (error) {
+            console.error("Failed to save CRC answer:", error);
+            // Rollback on error
+            if (previousResponse) {
+                setCrcResponses(prev => ({ ...prev, [controlId]: previousResponse }));
+            } else {
+                setCrcResponses(prev => {
+                    const copy = { ...prev };
+                    delete copy[controlId];
+                    return copy;
+                });
+            }
+            showToast.error("Failed to save response");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCrcNoteSave = async (controlId: string, notes: string) => {
+        const currentResponse = crcResponses[controlId];
+        if (currentResponse === undefined) {
+            showToast.error("Please answer the control question before saving notes");
+            return;
+        }
+
+        const sanitizedNotes = sanitizeNoteInput(notes);
+        const previousResponse = { ...currentResponse };
+
+        // Optimistic update
+        setCrcResponses(prev => ({
+            ...prev,
+            [controlId]: { ...prev[controlId], notes: sanitizedNotes, updatedAt: new Date().toISOString() },
+        }));
+
+        setSaving(true);
+        try {
+            await apiService.saveCRCResponse(projectId, {
+                controlId,
+                value: currentResponse.value,
+                notes: sanitizedNotes,
+            });
+        } catch (error) {
+            console.error("Failed to save CRC notes:", error);
+            // Rollback optimistic update
+            setCrcResponses(prev => ({
+                ...prev,
+                [controlId]: previousResponse,
+            }));
+            showToast.error("Failed to save notes");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
         const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
         if (noteEntries.length === 0) return true;
@@ -589,6 +675,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleAnswerChange,
         handleNoteChange,
         handleNoteSave,
+        handleCrcAnswerChange,
+        handleCrcNoteSave,
         saveAllNotes,
         submitProject,
         saving,
@@ -598,6 +686,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         questions,
         crcControls,
         crcCategories,
+        crcResponses,
     };
 
     return <AssessmentContext.Provider value={value}>{children}</AssessmentContext.Provider>;

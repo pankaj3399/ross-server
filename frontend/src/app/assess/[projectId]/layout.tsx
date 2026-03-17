@@ -14,6 +14,7 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
     if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
     if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
+    if (pathname.includes("crc")) return "Compliance Readiness Control";
     if (pathname.includes("team")) return "Team Management";
     return "AI Maturity Assessment (AIMA)";
 };
@@ -77,7 +78,6 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const handlePracticeClick = (domainId: string, practiceId: string) => {
         setCurrentDomainId(domainId);
         setCurrentPracticeId(practiceId);
-        setCurrentQuestionIndex(0);
         setCurrentQuestionIndex(0);
         // navigateToPractice(domainId, practiceId); // REMOVED: Redundant with router.push logic and internal state setters
         // Ensure we are on the main assessment page if clicking a practice
