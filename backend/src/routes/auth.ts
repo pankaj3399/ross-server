@@ -15,8 +15,46 @@ import {
   acceptInvitation,
   findInvitationByToken,
 } from "../services/projectInvitationService";
+
 import { addMember } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
+
+/**
+ * Helper to notify the inviter about invitation acceptance or denial
+ */
+async function notifyInviterOfInvitationResponse(
+  projectId: string,
+  inviterId: string | null,
+  inviteeEmail: string,
+  type: "accepted" | "declined",
+) {
+  if (!inviterId) return;
+
+  try {
+    const [projectRes, inviterRes] = await Promise.all([
+      pool.query("SELECT name FROM projects WHERE id = $1", [projectId]),
+      pool.query("SELECT email FROM users WHERE id = $1", [inviterId]),
+    ]);
+
+    if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
+      if (type === "accepted") {
+        await emailService.sendInvitationAcceptedNotification(
+          inviterRes.rows[0].email,
+          projectRes.rows[0].name,
+          inviteeEmail,
+        );
+      } else {
+        await emailService.sendInvitationDeclinedNotification(
+          inviterRes.rows[0].email,
+          projectRes.rows[0].name,
+          inviteeEmail,
+        );
+      }
+    }
+  } catch (notifyError) {
+    console.error(`Failed to send invitation ${type} notification:`, notifyError);
+  }
+}
 
 const router = Router();
 
@@ -930,6 +968,18 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
       return res.status(404).json({ error: "Invitation not found or already processed" });
     }
 
+    const declinedInvitation = rows[0];
+
+    // Send notification to inviter (best-effort)
+    notifyInviterOfInvitationResponse(
+      declinedInvitation.project_id,
+      declinedInvitation.inviter_id,
+      declinedInvitation.email,
+      "declined",
+    ).catch(err => {
+      console.error("Fire-and-forget notification failed (decline):", err);
+    });
+
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {
     console.error("Error declining invitation:", error);
@@ -968,6 +1018,16 @@ router.post(
         objectType: "MEMBERSHIP",
         objectId: membership.id,
         metadata: { email: acceptedInvitation.email },
+      });
+
+      // Send notification to inviter (best-effort)
+      notifyInviterOfInvitationResponse(
+        acceptedInvitation.project_id,
+        acceptedInvitation.inviter_id,
+        acceptedInvitation.email,
+        "accepted",
+      ).catch(err => {
+        console.error("Fire-and-forget notification failed (accept):", err);
       });
 
       res.json({
@@ -1048,6 +1108,16 @@ router.post("/invitations/:token/signup", async (req, res) => {
           objectType: "MEMBERSHIP",
           objectId: membership.id,
           metadata: { email: acceptedInvitation.email },
+        });
+
+        // Send notification to inviter (best-effort)
+        notifyInviterOfInvitationResponse(
+          acceptedInvitation.project_id,
+          acceptedInvitation.inviter_id,
+          acceptedInvitation.email,
+          "accepted",
+        ).catch(err => {
+          console.error("Fire-and-forget notification failed (signup):", err);
         });
       } catch (logError) {
         console.error("Failed to record audit log for invitation signup", {
