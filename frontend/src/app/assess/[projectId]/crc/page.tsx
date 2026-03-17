@@ -15,6 +15,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconCheck,
+  IconLock,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { SecureTextarea } from "@/components/shared/SecureTextarea";
@@ -95,7 +96,8 @@ export default function CRCAssessmentPage() {
     handleCrcNoteSave,
     isPremium,
     loading: contextLoading,
-    saving
+    saving,
+    isReadOnly
   } = useAssessmentContext();
 
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
@@ -212,6 +214,12 @@ export default function CRCAssessmentPage() {
                   {currentControl.category} • Control {currentIndex + 1} of {totalControls}
                 </p>
               </div>
+              {isReadOnly && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-muted-foreground text-xs font-medium ml-4">
+                  <IconLock size={12} />
+                  View Only
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-4">
               {saving && (
@@ -421,10 +429,10 @@ export default function CRCAssessmentPage() {
                 {ANSWER_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
+                    className={`flex items-start p-4 rounded-xl border-2 transition-all duration-200 ${currentAnswer === option.value
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50 hover:bg-muted/50"
-                      }`}
+                      } ${isReadOnly ? "cursor-not-allowed opacity-80" : "cursor-pointer"}`}
                   >
                     <div className="relative flex items-center justify-center mt-1">
                       <input
@@ -432,6 +440,7 @@ export default function CRCAssessmentPage() {
                         name={`answer-${currentControl.id}`}
                         value={option.value}
                         checked={currentAnswer === option.value}
+                        disabled={isReadOnly}
                         onChange={() => handleCrcAnswerChange(currentControl.id, option.value)}
                         className="sr-only peer"
                       />
@@ -474,6 +483,7 @@ export default function CRCAssessmentPage() {
                   placeholder="Add your notes about this control — evidence, gaps, action items..."
                   maxLength={5000}
                   className="w-full"
+                  readOnly={isReadOnly}
                 />
               </div>
             </motion.div>

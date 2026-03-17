@@ -94,6 +94,9 @@ interface AssessmentContextType {
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
 
+    userRole: string | null;
+    isReadOnly: boolean;
+
     saving: boolean;
     savingNote: boolean;
     submitting: boolean;
@@ -203,6 +206,11 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [error, setError] = useState<string | null>(null);
     const [projectNotFound, setProjectNotFound] = useState(false);
     const [projectName, setProjectName] = useState<string>("");
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const isReadOnly = useMemo(() => {
+        if (!userRole) return true; // Default to read-only for safety during loading
+        return userRole !== "OWNER" && userRole !== "EDITOR";
+    }, [userRole]);
 
     const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
@@ -368,8 +376,9 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 try {
                     const project = await apiService.getProject(projectId);
                     setProjectName(project.name);
+                    setUserRole(project.role || null);
                 } catch (e) {
-                    console.error("Failed to fetch project for name:", e);
+                    console.error("Failed to fetch project for name and role:", e);
                 }
 
                 if (!controller.signal.aborted) {
@@ -442,6 +451,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     // --- Actions ---
 
     const handleAnswerChange = async (questionIndex: number, value: number) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
 
@@ -467,13 +477,18 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             console.error("Failed to save answer:", error);
             // Rollback optimistic update
             setAnswers((prev) => ({ ...prev, [key]: previousValue }));
-            showToast.error("Failed to save answer. Progress reverted.");
+            if (isReadOnly) {
+                showToast.error("You don't have permission to make changes. You can only view the project.");
+            } else {
+                showToast.error("Failed to save answer. Progress reverted.");
+            }
         } finally {
             setSaving(false);
         }
     };
 
     const handleNoteChange = (questionIndex: number, note: string) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
         const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
@@ -481,6 +496,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleNoteSave = async (questionIndex: number, note: string) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
         if (!note.trim()) return;
@@ -504,6 +520,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleCrcAnswerChange = async (controlId: string, value: number) => {
+        if (isReadOnly) return;
         const previousResponse = crcResponses[controlId];
         const notes = crcResponses[controlId]?.notes || "";
 
@@ -528,13 +545,18 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     return copy;
                 });
             }
-            showToast.error("Failed to save response");
+            if (isReadOnly) {
+                showToast.error("You don't have permission to make changes. You can only view the project.");
+            } else {
+                showToast.error("Failed to save response");
+            }
         } finally {
             setSaving(false);
         }
     };
 
     const handleCrcNoteSave = async (controlId: string, notes: string) => {
+        if (isReadOnly) return;
         const currentResponse = crcResponses[controlId];
         if (currentResponse === undefined) {
             showToast.error("Please answer the control question before saving notes");
@@ -618,6 +640,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const submitProject = async () => {
+        if (isReadOnly) return;
         setSubmitting(true);
         // Reset any previous error state related to submission flow if possible
         // But keep 'saving-notes' phase indicator clean
@@ -679,6 +702,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleCrcNoteSave,
         saveAllNotes,
         submitProject,
+        userRole,
+        isReadOnly,
         saving,
         savingNote,
         submitting,

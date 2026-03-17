@@ -747,8 +747,8 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes)
        VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (project_id, control_id, user_id)
-       DO UPDATE SET value = $4, notes = $5, updated_at = CURRENT_TIMESTAMP
+       ON CONFLICT (project_id, control_id)
+       DO UPDATE SET value = $4, notes = $5, user_id = $3, updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [projectId, data.controlId, userId, data.value, data.notes]
     );
@@ -780,8 +780,8 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     const result = await pool.query(
       `SELECT control_id, value, notes, updated_at
        FROM crc_assessment_responses
-       WHERE project_id = $1 AND user_id = $2`,
-      [projectId, userId]
+       WHERE project_id = $1`,
+      [projectId]
     );
 
     // Build a map: controlId -> { value, notes }

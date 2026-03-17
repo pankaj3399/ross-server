@@ -183,7 +183,12 @@ router.get(
   requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
   async (req, res) => {
     try {
-      res.json({ project: req.project });
+      res.json({ 
+        project: {
+          ...req.project,
+          role: req.projectMembership?.role
+        } 
+      });
     } catch (error) {
       console.error("Error fetching project:", error);
       res.status(500).json({ error: "Failed to fetch project" });
