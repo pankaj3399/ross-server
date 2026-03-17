@@ -12,7 +12,6 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showSidebar = isSidebarVisible(pathname);
   const isHomePage = pathname === "/";
-  const isAuthPage = pathname?.startsWith("/auth");
 
   // Only hide sidebar layout on auth pages, home page, or invite pages
   if (!showSidebar) {

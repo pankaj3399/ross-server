@@ -16,6 +16,9 @@ import {
   findInvitationByToken,
 } from "../services/projectInvitationService";
 
+import { addMember } from "../services/projectMembershipService";
+import { recordEvent } from "../services/auditLogService";
+
 /**
  * Helper to notify the inviter about invitation acceptance or denial
  */
@@ -52,8 +55,6 @@ async function notifyInviterOfInvitationResponse(
     console.error(`Failed to send invitation ${type} notification:`, notifyError);
   }
 }
-import { addMember } from "../services/projectMembershipService";
-import { recordEvent } from "../services/auditLogService";
 
 const router = Router();
 
