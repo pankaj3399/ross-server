@@ -20,7 +20,6 @@ import { serve } from "inngest/express";
 import { inngest } from "./inngest/client";
 import { evaluationJobProcessor, evaluateSingleResponse, evaluationAggregator, callUserApiForPrompt, userApiCallAggregator } from "./inngest/functions";
 
-
 dotenv.config();
 
 const app = express();
@@ -101,7 +100,7 @@ if (process.env.VERCEL || process.env.SERVERLESS) {
 } else {
   initialize()
     .then(() => {
-
+ 
       app.listen(PORT, () => {
         console.log(`Backend listening on http://localhost:${PORT}`);
         console.log(`Database connected and initialized`);

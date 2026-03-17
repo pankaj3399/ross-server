@@ -143,6 +143,7 @@ export const migrateDatabase = async () => {
       `);
     }
 
+
     // Create indexes
     console.log("Creating indexes...");
     await pool.query(`
