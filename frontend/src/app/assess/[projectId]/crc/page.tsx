@@ -184,9 +184,7 @@ export default function CRCAssessmentPage() {
   const currentControl = controls[currentIndex];
   const currentResponse = responses[currentControl.id];
   const currentAnswer = currentResponse?.value;
-  const currentNote = useMemo(() => {
-    return localNotes[currentControl.id] ?? currentResponse?.notes ?? "";
-  }, [currentControl.id, localNotes, currentResponse]);
+  const currentNote = localNotes[currentControl.id] ?? currentResponse?.notes ?? "";
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">

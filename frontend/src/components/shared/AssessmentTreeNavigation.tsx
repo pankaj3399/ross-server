@@ -18,10 +18,10 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useAssessmentContext, useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
+import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
 import { useRouter } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
-import { apiService, CRCControl } from "../../lib/api";
+import { CRCControl } from "../../lib/api";
 import { cn } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import {
@@ -656,11 +656,22 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                   className="h-8 px-2 group/cat"
                                                 >
                                                    <div
+                                                     role="button"
+                                                     tabIndex={0}
+                                                     aria-expanded={isCatExpanded}
+                                                     aria-controls={`crc-category-${catIdx}`}
                                                      onClick={(e) => {
                                                        e.stopPropagation();
                                                        setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
                                                      }}
-                                                     className="p-1 hover:bg-sidebar-accent rounded transition-colors"
+                                                     onKeyDown={(e) => {
+                                                       if (e.key === "Enter" || e.key === " ") {
+                                                         e.preventDefault();
+                                                         e.stopPropagation();
+                                                         setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+                                                       }
+                                                     }}
+                                                     className="p-1 hover:bg-sidebar-accent rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                                                    >
                                                      <IconChevronRight
                                                        className={cn(
@@ -679,7 +690,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                 </SidebarMenuSubButton>
 
                                                 {isCatExpanded && catControls.length > 0 && (
-                                                  <SidebarMenuSub className="border-l border-sidebar-border/50 ml-2 pl-3 mt-1 gap-0.5">
+                                                  <SidebarMenuSub id={`crc-category-${catIdx}`} className="border-l border-sidebar-border/50 ml-2 pl-3 mt-1 gap-0.5">
                                                     {catControls.map((control: CRCControl) => {
                                                       const isAnswered = crcResponses[control.id] !== undefined;
                                                       return (
