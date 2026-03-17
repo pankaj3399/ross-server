@@ -263,7 +263,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       if (!acc[control.category]) acc[control.category] = [];
       acc[control.category].push(control);
       return acc;
-    }, {} as Record<string, CRCControl[]>);
+    }, {});
   }, [crcControls]);
 
   const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
@@ -644,7 +644,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             const isCatExpanded = expandedCrcCategories[cat];
 
                                             return (
-                                              <SidebarMenuSubItem key={catIdx}>
+                                              <SidebarMenuSubItem key={cat}>
                                                 <SidebarMenuSubButton
                                                   onClick={() => {
                                                     if (premiumStatus) {
@@ -655,21 +655,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                   }}
                                                   className="h-8 px-2 group/cat"
                                                 >
-                                                   <div
-                                                     role="button"
-                                                     tabIndex={0}
+                                                   <button
+                                                     type="button"
                                                      aria-expanded={isCatExpanded}
                                                      aria-controls={`crc-category-${catIdx}`}
                                                      onClick={(e) => {
                                                        e.stopPropagation();
                                                        setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
-                                                     }}
-                                                     onKeyDown={(e) => {
-                                                       if (e.key === "Enter" || e.key === " ") {
-                                                         e.preventDefault();
-                                                         e.stopPropagation();
-                                                         setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
-                                                       }
                                                      }}
                                                      className="p-1 hover:bg-sidebar-accent rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
                                                    >
@@ -679,7 +671,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                          isCatExpanded && "rotate-90"
                                                        )}
                                                      />
-                                                   </div>
+                                                   </button>
                                                   <span className="text-[13px] truncate ml-2 text-foreground/70 group-hover/cat:text-foreground">{cat}</span>
                                                   <CompactProgress
                                                     current={answeredInCat}
