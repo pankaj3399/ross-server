@@ -26,7 +26,7 @@ export const loadProject = async (
     }
 
     const result = await pool.query(
-      "SELECT * FROM projects WHERE id = $1",
+      "SELECT p.*, u.subscription_status as owner_subscription FROM projects p JOIN users u ON p.user_id = u.id WHERE p.id = $1",
       [projectId],
     );
 

@@ -12,6 +12,7 @@ interface SecureTextareaProps {
   placeholder?: string;
   maxLength?: number;
   disabled?: boolean;
+  readOnly?: boolean;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
   placeholder = "Add your notes here...",
   maxLength = 5000,
   disabled = false,
+  readOnly = false,
   className = "",
 }) => {
   const [isValid, setIsValid] = useState(true);
@@ -65,23 +67,32 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        if (readOnly) return;
         e.preventDefault();
         if (!isValid || disabled) return;
+
         // Trim whitespace before saving
         const trimmedValue = value.trim();
-        const valueToSave = trimmedValue || value;
         if (trimmedValue !== value) {
           onChange(trimmedValue);
         }
-        onSave(valueToSave).catch((error) => {
+        
+        onSave(trimmedValue).catch((error) => {
           console.error("Failed to save note:", error);
         });
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isValid, disabled, onSave, value, onChange]);
+    const target = textareaRef.current;
+    if (target) {
+      target.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      if (target) {
+        target.removeEventListener("keydown", handleKeyDown);
+      }
+    };
+  }, [isValid, disabled, readOnly, onSave, value, onChange]);
 
   const characterCount = value.length;
   const isNearLimit = characterCount > maxLength * 0.9;
@@ -97,10 +108,12 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
           placeholder={placeholder}
           maxLength={maxLength}
           disabled={disabled}
+          readOnly={readOnly}
           className={`
             w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 resize-none
             focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent
             disabled:opacity-50 disabled:cursor-not-allowed
+            read-only:opacity-80 read-only:cursor-default
             bg-transparent
             ${isValid
               ? "border-input bg-background text-foreground"

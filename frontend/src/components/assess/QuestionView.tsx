@@ -9,6 +9,7 @@ import {
     IconArrowRight,
     IconInfoCircle,
     IconLoader2,
+    IconLock,
 } from "@tabler/icons-react";
 import { SecureTextarea } from "../shared/SecureTextarea";
 import { AssessmentSkeleton } from "../Skeleton";
@@ -116,7 +117,8 @@ export default function QuestionView() {
         submitting,
         submissionPhase,
         questions,
-        loading
+        loading,
+        isReadOnly
     } = useAssessmentContext();
 
     const {
@@ -204,6 +206,12 @@ export default function QuestionView() {
                                 {currentDomain?.title} • Question {validQuestionIndex + 1} of {totalQuestions}
                             </p>
                         </div>
+                        {isReadOnly && (
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-muted-foreground text-xs font-medium ml-4">
+                                <IconLock size={12} />
+                                View Only
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-4">
                         {saving && (
@@ -215,7 +223,7 @@ export default function QuestionView() {
                         <Button
                             onClick={() => submitProject()}
                             type="button"
-                            disabled={submitting}
+                            disabled={submitting || isReadOnly}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-background rounded-lg hover:bg-primary/80 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {submitting ? (
@@ -357,10 +365,10 @@ export default function QuestionView() {
                             ].map((option) => (
                                 <label
                                     key={option.value}
-                                    className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${currentAnswer === option.value
+                                    className={`flex items-start p-4 rounded-xl border-2 transition-all duration-200 ${currentAnswer === option.value
                                         ? "border-primary bg-primary/5"
                                         : "border-border hover:border-primary/50 hover:bg-muted/50"
-                                        }`}
+                                        } ${isReadOnly ? "cursor-not-allowed opacity-80" : "cursor-pointer"}`}
                                 >
                                     <div className="relative flex items-center justify-center mt-1">
                                         <input
@@ -368,6 +376,7 @@ export default function QuestionView() {
                                             name="answer"
                                             value={option.value}
                                             checked={currentAnswer === option.value}
+                                            disabled={isReadOnly}
                                             onChange={() =>
                                                 handleAnswerChange(validQuestionIndex, option.value)
                                             }
@@ -412,6 +421,7 @@ export default function QuestionView() {
                                 placeholder="Add your notes, reminders, or thoughts about this question..."
                                 maxLength={5000}
                                 className="w-full"
+                                readOnly={isReadOnly}
                             />
                         </div>
                     </motion.div>

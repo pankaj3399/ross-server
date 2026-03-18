@@ -22,6 +22,7 @@ if (!process.env.GEMINI_API_KEY) {
 } else {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
+const isPremiumUser = (status: string | undefined) => ["basic_premium", "pro_premium", "trial"].includes(status || "");
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
     const status = req.user!.subscription_status;
-    const isPremium = ["basic_premium", "pro_premium", "trial"].includes(status);
+    const isPremium = isPremiumUser(status);
 
     // Enforce subscription for creating/owning projects
     if (!isPremium && status !== "free") {
@@ -183,7 +184,12 @@ router.get(
   requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
   async (req, res) => {
     try {
-      res.json({ project: req.project });
+      res.json({ 
+        project: {
+          ...req.project,
+          role: req.projectMembership?.role ?? (req.user?.id === req.project.user_id ? "OWNER" : undefined)
+        } 
+      });
     } catch (error) {
       console.error("Error fetching project:", error);
       res.status(500).json({ error: "Failed to fetch project" });
@@ -289,15 +295,15 @@ router.post(
     const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
 
-    // Check if user is premium
-    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+    // Check if project brand/owner is premium
+    const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
-    // Get all assessment answers for this project and user
+    // Get all assessment answers for this project
     const answersResult = await pool.query(
       `SELECT domain_id, practice_id, level, stream, question_index, value 
        FROM assessment_answers 
-       WHERE project_id = $1 AND user_id = $2`,
-      [projectId, userId]
+       WHERE project_id = $1`,
+      [projectId]
     );
 
     // Get total questions for each domain and practice
@@ -807,7 +813,6 @@ const generateInsightsAsync = async (
        JOIN aima_questions aq ON p.id = aq.practice_id
        LEFT JOIN assessment_answers aa ON 
           aa.project_id = $1 AND 
-          aa.user_id = $2 AND
           aa.domain_id = d.id AND
           aa.practice_id = p.id AND
           aa.level = aq.level AND
@@ -816,8 +821,8 @@ const generateInsightsAsync = async (
     `;
 
     const whereConditions: string[] = [];
-    const queryParams: any[] = [projectId, userId];
-    let paramIndex = 3;
+    const queryParams: any[] = [projectId];
+    let paramIndex = 2;
     
     if (!isPremium) {
       whereConditions.push(`COALESCE(d.is_premium, false) = false`);
@@ -903,7 +908,7 @@ const generateInsightsAsync = async (
         
         // Only run if we actually have domains to process
         if (domainIdsToCheck.length > 0) {
-            const detailedAnswersQuery = `
+            let detailedAnswersQuery = `
               SELECT 
                 aa.domain_id,
                 aq.question_text,
@@ -915,10 +920,24 @@ const generateInsightsAsync = async (
                    AND aa.level = aq.level 
                    AND aa.stream = aq.stream 
                    AND aa.question_index = aq.question_index
-              WHERE aa.project_id = $1 AND aa.user_id = $2 AND aa.domain_id = ANY($3)
+              WHERE aa.project_id = $1 AND aa.domain_id = ANY($2)
             `;
             
-            const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, userId, domainIdsToCheck]);
+            const detailedQueryParams: any[] = [projectId, domainIdsToCheck];
+            
+            if (projectVersionId) {
+                detailedAnswersQuery += ` AND (ap.version_id IS NULL OR EXISTS (
+                    SELECT 1 FROM versions v2 WHERE v2.id = ap.version_id 
+                    AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $3)
+                ))`;
+                detailedAnswersQuery += ` AND (aq.version_id IS NULL OR EXISTS (
+                    SELECT 1 FROM versions v3 WHERE v3.id = aq.version_id 
+                    AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $3)
+                ))`;
+                detailedQueryParams.push(projectVersionId);
+            }
+            
+            const detailedAnswersResult = await pool.query(detailedAnswersQuery, detailedQueryParams);
             
             // Group by domain_id
             const groupedAnswers = new Map<string, any[]>();
@@ -1065,7 +1084,7 @@ router.post(
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
-    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+    const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
     if (!genAI) {
       return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
@@ -1081,12 +1100,11 @@ router.post(
         FROM aima_domains d
         LEFT JOIN aima_practices p ON d.id = p.domain_id
         LEFT JOIN aima_questions aq ON p.id = aq.practice_id
-        LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1 AND aa.user_id = $2
     `;
 
     const whereConditions: string[] = [];
-    const queryParams: any[] = [projectId, userId];
-    let paramIndex = 3;
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
     if (!isPremium) {
         whereConditions.push(`COALESCE(d.is_premium, false) = false`);

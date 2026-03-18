@@ -94,6 +94,9 @@ interface AssessmentContextType {
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
 
+    userRole: string | null;
+    isReadOnly: boolean;
+
     saving: boolean;
     savingNote: boolean;
     submitting: boolean;
@@ -203,6 +206,11 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [error, setError] = useState<string | null>(null);
     const [projectNotFound, setProjectNotFound] = useState(false);
     const [projectName, setProjectName] = useState<string>("");
+    const [userRole, setUserRole] = useState<string | null>(null);
+    const isReadOnly = useMemo(() => {
+        if (!userRole) return true; // Default to read-only for safety during loading
+        return userRole !== "OWNER" && userRole !== "EDITOR";
+    }, [userRole]);
 
     const isPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
 
@@ -240,6 +248,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setError(null);
                 setProjectNotFound(false);
                 setLoading(true);
+                setUserRole(null); // Reset role immediately on project load to prevent stale state
 
                 // Fetch domains
                 const domainsData = await apiService.getDomainsFull(projectId);
@@ -367,9 +376,12 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 // Fetch project name regardless of AIMA data status if project exists
                 try {
                     const project = await apiService.getProject(projectId);
-                    setProjectName(project.name);
+                    if (!controller.signal.aborted) {
+                        setProjectName(project.name);
+                        setUserRole(project.role || null);
+                    }
                 } catch (e) {
-                    console.error("Failed to fetch project for name:", e);
+                    console.error("Failed to fetch project for name and role:", e);
                 }
 
                 if (!controller.signal.aborted) {
@@ -442,6 +454,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     // --- Actions ---
 
     const handleAnswerChange = async (questionIndex: number, value: number) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
 
@@ -474,6 +487,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleNoteChange = (questionIndex: number, note: string) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
         const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
@@ -481,6 +495,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleNoteSave = async (questionIndex: number, note: string) => {
+        if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
         if (!note.trim()) return;
@@ -504,6 +519,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleCrcAnswerChange = async (controlId: string, value: number) => {
+        if (isReadOnly) return;
         const previousResponse = crcResponses[controlId];
         const notes = crcResponses[controlId]?.notes || "";
 
@@ -535,6 +551,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const handleCrcNoteSave = async (controlId: string, notes: string) => {
+        if (isReadOnly) return;
         const currentResponse = crcResponses[controlId];
         if (currentResponse === undefined) {
             showToast.error("Please answer the control question before saving notes");
@@ -571,6 +588,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return false;
+        }
         const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
         if (noteEntries.length === 0) return true;
 
@@ -618,6 +639,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const submitProject = async () => {
+        if (isReadOnly) return;
         setSubmitting(true);
         // Reset any previous error state related to submission flow if possible
         // But keep 'saving-notes' phase indicator clean
@@ -679,6 +701,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleCrcNoteSave,
         saveAllNotes,
         submitProject,
+        userRole,
+        isReadOnly,
         saving,
         savingNote,
         submitting,
