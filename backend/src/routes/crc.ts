@@ -547,7 +547,7 @@ router.post("/controls/:id/clone", authenticateToken, requireRole(["ADMIN"]), as
     `;
 
     const values = [
-      newControlId, `${source.control_title} (Clone)`, source.category_id, source.expected_timeline, "Draft", source.applicable_to,
+      newControlId, `${source.control_title} (Clone)`, source.category_id, source.expected_timeline, source.priority, "Draft", source.applicable_to,
       source.control_statement, source.control_objective, source.risk_description,
       normalizeJsonForInsert(source.implementation), 
       normalizeJsonForInsert(source.evidence_requirements), 
@@ -683,7 +683,7 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
 
     if (format === "csv") {
       // Basic CSV flattening
-      const headers = ["control_id", "control_title", "category", "priority", "status", "version", "created_at"];
+      const headers = ["control_id", "control_title", "category_id", "priority", "status", "version", "created_at"];
       const rows = controls.map((c: any) => headers.map(h => JSON.stringify(c[h] ?? "")).join(","));
       const csv = [headers.join(","), ...rows].join("\n");
       

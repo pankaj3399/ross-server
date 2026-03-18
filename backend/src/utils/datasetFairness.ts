@@ -255,61 +255,10 @@ const ensureUniqueHeaders = (headers: string[]) => {
     });
 };
 
+import { parseCSV as baseParseCSV } from "./csv";
+
 export const parseCSV = (text: string, delimiter = ","): { headers: string[]; rows: CSVRow[] } => {
-    const rows: string[][] = [];
-    let current = "";
-    let inQuotes = false;
-    let row: string[] = [];
-
-    const pushValue = () => {
-        row.push(current.trim());
-        current = "";
-    };
-
-    const pushRow = () => {
-        rows.push(row);
-        row = [];
-    };
-
-    for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        const nextChar = text[i + 1];
-
-        if (char === '"') {
-            if (inQuotes && nextChar === '"') {
-                current += '"';
-                i++;
-            } else {
-                inQuotes = !inQuotes;
-            }
-            continue;
-        }
-
-        if (char === delimiter && !inQuotes) {
-            pushValue();
-            continue;
-        }
-
-        if ((char === "\n" || char === "\r") && !inQuotes) {
-            if (current.length || row.length) {
-                pushValue();
-                if (row.length) {
-                    pushRow();
-                }
-            }
-            while (text[i + 1] === "\n" || text[i + 1] === "\r") {
-                i++;
-            }
-            continue;
-        }
-
-        current += char;
-    }
-
-    if (current.length || row.length) {
-        pushValue();
-        pushRow();
-    }
+    const rows = baseParseCSV(text, delimiter);
 
     if (!rows.length) {
         return { headers: [], rows: [] };
@@ -319,7 +268,6 @@ export const parseCSV = (text: string, delimiter = ","): { headers: string[]; ro
     const headers = ensureUniqueHeaders(rawHeaders.map((h) => sanitizeValue(h)));
 
     const parsedRows: CSVRow[] = rows
-        .filter((r) => r.some((value) => sanitizeValue(value).length))
         .map((cols) =>
             headers.reduce<CSVRow>((acc, header, idx) => {
                 acc[header] = sanitizeValue(cols[idx]);

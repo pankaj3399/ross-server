@@ -29,18 +29,18 @@ interface Control {
   id: string;
   control_id: string;
   control_title: string;
-  category: string;
+  category_name: string;
   priority: string;
   status: string;
   version: number;
   applicable_to: string[];
+  expected_timeline: string;
   control_statement: string;
   control_objective: string;
   risk_description: string;
   implementation: {
     requirements: string[];
     steps: string[];
-    timeline: string;
   };
   evidence_requirements: string[];
   compliance_mapping: {
@@ -108,7 +108,7 @@ export default function CRCAssessmentPage() {
       if (idx !== -1) return idx;
     }
     if (categoryParam) {
-      const idx = controls.findIndex(c => c.category === categoryParam);
+      const idx = controls.findIndex(c => c.category_name === categoryParam);
       if (idx !== -1) return idx;
     }
     return 0; // Default to first
@@ -209,7 +209,7 @@ export default function CRCAssessmentPage() {
                   Compliance Readiness Controls
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {currentControl.category} • Control {currentIndex + 1} of {totalControls}
+                  {currentControl.category_name} • Control {currentIndex + 1} of {totalControls}
                 </p>
               </div>
             </div>
@@ -263,7 +263,7 @@ export default function CRCAssessmentPage() {
                     {currentControl.priority} Priority
                   </Badge>
                   <Badge variant="outline" className="text-xs">
-                    {currentControl.category}
+                    {currentControl.category_name}
                   </Badge>
                 </div>
 
@@ -344,9 +344,9 @@ export default function CRCAssessmentPage() {
                           </ol>
                         </div>
                       )}
-                      {currentControl.implementation.timeline && (
+                      {currentControl.expected_timeline && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          <span className="font-medium">Timeline:</span> {currentControl.implementation.timeline}
+                          <span className="font-medium">Timeline:</span> {currentControl.expected_timeline}
                         </p>
                       )}
                     </div>

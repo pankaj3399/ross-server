@@ -2,9 +2,19 @@ import fs from "fs";
 import path from "path";
 import pool from "../config/database";
 import { z } from "zod";
+import { parseCSV } from "../utils/csv";
 
 // --- Configuration ---
-const CSV_PATH = path.join(__dirname, "../../../csv/MATUR_AI_Controls_Master (2)_Controls.csv");
+const fileArg = process.argv.find(arg => arg.startsWith("--file=") || arg.startsWith("-f="));
+const CSV_PATH = fileArg 
+  ? path.resolve(process.cwd(), fileArg.split("=")[1])
+  : path.join(__dirname, "../../../csv/MATUR_AI_Controls_Master (2)_Controls.csv");
+
+if (!fs.existsSync(CSV_PATH)) {
+  console.error(`❌ CSV file not found at: ${CSV_PATH}`);
+  process.exit(1);
+}
+
 const LOG_PATH = path.join(__dirname, "../../../upload_errors.log");
 
 // --- Modes ---
@@ -56,52 +66,6 @@ const rowSchema = z.object({
 });
 
 type ControlRow = z.infer<typeof rowSchema>;
-
-// --- Helper: CSV Parser ---
-function parseCSV(content: string): string[][] {
-  const rows: string[][] = [];
-  let currentRow: string[] = [];
-  let currentField = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < content.length; i++) {
-    const char = content[i];
-    const nextChar = content[i + 1];
-
-    if (inQuotes) {
-      if (char === '"' && nextChar === '"') {
-        currentField += '"';
-        i++;
-      } else if (char === '"') {
-        inQuotes = false;
-      } else {
-        currentField += char;
-      }
-    } else {
-      if (char === '"') {
-        inQuotes = true;
-      } else if (char === ",") {
-        currentRow.push(currentField.trim());
-        currentField = "";
-      } else if (char === "\n" || char === "\r") {
-        if (char === "\r" && nextChar === "\n") i++;
-        currentRow.push(currentField.trim());
-        if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== "")) {
-          rows.push(currentRow);
-        }
-        currentRow = [];
-        currentField = "";
-      } else {
-        currentField += char;
-      }
-    }
-  }
-  if (currentRow.length > 0 || currentField !== "") {
-    currentRow.push(currentField.trim());
-    rows.push(currentRow);
-  }
-  return rows;
-}
 
 // --- Helper: Parse Implementation Guidance ---
 function parseImplementation(text: string): { requirements: string[]; steps: string[] } {
@@ -231,6 +195,12 @@ async function uploadControls() {
     await client.query("BEGIN");
     
     if (mode === "reset") {
+      if (process.env.FORCE_RESET !== "true") {
+        console.error("\n⚠️  [DANGER] Reset mode will TRUNCATE crc_control_versions, crc_controls AND their dependents (e.g. crc_assessment_responses).");
+        console.error("To proceed, set FORCE_RESET=true environment variable.\n");
+        await client.query("ROLLBACK");
+        process.exit(1);
+      }
       console.log("🧨 Reset mode: Truncating crc_control_versions and crc_controls...");
       await client.query("TRUNCATE crc_control_versions, crc_controls RESTART IDENTITY CASCADE");
     }
@@ -260,8 +230,9 @@ async function uploadControls() {
           evidence_requirements = EXCLUDED.evidence_requirements,
           compliance_mapping = EXCLUDED.compliance_mapping,
           aima_mapping = EXCLUDED.aima_mapping,
+          version = crc_controls.version + 1,
           updated_at = CURRENT_TIMESTAMP
-        RETURNING id
+        RETURNING id, version
       `;
       
       const values = [

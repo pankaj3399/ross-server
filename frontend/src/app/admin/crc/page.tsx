@@ -719,11 +719,16 @@ export default function CRCAdminPage() {
             toast.error("Some rows have invalid category or priority. Use the allowed values.");
             return;
         }
-        const payloads = bulkPreviewRows.map((r) => ({
-            control_id: r.control_id as string,
-            control_title: r.control_title as string,
-            category_id: r.category_id || categories[0]?.id,
-            priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
+        const payloads = bulkPreviewRows.map((r) => {
+            const catId = r.category_id || categories[0]?.id;
+            if (!catId) {
+                throw new Error("No categories available. Please ensure categories are loaded before importing.");
+            }
+            return {
+                control_id: r.control_id as string,
+                control_title: r.control_title as string,
+                category_id: catId,
+                priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
             status: r.status || "Draft",
             applicable_to: r.applicable_to ?? [],
             expected_timeline: r.expected_timeline ?? "",
@@ -733,8 +738,8 @@ export default function CRCAdminPage() {
             implementation: r.implementation ?? { requirements: [], steps: [] },
             evidence_requirements: r.evidence_requirements ?? [],
             compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
-            aima_mapping: r.aima_mapping ?? { domain: "", area: "", maturity_enhancement: "" },
-        }));
+            };
+        });
         setBulkImporting(true);
         setBulkErrors([]);
         try {
@@ -845,7 +850,7 @@ export default function CRCAdminPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                        <label htmlFor="category" className="text-sm font-medium">Category</label>
+                                        <label htmlFor="category" className="text-sm font-medium">Category *</label>
                                         <Select
                                             value={formData.category_id?.toString()}
                                             onValueChange={(val) => setFormData({ ...formData, category_id: parseInt(val) })}
@@ -1176,6 +1181,7 @@ export default function CRCAdminPage() {
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">{control.control_id}</TableCell>
+                                        <TableCell>{control.control_title}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline">{control.category_name}</Badge>
                                         </TableCell>

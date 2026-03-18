@@ -26,7 +26,7 @@ exports.up = (pgm) => {
     'AI Verification & Validation'
   ];
   categories.forEach(cat => {
-    pgm.sql(`INSERT INTO crc_categories (name) VALUES ('${cat}') ON CONFLICT (name) DO NOTHING`);
+    pgm.db.query('INSERT INTO crc_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [cat]);
   });
 
   // 3. Add new columns to crc_controls
@@ -38,6 +38,7 @@ exports.up = (pgm) => {
     },
     expected_timeline: { type: 'text' },
   });
+  pgm.addIndex('crc_controls', 'category_id', { name: 'idx_crc_controls_category_id' });
 
   // 4. Migrate data: timeline from implementation JSONB to expected_timeline column
   pgm.sql(`
@@ -72,6 +73,9 @@ exports.down = (pgm) => {
     WHERE c.category_id = cat.id
   `);
 
+  // 2.5 Ensure category is not NULL before altering
+  pgm.sql("UPDATE crc_controls SET category = 'Uncategorized' WHERE category IS NULL");
+
   // 3. Make category NOT NULL if it was originally
   pgm.alterColumn('crc_controls', 'category', { notNull: true });
 
@@ -82,7 +86,8 @@ exports.down = (pgm) => {
     WHERE expected_timeline IS NOT NULL
   `);
 
-  // 5. Drop the new columns
+  // 5. Drop the new columns and index
+  pgm.dropIndex('crc_controls', 'category_id', { name: 'idx_crc_controls_category_id' });
   pgm.dropColumns('crc_controls', ['category_id', 'expected_timeline']);
 
   // 6. Drop Categories table
