@@ -67,6 +67,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        if (readOnly) return; // Allow default browser behavior (e.g., save as) but don't trigger our onSave
         e.preventDefault();
         if (!isValid || disabled) return;
         // Trim whitespace before saving
@@ -83,7 +84,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isValid, disabled, onSave, value, onChange]);
+  }, [isValid, disabled, readOnly, onSave, value, onChange]);
 
   const characterCount = value.length;
   const isNearLimit = characterCount > maxLength * 0.9;

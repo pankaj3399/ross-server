@@ -4,9 +4,26 @@ exports.shorthands = undefined;
 
 exports.up = (pgm) => {
   // 1. Handle assessment_answers
-  // Deduplicate: Keep the most recent answer for each project/question
+  // Create backup table
+  pgm.createTable("assessment_answers_backup", {
+    id: "id",
+    project_id: { type: "uuid", notNull: true },
+    domain_id: { type: "varchar(255)", notNull: true },
+    practice_id: { type: "varchar(255)", notNull: true },
+    level: { type: "varchar(50)", notNull: true },
+    stream: { type: "varchar(50)", notNull: true },
+    question_index: { type: "integer", notNull: true },
+    value: { type: "decimal", notNull: true },
+    user_id: { type: "uuid", notNull: true },
+    created_at: { type: "timestamp", notNull: true },
+    updated_at: { type: "timestamp", notNull: true },
+  });
+
+  // Archive duplicates: those NOT in the "most recent" subquery
   pgm.sql(`
-    DELETE FROM assessment_answers a
+    INSERT INTO assessment_answers_backup (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
+    SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
+    FROM assessment_answers a
     WHERE a.id NOT IN (
       SELECT id
       FROM (
@@ -19,6 +36,12 @@ exports.up = (pgm) => {
       ) sub
       WHERE sub.row_num = 1
     );
+  `);
+
+  // Perform the DELETE
+  pgm.sql(`
+    DELETE FROM assessment_answers
+    WHERE id IN (SELECT id FROM assessment_answers_backup);
   `);
 
   // Drop the old unique constraint (which includes user_id)
@@ -37,9 +60,23 @@ exports.up = (pgm) => {
   });
 
   // 2. Handle crc_assessment_responses
-  // Deduplicate: Keep the most recent response for each project/control
+  // Create backup table
+  pgm.createTable("crc_assessment_responses_backup", {
+    id: "id",
+    project_id: { type: "uuid", notNull: true },
+    control_id: { type: "uuid", notNull: true },
+    user_id: { type: "uuid", notNull: true },
+    value: { type: "integer", notNull: true },
+    notes: { type: "text" },
+    created_at: { type: "timestamp", notNull: true },
+    updated_at: { type: "timestamp", notNull: true },
+  });
+
+  // Archive duplicates
   pgm.sql(`
-    DELETE FROM crc_assessment_responses r
+    INSERT INTO crc_assessment_responses_backup (id, project_id, control_id, user_id, value, notes, created_at, updated_at)
+    SELECT id, project_id, control_id, user_id, value, notes, created_at, updated_at
+    FROM crc_assessment_responses r
     WHERE r.id NOT IN (
       SELECT id
       FROM (
@@ -54,6 +91,12 @@ exports.up = (pgm) => {
     );
   `);
 
+  // Perform the DELETE
+  pgm.sql(`
+    DELETE FROM crc_assessment_responses
+    WHERE id IN (SELECT id FROM crc_assessment_responses_backup);
+  `);
+
   // Drop the old unique constraint (which includes user_id)
   pgm.dropConstraint("crc_assessment_responses", "unique_crc_response", { ifExists: true });
 
@@ -64,8 +107,17 @@ exports.up = (pgm) => {
 };
 
 exports.down = (pgm) => {
-  // assessment_answers
+  // Restore assessment_answers
   pgm.dropConstraint("assessment_answers", "unique_project_question", { ifExists: true });
+  
+  // Restore deleted rows from backup if table exists
+  pgm.sql(`
+    INSERT INTO assessment_answers (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
+    SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
+    FROM assessment_answers_backup
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
   pgm.addConstraint("assessment_answers", "unique_user_project_question", {
     unique: [
       "project_id",
@@ -78,9 +130,22 @@ exports.down = (pgm) => {
     ],
   });
 
-  // crc_assessment_responses
+  // Restore crc_assessment_responses
   pgm.dropConstraint("crc_assessment_responses", "unique_project_control", { ifExists: true });
+
+  // Restore deleted rows from backup
+  pgm.sql(`
+    INSERT INTO crc_assessment_responses (id, project_id, control_id, user_id, value, notes, created_at, updated_at)
+    SELECT id, project_id, control_id, user_id, value, notes, created_at, updated_at
+    FROM crc_assessment_responses_backup
+    ON CONFLICT (id) DO NOTHING;
+  `);
+
   pgm.addConstraint("crc_assessment_responses", "unique_crc_response", {
     unique: ["project_id", "control_id", "user_id"],
   });
+
+  // Drop backup tables
+  pgm.dropTable("assessment_answers_backup", { ifExists: true });
+  pgm.dropTable("crc_assessment_responses_backup", { ifExists: true });
 };

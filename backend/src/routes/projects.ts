@@ -297,12 +297,12 @@ router.post(
     // Check if user is premium
     const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
 
-    // Get all assessment answers for this project and user
+    // Get all assessment answers for this project
     const answersResult = await pool.query(
       `SELECT domain_id, practice_id, level, stream, question_index, value 
        FROM assessment_answers 
-       WHERE project_id = $1 AND user_id = $2`,
-      [projectId, userId]
+       WHERE project_id = $1`,
+      [projectId]
     );
 
     // Get total questions for each domain and practice
@@ -812,7 +812,6 @@ const generateInsightsAsync = async (
        JOIN aima_questions aq ON p.id = aq.practice_id
        LEFT JOIN assessment_answers aa ON 
           aa.project_id = $1 AND 
-          aa.user_id = $2 AND
           aa.domain_id = d.id AND
           aa.practice_id = p.id AND
           aa.level = aq.level AND
@@ -821,8 +820,8 @@ const generateInsightsAsync = async (
     `;
 
     const whereConditions: string[] = [];
-    const queryParams: any[] = [projectId, userId];
-    let paramIndex = 3;
+    const queryParams: any[] = [projectId];
+    let paramIndex = 2;
     
     if (!isPremium) {
       whereConditions.push(`COALESCE(d.is_premium, false) = false`);
@@ -920,10 +919,10 @@ const generateInsightsAsync = async (
                    AND aa.level = aq.level 
                    AND aa.stream = aq.stream 
                    AND aa.question_index = aq.question_index
-              WHERE aa.project_id = $1 AND aa.user_id = $2 AND aa.domain_id = ANY($3)
+              WHERE aa.project_id = $1 AND aa.domain_id = ANY($2)
             `;
             
-            const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, userId, domainIdsToCheck]);
+            const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, domainIdsToCheck]);
             
             // Group by domain_id
             const groupedAnswers = new Map<string, any[]>();
@@ -1086,12 +1085,12 @@ router.post(
         FROM aima_domains d
         LEFT JOIN aima_practices p ON d.id = p.domain_id
         LEFT JOIN aima_questions aq ON p.id = aq.practice_id
-        LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1 AND aa.user_id = $2
+        LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1
     `;
 
     const whereConditions: string[] = [];
-    const queryParams: any[] = [projectId, userId];
-    let paramIndex = 3;
+    const queryParams: any[] = [projectId];
+    let paramIndex = 2;
 
     if (!isPremium) {
         whereConditions.push(`COALESCE(d.is_premium, false) = false`);

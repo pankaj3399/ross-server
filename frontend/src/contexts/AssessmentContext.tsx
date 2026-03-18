@@ -248,6 +248,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setError(null);
                 setProjectNotFound(false);
                 setLoading(true);
+                setUserRole(null); // Reset role immediately on project load to prevent stale state
 
                 // Fetch domains
                 const domainsData = await apiService.getDomainsFull(projectId);
@@ -375,8 +376,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 // Fetch project name regardless of AIMA data status if project exists
                 try {
                     const project = await apiService.getProject(projectId);
-                    setProjectName(project.name);
-                    setUserRole(project.role || null);
+                    if (!controller.signal.aborted) {
+                        setProjectName(project.name);
+                        setUserRole(project.role || null);
+                    }
                 } catch (e) {
                     console.error("Failed to fetch project for name and role:", e);
                 }
