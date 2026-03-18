@@ -3,18 +3,16 @@
 exports.shorthands = undefined;
 
 exports.up = async (pgm) => {
-  // 1. Create crc_categories table
-  pgm.createTable('crc_categories', {
-    id: 'id', // SERIAL PRIMARY KEY
-    name: { type: 'varchar(100)', notNull: true, unique: true },
-    created_at: {
-      type: 'timestamp',
-      notNull: true,
-      default: pgm.func('current_timestamp'),
-    },
-  });
+  // 1. Create crc_categories table immediately to avoid race condition with subsequent seeds
+  await pgm.db.query(`
+    CREATE TABLE IF NOT EXISTS "crc_categories" (
+      "id" SERIAL PRIMARY KEY,
+      "name" varchar(100) NOT NULL UNIQUE,
+      "created_at" timestamp NOT NULL DEFAULT current_timestamp
+    )
+  `);
 
-  // 2. Seed initial categories (merged with legacy)
+  // 2. Seed initial categories (merged with legacy and deduplicated case-insensitively)
   const defaultCategories = [
     'AI Data Management',
     'AI Development Lifecycle',
@@ -30,8 +28,15 @@ exports.up = async (pgm) => {
   const legacyRes = await pgm.db.query('SELECT DISTINCT category FROM crc_controls WHERE category IS NOT NULL');
   const legacyCategories = legacyRes.rows.map(r => r.category.trim());
   
-  // Merge and deduplicate
-  const allCategories = Array.from(new Set([...defaultCategories, ...legacyCategories]));
+  // Merge and deduplicate case-insensitively to match TRIM(LOWER(...)) logic
+  const categoryMap = new Map();
+  [...defaultCategories, ...legacyCategories].forEach(cat => {
+    const normalized = cat.trim().toLowerCase();
+    if (!categoryMap.has(normalized)) {
+      categoryMap.set(normalized, cat.trim());
+    }
+  });
+  const allCategories = Array.from(categoryMap.values());
 
   // Seed reliably
   const insertSql = `

@@ -343,17 +343,21 @@ export default function CRCAdminPage() {
         }
     };
 
-    const fetchCategories = async () => {
+    const fetchCategories = async (signal?: AbortSignal) => {
         try {
-            const res = await apiService.getCRCCategories();
+            const res = await apiService.getCRCCategories(signal);
+            if (signal?.aborted) return;
             setCategories(res.data);
-        } catch (error) {
+        } catch (error: any) {
+            if (signal?.aborted || error.name === "AbortError") return;
             toast.error("Failed to fetch categories");
         }
     };
 
     useEffect(() => {
-        fetchCategories();
+        const controller = new AbortController();
+        fetchCategories(controller.signal);
+        return () => controller.abort();
     }, []);
 
     useEffect(() => {
@@ -582,23 +586,37 @@ export default function CRCAdminPage() {
         return rows;
     };
 
-    const parseBulkFromJSON = (text: string): Partial<Control>[] => {
-        const raw = JSON.parse(text);
-        if (!Array.isArray(raw)) return [];
-        return raw.map((item: any, i: number) => {
-            const c = item?.control_id;
-            return {
-                ...defaultControlState,
-                control_id: (c || `CRC-BULK-${i + 1}`).toString().slice(0, 20),
-                control_title: (item?.control_title ?? item?.title ?? "").toString().slice(0, 200),
-                category_id: undefined,
-                priority: (item?.priority ?? "Medium").toString().slice(0, 20),
-                control_statement: (item?.control_statement ?? item?.statement ?? "").toString(),
-                status: "Draft",
-                applicable_to: Array.isArray(item?.applicable_to) ? item.applicable_to : [],
-                expected_timeline: (item?.expected_timeline ?? "").toString(),
-            };
-        });
+    const parseBulkFromJSON = (jsonText: string) => {
+        try {
+            const data = JSON.parse(jsonText);
+            const items = Array.isArray(data) ? data : [data];
+            const rows: Partial<Control>[] = items.map((item: any, i: number) => {
+                const control_id = (item.control_id || `CRC-JSON-${i}`).slice(0, 20);
+                const control_title = (item.control_title || item.title || "").slice(0, 200) || control_id;
+                
+                // Try to match category name or ID
+                const catRaw = (item.category_id || item.category || "").toString();
+                const matchedCat = categories.find(c => 
+                    c.name.toLowerCase() === catRaw.toLowerCase() || 
+                    c.id.toString() === catRaw
+                );
+
+                return {
+                    ...defaultControlState,
+                    control_id,
+                    control_title,
+                    category_id: matchedCat?.id,
+                    priority: (item.priority || "Medium").slice(0, 20),
+                    status: item.status || "Draft",
+                    expected_timeline: item.expected_timeline || item.timeline || "",
+                    control_statement: item.control_statement || item.statement || "",
+                };
+            });
+            setBulkPreviewRows(rows);
+            setBulkStep("preview");
+        } catch (error) {
+            toast.error("Failed to parse JSON. Please ensure it is a valid object or array of objects.");
+        }
     };
 
     const handleBulkParse = () => {
@@ -627,12 +645,8 @@ export default function CRCAdminPage() {
                     toast.error("Paste JSON array or upload a file first");
                     return;
                 }
-                const rows = parseBulkFromJSON(bulkPastedText);
-                if (rows.length === 0) {
-                    toast.error("JSON must be an array of control objects");
-                    return;
-                }
-                setBulkPreviewRows(rows);
+                parseBulkFromJSON(bulkPastedText); // Call the updated function
+                return; // parseBulkFromJSON handles setting preview rows and step
             }
             setBulkStep("preview");
         } catch (e: any) {
@@ -862,7 +876,7 @@ export default function CRCAdminPage() {
                                         <label htmlFor="category" className="text-sm font-medium">Category *</label>
                                         <Select
                                             value={formData.category_id?.toString()}
-                                            onValueChange={(val) => setFormData({ ...formData, category_id: parseInt(val) })}
+                                            onValueChange={(val) => setFormData({ ...formData, category_id: parseInt(val, 10) })}
                                         >
                                             <SelectTrigger id="category">
                                                 <SelectValue placeholder="Select Category" />
@@ -952,12 +966,12 @@ export default function CRCAdminPage() {
                             </div>
                             <div className="space-y-4">
                                     <div className="space-y-2">
-                                        <label htmlFor="expected_timeline" className="text-sm font-medium">Expected Timeline</label>
+                                        <label htmlFor="expected_timeline" className="text-sm font-medium">Expected Timeline (Optional)</label>
                                         <Input
                                             id="expected_timeline"
-                                            value={formData.expected_timeline}
+                                            value={formData.expected_timeline || ""}
                                             onChange={(e) => setFormData({ ...formData, expected_timeline: e.target.value })}
-                                            placeholder="e.g. Short-term (1-3 months)"
+                                            placeholder="e.g. 2-4 weeks, Ongoing"
                                         />
                                     </div>
                                 </div>
@@ -1416,10 +1430,10 @@ export default function CRCAdminPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                            <label className="text-xs font-medium">Category</label>
+                                            <label className="text-xs font-medium">Category *</label>
                                             <Select
                                                 value={bulkEditFormData.category_id?.toString()}
-                                                onValueChange={(val) => setBulkEditFormData({ ...bulkEditFormData, category_id: parseInt(val) })}
+                                                onValueChange={(val) => setBulkEditFormData({ ...bulkEditFormData, category_id: parseInt(val, 10) })}
                                             >
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Category" />

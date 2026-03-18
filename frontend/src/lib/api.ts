@@ -1135,8 +1135,8 @@ class ApiService {
   }
 
   // CRC Controls
-  async getCRCCategories(): Promise<{ data: CRCCategory[] }> {
-    return this.request<{ data: CRCCategory[] }>("/crc/categories");
+  async getCRCCategories(signal?: AbortSignal): Promise<{ data: CRCCategory[] }> {
+    return this.request<{ data: CRCCategory[] }>("/crc/categories", { signal });
   }
 
   async getCRCControls(params?: URLSearchParams): Promise<{ data: CRCControl[]; count: number }> {
