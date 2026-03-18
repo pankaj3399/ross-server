@@ -7,10 +7,13 @@ exports.up = async (pgm) => {
   await pgm.db.query(`
     CREATE TABLE IF NOT EXISTS "crc_categories" (
       "id" SERIAL PRIMARY KEY,
-      "name" varchar(100) NOT NULL UNIQUE,
+      "name" varchar(100) NOT NULL,
       "created_at" timestamp NOT NULL DEFAULT current_timestamp
     )
   `);
+
+  // Add case-insensitive unique index
+  await pgm.db.query('CREATE UNIQUE INDEX IF NOT EXISTS "idx_crc_categories_name_lower_unique" ON "crc_categories" (LOWER(TRIM(name)))');
 
   // 2. Seed initial categories (merged with legacy and deduplicated case-insensitively)
   const defaultCategories = [
@@ -42,7 +45,7 @@ exports.up = async (pgm) => {
   const insertSql = `
     INSERT INTO crc_categories (name) 
     SELECT unnest($1::text[]) 
-    ON CONFLICT (name) DO NOTHING
+    ON CONFLICT ((LOWER(TRIM(name)))) DO NOTHING
   `;
   await pgm.db.query(insertSql, [allCategories]);
 
@@ -55,7 +58,6 @@ exports.up = async (pgm) => {
     },
     expected_timeline: { type: 'text' },
   });
-  pgm.addIndex('crc_controls', 'category_id', { name: 'idx_crc_controls_category_id' });
 
   // 4. Migrate data: timeline from implementation JSONB to expected_timeline column
   pgm.sql(`
@@ -71,6 +73,9 @@ exports.up = async (pgm) => {
     FROM crc_categories cat
     WHERE TRIM(LOWER(c.category)) = TRIM(LOWER(cat.name))
   `);
+
+  // 5.5 Add index AFTER backfill to avoid unnecessary re-indexing during bulk update
+  pgm.addIndex('crc_controls', 'category_id', { name: 'idx_crc_controls_category_id' });
 
   // 6. Drop the old category column
   pgm.dropColumn('crc_controls', 'category');
@@ -97,9 +102,10 @@ exports.down = (pgm) => {
   pgm.alterColumn('crc_controls', 'category', { notNull: true });
 
   // 4. Update implementation JSONB with timeline from expected_timeline column
+  // Use COALESCE(implementation, '{}'::jsonb) to defend against NULL implementation field
   pgm.sql(`
     UPDATE crc_controls
-    SET implementation = jsonb_set(implementation, '{timeline}', to_jsonb(expected_timeline))
+    SET implementation = jsonb_set(COALESCE(implementation, '{}'::jsonb), '{timeline}', to_jsonb(expected_timeline))
     WHERE expected_timeline IS NOT NULL
   `);
 

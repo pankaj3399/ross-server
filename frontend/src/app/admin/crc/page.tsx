@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
-import { apiService, type CRCControlStatus } from "@/lib/api";
+import { apiService, type CRCControlStatus, type CRCCategory } from "@/lib/api";
 
 // Dynamic import for RichTextEditor to avoid SSR issues
 const RichTextEditor = dynamic(() => import("@/components/shared/RichTextEditor").then(mod => mod.RichTextEditor), {
@@ -278,7 +278,7 @@ export default function CRCAdminPage() {
     const [viewMode, setViewMode] = useState<"list" | "form">("list");
     const [loading, setLoading] = useState(true);
     const [controls, setControls] = useState<Control[]>([]);
-    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+    const [categories, setCategories] = useState<CRCCategory[]>([]);
     const [selectedControlId, setSelectedControlId] = useState<string | null>(null);
 
     // Filters
@@ -731,21 +731,27 @@ export default function CRCAdminPage() {
         const categoryPriorityErrors = bulkPreviewRows
             .map((r, idx) => {
                 const issues: string[] = [];
-                if (r.category_id && !categories.find(c => c.id === r.category_id)) issues.push("Invalid category");
-                if (r.priority && !PRIORITIES.includes(r.priority)) issues.push("Invalid priority");
+                // If a category_id is present, it MUST match a valid category
+                if (r.category_id !== undefined && !categories.find(c => c.id === r.category_id)) {
+                    issues.push("Invalid category");
+                }
+                if (r.priority && !PRIORITIES.includes(r.priority)) {
+                    issues.push("Invalid priority");
+                }
                 return issues.length ? { index: idx, message: issues.join(", ") } : null;
             })
             .filter((e): e is { index: number; message: string } => e !== null);
         if (categoryPriorityErrors.length > 0) {
             setBulkErrors(categoryPriorityErrors);
-            toast.error("Some rows have invalid category or priority. Use the allowed values.");
+            toast.error("Some rows have invalid category or priority. Edit or remove them and try again.");
             return;
         }
         setBulkImporting(true);
         setBulkErrors([]);
         try {
             const payloads = bulkPreviewRows.map((r) => {
-                const catId = r.category_id || categories[0]?.id;
+                // Only default to first category if category_id is completely missing (undefined)
+                const catId = r.category_id !== undefined ? r.category_id : categories[0]?.id;
                 if (!catId) {
                     throw new Error("No categories available. Please ensure categories are loaded before importing.");
                 }
