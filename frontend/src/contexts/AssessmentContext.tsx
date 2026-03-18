@@ -596,7 +596,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
-        if (isReadOnly) return true;
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return false;
+        }
         const noteEntries = Object.entries(notes).filter(([_, note]) => note.trim());
         if (noteEntries.length === 0) return true;
 

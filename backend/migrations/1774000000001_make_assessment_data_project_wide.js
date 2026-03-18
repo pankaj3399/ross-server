@@ -19,7 +19,31 @@ exports.up = (pgm) => {
     updated_at: { type: "timestamp", notNull: true },
   });
 
-  // Archive duplicates: those NOT in the "most recent" subquery
+  // Preflight report: Count duplicates to be archived
+  pgm.sql(`
+    DO $$
+    DECLARE
+      duplicate_count integer;
+    BEGIN
+      SELECT COUNT(*) INTO duplicate_count
+      FROM assessment_answers a
+      WHERE a.id NOT IN (
+        SELECT id
+        FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY project_id, domain_id, practice_id, level, stream, question_index
+                   ORDER BY updated_at DESC, created_at DESC, id DESC
+                 ) as row_num
+          FROM assessment_answers
+        ) sub
+        WHERE sub.row_num = 1
+      );
+      RAISE NOTICE 'Archiving % duplicate assessment_answers rows...', duplicate_count;
+    END $$;
+  `);
+
+  // Archive duplicates
   pgm.sql(`
     INSERT INTO assessment_answers_backup (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
     SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
@@ -71,6 +95,30 @@ exports.up = (pgm) => {
     created_at: { type: "timestamp", notNull: true },
     updated_at: { type: "timestamp", notNull: true },
   });
+
+  // Preflight report: Count duplicates to be archived
+  pgm.sql(`
+    DO $$
+    DECLARE
+      duplicate_count integer;
+    BEGIN
+      SELECT COUNT(*) INTO duplicate_count
+      FROM crc_assessment_responses r
+      WHERE r.id NOT IN (
+        SELECT id
+        FROM (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY project_id, control_id
+                   ORDER BY updated_at DESC, created_at DESC, id DESC
+                 ) as row_num
+          FROM crc_assessment_responses
+        ) sub
+        WHERE sub.row_num = 1
+      );
+      RAISE NOTICE 'Archiving % duplicate crc_assessment_responses rows...', duplicate_count;
+    END $$;
+  `);
 
   // Archive duplicates
   pgm.sql(`
