@@ -344,11 +344,16 @@ export default function CRCAssessmentPage() {
                           </ol>
                         </div>
                       )}
-                      {currentControl.expected_timeline && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          <span className="font-medium">Timeline:</span> {currentControl.expected_timeline}
-                        </p>
-                      )}
+                    </div>
+                  )}
+
+                  {/* Expected Timeline */}
+                  {currentControl.expected_timeline && (
+                    <div className={currentControl.implementation && (currentControl.implementation.requirements?.filter(r => r).length > 0 || currentControl.implementation.steps?.filter(s => s).length > 0) ? "mt-2" : ""}>
+                      <h4 className="font-semibold text-sm text-foreground mb-1">Expected Timeline</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {currentControl.expected_timeline}
+                      </p>
                     </div>
                   )}
 

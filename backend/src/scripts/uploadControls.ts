@@ -187,6 +187,17 @@ async function uploadControls() {
     }
   });
   
+  // Guard: For 'reset' mode, require zero validation errors before proceeding
+  if (mode === "reset" && invalidRows.length > 0) {
+    console.error(`\n❌ [ABORT] Reset mode requires all rows to be valid. Found ${invalidRows.length} errors.`);
+    console.error(`Check the log file for details: ${LOG_PATH}\n`);
+    
+    const errorLog = invalidRows.map(inv => `[Row ${inv.index}] ${inv.data}: ${JSON.stringify(inv.errors)}`).join("\n");
+    fs.writeFileSync(LOG_PATH, errorLog);
+    
+    process.exit(1);
+  }
+
   // 3. Database Operations
   const client = await pool.connect();
   let successCount = 0;

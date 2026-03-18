@@ -2,7 +2,7 @@
 
 exports.shorthands = undefined;
 
-exports.up = (pgm) => {
+exports.up = async (pgm) => {
   // 1. Create crc_categories table
   pgm.createTable('crc_categories', {
     id: 'id', // SERIAL PRIMARY KEY
@@ -14,8 +14,8 @@ exports.up = (pgm) => {
     },
   });
 
-  // 2. Seed initial categories
-  const categories = [
+  // 2. Seed initial categories (merged with legacy)
+  const defaultCategories = [
     'AI Data Management',
     'AI Development Lifecycle',
     'AI Fairness & Non-Discrimination',
@@ -25,9 +25,21 @@ exports.up = (pgm) => {
     'AI Transparency & Explainability',
     'AI Verification & Validation'
   ];
-  categories.forEach(cat => {
-    pgm.db.query('INSERT INTO crc_categories (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [cat]);
-  });
+
+  // Fetch distinct legacy categories from crc_controls
+  const legacyRes = await pgm.db.query('SELECT DISTINCT category FROM crc_controls WHERE category IS NOT NULL');
+  const legacyCategories = legacyRes.rows.map(r => r.category.trim());
+  
+  // Merge and deduplicate
+  const allCategories = Array.from(new Set([...defaultCategories, ...legacyCategories]));
+
+  // Seed reliably
+  const insertSql = `
+    INSERT INTO crc_categories (name) 
+    SELECT unnest($1::text[]) 
+    ON CONFLICT (name) DO NOTHING
+  `;
+  pgm.sql(insertSql, [allCategories]);
 
   // 3. Add new columns to crc_controls
   pgm.addColumns('crc_controls', {

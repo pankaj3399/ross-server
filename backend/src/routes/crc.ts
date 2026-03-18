@@ -99,6 +99,12 @@ const createSnapshot = async (client: any, controlId: string, userId: string, st
   );
 };
 
+// Verify if category_id exists
+const validateCategoryId = async (client: any, categoryId: number) => {
+  const res = await client.query("SELECT id FROM crc_categories WHERE id = $1", [categoryId]);
+  return res.rows.length > 0;
+};
+
 // --- Routes ---
 
 // GET /crc/categories - List all categories
@@ -201,6 +207,12 @@ router.post("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, 
     if (existing.rows.length > 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: "Control ID must be unique" });
+    }
+
+    // Check category_id exists
+    if (!(await validateCategoryId(client, data.category_id))) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, error: "Invalid category_id: Category does not exist" });
     }
 
     // Insert control
@@ -319,6 +331,22 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
       return res.status(400).json({ success: false, errors });
     }
 
+    // Check all unique category_ids in the batch
+    const uniqueCategoryIds = Array.from(new Set(parsedWithIndex.map(p => p.data.category_id)));
+    const catCheck = await client.query("SELECT id FROM crc_categories WHERE id = ANY($1)", [uniqueCategoryIds]);
+    const validCategoryIds = new Set(catCheck.rows.map((r: { id: number }) => r.id));
+    
+    for (const { data, originalIndex } of parsedWithIndex) {
+      if (!validCategoryIds.has(data.category_id)) {
+        errors.push({ index: originalIndex, control_id: data.control_id, message: `Invalid category_id: ${data.category_id}` });
+      }
+    }
+
+    if (errors.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, errors });
+    }
+
     const cols = 15;
     const placeholders = parsedWithIndex.map((_, rowIdx) => {
       const start = rowIdx * cols + 1;
@@ -415,6 +443,14 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
       if (duplicate.rows.length > 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({ success: false, error: "Control ID already exists" });
+      }
+    }
+
+    // Check category_id exists if changed
+    if (data.category_id !== currentControl.category_id) {
+      if (!(await validateCategoryId(client, data.category_id))) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Invalid category_id: Category does not exist" });
       }
     }
 

@@ -29,7 +29,7 @@ export function parseCSV(content: string, delimiter = ","): string[][] {
       } else if (char === "\n" || char === "\r") {
         if (char === "\r" && nextChar === "\n") i++;
         currentRow.push(currentField.trim());
-        if (currentRow.length > 1 || (currentRow.length === 1 && currentRow[0] !== "")) {
+        if (currentRow.some(cell => cell !== "")) {
           rows.push(currentRow);
         }
         currentRow = [];
@@ -41,7 +41,9 @@ export function parseCSV(content: string, delimiter = ","): string[][] {
   }
   if (currentRow.length > 0 || currentField !== "") {
     currentRow.push(currentField.trim());
-    rows.push(currentRow);
+    if (currentRow.some(cell => cell !== "")) {
+      rows.push(currentRow);
+    }
   }
   return rows;
 }

@@ -560,11 +560,19 @@ export default function CRCAdminPage() {
             });
             const control_id = (row.control_id || `CRC-BULK-${i}`).slice(0, 20);
             const control_title = (row.control_title || row.title || "").slice(0, 200) || control_id;
+            
+            // Try to match category name or ID
+            const catRaw = row.category_id || row.category || "";
+            const matchedCat = categories.find(c => 
+                c.name.toLowerCase() === catRaw.toLowerCase() || 
+                c.id.toString() === catRaw
+            );
+
             rows.push({
                 ...defaultControlState,
                 control_id,
                 control_title,
-                category_id: undefined,
+                category_id: matchedCat?.id,
                 priority: (row.priority || "Medium").slice(0, 20),
                 control_statement: row.control_statement || row.statement || "",
                 status: "Draft",
@@ -719,30 +727,31 @@ export default function CRCAdminPage() {
             toast.error("Some rows have invalid category or priority. Use the allowed values.");
             return;
         }
-        const payloads = bulkPreviewRows.map((r) => {
-            const catId = r.category_id || categories[0]?.id;
-            if (!catId) {
-                throw new Error("No categories available. Please ensure categories are loaded before importing.");
-            }
-            return {
-                control_id: r.control_id as string,
-                control_title: r.control_title as string,
-                category_id: catId,
-                priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
-            status: r.status || "Draft",
-            applicable_to: r.applicable_to ?? [],
-            expected_timeline: r.expected_timeline ?? "",
-            control_statement: r.control_statement ?? "",
-            control_objective: r.control_objective ?? "",
-            risk_description: r.risk_description ?? "",
-            implementation: r.implementation ?? { requirements: [], steps: [] },
-            evidence_requirements: r.evidence_requirements ?? [],
-            compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
-            };
-        });
         setBulkImporting(true);
         setBulkErrors([]);
         try {
+            const payloads = bulkPreviewRows.map((r) => {
+                const catId = r.category_id || categories[0]?.id;
+                if (!catId) {
+                    throw new Error("No categories available. Please ensure categories are loaded before importing.");
+                }
+                return {
+                    control_id: r.control_id as string,
+                    control_title: r.control_title as string,
+                    category_id: catId,
+                    priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
+                    status: r.status || "Draft",
+                    applicable_to: r.applicable_to ?? [],
+                    expected_timeline: r.expected_timeline ?? "",
+                    control_statement: r.control_statement ?? "",
+                    control_objective: r.control_objective ?? "",
+                    risk_description: r.risk_description ?? "",
+                    implementation: r.implementation ?? { requirements: [], steps: [] },
+                    evidence_requirements: r.evidence_requirements ?? [],
+                    compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
+                };
+            });
+
             const { data } = await apiService.createCRCBulk(payloads);
             toast.success(`Created ${data.length} controls. You can edit or delete any control from the list.`);
             setShowBulkDialog(false);
