@@ -30,22 +30,8 @@ const RichTextEditor = dynamic(() => import("@/components/shared/RichTextEditor"
     loading: () => <Skeleton className="h-40 w-full" />,
 });
 
-// --- Constants ---
-
-const CATEGORIES = [
-    "Governance",
-    "Risk Management",
-    "Data Quality",
-    "Model Performance",
-    "Security",
-    "Transparency",
-    "Human Oversight",
-    "Robustness"
-];
-
 const PRIORITIES = ["High", "Medium", "Low"];
 const STATUSES = ["Draft", "In Review", "Published", "Archived"];
-const TIMELINES = ["Immediate", "Short-term (1-3 months)", "Medium-term (3-6 months)", "Long-term (6+ months)"];
 
 // --- Sample Data for Bulk Upload ---
 
@@ -80,7 +66,6 @@ Is there a clear incident response plan for AI failures?`;
 interface Implementation {
     requirements: string[];
     steps: string[];
-    timeline: string;
 }
 
 interface ComplianceMappingItem {
@@ -104,11 +89,13 @@ interface Control {
     id: string;
     control_id: string;
     control_title: string;
-    category: string;
+    category_id: number;
+    category_name: string;
     priority: string;
     status: CRCControlStatus;
     version: number;
     applicable_to: string[];
+    expected_timeline: string;
     control_statement: string;
     control_objective: string;
     risk_description: string;
@@ -291,6 +278,7 @@ export default function CRCAdminPage() {
     const [viewMode, setViewMode] = useState<"list" | "form">("list");
     const [loading, setLoading] = useState(true);
     const [controls, setControls] = useState<Control[]>([]);
+    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
     const [selectedControlId, setSelectedControlId] = useState<string | null>(null);
 
     // Filters
@@ -302,11 +290,12 @@ export default function CRCAdminPage() {
 
     // Form State
     const defaultControlState: Partial<Control> = {
-        category: "",
+        category_id: undefined,
+        expected_timeline: "",
         priority: "",
         status: "Draft",
         applicable_to: [],
-        implementation: { requirements: [""], steps: [""], timeline: "" },
+        implementation: { requirements: [""], steps: [""] },
         evidence_requirements: [""],
         compliance_mapping: { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
         aima_mapping: { domain: "", area: "", maturity_enhancement: "" },
@@ -338,7 +327,7 @@ export default function CRCAdminPage() {
         try {
             const api = apiService;
             const params = new URLSearchParams();
-            if (categoryFilter !== "all") params.append("category", categoryFilter);
+            if (categoryFilter !== "all") params.append("category_id", categoryFilter);
             if (priorityFilter !== "all") params.append("priority", priorityFilter);
             if (statusFilter !== "all") params.append("status", statusFilter);
             if (searchQuery) params.append("search", searchQuery);
@@ -353,6 +342,19 @@ export default function CRCAdminPage() {
             setLoading(false);
         }
     };
+
+    const fetchCategories = async () => {
+        try {
+            const res = await apiService.getCRCCategories();
+            setCategories(res.data);
+        } catch (error) {
+            toast.error("Failed to fetch categories");
+        }
+    };
+
+    useEffect(() => {
+        fetchCategories();
+    }, []);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -388,7 +390,7 @@ export default function CRCAdminPage() {
     const handleSave = async () => {
         try {
             // Basic validation
-            if (!formData.control_id || !formData.control_title || !formData.category || !formData.priority) {
+            if (!formData.control_id || !formData.control_title || !formData.category_id || !formData.priority) {
                 toast.error("Please fill in all required fields (ID, Title, Category, Priority)");
                 return;
             }
@@ -493,7 +495,7 @@ export default function CRCAdminPage() {
             ...defaultControlState,
             control_title: line.slice(0, 200),
             control_id: `CRC-BULK-${i + 1}`.slice(0, 20),
-            category: "Governance",
+            category_id: categories[0]?.id,
             priority: "Medium",
             status: "Draft",
         }));
@@ -562,10 +564,11 @@ export default function CRCAdminPage() {
                 ...defaultControlState,
                 control_id,
                 control_title,
-                category: (row.category || "Governance").slice(0, 100),
+                category_id: undefined,
                 priority: (row.priority || "Medium").slice(0, 20),
                 control_statement: row.control_statement || row.statement || "",
                 status: "Draft",
+                expected_timeline: row.expected_timeline || row.timeline || "",
             });
         }
         return rows;
@@ -580,12 +583,12 @@ export default function CRCAdminPage() {
                 ...defaultControlState,
                 control_id: (c || `CRC-BULK-${i + 1}`).toString().slice(0, 20),
                 control_title: (item?.control_title ?? item?.title ?? "").toString().slice(0, 200),
-                category: (item?.category ?? "Governance").toString().slice(0, 100),
+                category_id: undefined,
                 priority: (item?.priority ?? "Medium").toString().slice(0, 20),
                 control_statement: (item?.control_statement ?? item?.statement ?? "").toString(),
                 status: "Draft",
                 applicable_to: Array.isArray(item?.applicable_to) ? item.applicable_to : [],
-                evidence_requirements: Array.isArray(item?.evidence_requirements) ? item.evidence_requirements : [],
+                expected_timeline: (item?.expected_timeline ?? "").toString(),
             };
         });
     };
@@ -706,7 +709,7 @@ export default function CRCAdminPage() {
         const categoryPriorityErrors = bulkPreviewRows
             .map((r, idx) => {
                 const issues: string[] = [];
-                if (r.category && !CATEGORIES.includes(r.category)) issues.push("Invalid category");
+                if (r.category_id && !categories.find(c => c.id === r.category_id)) issues.push("Invalid category");
                 if (r.priority && !PRIORITIES.includes(r.priority)) issues.push("Invalid priority");
                 return issues.length ? { index: idx, message: issues.join(", ") } : null;
             })
@@ -719,14 +722,15 @@ export default function CRCAdminPage() {
         const payloads = bulkPreviewRows.map((r) => ({
             control_id: r.control_id as string,
             control_title: r.control_title as string,
-            category: r.category && CATEGORIES.includes(r.category) ? r.category : "Governance",
+            category_id: r.category_id || categories[0]?.id,
             priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
             status: r.status || "Draft",
             applicable_to: r.applicable_to ?? [],
+            expected_timeline: r.expected_timeline ?? "",
             control_statement: r.control_statement ?? "",
             control_objective: r.control_objective ?? "",
             risk_description: r.risk_description ?? "",
-            implementation: r.implementation ?? { requirements: [], steps: [], timeline: "" },
+            implementation: r.implementation ?? { requirements: [], steps: [] },
             evidence_requirements: r.evidence_requirements ?? [],
             compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
             aima_mapping: r.aima_mapping ?? { domain: "", area: "", maturity_enhancement: "" },
@@ -841,14 +845,23 @@ export default function CRCAdminPage() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Category *</label>
-                                <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
-                                    <SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger>
-                                    <SelectContent>
-                                        {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                        <label htmlFor="category" className="text-sm font-medium">Category</label>
+                                        <Select
+                                            value={formData.category_id?.toString()}
+                                            onValueChange={(val) => setFormData({ ...formData, category_id: parseInt(val) })}
+                                        >
+                                            <SelectTrigger id="category">
+                                                <SelectValue placeholder="Select Category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {categories.map((c) => (
+                                                    <SelectItem key={c.id} value={c.id.toString()}>
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Priority *</label>
                                 <Select value={formData.priority} onValueChange={(val) => setFormData({ ...formData, priority: val })}>
@@ -903,7 +916,6 @@ export default function CRCAdminPage() {
                                         implementation: {
                                             requirements: items,
                                             steps: formData.implementation?.steps || [],
-                                            timeline: formData.implementation?.timeline || ""
                                         }
                                     })}
                                     placeholder="Add requirement..."
@@ -919,28 +931,22 @@ export default function CRCAdminPage() {
                                         implementation: {
                                             requirements: formData.implementation?.requirements || [],
                                             steps: items,
-                                            timeline: formData.implementation?.timeline || ""
                                         }
                                     })}
                                     placeholder="Add step..."
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Expected Timeline</label>
-                                <Select value={formData.implementation?.timeline || ""} onValueChange={(val) => setFormData({
-                                    ...formData,
-                                    implementation: {
-                                        requirements: formData.implementation?.requirements || [],
-                                        steps: formData.implementation?.steps || [],
-                                        timeline: val
-                                    }
-                                })}>
-                                    <SelectTrigger><SelectValue placeholder="Select Timeline" /></SelectTrigger>
-                                    <SelectContent>
-                                        {TIMELINES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label htmlFor="expected_timeline" className="text-sm font-medium">Expected Timeline</label>
+                                        <Input
+                                            id="expected_timeline"
+                                            value={formData.expected_timeline}
+                                            onChange={(e) => setFormData({ ...formData, expected_timeline: e.target.value })}
+                                            placeholder="e.g. Short-term (1-3 months)"
+                                        />
+                                    </div>
+                                </div>
                         </div>
                     </Section>
 
@@ -1087,13 +1093,22 @@ export default function CRCAdminPage() {
                     <div className="h-6 w-px bg-border" />
                     <div className="flex items-center gap-2">
                         <IconFilter className="size-4 text-muted-foreground" />
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Category" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Categories</SelectItem>
-                                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <Select
+                                            value={categoryFilter}
+                                            onValueChange={setCategoryFilter}
+                                        >
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Categories</SelectItem>
+                                                {categories.map((c) => (
+                                                    <SelectItem key={c.id} value={c.id.toString()}>
+                                                        {c.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                             <SelectTrigger className="w-[150px]"><SelectValue placeholder="Priority" /></SelectTrigger>
                             <SelectContent>
@@ -1161,10 +1176,15 @@ export default function CRCAdminPage() {
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">{control.control_id}</TableCell>
-                                        <TableCell>{control.control_title}</TableCell>
-                                        <TableCell>{control.category}</TableCell>
                                         <TableCell>
-                                            <Badge variant={control.priority === "High" ? "destructive" : control.priority === "Medium" ? "secondary" : "outline"}>
+                                            <Badge variant="outline">{control.category_name}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge className={
+                                                control.priority === "High" ? "bg-destructive/10 text-destructive hover:bg-destructive/20" :
+                                                    control.priority === "Medium" ? "bg-warning/10 text-warning hover:bg-warning/20" :
+                                                        "bg-success/10 text-success hover:bg-success/20"
+                                            }>
                                                 {control.priority}
                                             </Badge>
                                         </TableCell>
@@ -1195,7 +1215,7 @@ export default function CRCAdminPage() {
                         </TableBody>
                     </Table>
                 </div>
-            </div>
+            </div >
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent>
                     <DialogHeader>
@@ -1329,7 +1349,7 @@ export default function CRCAdminPage() {
                                             <TableRow key={idx} className={bulkErrors.some((e) => e.index === idx) ? "bg-destructive/5" : ""}>
                                                 <TableCell className="font-medium">{row.control_id}</TableCell>
                                                 <TableCell>{row.control_title}</TableCell>
-                                                <TableCell>{row.category}</TableCell>
+                                                <TableCell>{categories.find(c => c.id === row.category_id)?.name || "Unassigned"}</TableCell>
                                                 <TableCell>{row.priority}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="icon" onClick={() => handleBulkEditRow(idx)} aria-label="Edit row">
@@ -1381,14 +1401,21 @@ export default function CRCAdminPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Category *</label>
-                                <Select value={bulkEditFormData.category} onValueChange={(v) => setBulkEditFormData({ ...bulkEditFormData, category: v })}>
-                                    <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
-                                    <SelectContent>
-                                        {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                                            <label className="text-xs font-medium">Category</label>
+                                            <Select
+                                                value={bulkEditFormData.category_id?.toString()}
+                                                onValueChange={(val) => setBulkEditFormData({ ...bulkEditFormData, category_id: parseInt(val) })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Category" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map((c) => (
+                                                        <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Priority *</label>
                                 <Select value={bulkEditFormData.priority} onValueChange={(v) => setBulkEditFormData({ ...bulkEditFormData, priority: v })}>
