@@ -295,8 +295,8 @@ router.post(
     const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
 
-    // Check if user is premium
-    const isPremium = isPremiumUser(req.user!.subscription_status);
+    // Check if project brand/owner is premium
+    const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
     // Get all assessment answers for this project
     const answersResult = await pool.query(
@@ -908,7 +908,7 @@ const generateInsightsAsync = async (
         
         // Only run if we actually have domains to process
         if (domainIdsToCheck.length > 0) {
-            const detailedAnswersQuery = `
+            let detailedAnswersQuery = `
               SELECT 
                 aa.domain_id,
                 aq.question_text,
@@ -923,7 +923,21 @@ const generateInsightsAsync = async (
               WHERE aa.project_id = $1 AND aa.domain_id = ANY($2)
             `;
             
-            const detailedAnswersResult = await pool.query(detailedAnswersQuery, [projectId, domainIdsToCheck]);
+            const detailedQueryParams: any[] = [projectId, domainIdsToCheck];
+            
+            if (projectVersionId) {
+                detailedAnswersQuery += ` AND (ap.version_id IS NULL OR EXISTS (
+                    SELECT 1 FROM versions v2 WHERE v2.id = ap.version_id 
+                    AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $3)
+                ))`;
+                detailedAnswersQuery += ` AND (aq.version_id IS NULL OR EXISTS (
+                    SELECT 1 FROM versions v3 WHERE v3.id = aq.version_id 
+                    AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $3)
+                ))`;
+                detailedQueryParams.push(projectVersionId);
+            }
+            
+            const detailedAnswersResult = await pool.query(detailedAnswersQuery, detailedQueryParams);
             
             // Group by domain_id
             const groupedAnswers = new Map<string, any[]>();
@@ -1070,7 +1084,7 @@ router.post(
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
-    const isPremium = isPremiumUser(req.user!.subscription_status);
+    const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
     if (!genAI) {
       return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
