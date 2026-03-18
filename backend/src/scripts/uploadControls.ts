@@ -241,6 +241,7 @@ async function uploadControls() {
           evidence_requirements = EXCLUDED.evidence_requirements,
           compliance_mapping = EXCLUDED.compliance_mapping,
           aima_mapping = EXCLUDED.aima_mapping,
+          status = EXCLUDED.status,
           version = crc_controls.version + 1,
           updated_at = CURRENT_TIMESTAMP
         RETURNING id, version

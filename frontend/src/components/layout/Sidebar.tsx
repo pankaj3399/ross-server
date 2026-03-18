@@ -74,13 +74,6 @@ const defaultSidebarItems: SidebarItem[] = [
     href: "/dashboard",
   },
   {
-    id: "overview",
-    label: "Overview",
-    icon: IconChartBar,
-    href: "#",
-    disabled: true,
-  },
-  {
     id: "premium",
     label: "Premium Features",
     icon: IconDiamond,

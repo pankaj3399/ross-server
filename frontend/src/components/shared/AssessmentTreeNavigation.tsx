@@ -498,54 +498,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             </AnimatePresence>
           </SidebarGroup>
 
-          {/* SECTION 2: SETTINGS */}
-          {projectId && user && (
-            <SidebarGroup className="px-2 py-1">
-              <button
-                type="button"
-                className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
-                onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
-                aria-expanded={isSettingsExpanded}
-              >
-                <IconChevronsRight
-                  className={cn(
-                    "h-5 w-5 transition-transform text-foreground",
-                    isSettingsExpanded && "rotate-90"
-                  )}
-                />
-                <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
-                  Settings
-                </span>
-              </button>
-              <AnimatePresence>
-                {isSettingsExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden"
-                  >
-                    <SidebarGroupContent>
-                      <SidebarMenu className="gap-1">
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            onClick={() => router.push(`/assess/${projectId}/team`)}
-                            className="group/settings-btn h-10 px-2"
-                          >
-                            <IconUsers className="ml-1 h-5 w-5 text-muted-foreground group-hover/settings-btn:text-foreground" />
-                            <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/settings-btn:text-foreground">
-                              Team
-                            </span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      </SidebarMenu>
-                    </SidebarGroupContent>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </SidebarGroup>
-          )}
 
           {/* SECTION 3: PREMIUM FEATURES */}
           {projectId && !hidePremiumFeaturesButton && (
@@ -757,11 +709,60 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                           })}
                         </SidebarMenu>
                       </SidebarGroupContent>
-                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </SidebarGroup>
+          )}
+
+          {/* SECTION 3: SETTINGS & TEAM */}
+          {projectId && user && (
+            <SidebarGroup className="px-2 py-1">
+              <button
+                type="button"
+                className="group/label w-full flex items-center px-2 py-2 mb-2 cursor-pointer rounded-md transition-colors hover:bg-sidebar-accent focus:outline-none focus:ring-2 focus:ring-primary/20"
+                onClick={() => setIsSettingsExpanded(!isSettingsExpanded)}
+                aria-expanded={isSettingsExpanded}
+              >
+                <IconChevronsRight
+                  className={cn(
+                    "h-5 w-5 transition-transform text-foreground",
+                    isSettingsExpanded && "rotate-90"
                   )}
-                </AnimatePresence>
-              </SidebarGroup>
-            )}
+                />
+                <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
+                  Settings
+                </span>
+              </button>
+              <AnimatePresence>
+                {isSettingsExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <SidebarGroupContent>
+                      <SidebarMenu className="gap-1">
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            onClick={() => router.push(`/assess/${projectId}/team`)}
+                            className="group/settings-btn h-10 px-2"
+                          >
+                            <IconUsers className="ml-1 h-5 w-5 text-muted-foreground group-hover/settings-btn:text-foreground" />
+                            <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/settings-btn:text-foreground">
+                              TEAMS
+                            </span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      </SidebarMenu>
+                    </SidebarGroupContent>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </SidebarGroup>
+          )}
 
         </SidebarContent>
       </Sidebar>
