@@ -77,7 +77,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
           onChange(trimmedValue);
         }
         
-        onSave(trimmedValue || value).catch((error) => {
+        onSave(trimmedValue).catch((error) => {
           console.error("Failed to save note:", error);
         });
       }
@@ -92,7 +92,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
         target.removeEventListener("keydown", handleKeyDown);
       }
     };
-  }, [isValid, disabled, readOnly, onSave, value, onChange, textareaRef]);
+  }, [isValid, disabled, readOnly, onSave, value, onChange]);
 
   const characterCount = value.length;
   const isNearLimit = characterCount > maxLength * 0.9;

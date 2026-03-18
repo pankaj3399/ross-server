@@ -22,6 +22,7 @@ if (!process.env.GEMINI_API_KEY) {
 } else {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
+const isPremiumUser = (status: string | undefined) => ["basic_premium", "pro_premium", "trial"].includes(status || "");
 
 const router = Router();
 
@@ -87,7 +88,7 @@ router.post("/", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
     const status = req.user!.subscription_status;
-    const isPremium = ["basic_premium", "pro_premium", "trial"].includes(status);
+    const isPremium = isPremiumUser(status);
 
     // Enforce subscription for creating/owning projects
     if (!isPremium && status !== "free") {
@@ -295,7 +296,7 @@ router.post(
     const projectVersionId = project.version_id;
 
     // Check if user is premium
-    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+    const isPremium = isPremiumUser(req.user!.subscription_status);
 
     // Get all assessment answers for this project
     const answersResult = await pool.query(
@@ -1069,7 +1070,7 @@ router.post(
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
-    const isPremium = req.user!.subscription_status === "basic_premium" || req.user!.subscription_status === "pro_premium";
+    const isPremium = isPremiumUser(req.user!.subscription_status);
 
     if (!genAI) {
       return res.status(503).json({ error: "AI service is not configured. GEMINI_API_KEY is missing." });
@@ -1085,12 +1086,11 @@ router.post(
         FROM aima_domains d
         LEFT JOIN aima_practices p ON d.id = p.domain_id
         LEFT JOIN aima_questions aq ON p.id = aq.practice_id
-        LEFT JOIN assessment_answers aa ON d.id = aa.domain_id AND aa.project_id = $1
     `;
 
     const whereConditions: string[] = [];
-    const queryParams: any[] = [projectId];
-    let paramIndex = 2;
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
     if (!isPremium) {
         whereConditions.push(`COALESCE(d.is_premium, false) = false`);

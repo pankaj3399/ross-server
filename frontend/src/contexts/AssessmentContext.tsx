@@ -480,11 +480,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             console.error("Failed to save answer:", error);
             // Rollback optimistic update
             setAnswers((prev) => ({ ...prev, [key]: previousValue }));
-            if (isReadOnly) {
-                showToast.error("You don't have permission to make changes. You can only view the project.");
-            } else {
-                showToast.error("Failed to save answer. Progress reverted.");
-            }
+            showToast.error("Failed to save answer. Progress reverted.");
         } finally {
             setSaving(false);
         }
@@ -548,11 +544,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     return copy;
                 });
             }
-            if (isReadOnly) {
-                showToast.error("You don't have permission to make changes. You can only view the project.");
-            } else {
-                showToast.error("Failed to save response");
-            }
+            showToast.error("Failed to save response");
         } finally {
             setSaving(false);
         }

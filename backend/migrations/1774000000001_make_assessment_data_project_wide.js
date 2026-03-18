@@ -6,7 +6,7 @@ exports.up = (pgm) => {
   // 1. Handle assessment_answers
   // Create backup table
   pgm.createTable("assessment_answers_backup", {
-    id: "id",
+    id: { type: "uuid", primaryKey: true },
     project_id: { type: "uuid", notNull: true },
     domain_id: { type: "varchar(255)", notNull: true },
     practice_id: { type: "varchar(255)", notNull: true },
@@ -86,7 +86,7 @@ exports.up = (pgm) => {
   // 2. Handle crc_assessment_responses
   // Create backup table
   pgm.createTable("crc_assessment_responses_backup", {
-    id: "id",
+    id: { type: "uuid", primaryKey: true },
     project_id: { type: "uuid", notNull: true },
     control_id: { type: "uuid", notNull: true },
     user_id: { type: "uuid", notNull: true },
@@ -158,15 +158,7 @@ exports.down = (pgm) => {
   // Restore assessment_answers
   pgm.dropConstraint("assessment_answers", "unique_project_question", { ifExists: true });
   
-  // Restore deleted rows from backup if table exists
-  pgm.sql(`
-    INSERT INTO assessment_answers (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
-    SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
-    FROM assessment_answers_backup
-    ON CONFLICT (project_id, domain_id, practice_id, level, stream, question_index, user_id)
-    DO UPDATE SET (id, value, created_at, updated_at) = (EXCLUDED.id, EXCLUDED.value, EXCLUDED.created_at, EXCLUDED.updated_at);
-  `);
-
+  // Re-add unique constraint before restoring data so ON CONFLICT works
   pgm.addConstraint("assessment_answers", "unique_user_project_question", {
     unique: [
       "project_id",
@@ -179,8 +171,22 @@ exports.down = (pgm) => {
     ],
   });
 
+  // Restore deleted rows from backup if table exists
+  pgm.sql(`
+    INSERT INTO assessment_answers (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
+    SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
+    FROM assessment_answers_backup
+    ON CONFLICT (project_id, domain_id, practice_id, level, stream, question_index, user_id)
+    DO UPDATE SET (value, created_at, updated_at) = (EXCLUDED.value, EXCLUDED.created_at, EXCLUDED.updated_at);
+  `);
+
   // Restore crc_assessment_responses
   pgm.dropConstraint("crc_assessment_responses", "unique_project_control", { ifExists: true });
+
+  // Re-add unique constraint before restoring data
+  pgm.addConstraint("crc_assessment_responses", "unique_crc_response", {
+    unique: ["project_id", "control_id", "user_id"],
+  });
 
   // Restore deleted rows from backup
   pgm.sql(`
@@ -188,14 +194,8 @@ exports.down = (pgm) => {
     SELECT id, project_id, control_id, user_id, value, notes, created_at, updated_at
     FROM crc_assessment_responses_backup
     ON CONFLICT (project_id, control_id, user_id)
-    DO UPDATE SET (id, value, notes, created_at, updated_at) = (EXCLUDED.id, EXCLUDED.value, EXCLUDED.notes, EXCLUDED.created_at, EXCLUDED.updated_at);
+    DO UPDATE SET (value, notes, created_at, updated_at) = (EXCLUDED.value, EXCLUDED.notes, EXCLUDED.created_at, EXCLUDED.updated_at);
   `);
 
-  pgm.addConstraint("crc_assessment_responses", "unique_crc_response", {
-    unique: ["project_id", "control_id", "user_id"],
-  });
-
-  // Drop backup tables
-  pgm.dropTable("assessment_answers_backup", { ifExists: true });
-  pgm.dropTable("crc_assessment_responses_backup", { ifExists: true });
+  // Preservation: Backup tables are not dropped in the down path to ensure archived data remains available.
 };
