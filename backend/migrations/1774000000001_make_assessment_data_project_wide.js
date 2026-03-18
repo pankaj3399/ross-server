@@ -30,7 +30,7 @@ exports.up = (pgm) => {
         SELECT id,
                ROW_NUMBER() OVER (
                  PARTITION BY project_id, domain_id, practice_id, level, stream, question_index
-                 ORDER BY updated_at DESC, created_at DESC
+                 ORDER BY updated_at DESC, created_at DESC, id DESC
                ) as row_num
         FROM assessment_answers
       ) sub
@@ -83,7 +83,7 @@ exports.up = (pgm) => {
         SELECT id,
                ROW_NUMBER() OVER (
                  PARTITION BY project_id, control_id
-                 ORDER BY updated_at DESC, created_at DESC
+                 ORDER BY updated_at DESC, created_at DESC, id DESC
                ) as row_num
         FROM crc_assessment_responses
       ) sub
@@ -115,7 +115,8 @@ exports.down = (pgm) => {
     INSERT INTO assessment_answers (id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at)
     SELECT id, project_id, domain_id, practice_id, level, stream, question_index, value, user_id, created_at, updated_at
     FROM assessment_answers_backup
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (project_id, domain_id, practice_id, level, stream, question_index, user_id)
+    DO UPDATE SET (id, value, created_at, updated_at) = (EXCLUDED.id, EXCLUDED.value, EXCLUDED.created_at, EXCLUDED.updated_at);
   `);
 
   pgm.addConstraint("assessment_answers", "unique_user_project_question", {
@@ -138,7 +139,8 @@ exports.down = (pgm) => {
     INSERT INTO crc_assessment_responses (id, project_id, control_id, user_id, value, notes, created_at, updated_at)
     SELECT id, project_id, control_id, user_id, value, notes, created_at, updated_at
     FROM crc_assessment_responses_backup
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (project_id, control_id, user_id)
+    DO UPDATE SET (id, value, notes, created_at, updated_at) = (EXCLUDED.id, EXCLUDED.value, EXCLUDED.notes, EXCLUDED.created_at, EXCLUDED.updated_at);
   `);
 
   pgm.addConstraint("crc_assessment_responses", "unique_crc_response", {

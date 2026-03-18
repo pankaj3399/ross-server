@@ -186,7 +186,7 @@ router.get(
       res.json({ 
         project: {
           ...req.project,
-          role: req.projectMembership?.role
+          role: req.projectMembership?.role ?? (req.user?.id === req.project.user_id ? "OWNER" : undefined)
         } 
       });
     } catch (error) {

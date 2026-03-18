@@ -67,24 +67,32 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        if (readOnly) return; // Allow default browser behavior (e.g., save as) but don't trigger our onSave
+        if (readOnly) return;
         e.preventDefault();
         if (!isValid || disabled) return;
+
         // Trim whitespace before saving
         const trimmedValue = value.trim();
-        const valueToSave = trimmedValue || value;
         if (trimmedValue !== value) {
           onChange(trimmedValue);
         }
-        onSave(valueToSave).catch((error) => {
+        
+        onSave(trimmedValue || value).catch((error) => {
           console.error("Failed to save note:", error);
         });
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isValid, disabled, readOnly, onSave, value, onChange]);
+    const target = textareaRef.current;
+    if (target) {
+      target.addEventListener("keydown", handleKeyDown);
+    }
+    return () => {
+      if (target) {
+        target.removeEventListener("keydown", handleKeyDown);
+      }
+    };
+  }, [isValid, disabled, readOnly, onSave, value, onChange, textareaRef]);
 
   const characterCount = value.length;
   const isNearLimit = characterCount > maxLength * 0.9;
