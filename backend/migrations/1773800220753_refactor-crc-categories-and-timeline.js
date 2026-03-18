@@ -39,7 +39,7 @@ exports.up = async (pgm) => {
     SELECT unnest($1::text[]) 
     ON CONFLICT (name) DO NOTHING
   `;
-  pgm.sql(insertSql, [allCategories]);
+  await pgm.db.query(insertSql, [allCategories]);
 
   // 3. Add new columns to crc_controls
   pgm.addColumns('crc_controls', {

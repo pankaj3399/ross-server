@@ -1230,7 +1230,7 @@ export default function CRCAdminPage() {
                         </TableBody>
                     </Table>
                 </div>
-            </div >
+            </div>
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent>
                     <DialogHeader>
