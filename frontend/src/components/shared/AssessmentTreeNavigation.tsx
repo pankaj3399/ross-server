@@ -261,8 +261,8 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
   const controlsByCategory = useMemo(() => {
     return crcControls.reduce((acc: Record<string, CRCControl[]>, control: CRCControl) => {
-      if (!acc[control.category]) acc[control.category] = [];
-      acc[control.category].push(control);
+      if (!acc[control.category_name]) acc[control.category_name] = [];
+      acc[control.category_name].push(control);
       return acc;
     }, {});
   }, [crcControls]);

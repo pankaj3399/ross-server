@@ -144,22 +144,28 @@ export interface Thresholds {
 
 export type CRCControlStatus = "Draft" | "In Review" | "Published" | "Archived";
 
+export interface CRCCategory {
+  id: number;
+  name: string;
+}
+
 export interface CRCControl {
   id: string;
   control_id: string;
   control_title: string;
-  category: string;
+  category_id: number;
+  category_name: string;
   priority: string;
   status: CRCControlStatus;
   version: number;
   applicable_to: string[];
+  expected_timeline: string;
   control_statement: string;
   control_objective: string;
   risk_description: string;
   implementation: {
     requirements: string[];
     steps: string[];
-    timeline: string;
   };
   evidence_requirements: string[];
   compliance_mapping: {
@@ -1129,6 +1135,10 @@ class ApiService {
   }
 
   // CRC Controls
+  async getCRCCategories(signal?: AbortSignal): Promise<{ data: CRCCategory[] }> {
+    return this.request<{ data: CRCCategory[] }>("/crc/categories", { signal });
+  }
+
   async getCRCControls(params?: URLSearchParams): Promise<{ data: CRCControl[]; count: number }> {
     const qs = params ? `?${params.toString()}` : "";
     return this.request<{ data: CRCControl[]; count: number }>(`/crc/controls${qs}`);

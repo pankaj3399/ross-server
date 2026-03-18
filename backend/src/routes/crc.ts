@@ -12,7 +12,7 @@ const router = Router();
 const implementationSchema = z.object({
   requirements: z.array(z.string()).optional().default([]),
   steps: z.array(z.string()).optional().default([]),
-  timeline: z.string().optional().default(""),
+  // Note: timeline is now stored as a top-level column expected_timeline
 });
 
 const complianceMappingSchema = z.object({
@@ -40,7 +40,8 @@ const aimaMappingSchema = z.object({
 const controlSchema = z.object({
   control_id: z.string().min(1, "Control ID is required").max(20, "Control ID must be 20 chars max"),
   control_title: z.string().min(1, "Title is required").max(200, "Title must be 200 chars max"),
-  category: z.string().min(1, "Category is required"),
+  category_id: z.number().int().min(1, "Category ID is required"),
+  expected_timeline: z.string().optional().default(""),
   priority: z.string().min(1, "Priority is required"),
   status: z.enum(["Draft", "In Review", "Published", "Archived"]).optional().default("Draft"),
   applicable_to: z.array(z.string()).default([]),
@@ -98,42 +99,64 @@ const createSnapshot = async (client: any, controlId: string, userId: string, st
   );
 };
 
+// Verify if category_id exists
+const validateCategoryId = async (client: any, categoryId: number) => {
+  const res = await client.query("SELECT id FROM crc_categories WHERE id = $1", [categoryId]);
+  return res.rows.length > 0;
+};
+
 // --- Routes ---
+
+// GET /crc/categories - List all categories
+router.get("/categories", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM crc_categories ORDER BY name ASC");
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch categories" });
+  }
+});
 
 // GET /crc/controls - List all controls with filters
 router.get("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { category, priority, status, search } = req.query;
+    const { category_id, priority, status, search } = req.query;
     
-    let query = "SELECT * FROM crc_controls WHERE 1=1";
+    let query = `
+      SELECT c.*, cat.name as category_name 
+      FROM crc_controls c
+      LEFT JOIN crc_categories cat ON c.category_id = cat.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
     let paramCount = 1;
 
-    if (category) {
-      query += ` AND category = $${paramCount}`;
-      params.push(category);
+    if (category_id) {
+      query += ` AND c.category_id = $${paramCount}`;
+      params.push(category_id);
       paramCount++;
     }
 
     if (priority) {
-      query += ` AND priority = $${paramCount}`;
+      query += ` AND c.priority = $${paramCount}`;
       params.push(priority);
       paramCount++;
     }
 
     if (status) {
-      query += ` AND status = $${paramCount}`;
+      query += ` AND c.status = $${paramCount}`;
       params.push(status);
       paramCount++;
     }
 
     if (search) {
-      query += ` AND (control_title ILIKE $${paramCount} OR control_id ILIKE $${paramCount})`;
+      query += ` AND (c.control_title ILIKE $${paramCount} OR c.control_id ILIKE $${paramCount})`;
       params.push(`%${search}%`);
       paramCount++;
     }
 
-    query += " ORDER BY control_id ASC";
+    query += " ORDER BY c.control_id ASC";
 
     const result = await pool.query(query, params);
     
@@ -152,7 +175,12 @@ router.get("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, r
 router.get("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query("SELECT * FROM crc_controls WHERE id = $1", [id]);
+    const result = await pool.query(`
+      SELECT c.*, cat.name as category_name 
+      FROM crc_controls c
+      LEFT JOIN crc_categories cat ON c.category_id = cat.id
+      WHERE c.id = $1
+    `, [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, error: "Control not found" });
@@ -181,20 +209,26 @@ router.post("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, 
       return res.status(400).json({ success: false, error: "Control ID must be unique" });
     }
 
+    // Check category_id exists
+    if (!(await validateCategoryId(client, data.category_id))) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, error: "Invalid category_id: Category does not exist" });
+    }
+
     // Insert control
     const insertQuery = `
       INSERT INTO crc_controls (
-        control_id, control_title, category, priority, status, applicable_to,
+        control_id, control_title, category_id, expected_timeline, priority, status, applicable_to,
         control_statement, control_objective, risk_description,
         implementation, evidence_requirements, compliance_mapping, aima_mapping,
         created_by, version
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14, 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, 1)
       RETURNING *
     `;
 
     const values = [
-      data.control_id, data.control_title, data.category, data.priority, data.status, data.applicable_to,
+      data.control_id, data.control_title, data.category_id, data.expected_timeline, data.priority, data.status, data.applicable_to,
       data.control_statement, data.control_objective, data.risk_description,
       JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
       JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
@@ -297,14 +331,30 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
       return res.status(400).json({ success: false, errors });
     }
 
-    const cols = 14;
+    // Check all unique category_ids in the batch
+    const uniqueCategoryIds = Array.from(new Set(parsedWithIndex.map(p => p.data.category_id)));
+    const catCheck = await client.query("SELECT id FROM crc_categories WHERE id = ANY($1)", [uniqueCategoryIds]);
+    const validCategoryIds = new Set(catCheck.rows.map((r: { id: number }) => r.id));
+    
+    for (const { data, originalIndex } of parsedWithIndex) {
+      if (!validCategoryIds.has(data.category_id)) {
+        errors.push({ index: originalIndex, control_id: data.control_id, message: `Invalid category_id: ${data.category_id}` });
+      }
+    }
+
+    if (errors.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, errors });
+    }
+
+    const cols = 15;
     const placeholders = parsedWithIndex.map((_, rowIdx) => {
       const start = rowIdx * cols + 1;
-      return `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6}, $${start + 7}, $${start + 8}, $${start + 9}::jsonb, $${start + 10}::jsonb, $${start + 11}::jsonb, $${start + 12}::jsonb, $${start + 13}, 1)`;
+      return `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6}, $${start + 7}, $${start + 8}, $${start + 9}, $${start + 10}::jsonb, $${start + 11}::jsonb, $${start + 12}::jsonb, $${start + 13}::jsonb, $${start + 14}, 1)`;
     }).join(", ");
     const batchInsertQuery = `
       INSERT INTO crc_controls (
-        control_id, control_title, category, priority, status, applicable_to,
+        control_id, control_title, category_id, expected_timeline, priority, status, applicable_to,
         control_statement, control_objective, risk_description,
         implementation, evidence_requirements, compliance_mapping, aima_mapping,
         created_by, version
@@ -315,7 +365,7 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
     const values: any[] = [];
     for (const { data } of parsedWithIndex) {
       values.push(
-        data.control_id, data.control_title, data.category, data.priority, data.status, data.applicable_to,
+        data.control_id, data.control_title, data.category_id, data.expected_timeline, data.priority, data.status, data.applicable_to,
         data.control_statement, data.control_objective, data.risk_description,
         JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
         JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
@@ -396,15 +446,23 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
       }
     }
 
+    // Check category_id exists if changed
+    if (data.category_id !== currentControl.category_id) {
+      if (!(await validateCategoryId(client, data.category_id))) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: "Invalid category_id: Category does not exist" });
+      }
+    }
+
     // Increment version
     const newVersion = currentControl.version + 1;
 
-    // Preserve existing values for omitted fields, including nested fields in objects.
-    // We merge the raw input with current data to ensure sub-fields are preserved.
+    // Preserve existing values for omitted fields
     const updatedData = {
       control_id: Object.prototype.hasOwnProperty.call(req.body, 'control_id') ? data.control_id : currentControl.control_id,
       control_title: Object.prototype.hasOwnProperty.call(req.body, 'control_title') ? data.control_title : currentControl.control_title,
-      category: Object.prototype.hasOwnProperty.call(req.body, 'category') ? data.category : currentControl.category,
+      category_id: Object.prototype.hasOwnProperty.call(req.body, 'category_id') ? data.category_id : currentControl.category_id,
+      expected_timeline: Object.prototype.hasOwnProperty.call(req.body, 'expected_timeline') ? data.expected_timeline : currentControl.expected_timeline,
       priority: Object.prototype.hasOwnProperty.call(req.body, 'priority') ? data.priority : currentControl.priority,
       status: newStatus,
       applicable_to: Object.prototype.hasOwnProperty.call(req.body, 'applicable_to') ? data.applicable_to : currentControl.applicable_to,
@@ -426,16 +484,16 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
     // Update query
     const updateQuery = `
       UPDATE crc_controls SET
-        control_id = $1, control_title = $2, category = $3, priority = $4, status = $5, applicable_to = $6,
-        control_statement = $7, control_objective = $8, risk_description = $9,
-        implementation = $10::jsonb, evidence_requirements = $11::jsonb, compliance_mapping = $12::jsonb, aima_mapping = $13::jsonb,
-        updated_at = CURRENT_TIMESTAMP, version = $14
-      WHERE id = $15
+        control_id = $1, control_title = $2, category_id = $3, expected_timeline = $4, priority = $5, status = $6, applicable_to = $7,
+        control_statement = $8, control_objective = $9, risk_description = $10,
+        implementation = $11::jsonb, evidence_requirements = $12::jsonb, compliance_mapping = $13::jsonb, aima_mapping = $14::jsonb,
+        updated_at = CURRENT_TIMESTAMP, version = $15
+      WHERE id = $16
       RETURNING *
     `;
 
     const values = [
-      updatedData.control_id, updatedData.control_title, updatedData.category, updatedData.priority, updatedData.status, updatedData.applicable_to,
+      updatedData.control_id, updatedData.control_title, updatedData.category_id, updatedData.expected_timeline, updatedData.priority, updatedData.status, updatedData.applicable_to,
       updatedData.control_statement, updatedData.control_objective, updatedData.risk_description,
       JSON.stringify(updatedData.implementation), JSON.stringify(updatedData.evidence_requirements),
       JSON.stringify(updatedData.compliance_mapping), JSON.stringify(updatedData.aima_mapping),
@@ -515,17 +573,17 @@ router.post("/controls/:id/clone", authenticateToken, requireRole(["ADMIN"]), as
     // Insert cloned control
     const insertQuery = `
       INSERT INTO crc_controls (
-        control_id, control_title, category, priority, status, applicable_to,
+        control_id, control_title, category_id, expected_timeline, priority, status, applicable_to,
         control_statement, control_objective, risk_description,
         implementation, evidence_requirements, compliance_mapping, aima_mapping,
         created_by, version
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16)
       RETURNING *
     `;
 
     const values = [
-      newControlId, `${source.control_title} (Clone)`, source.category, source.priority, "Draft", source.applicable_to,
+      newControlId, `${source.control_title} (Clone)`, source.category_id, source.expected_timeline, source.priority, "Draft", source.applicable_to,
       source.control_statement, source.control_objective, source.risk_description,
       normalizeJsonForInsert(source.implementation), 
       normalizeJsonForInsert(source.evidence_requirements), 
@@ -661,7 +719,7 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
 
     if (format === "csv") {
       // Basic CSV flattening
-      const headers = ["control_id", "control_title", "category", "priority", "status", "version", "created_at"];
+      const headers = ["control_id", "control_title", "category_id", "priority", "status", "version", "created_at"];
       const rows = controls.map((c: any) => headers.map(h => JSON.stringify(c[h] ?? "")).join(","));
       const csv = [headers.join(","), ...rows].join("\n");
       
@@ -684,13 +742,15 @@ router.post("/controls/export", authenticateToken, requireRole(["ADMIN"]), async
 router.get("/public/controls", authenticateToken, async (req, res) => {
   try {
     const query = `
-      SELECT id, control_id, control_title, category, priority, status, version,
-             applicable_to, control_statement, control_objective, risk_description,
-             implementation, evidence_requirements, compliance_mapping, aima_mapping,
-             created_at, updated_at
-      FROM crc_controls
-      WHERE status = 'Published'
-      ORDER BY category, control_id ASC
+      SELECT c.id, c.control_id, c.control_title, cat.name as category_name, c.category_id,
+             c.priority, c.status, c.version, c.expected_timeline,
+             c.applicable_to, c.control_statement, c.control_objective, c.risk_description,
+             c.implementation, c.evidence_requirements, c.compliance_mapping, c.aima_mapping,
+             c.created_at, c.updated_at
+      FROM crc_controls c
+      LEFT JOIN crc_categories cat ON c.category_id = cat.id
+      WHERE c.status = 'Published'
+      ORDER BY cat.name, c.control_id ASC
     `;
     
     const result = await pool.query(query);
