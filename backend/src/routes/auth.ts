@@ -19,8 +19,22 @@ import {
 import { addMember } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
 
+
+const router = Router();
+
 /**
- * Helper to notify the inviter about invitation acceptance or denial
+ * Helper to mask email for logging purposes
+ */
+function maskEmail(email: string): string {
+  if (!email || !email.includes("@")) return email;
+  const [local, domain] = email.split("@");
+  if (local.length <= 2) return `*@${domain}`;
+  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}@${domain}`;
+}
+
+/**
+ * Helper to notify the inviter about an invitation response.
+ * This is meant to be called in a fire-and-forget manner.
  */
 async function notifyInviterOfInvitationResponse(
   projectId: string,
@@ -28,35 +42,44 @@ async function notifyInviterOfInvitationResponse(
   inviteeEmail: string,
   type: "accepted" | "declined",
 ) {
-  if (!inviterId) return;
-
   try {
-    const [projectRes, inviterRes] = await Promise.all([
-      pool.query("SELECT name FROM projects WHERE id = $1", [projectId]),
+    if (!inviterId) return;
+
+    // Get inviter and project info
+    const [inviterRes, projectRes] = await Promise.all([
       pool.query("SELECT email FROM users WHERE id = $1", [inviterId]),
+      pool.query("SELECT name FROM projects WHERE id = $1", [projectId]),
     ]);
 
-    if (projectRes.rows.length > 0 && inviterRes.rows.length > 0) {
-      if (type === "accepted") {
-        await emailService.sendInvitationAcceptedNotification(
-          inviterRes.rows[0].email,
-          projectRes.rows[0].name,
-          inviteeEmail,
-        );
-      } else {
-        await emailService.sendInvitationDeclinedNotification(
-          inviterRes.rows[0].email,
-          projectRes.rows[0].name,
-          inviteeEmail,
-        );
+    if (inviterRes.rows.length > 0 && projectRes.rows.length > 0) {
+      const sent =
+        type === "accepted"
+          ? await emailService.sendInvitationAcceptedNotification(
+              inviterRes.rows[0].email,
+              projectRes.rows[0].name,
+              inviteeEmail,
+            )
+          : await emailService.sendInvitationDeclinedNotification(
+              inviterRes.rows[0].email,
+              projectRes.rows[0].name,
+              inviteeEmail,
+            );
+
+      if (!sent) {
+        console.error(`Failed to send invitation ${type} notification`, {
+          inviterId,
+          projectId,
+          inviteeEmail: maskEmail(inviteeEmail),
+        });
       }
     }
   } catch (notifyError) {
-    console.error(`Failed to send invitation ${type} notification:`, notifyError);
+    console.error(
+      `Failed to send invitation ${type} notification:`,
+      notifyError,
+    );
   }
 }
-
-const router = Router();
 
 const registerSchema = z.object({
   email: z.string().trim().email("Invalid email format"),
@@ -970,15 +993,16 @@ router.post("/invitations/:token/decline", authenticateToken, async (req, res) =
 
     const declinedInvitation = rows[0];
 
-    // Send notification to inviter (best-effort)
+    // Fire-and-forget notification
     notifyInviterOfInvitationResponse(
       declinedInvitation.project_id,
       declinedInvitation.inviter_id,
       declinedInvitation.email,
       "declined",
-    ).catch(err => {
-      console.error("Fire-and-forget notification failed (decline):", err);
-    });
+    ).catch((err) =>
+      console.error("Error in fire-and-forget decline notification:", err),
+    );
+
 
     res.json({ message: "Invitation declined successfully" });
   } catch (error) {
@@ -1020,15 +1044,16 @@ router.post(
         metadata: { email: acceptedInvitation.email },
       });
 
-      // Send notification to inviter (best-effort)
+      // Fire-and-forget notification
       notifyInviterOfInvitationResponse(
         acceptedInvitation.project_id,
         acceptedInvitation.inviter_id,
         acceptedInvitation.email,
         "accepted",
-      ).catch(err => {
-        console.error("Fire-and-forget notification failed (accept):", err);
-      });
+      ).catch((err) =>
+        console.error("Error in fire-and-forget accept notification:", err),
+      );
+
 
       res.json({
         message: "Invitation accepted",
@@ -1127,6 +1152,16 @@ router.post("/invitations/:token/signup", async (req, res) => {
           objectId: membership.id,
         });
       }
+
+      // Fire-and-forget notification
+      notifyInviterOfInvitationResponse(
+        acceptedInvitation.project_id,
+        acceptedInvitation.inviter_id,
+        acceptedInvitation.email,
+        "accepted",
+      ).catch((err) =>
+        console.error("Error in fire-and-forget signup notification:", err),
+      );
 
       // Generate JWT
       const jwtToken = jwt.sign(

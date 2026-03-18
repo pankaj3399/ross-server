@@ -441,15 +441,26 @@ class EmailService {
   }
 
   /**
-   * Send notification to inviter when an invitation is accepted
+   * Private helper to send invitation response notification (accepted/declined)
    */
-  async sendInvitationAcceptedNotification(
+  private async sendInvitationResponseNotification(
     inviterEmail: string,
     projectName: string,
     inviteeEmail: string,
+    type: "accepted" | "declined",
   ): Promise<boolean> {
     const safeProjectName = escapeHtml(projectName);
     const safeInviteeEmail = escapeHtml(inviteeEmail);
+    const title =
+      type === "accepted" ? "Invitation Accepted" : "Invitation Declined";
+    const statusText =
+      type === "accepted"
+        ? `Good news! <strong>${safeInviteeEmail}</strong> has accepted your invitation to join the project <strong>${safeProjectName}</strong>.`
+        : `<strong>${safeInviteeEmail}</strong> has declined your invitation to join the project <strong>${safeProjectName}</strong>.`;
+    const followUpText =
+      type === "accepted"
+        ? `<p>They can now collaborate with you on this project.</p>`
+        : "";
 
     const html = `
       <!DOCTYPE html>
@@ -457,16 +468,16 @@ class EmailService {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invitation Accepted - MATUR.ai</title>
+          <title>${title} - MATUR.ai</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 28px;">MATUR.ai</h1>
           </div>
           <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-            <h2 style="color: #333; margin-top: 0;">Invitation Accepted</h2>
-            <p>Good news! <strong>${safeInviteeEmail}</strong> has accepted your invitation to join the project <strong>${safeProjectName}</strong>.</p>
-            <p>They can now collaborate with you on this project.</p>
+            <h2 style="color: #333; margin-top: 0;">${title}</h2>
+            <p>${statusText}</p>
+            ${followUpText}
           </div>
           <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
             <p>© 2024 MATUR.ai. All rights reserved.</p>
@@ -477,9 +488,25 @@ class EmailService {
 
     return this.sendEmail({
       to: inviterEmail,
-      subject: `Invitation Accepted: ${projectName}`,
+      subject: `${title}: ${projectName}`,
       html,
     });
+  }
+
+  /**
+   * Send notification to inviter when an invitation is accepted
+   */
+  async sendInvitationAcceptedNotification(
+    inviterEmail: string,
+    projectName: string,
+    inviteeEmail: string,
+  ): Promise<boolean> {
+    return this.sendInvitationResponseNotification(
+      inviterEmail,
+      projectName,
+      inviteeEmail,
+      "accepted",
+    );
   }
 
   /**
@@ -490,37 +517,12 @@ class EmailService {
     projectName: string,
     inviteeEmail: string,
   ): Promise<boolean> {
-    const safeProjectName = escapeHtml(projectName);
-    const safeInviteeEmail = escapeHtml(inviteeEmail);
-
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Invitation Declined - MATUR.ai</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">MATUR.ai</h1>
-          </div>
-          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-            <h2 style="color: #333; margin-top: 0;">Invitation Declined</h2>
-            <p><strong>${safeInviteeEmail}</strong> has declined your invitation to join the project <strong>${safeProjectName}</strong>.</p>
-          </div>
-          <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
-            <p>© 2024 MATUR.ai. All rights reserved.</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    return this.sendEmail({
-      to: inviterEmail,
-      subject: `Invitation Declined: ${projectName}`,
-      html,
-    });
+    return this.sendInvitationResponseNotification(
+      inviterEmail,
+      projectName,
+      inviteeEmail,
+      "declined",
+    );
   }
 }
 

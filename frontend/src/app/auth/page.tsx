@@ -16,7 +16,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 export default function AuthPage() {
-  const isLogin = useSearchParams().get("isLogin") === "true";
+  const searchParams = useSearchParams();
+  const isLogin = searchParams.get("isLogin") === "true";
+  const redirectTo = searchParams.get("redirect");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -34,6 +36,23 @@ export default function AuthPage() {
     mfaCode: "",
     backupCode: "",
   });
+
+  const validateRedirect = (url: string | null): string => {
+    if (!url) return "/dashboard";
+    
+    // Check if it's a safe relative path
+    // Starts with / but not // (which is a protocol-relative URL)
+    // Does not contain :// (which marks an absolute URL)
+    const isSafeRelative = url.startsWith("/") && !url.startsWith("//") && !url.includes("://");
+    
+    if (!isSafeRelative) return "/dashboard";
+    
+    // Optional: Restrict to allowed prefixes
+    const allowedPrefixes = ["/dashboard", "/profile", "/assess", "/invite"];
+    const isWhitelisted = allowedPrefixes.some(prefix => url.startsWith(prefix));
+    
+    return isWhitelisted ? url : "/dashboard";
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -56,7 +75,7 @@ export default function AuthPage() {
           formData.backupCode || undefined,
         );
         showToast.success("Login successful!");
-        router.push("/dashboard")
+        router.push(validateRedirect(redirectTo));
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError("Passwords do not match");
