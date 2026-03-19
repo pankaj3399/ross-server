@@ -32,7 +32,10 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
 
   return (
-    <SidebarProvider defaultOpen={!isDashboard} key={isDashboard ? 'dashboard' : 'non-dashboard'}>
+    <SidebarProvider
+      defaultOpen={!isDashboard}
+      key={isDashboard ? "dashboard" : "non-dashboard"}
+    >
       <AppSidebar />
       <SidebarInset>
         <main className="flex-1 bg-background">{children}</main>
