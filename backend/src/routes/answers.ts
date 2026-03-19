@@ -9,10 +9,10 @@ const router = Router();
 const AnswerItemSchema = z.object({
   domainId: z.string().min(1),
   practiceId: z.string().min(1),
-  level: z.enum(["1", "2", "3"]),
-  stream: z.enum(["A", "B"]),
+  level: z.string().min(1),
+  stream: z.string().min(1),
   questionIndex: z.number().int().min(0),
-  value: z.number().int().min(0).max(3),
+  value: z.number().min(0).max(3),
 });
 
 const AnswerSchema = z.object({

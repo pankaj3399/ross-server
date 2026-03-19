@@ -222,7 +222,10 @@ class ApiService {
       const error = await response
         .json()
         .catch(() => ({ error: "Network error" }));
-      const errorMessage = error.error || `HTTP ${response.status}`;
+      let errorMessage = error.error || `HTTP ${response.status}`;
+      if (typeof errorMessage === "object") {
+        errorMessage = JSON.stringify(errorMessage);
+      }
       const errorWithStatus = new Error(errorMessage) as Error & { status?: number };
       errorWithStatus.status = response.status;
       throw errorWithStatus;
