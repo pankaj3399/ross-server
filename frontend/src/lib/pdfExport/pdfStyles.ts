@@ -4,19 +4,19 @@
  */
 
 const PDF_COLORS = {
-    primary: "#4285f4",
-    primaryDark: "#4f46e5", // Indigo-600 used in icons
+    primary: "#2563eb", // Standard Blue
+    primaryDark: "#1e40af",
     white: "#ffffff",
     text: {
-        foreground: "#0f172a", // slate-900
-        muted: "#64748b",      // slate-500
-        default: "#374151",    // gray-700
-        header: "#334155",     // slate-700
+        foreground: "#020617", // slate-950 (High contrast)
+        muted: "#475569",      // slate-600 (More readable)
+        default: "#1e293b",    // slate-800
+        header: "#0f172a",     // slate-900
     },
     background: {
         white: "#ffffff",
         muted: "#f8fafc",      // slate-50
-        slate100: "#f1f5f9",
+        slate100: "#f8fafc",
         indigo50: "#eef2ff",
         green50: "#f0fdf4",
         amber50: "#fffbeb",
@@ -26,19 +26,19 @@ const PDF_COLORS = {
         slate400: "#94a3b8",
     },
     border: {
-        default: "#e2e8f0",
-        indigo: "#c7d2fe",
-        green: "#86efac",
-        amber: "#fcd34d",
-        red: "#fca5a5",
+        default: "#cbd5e1", // slate-300 (Visible)
+        indigo: "#94a3b8",
+        green: "#10b981",
+        amber: "#f59e0b",
+        red: "#ef4444",
     },
     status: {
-        success: "#059669",    // emerald-600
-        successBright: "#10b981",
-        warning: "#d97706",    // amber-600
-        warningBright: "#f59e0b",
-        destructive: "#dc2626", // red-600
-        destructiveBright: "#ef4444",
+        success: "#065f46",    // emerald-800 (High contrast)
+        successBright: "#059669",
+        warning: "#92400e",    // amber-800 (High contrast)
+        warningBright: "#d97706",
+        destructive: "#991b1b", // red-800 (High contrast)
+        destructiveBright: "#dc2626",
     }
 };
 
@@ -46,111 +46,49 @@ export const styleHeader = (root: HTMLElement) => {
     const header = root.querySelector("header");
     if (header) {
         const headerEl = header as HTMLElement;
-        // Clean white background for the content area
         headerEl.style.setProperty("background-color", "#ffffff", "important");
-        headerEl.style.setProperty("padding", "40px 48px", "important");
-        headerEl.style.marginBottom = "32px";
-        headerEl.style.textAlign = "left";
-        headerEl.style.borderBottom = `1px solid ${PDF_COLORS.border.default}`;
+        headerEl.style.setProperty("padding", "0 0 48px 0", "important");
+        headerEl.style.marginBottom = "48px";
+        headerEl.style.borderBottom = `2px solid ${PDF_COLORS.border.default}`;
         
-        // Target the outermost row and make it a simple container
-        const outerRow = headerEl.querySelector(".flex.items-center.gap-4");
-        if (outerRow) {
-            (outerRow as HTMLElement).style.setProperty("display", "block", "important");
-            (outerRow as HTMLElement).style.setProperty("width", "100%", "important");
-        }
-
         const h1 = headerEl.querySelector("h1");
-        if (h1 && h1.parentElement) {
-            const wrapper = h1.parentElement as HTMLElement;
-            // This is the CRITICAL container that needs to stack H1 and the URL div
-            wrapper.style.setProperty("display", "flex", "important");
-            wrapper.style.setProperty("flex-direction", "column", "important");
-            wrapper.style.setProperty("align-items", "flex-start", "important");
-            wrapper.style.setProperty("justify-content", "flex-start", "important");
-            wrapper.style.setProperty("gap", "28px", "important"); // Increased gap between Title and URL
-            wrapper.style.setProperty("width", "100%", "important");
+        if (h1) {
+            h1.style.setProperty("font-size", "48px", "important");
+            h1.style.setProperty("font-weight", "900", "important");
+            h1.style.setProperty("color", "#020617", "important");
+            h1.style.setProperty("line-height", "1.1", "important");
+            h1.style.setProperty("margin", "0 0 32px 0", "important");
             
-            // Header Title (H1) styling
-            h1.style.setProperty("font-size", "32px", "important");
-            h1.style.setProperty("font-weight", "800", "important");
-            h1.style.setProperty("color", "#0f172a", "important");
-            h1.style.setProperty("margin", "-14px 0 0 0", "important");
-            // Header Title (H1) styling - Clean alignment
-            h1.style.setProperty("font-size", "34px", "important");
-            h1.style.setProperty("font-weight", "800", "important");
-            h1.style.setProperty("color", "#0f172a", "important");
-            h1.style.setProperty("margin", "-14px 0 0 0", "important"); // Preserve user's top position
-            h1.style.setProperty("display", "flex", "important");
-            h1.style.setProperty("align-items", "center", "important");
-            h1.style.setProperty("gap", "14px", "important");
-            h1.style.setProperty("line-height", "1.2", "important");
-            h1.style.setProperty("transform", "none", "important");
-            
-            // Icon in H1 - Perfectly centered
-            h1.querySelectorAll("svg, .lucide").forEach(icon => {
-                const iconEl = icon as HTMLElement;
-                iconEl.style.setProperty("display", "inline-block", "important");
-                iconEl.style.setProperty("width", "30px", "important");
-                iconEl.style.setProperty("height", "30px", "important");
-                iconEl.style.setProperty("color", "#3b82f6", "important");
-                iconEl.style.setProperty("margin", "0", "important");
-                iconEl.style.setProperty("transform", "none", "important");
-                iconEl.style.setProperty("flex-shrink", "0", "important");
-                // User requested: Don't bring icons down
-                iconEl.style.setProperty("margin-top", "0", "important");
-            });
-
-            // Move the text UP by translate as requested
-            h1.querySelectorAll("span").forEach(span => {
-                span.style.setProperty("display", "inline-block", "important");
-                span.style.setProperty("margin", "0", "important");
-                span.style.setProperty("padding", "0", "important");
-                span.style.setProperty("line-height", "1", "important");
-                span.style.setProperty("transform", "translateY(-14px)", "important"); // Text nudge up
-            });
-        }
-        
-        // Select the URL metadata div
-        const urlContainer = headerEl.querySelector(".text-muted-foreground");
-        if (urlContainer) {
-            const urlEl = urlContainer as HTMLElement;
-            urlEl.style.setProperty("display", "flex", "important");
-            urlEl.style.setProperty("align-items", "center", "important");
-            urlEl.style.setProperty("gap", "10px", "important");
-            urlEl.style.setProperty("color", "#64748b", "important");
-            urlEl.style.setProperty("font-size", "15px", "important");
-            urlEl.style.setProperty("margin", "0", "important");
-            urlEl.style.setProperty("font-weight", "500", "important");
-            urlEl.style.setProperty("line-height", "1", "important");
-            urlEl.style.setProperty("margin-left", "44px", "important"); // Shift right to align with 'Security'
-            urlEl.style.setProperty("transform", "none", "important"); // Reset container transform
-
-            // PURGE the URL icon completely as requested
-            urlEl.querySelectorAll("svg, .lucide").forEach(icon => {
-                icon.remove();
-            });
-
-            // Move the URL text UP
-            urlEl.querySelectorAll("span").forEach(span => {
-                const s = span as HTMLElement;
-                // Since icon is removed, we can keep the span flex or inline-block
-                s.style.setProperty("display", "inline-block", "important");
-                s.style.setProperty("transform", "translateY(-4px)", "important");
-            });
+            const span = h1.querySelector("span");
+            if (span) span.style.setProperty("color", PDF_COLORS.primary, "important");
         }
 
-        // Force remove specific items: Back area dividers, generic buttons, etc.
-        headerEl.querySelectorAll(".h-6.w-px, .hide-in-pdf, button").forEach(el => {
-            el.remove();
-        });
-        
-        // Remove any border and background that might have been applied to header wrapper
-        headerEl.style.setProperty("border", "none", "important");
-        headerEl.style.setProperty("box-shadow", "none", "important");
-        headerEl.style.setProperty("background", "transparent", "important");
-        headerEl.style.setProperty("border-bottom", `1px solid ${PDF_COLORS.border.default}`, "important");
-        headerEl.style.setProperty("border-radius", "0", "important");
+        // Project metadata row
+        const metaRow = headerEl.querySelector(".flex-wrap");
+        if (metaRow) {
+            const metaContainer = metaRow as HTMLElement;
+            metaContainer.style.setProperty("display", "flex", "important");
+            metaContainer.style.setProperty("flex-direction", "row", "important");
+            metaContainer.style.setProperty("gap", "48px", "important");
+            
+            metaContainer.querySelectorAll(".flex-col").forEach(col => {
+                const colEl = col as HTMLElement;
+                const label = colEl.querySelector("span:first-child") as HTMLElement;
+                const value = colEl.querySelector("span:last-child") as HTMLElement;
+                
+                if (label) {
+                    label.style.setProperty("font-size", "10px", "important");
+                    label.style.setProperty("font-weight", "900", "important");
+                    label.style.setProperty("color", "#64748b", "important");
+                    label.style.setProperty("margin-bottom", "4px", "important");
+                }
+                if (value) {
+                    value.style.setProperty("font-size", "18px", "important");
+                    value.style.setProperty("font-weight", "800", "important");
+                    value.style.setProperty("color", "#020617", "important");
+                }
+            });
+        }
     }
 };
 
@@ -185,14 +123,23 @@ export const styleCards = (root: HTMLElement) => {
         elem.style.border = `1px solid ${PDF_COLORS.border.default}`;
         elem.style.overflow = "hidden";
         
-        if (classes.includes("rounded-3xl")) {
+        if (classes.includes("rounded-3xl") || classes.includes("rounded-[2.5rem]")) {
             elem.style.borderRadius = "24px";
             elem.style.boxShadow = "0 10px 25px -5px rgba(0, 0, 0, 0.05)";
-            elem.style.padding = "32px"; // Increased from 24
+            elem.style.padding = "32px";
+            
+            // Special handling for the overall score card to ensure vertical centering
+            if (elem.querySelector(".pdf-huge-score")) {
+                elem.style.setProperty("display", "flex", "important");
+                elem.style.setProperty("flex-direction", "column", "important");
+                elem.style.setProperty("justify-content", "center", "important");
+                elem.style.setProperty("min-height", "540px", "important");
+                elem.style.setProperty("padding", "40px", "important");
+            }
         } else {
             elem.style.borderRadius = "16px";
             elem.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05)";
-            elem.style.padding = "24px"; // Increased from 20
+            elem.style.padding = "24px";
         }
     });
 };
@@ -226,23 +173,26 @@ export const styleVerdictColors = (root: HTMLElement) => {
         });
     };
 
-    applyColors("[class*='bg-green-50'], [class*='bg-success'], [class*='bg-emerald-50']", PDF_COLORS.background.green50, PDF_COLORS.border.green, PDF_COLORS.status.success);
-    applyColors("[class*='bg-amber-50'], [class*='bg-warning'], [class*='bg-yellow-50']", PDF_COLORS.background.amber50, PDF_COLORS.border.amber, PDF_COLORS.status.warning);
-    applyColors("[class*='bg-red-50'], [class*='bg-destructive'], [class*='bg-rose-50']", PDF_COLORS.background.red50, PDF_COLORS.border.red, PDF_COLORS.status.destructive);
+    applyColors("[class*='bg-green-50'], [class*='bg-success'], [class*='bg-emerald-50']", "#f0fdf4", "#10b981", "#065f46");
+    applyColors("[class*='bg-amber-50'], [class*='bg-warning'], [class*='bg-yellow-50']", "#fffbeb", "#f59e0b", "#92400e");
+    applyColors("[class*='bg-red-50'], [class*='bg-destructive'], [class*='bg-rose-50']", "#fef2f2", "#ef4444", "#991b1b");
 
-    root.querySelectorAll("[class*='text-green'], [class*='text-emerald']").forEach(el => { (el as HTMLElement).style.color = PDF_COLORS.status.success; });
-    root.querySelectorAll("[class*='text-amber'], [class*='text-yellow']").forEach(el => { (el as HTMLElement).style.color = PDF_COLORS.status.warning; });
-    root.querySelectorAll("[class*='text-red'], [class*='text-rose']").forEach(el => { (el as HTMLElement).style.color = PDF_COLORS.status.destructive; });
+    root.querySelectorAll("[class*='text-green'], [class*='text-emerald']").forEach(el => { (el as HTMLElement).style.setProperty("color", "#065f46", "important"); });
+    root.querySelectorAll("[class*='text-amber'], [class*='text-yellow']").forEach(el => { (el as HTMLElement).style.setProperty("color", "#92400e", "important"); });
+    root.querySelectorAll("[class*='text-red'], [class*='text-rose']").forEach(el => { (el as HTMLElement).style.setProperty("color", "#991b1b", "important"); });
 };
 
 export const styleTypography = (root: HTMLElement) => {
     root.querySelectorAll("h1, h2, h3, h4").forEach((el) => {
         const elem = el as HTMLElement;
-        elem.style.fontWeight = "700";
-        elem.style.color = PDF_COLORS.text.foreground;
-        elem.style.lineHeight = "1.4"; // Increased from 1.3
-        elem.style.margin = "16px 0 24px 0"; // Increased margins back
+        elem.style.fontWeight = "900";
+        elem.style.color = "#020617";
+        elem.style.lineHeight = "1.2";
+        elem.style.margin = "12px 0 16px 0";
         elem.style.display = "block";
+        
+        if (elem.tagName === "H3") elem.style.fontSize = "24px";
+        if (elem.tagName === "H4") elem.style.fontSize = "18px";
     });
 
     // Handle small labels (often used above input/data boxes)
@@ -340,22 +290,31 @@ export const styleTypography = (root: HTMLElement) => {
                     const isIcon = child.querySelector("svg") || child.tagName === "SVG" || child.classList.contains("lucide");
                     
                     if (isIcon) {
-                        // Icons are floating too high, pull them DOWN
-                        child.style.setProperty("margin-top", "0px", "important"); 
-                        child.style.setProperty("margin-bottom", "0px", "important");
-                        child.style.setProperty("vertical-align", "middle", "important");
+                        child.style.setProperty("display", "inline-flex", "important");
+                        child.style.setProperty("align-items", "center", "important");
+                        const svg = child.querySelector("svg") || (child.tagName === "SVG" ? child : null) as HTMLElement;
+                        if (svg) {
+                            svg.style.setProperty("margin-top", "0px", "important");
+                        }
                     } else {
-                        // Text is too low relative to icons, pull it UP aggressively
-                        // Using multiple properties to force the renderer's hand
-                        child.style.setProperty("display", "inline-block", "important");
-                        child.style.setProperty("margin-top", "0px", "important"); // Extreme nudge
-                        child.style.setProperty("transform", "translateY(-4px)", "important"); // Layered nudge
-                        child.style.setProperty("padding-bottom", "12px", "important");
-                        child.style.setProperty("line-height", "1", "important");
+                        // Text node handling
+                        const hasFlexGrow = child.classList.contains("flex-grow") || child.classList.contains("flex-1");
+                        
+                        if (hasFlexGrow) {
+                            child.style.setProperty("display", "block", "important");
+                            child.style.setProperty("flex", "1", "important");
+                            child.style.setProperty("flex-grow", "1", "important");
+                        } else {
+                            child.style.setProperty("display", "inline-block", "important");
+                        }
+                        
+                        child.style.setProperty("line-height", "1.2", "important");
+                        
+                        const isJustifyBetween = container.classList.contains("justify-between");
+                        if (!isJustifyBetween && !hasFlexGrow) {
+                            child.style.setProperty("transform", "translateY(-4px)", "important");
+                        }
                     }
-                    
-                    child.style.setProperty("display", "inline-flex", "important");
-                    child.style.setProperty("align-items", "center", "important");
                 }
             });
         }
@@ -363,6 +322,17 @@ export const styleTypography = (root: HTMLElement) => {
 
     root.querySelectorAll("[class*='text-muted'], [class*='text-slate-500'], [class*='text-slate-400']").forEach(el => {
         (el as HTMLElement).style.color = PDF_COLORS.text.muted;
+    });
+
+    // Specific fix for the blue vertical status bars in headers
+    root.querySelectorAll(".w-1.h-8.bg-primary, .w-1\\.5.h-6.bg-primary\\/20, .bg-primary").forEach(bar => {
+        const barEl = bar as HTMLElement;
+        if (barEl.classList.contains("bg-primary") && !barEl.classList.contains("rounded-full")) {
+            barEl.style.setProperty("background-color", PDF_COLORS.primary, "important");
+            barEl.style.setProperty("min-width", "4px", "important");
+            barEl.style.setProperty("height", "24px", "important");
+            barEl.style.setProperty("border-radius", "4px", "important");
+        }
     });
 };
 
@@ -419,14 +389,16 @@ export const styleMetricCards = (root: HTMLElement) => {
         });
 
         // Style labels
-        const labels = elem.querySelectorAll(".text-sm, .text-xs");
+        const labels = elem.querySelectorAll(".text-sm, .text-xs, [class*='text-[10px]']");
         labels.forEach(l => {
             const label = l as HTMLElement;
-            label.style.fontSize = "14px"; // Increased
-            label.style.fontWeight = "800"; // Bolder
-            label.style.letterSpacing = "0.05em";
-            label.style.color = "#475569";
+            label.style.fontSize = "12px";
+            label.style.fontWeight = "900";
+            label.style.letterSpacing = "0.1em";
+            label.style.color = "#64748b";
             label.style.textTransform = "uppercase";
+            label.style.marginBottom = "8px";
+            label.style.display = "block";
         });
     });
     
@@ -452,27 +424,31 @@ export const styleMetricCards = (root: HTMLElement) => {
 };
 
 export const styleCircleScores = (root: HTMLElement) => {
-    root.querySelectorAll(".pdf-overall-score-container, .pdf-percentage-circle").forEach(el => {
-        const container = el as HTMLElement;
-        container.style.display = "flex";
-        container.style.alignItems = "center";
-        container.style.justifyContent = "center";
-        container.style.position = "relative";
-        
-        if (container.classList.contains("pdf-overall-score-container")) {
-            container.style.width = "240px";
-            container.style.height = "240px";
-            container.style.margin = "0 auto 32px auto";
-            
-            const value = container.querySelector(".pdf-overall-score-value");
-            if (value) (value as HTMLElement).style.fontSize = "64px";
-            
-            const label = container.querySelector(".pdf-overall-score-label");
-            if (label) (label as HTMLElement).style.fontSize = "16px";
-        }
+    // Huge Score Scaling (0.00 / 3.0)
+    root.querySelectorAll(".pdf-huge-score").forEach(el => {
+        const score = el as HTMLElement;
+        score.style.setProperty("font-size", "92px", "important"); // Slightly smaller than 110px for better fit
+        score.style.setProperty("font-weight", "900", "important");
+        score.style.setProperty("line-height", "1", "important");
+        score.style.setProperty("color", "#020617", "important");
+        score.style.setProperty("margin", "0", "important");
+        score.style.setProperty("letter-spacing", "-2px", "important");
+        score.style.setProperty("display", "block", "important");
+        score.style.setProperty("text-align", "center", "important");
     });
 
-    // Handle small score circles
+    root.querySelectorAll(".pdf-score-label").forEach(el => {
+        const label = el as HTMLElement;
+        label.style.setProperty("font-size", "14px", "important");
+        label.style.setProperty("font-weight", "900", "important");
+        label.style.setProperty("letter-spacing", "0.3em", "important");
+        label.style.setProperty("color", "#64748b", "important");
+        label.style.setProperty("margin-top", "24px", "important");
+        label.style.setProperty("display", "block", "important");
+        label.style.setProperty("text-align", "center", "important");
+    });
+
+    // Handle small score circles in lists
     root.querySelectorAll(".rounded-full.w-12.h-12").forEach(el => {
         const circle = el as HTMLElement;
         circle.style.width = "48px";
@@ -484,20 +460,20 @@ export const styleCircleScores = (root: HTMLElement) => {
 };
 
 export const fixProgressBars = (root: HTMLElement) => {
-    root.querySelectorAll(".h-1\\.5, .h-2, .h-3, [role='progressbar']").forEach((container) => {
+    root.querySelectorAll(".h-1\\.5, .h-2, .h-3, .h-4, [role='progressbar']").forEach((container) => {
         const containerEl = container as HTMLElement;
         if (!containerEl.classList.contains("rounded-full")) return;
 
         // Force container to be a stable relative base
         containerEl.style.setProperty("background-color", PDF_COLORS.background.slate200, "important");
-        containerEl.style.setProperty("height", "8px", "important"); // Increased from 6px
+        containerEl.style.setProperty("height", "12px", "important"); // Thicker for better visibility
         containerEl.style.setProperty("width", "100%", "important");
-        containerEl.style.setProperty("border-radius", "4px", "important"); // Slightly smaller radius is more stable
+        containerEl.style.setProperty("border-radius", "6px", "important");
         containerEl.style.setProperty("overflow", "hidden", "important");
-        containerEl.style.setProperty("margin-top", "8px", "important");
+        containerEl.style.setProperty("margin-top", "12px", "important");
         containerEl.style.setProperty("position", "relative", "important");
         containerEl.style.setProperty("padding", "0", "important");
-        containerEl.style.setProperty("display", "block", "important"); // Switch from flex to block for absolute child
+        containerEl.style.setProperty("display", "block", "important");
 
         const bar = containerEl.querySelector("div") as HTMLElement;
         if (bar) {
@@ -584,16 +560,17 @@ export const styleBadges = (root: HTMLElement) => {
         }
     });
 
-    root.querySelectorAll(".rounded-lg.text-sm.font-semibold, .inline-flex.rounded-lg, .rounded-md.text-\\[10px\\], .pdf-badge").forEach(el => {
+    root.querySelectorAll(".rounded-lg.text-sm.font-semibold, .inline-flex.rounded-lg, .rounded-md.text-\\[10px\\], .pdf-badge, .rounded-xl:not(.w-12)").forEach(el => {
         const badge = el as HTMLElement;
         badge.style.setProperty("display", "inline-flex", "important");
         badge.style.setProperty("align-items", "center", "important");
         badge.style.setProperty("justify-content", "center", "important");
-        badge.style.setProperty("padding", "6px 16px 10px 16px", "important"); // Stronger bottom padding for centering
+        badge.style.setProperty("padding", "6px 12px 8px 12px", "important"); 
         badge.style.setProperty("border-radius", "8px", "important");
-        badge.style.setProperty("font-weight", "800", "important");
-        badge.style.setProperty("font-size", "16px", "important"); 
+        badge.style.setProperty("font-weight", "900", "important");
+        badge.style.setProperty("font-size", "12px", "important"); 
         badge.style.setProperty("text-transform", "uppercase", "important");
+        badge.style.setProperty("line-height", "1", "important");
     });
 };
 

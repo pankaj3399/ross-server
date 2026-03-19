@@ -1,4 +1,4 @@
-import { useState, useCallback, RefObject, useRef } from "react";
+import React, { useState, useCallback, RefObject, useRef } from "react";
 import {
     styleHeader, styleGrid, styleCards, styleSectionCards,
     styleUploadInfo, styleAnalysisParams, styleVerdictColors,
@@ -6,6 +6,8 @@ import {
     styleIcons, styleMutedBackgrounds, fixProgressBars, styleCircleScores,
     styleScoreBadges
 } from "../lib/pdfExport/pdfStyles";
+import { pdf } from "@react-pdf/renderer";
+import { AimaPdfDocument } from "../lib/pdfExport/AimaPdfDocument";
 
 interface PdfExportOptions {
     reportRef: RefObject<HTMLDivElement>;
@@ -167,8 +169,10 @@ export const usePdfReport = ({
     reportTitle = "Assessment Report",
     projectName,
     generatedAt = new Date(),
-    sectionSelector
-}: PdfExportOptions) => {
+    sectionSelector,
+    // Add AIMA specific data for vector export
+    aimaData
+}: PdfExportOptions & { aimaData?: { results: any, performance: any, nonPremiumDomains: any[] } }) => {
     const [isExporting, setIsExporting] = useState(false);
     const isExportingRef = useRef(false);
 
@@ -203,29 +207,16 @@ export const usePdfReport = ({
             const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
             const { margin, headerHeight, footerHeight } = PDF_CONFIG;
             const usableWidth = pageWidth - 2 * margin; // 190mm
-            const contentTop = 30; // Almost flush with header (28mm)
+            const contentTop = margin; // Start from top margin since we removed the 28mm header
             const contentBottom = pageHeight - footerHeight - 5;
             const usableHeight = contentBottom - contentTop;
 
             // Helper: Add header to current page
             const addPageHeader = (pdfDoc: any, pageNum: number, totalPages: number) => {
-                // Clear the header area with white rect first to avoid content bleed
-                pdfDoc.setFillColor(255, 255, 255);
-                pdfDoc.rect(0, 0, pageWidth, 28, "F");
-
-                // FULL BLEED Header background
-                pdfDoc.setFillColor(66, 133, 244); 
-                pdfDoc.rect(0, 0, pageWidth, 28, "F");
-
-                // Report title - centered white text
-                pdfDoc.setFont("helvetica", "bold");
-                pdfDoc.setFontSize(11);
-                pdfDoc.setTextColor(255, 255, 255);
-                pdfDoc.text(reportTitle.toUpperCase(), pageWidth / 2, 17, { align: "center" });
-                
-                // Brand indicator
-                pdfDoc.setFontSize(9);
-                pdfDoc.text("MATUR.ai", margin, 17);
+                // We are now using a rich header component in the page itself,
+                // so we don't need the redundant blue bar header here.
+                // Reset text color for any subsequent drawing
+                pdfDoc.setTextColor(15, 23, 42); 
             };
 
             // Helper: Add footer to current page
@@ -251,7 +242,7 @@ export const usePdfReport = ({
             container.style.position = "absolute";
             container.style.top = "0";
             container.style.left = "-10000px"; 
-            container.style.width = "1100px";
+            container.style.width = "1280px"; // Deterministic desktop width
             container.style.padding = "0px";
             container.style.backgroundColor = "#ffffff";
             container.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -366,10 +357,10 @@ export const usePdfReport = ({
                         if (pageBlocks.length === 1 && (pageBlocks[0].offsetHeight * usableWidth / pageBlocks[0].offsetWidth) > usableHeight) {
                             const giantBlock = pageBlocks[0];
                             const canvas = await html2canvas(giantBlock, {
-                                scale: 1.8,
+                                scale: 2.0,
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
-                                windowWidth: 1100,
+                                windowWidth: 1280,
                             });
                             
                             const pxPerMm = canvas.width / usableWidth;
@@ -392,7 +383,7 @@ export const usePdfReport = ({
                             // Normal page: Capture all blocks together
                             // Create a temporary container for this specific page's blocks
                             const pageContainer = document.createElement("div");
-                            pageContainer.style.width = "1100px";
+                            pageContainer.style.width = "1280px";
                             pageContainer.style.backgroundColor = "#ffffff";
                             pageContainer.style.display = "flex";
                             pageContainer.style.flexDirection = "column";
@@ -471,5 +462,28 @@ export const usePdfReport = ({
         }
     }, [reportRef, fileName, reportTitle, projectName, generatedAt, sectionSelector]);
 
-    return { exportPdf, isExporting };
+    const exportVectorPdf = useCallback(async () => {
+        if (!aimaData) return;
+        setIsExporting(true);
+        try {
+            const doc = React.createElement(AimaPdfDocument, {
+                results: aimaData.results,
+                nonPremiumDomains: aimaData.nonPremiumDomains
+            }) as any;
+            
+            const blob = await pdf(doc).toBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error("Vector PDF export failed:", error);
+        } finally {
+            setIsExporting(false);
+        }
+    }, [aimaData, fileName]);
+
+    return { exportPdf, exportVectorPdf, isExporting };
 };

@@ -353,7 +353,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         setCrcResponses(crcResponsesData.responses || {});
 
                         // Extract unique categories
-                        const categories = Array.from(new Set(controls.map(c => c.category_name))).sort();
+                        const categories = Array.from(new Set(controls.filter(c => c.category_name).map(c => c.category_name))).sort() as string[];
                         setCrcCategories(categories);
                     } catch (err) {
                         console.error("Failed to fetch CRC data:", err);

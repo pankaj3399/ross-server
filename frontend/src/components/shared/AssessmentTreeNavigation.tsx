@@ -623,7 +623,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       )}
                                       {item.id === "crc" && crcCategories.length > 0 && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
-                                          {crcCategories.map((cat: string, catIdx: number) => {
+                                          {crcCategories.filter((cat: string) => (controlsByCategory[cat] || []).length > 0).map((cat: string, catIdx: number) => {
                                             const catControls = controlsByCategory[cat] || [];
                                             const answeredInCat = catControls.filter((c: CRCControl) => crcResponses[c.id] !== undefined).length;
                                             const isCatExpanded = expandedCrcCategories[cat];

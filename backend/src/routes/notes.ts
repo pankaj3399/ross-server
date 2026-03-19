@@ -11,8 +11,8 @@ const NoteSchema = z.object({
   projectId: z.string().min(1),
   domainId: z.string().min(1),
   practiceId: z.string().min(1),
-  level: z.enum(["1", "2", "3"]),
-  stream: z.enum(["A", "B"]),
+  level: z.string().min(1),
+  stream: z.string().min(1),
   questionIndex: z.number().int().min(0),
   note: z.string().max(5000).optional(),
 });
