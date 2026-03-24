@@ -38,8 +38,10 @@ const aimaMappingSchema = z.object({
 
 // Create/Update Control Schema
 const controlSchema = z.object({
-  control_id: z.string().min(1, "Control ID is required").max(20, "Control ID must be 20 chars max"),
-  control_title: z.string().min(1, "Title is required").max(200, "Title must be 200 chars max"),
+  control_id: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Control ID is required").max(20, "Control ID must be 20 chars max")),
+  control_title: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Title is required").max(200, "Title must be 200 chars max")),
   category_id: z.number().int().min(1, "Category ID is required"),
   expected_timeline: z.string().optional().default(""),
   priority: z.string().min(1, "Priority is required"),
@@ -57,18 +59,20 @@ const controlSchema = z.object({
 // Transition Schema
 const transitionSchema = z.object({
   status: z.enum(["Draft", "In Review", "Published", "Archived"]),
-  note: z.string().optional(),
+  note: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().optional()),
 });
 
 // Export Schema
 const exportSchema = z.object({
-  ids: z.array(z.string()).min(1, "At least one control must be selected"),
+  ids: z.array(z.string().uuid()).min(1, "At least one control must be selected"),
   format: z.enum(["json", "csv"]),
 });
 
 // Category Schema
 const categoryNameSchema = z.object({
-  name: z.string().trim().min(1, "Category name is required").max(100, "Category name must be 100 chars max"),
+  name: z.preprocess((val) => (typeof val === "string" ? val.trim() : val), 
+    z.string().min(1, "Category name is required").max(100, "Category name must be 100 chars max")),
 });
 
 // --- Helper Functions ---
@@ -139,10 +143,13 @@ router.post("/categories", authenticateToken, requireRole(["ADMIN"]), async (req
       [name.trim()]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating category:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: error.errors });
+    }
+    if (error.code === "23505") {
+      return res.status(400).json({ success: false, error: "Category already exists" });
     }
     res.status(500).json({ success: false, error: "Failed to create category" });
   }
@@ -176,10 +183,13 @@ router.put("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (
     }
 
     res.json({ success: true, data: result.rows[0] });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating category:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: error.errors });
+    }
+    if (error.code === "23505") {
+      return res.status(400).json({ success: false, error: "Category name already exists" });
     }
     res.status(500).json({ success: false, error: "Failed to update category" });
   }
