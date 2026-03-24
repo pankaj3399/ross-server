@@ -344,6 +344,16 @@ export default function CRCAdminPage() {
             const res = await api.getCRCControls(params);
             if (signal?.aborted) return;
             setControls(res.data);
+            
+            // Prune selectedIds that are no longer in the fetched controls
+            const validIds = new Set(res.data.map((c: any) => c.id));
+            setSelectedIds(prev => {
+                const next = new Set<string>();
+                prev.forEach(id => {
+                    if (validIds.has(id)) next.add(id);
+                });
+                return next;
+            });
         } catch (error) {
             if (signal?.aborted) return;
             toast.error("Failed to fetch controls");
@@ -821,6 +831,7 @@ export default function CRCAdminPage() {
             setEditingCategory(null);
             setNewCategoryName("");
             fetchCategories();
+            fetchControls(); // Refresh controls to update category names in the list
         } catch (error: any) {
             toast.error(error.message || "Failed to update category");
         } finally {
@@ -829,11 +840,19 @@ export default function CRCAdminPage() {
     };
 
     const handleDeleteCategory = async (id: number) => {
+        if (!window.confirm("Are you sure you want to delete this category?")) return;
         setCategoryActionLoading(true);
         try {
             await apiService.deleteCRCCategory(id);
             toast.success("Category deleted");
+            
+            // Reset category filter if the deleted category was selected
+            if (categoryFilter === id.toString()) {
+                setCategoryFilter("all");
+            }
+            
             fetchCategories();
+            fetchControls(); // Refresh controls list
         } catch (error: any) {
             toast.error(error.message || "Failed to delete category");
         } finally {
@@ -1284,6 +1303,7 @@ export default function CRCAdminPage() {
                                     <Checkbox
                                         checked={controls.length > 0 && selectedIds.size === controls.length}
                                         onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                        aria-label="Select all visible controls"
                                     />
                                 </TableHead>
                                 <TableHead>Control ID</TableHead>
@@ -1306,6 +1326,7 @@ export default function CRCAdminPage() {
                                             <Checkbox
                                                 checked={selectedIds.has(control.id)}
                                                 onCheckedChange={() => toggleSelection(control.id)}
+                                                aria-label={`Select ${control.control_id}`}
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">{control.control_id}</TableCell>
@@ -1635,6 +1656,7 @@ export default function CRCAdminPage() {
                                                         size="icon"
                                                         onClick={() => startEditingCategory(cat)}
                                                         disabled={categoryActionLoading}
+                                                        aria-label={`Edit category ${cat.name}`}
                                                     >
                                                         <IconEdit className="size-4" />
                                                     </Button>
@@ -1644,6 +1666,7 @@ export default function CRCAdminPage() {
                                                         className="text-destructive"
                                                         onClick={() => handleDeleteCategory(cat.id)}
                                                         disabled={categoryActionLoading}
+                                                        aria-label={`Delete category ${cat.name}`}
                                                     >
                                                         <IconTrash className="size-4" />
                                                     </Button>

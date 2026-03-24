@@ -614,7 +614,10 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
 // DELETE /crc/controls/bulk - Bulk delete controls
 router.delete("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { ids } = z.object({ ids: z.array(z.string()).min(1) }).parse(req.body);
+    const MAX_BATCH_SIZE = 500;
+    const { ids } = z.object({ 
+      ids: z.array(z.string()).min(1).max(MAX_BATCH_SIZE) 
+    }).parse(req.body);
 
     const result = await pool.query(
       "DELETE FROM crc_controls WHERE id = ANY($1) RETURNING id",
@@ -629,7 +632,11 @@ router.delete("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async
   } catch (error) {
     console.error("Error bulk deleting controls:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ success: false, error: "Invalid control IDs" });
+      const isTooLarge = error.errors.some(e => e.code === "too_big");
+      return res.status(400).json({ 
+        success: false, 
+        error: isTooLarge ? "Batch size cannot exceed 500 controls" : "Invalid control IDs" 
+      });
     }
     res.status(500).json({ success: false, error: "Failed to bulk delete controls" });
   }
