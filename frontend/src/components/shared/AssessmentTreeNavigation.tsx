@@ -96,9 +96,9 @@ const DOMAIN_PRIORITY = [
 const normalize = (value?: string) => value?.trim().toLowerCase() || "";
 
 const getRouteFlags = (pathname: string | null) => {
-  const isCrcPage = !!pathname?.includes('/crc');
-  const isFairnessPage = !!pathname?.includes('/fairness-bias');
-  const isTeamPage = !!pathname?.includes('/team');
+  const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/);
+  const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
+  const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
   const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !!pathname?.match(/\/assess\/[^/]+$/);
   return { isCrcPage, isFairnessPage, isTeamPage, isAimaPage };
 };
@@ -734,9 +734,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
                                             return (
                                               <SidebarMenuSubItem key={cat}>
-                                                <div className="flex items-center gap-1">
+                                                <div className="flex items-center gap-1 group/cat">
                                                   <button
                                                     type="button"
+                                                    aria-label={`Toggle ${cat} category`}
                                                     aria-expanded={isCatExpanded}
                                                     aria-controls={`crc-category-${catIdx}`}
                                                     onClick={(e) => {
