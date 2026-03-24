@@ -301,21 +301,6 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     };
   }, [orderedDomains]);
 
-  const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
-  const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
-    activeDomainId && currentPracticeId ? { [activeDomainId]: currentPracticeId } : {}
-  );
-  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
-  const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
-  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
-  const [isFairnessExpanded, setIsFairnessExpanded] = useState(false);
-  const [isCrcExpanded, setIsCrcExpanded] = useState(true); // Default to expanded for better visibility if on CRC page
-  const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>({});
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [modalTitle, setModalTitle] = useState("Choose Your Plan");
-  const [modalDescription, setModalDescription] = useState<string | undefined>();
-
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryCategory = searchParams.get("category");
@@ -323,6 +308,29 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
   const activeControl = crcControls.find(c => c.id === currentControlId);
   const currentCategory = activeControl ? activeControl.category_name : queryCategory;
+
+  // Derive initial expansion states from pathname
+  const isCrcPage = pathname?.includes('/crc');
+  const isFairnessPage = pathname?.includes('/fairness-bias');
+  const isTeamPage = pathname?.includes('/team');
+  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && pathname?.match(/\/assess\/[^/]+$/);
+
+  const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
+  const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
+    activeDomainId && currentPracticeId ? { [activeDomainId]: currentPracticeId } : {}
+  );
+  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(!!isAimaPage);
+  const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
+  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(!!isCrcPage || !!isFairnessPage);
+  const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!isFairnessPage);
+  const [isCrcExpanded, setIsCrcExpanded] = useState(!!isCrcPage);
+  const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
+    currentCategory ? { [currentCategory]: true } : {}
+  );
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [modalTitle, setModalTitle] = useState("Choose Your Plan");
+  const [modalDescription, setModalDescription] = useState<string | undefined>();
 
   // Automatically manage expansion state based on the current route
   useEffect(() => {
@@ -471,16 +479,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         aria-valuemin={200}
         aria-valuemax={typeof window !== "undefined" ? window.innerWidth * 0.5 : 800}
         tabIndex={0}
-        className="absolute left-[-3px] top-0 bottom-0 w-1.5 cursor-ew-resize z-50 group focus-visible:outline-none"
+        className="absolute left-[-3px] top-0 bottom-0 w-1.5 cursor-ew-resize z-50 group focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
         onMouseDown={(e) => {
           e.preventDefault();
           setIsResizing(true);
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setIsResizing(true);
-          } else if (e.key === "ArrowLeft") {
+          if (e.key === "ArrowLeft") {
             e.preventDefault();
             setSidebarWidth(prev => Math.min(prev + 10, window.innerWidth * 0.5));
           } else if (e.key === "ArrowRight") {
@@ -489,6 +494,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
           } else if (e.key === "Escape") {
             e.preventDefault();
             setIsResizing(false);
+            e.currentTarget.blur();
           }
         }}
       >
