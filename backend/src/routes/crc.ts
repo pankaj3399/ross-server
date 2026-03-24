@@ -68,7 +68,7 @@ const exportSchema = z.object({
 
 // Category Schema
 const categoryNameSchema = z.object({
-  name: z.string().min(1, "Category name is required").max(100, "Category name must be 100 chars max"),
+  name: z.string().trim().min(1, "Category name is required").max(100, "Category name must be 100 chars max"),
 });
 
 // --- Helper Functions ---
@@ -622,7 +622,7 @@ router.delete("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async
   try {
     const MAX_BATCH_SIZE = 500;
     const { ids } = z.object({ 
-      ids: z.array(z.string()).min(1).max(MAX_BATCH_SIZE) 
+      ids: z.array(z.string().uuid()).min(1).max(MAX_BATCH_SIZE) 
     }).parse(req.body);
 
     const result = await pool.query(
