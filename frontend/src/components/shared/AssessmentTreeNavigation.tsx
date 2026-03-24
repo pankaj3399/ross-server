@@ -95,6 +95,14 @@ const DOMAIN_PRIORITY = [
 
 const normalize = (value?: string) => value?.trim().toLowerCase() || "";
 
+const getRouteFlags = (pathname: string | null) => {
+  const isCrcPage = !!pathname?.includes('/crc');
+  const isFairnessPage = !!pathname?.includes('/fairness-bias');
+  const isTeamPage = !!pathname?.includes('/team');
+  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !!pathname?.match(/\/assess\/[^/]+$/);
+  return { isCrcPage, isFairnessPage, isTeamPage, isAimaPage };
+};
+
 const CompactProgress = ({ current, total, isCompleted, size = "default" }: { current: number; total: number; isCompleted: boolean; size?: "default" | "sm" }) => {
   return (
     <span
@@ -310,10 +318,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const currentCategory = activeControl ? activeControl.category_name : queryCategory;
 
   // Derive initial expansion states from pathname
-  const isCrcPage = pathname?.includes('/crc');
-  const isFairnessPage = pathname?.includes('/fairness-bias');
-  const isTeamPage = pathname?.includes('/team');
-  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && pathname?.match(/\/assess\/[^/]+$/);
+  const { isCrcPage, isFairnessPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
   const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
@@ -336,13 +341,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   useEffect(() => {
     if (!pathname) return;
 
-    const isCrcPage = pathname.includes('/crc');
-    const isFairnessPage = pathname.includes('/fairness-bias');
-    const isTeamPage = pathname.includes('/team');
-    // If we're under /assess/[projectId] but not in one of the specific premium sub-paths,
-    // it's considered the core AIMA assessment.
-    const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && 
-                       pathname.match(/\/assess\/[^/]+$/);
+    const { isCrcPage, isFairnessPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
 
     if (isCrcPage) {
       setIsAssessmentExpanded(false);
@@ -735,49 +734,51 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
 
                                             return (
                                               <SidebarMenuSubItem key={cat}>
-                                                <SidebarMenuSubButton
-                                                  onClick={() => {
-                                                    if (premiumStatus) {
-                                                      router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`);
-                                                      setExpandedCrcCategories(prev => ({ ...prev, [cat]: true }));
-                                                    } else {
-                                                      openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
-                                                    }
-                                                  }}
-                                                  className="h-8 px-2 group/cat"
-                                                  isActive={currentCategory === cat}
-                                                >
-                                                   <button
-                                                     type="button"
-                                                     aria-expanded={isCatExpanded}
-                                                     aria-controls={`crc-category-${catIdx}`}
-                                                     onClick={(e) => {
-                                                       e.stopPropagation();
-                                                       setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
-                                                     }}
-                                                     className="p-1 hover:bg-sidebar-accent rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
-                                                   >
-                                                     <IconChevronRight
-                                                       className={cn(
-                                                         "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
-                                                         isCatExpanded && "rotate-90"
-                                                       )}
-                                                     />
-                                                   </button>
-                                                   <IconFolder className="h-3.5 w-3.5 text-muted-foreground group-hover/cat:text-foreground" />
-                                                  <span className={cn(
-                                                    "text-[13px] truncate ml-2 transition-colors",
-                                                    currentCategory === cat ? "text-foreground font-medium" : "text-foreground/70 group-hover/cat:text-foreground"
-                                                  )}>
-                                                    {cat}
-                                                  </span>
-                                                  <CompactProgress
-                                                    current={answeredInCat}
-                                                    total={catControls.length}
-                                                    isCompleted={answeredInCat === catControls.length && catControls.length > 0}
-                                                    size="sm"
-                                                  />
-                                                </SidebarMenuSubButton>
+                                                <div className="flex items-center gap-1">
+                                                  <button
+                                                    type="button"
+                                                    aria-expanded={isCatExpanded}
+                                                    aria-controls={`crc-category-${catIdx}`}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
+                                                    }}
+                                                    className="h-8 w-6 flex items-center justify-center hover:bg-sidebar-accent rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                                  >
+                                                    <IconChevronRight
+                                                      className={cn(
+                                                        "h-3 w-3 transition-transform text-muted-foreground group-hover/cat:text-foreground",
+                                                        isCatExpanded && "rotate-90"
+                                                      )}
+                                                    />
+                                                  </button>
+                                                  <SidebarMenuSubButton
+                                                    onClick={() => {
+                                                      if (premiumStatus) {
+                                                        router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`);
+                                                        setExpandedCrcCategories(prev => ({ ...prev, [cat]: true }));
+                                                      } else {
+                                                        openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                      }
+                                                    }}
+                                                    className="h-8 px-2 flex-1 group/cat"
+                                                    isActive={currentCategory === cat}
+                                                  >
+                                                    <IconFolder className="h-3.5 w-3.5 text-muted-foreground group-hover/cat:text-foreground" />
+                                                    <span className={cn(
+                                                      "text-[13px] truncate ml-2 transition-colors",
+                                                      currentCategory === cat ? "text-foreground font-medium" : "text-foreground/70 group-hover/cat:text-foreground"
+                                                    )}>
+                                                      {cat}
+                                                    </span>
+                                                    <CompactProgress
+                                                      current={answeredInCat}
+                                                      total={catControls.length}
+                                                      isCompleted={answeredInCat === catControls.length && catControls.length > 0}
+                                                      size="sm"
+                                                    />
+                                                  </SidebarMenuSubButton>
+                                                </div>
 
                                                 {isCatExpanded && catControls.length > 0 && (
                                                   <SidebarMenuSub id={`crc-category-${catIdx}`} className="border-l border-sidebar-border/50 ml-2 pl-3 mt-1 gap-0.5">
@@ -865,10 +866,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                         <SidebarMenuItem>
                           <SidebarMenuButton
                             onClick={() => router.push(`/assess/${projectId}/team`)}
+                            isActive={pathname.includes('/team')}
                             className="group/settings-btn h-10 px-2"
                           >
-                            <IconUsers className="ml-1 h-5 w-5 text-muted-foreground group-hover/settings-btn:text-foreground" />
-                            <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/settings-btn:text-foreground">
+                            <IconUsers className={cn(
+                              "ml-1 h-5 w-5",
+                              pathname.includes('/team') ? "text-primary" : "text-muted-foreground group-hover/settings-btn:text-foreground"
+                            )} />
+                            <span className={cn(
+                              "font-semibold text-[14px] truncate ml-2 transition-colors",
+                              pathname.includes('/team') ? "text-foreground" : "text-foreground/80 group-hover/settings-btn:text-foreground"
+                            )}>
                               TEAMS
                             </span>
                           </SidebarMenuButton>
