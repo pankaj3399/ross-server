@@ -20,7 +20,7 @@ import {
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { PREMIUM_STATUS } from "../../lib/constants";
 import { CRCControl } from "../../lib/api";
 import { cn } from "@/lib/utils";
@@ -210,11 +210,11 @@ const DomainTreeItem = ({
                                 isActive={isQuestionActive}
                                 className="h-7 px-2 group/question"
                               >
-                                <div className={cn(
-                                  "w-1.5 h-1.5 rounded-full transition-colors",
-                                  q.isAnswered ? "bg-primary" : "border border-muted-foreground/40",
-                                  isQuestionActive && "ring-2 ring-primary/20"
-                                )} />
+                                {q.isAnswered ? (
+                                  <IconCircleCheck className={cn("h-3.5 w-3.5", isQuestionActive ? "text-primary" : "text-success")} />
+                                ) : (
+                                  <IconCircle className={cn("h-3.5 w-3.5", isQuestionActive ? "text-primary" : "text-muted-foreground/40")} />
+                                )}
                                 <span className={cn(
                                   "text-[12px] truncate ml-2",
                                   isQuestionActive ? "text-foreground font-medium" : "text-muted-foreground group-hover/question:text-foreground"
@@ -316,6 +316,53 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
 
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryCategory = searchParams.get("category");
+  const currentControlId = searchParams.get("controlId");
+
+  const activeControl = crcControls.find(c => c.id === currentControlId);
+  const currentCategory = activeControl ? activeControl.category_name : queryCategory;
+
+  // Automatically manage expansion state based on the current route
+  useEffect(() => {
+    if (!pathname) return;
+
+    const isCrcPage = pathname.includes('/crc');
+    const isFairnessPage = pathname.includes('/fairness-bias');
+    const isTeamPage = pathname.includes('/team');
+    // If we're under /assess/[projectId] but not in one of the specific premium sub-paths,
+    // it's considered the core AIMA assessment.
+    const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && 
+                       (pathname.match(/\/assess\/[^/]+$/) || pathname.match(/\/assess\/[^/]+\?.*$/));
+
+    if (isCrcPage) {
+      setIsAssessmentExpanded(false);
+      setIsPremiumFeaturesExpanded(true);
+      setIsCrcExpanded(true);
+      setIsFairnessExpanded(false);
+      setIsSettingsExpanded(false);
+    } else if (isFairnessPage) {
+      setIsAssessmentExpanded(false);
+      setIsPremiumFeaturesExpanded(true);
+      setIsCrcExpanded(false);
+      setIsFairnessExpanded(true);
+      setIsSettingsExpanded(false);
+    } else if (isAimaPage) {
+      setIsAssessmentExpanded(true);
+      setIsPremiumFeaturesExpanded(false);
+      setIsCrcExpanded(false);
+      setIsFairnessExpanded(false);
+      setIsSettingsExpanded(false);
+    } else if (isTeamPage) {
+      setIsAssessmentExpanded(false);
+      setIsPremiumFeaturesExpanded(false);
+      setIsCrcExpanded(false);
+      setIsFairnessExpanded(false);
+      setIsSettingsExpanded(true);
+    }
+  }, [pathname]);
+
   const openSubscriptionModal = (title?: string, description?: string) => {
     setModalTitle(title || "Choose Your Plan");
     setModalDescription(description);
@@ -414,7 +461,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
         aria-valuemin={200}
         aria-valuemax={typeof window !== "undefined" ? window.innerWidth * 0.5 : 800}
         tabIndex={0}
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize hover:bg-primary/50 z-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:bg-primary/30"
+        className="absolute left-[-3px] top-0 bottom-0 w-1.5 cursor-ew-resize z-50 group focus-visible:outline-none"
         onMouseDown={(e) => {
           e.preventDefault();
           setIsResizing(true);
@@ -434,14 +481,19 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
             setIsResizing(false);
           }
         }}
-      />
+      >
+        <div className={cn(
+          "absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px transition-all duration-200",
+          isResizing ? "bg-primary w-[2px] shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]" : "bg-border group-hover:bg-primary/50 group-hover:w-[1.5px]"
+        )} />
+      </div>
       <Sidebar
         collapsible="none"
         className="h-full border-r bg-sidebar"
         style={{
           width: "100%", // Fill the wrapper
           "--sidebar-width": `${sidebarWidth}px`,
-          borderLeft: "1px solid hsl(var(--border))", // Add border to the left side since it faces content
+          borderLeft: "none", // Resize handle acts as the border
           borderRight: "none" // Remove default right border
         } as React.CSSProperties}
       >
@@ -554,15 +606,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             icon: IconShieldCheck,
                             onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
-                            color: "text-emerald-500"
+                            color: "text-emerald-500",
+                            active: pathname.includes('/crc')
                           }
                         ].map((item, idx) => {
                             const isFairness = item.id === "fairness";
+                            const isCrc = item.id === "crc";
                             const showToggle = isFairness;
 
                             let isExpanded = false;
                             if (isFairness) isExpanded = isFairnessExpanded;
-                            if (item.id === "crc") isExpanded = isCrcExpanded;
+                            if (isCrc) isExpanded = isCrcExpanded;
 
                             return (
                               <SidebarMenuItem key={idx}>
@@ -571,24 +625,30 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                     if (isFairness) {
                                       setIsFairnessExpanded(!isFairnessExpanded);
                                       item.onClick();
-                                    } else if (item.id === "crc") {
+                                    } else if (isCrc) {
                                       setIsCrcExpanded(!isCrcExpanded);
                                       item.onClick();
                                     } else {
                                       item.onClick();
                                     }
                                   }}
+                                  isActive={item.id === "vulnerability" ? pathname.includes('fairness-bias/api-endpoint') : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false))}
                                   className="group/premium-btn h-10 px-2"
                                 >
                                   <IconChevronRight
                                     className={cn(
                                       "h-4 w-4 transition-transform text-muted-foreground group-hover/premium-btn:text-foreground",
                                       isExpanded && "rotate-90",
-                                      (!showToggle && item.id !== "crc") && "invisible"
+                                      (!showToggle && !isCrc) && "invisible"
                                     )}
                                   />
                                   <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
-                                  <span className="font-semibold text-[14px] truncate ml-2 text-foreground/80 group-hover/premium-btn:text-foreground">
+                                  <span className={cn(
+                                    "font-semibold text-[14px] truncate ml-2 transition-colors",
+                                    (item.id === "vulnerability" ? pathname.includes('fairness-bias/api-endpoint') : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false)))
+                                      ? "text-foreground" 
+                                      : "text-foreground/80 group-hover/premium-btn:text-foreground"
+                                  )}>
                                     {item.label}
                                   </span>
                                   {item.locked && <IconLock className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />}
@@ -605,18 +665,45 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       {isFairness && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
-                                              <span className="text-[13px] truncate ml-2 text-foreground/70">Manual Prompt Testing</span>
+                                            <SidebarMenuSubButton 
+                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
+                                              className="h-8 px-2"
+                                              isActive={pathname.endsWith('/fairness-bias')}
+                                            >
+                                              <span className={cn(
+                                                "text-[13px] truncate ml-2 transition-colors",
+                                                pathname.endsWith('/fairness-bias') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                              )}>
+                                                Manual Prompt Testing
+                                              </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
-                                              <span className="text-[13px] truncate ml-2 text-foreground/70">API Automated Testing</span>
+                                            <SidebarMenuSubButton 
+                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
+                                              className="h-8 px-2"
+                                              isActive={pathname.includes('/api-endpoint')}
+                                            >
+                                              <span className={cn(
+                                                "text-[13px] truncate ml-2 transition-colors",
+                                                pathname.includes('/api-endpoint') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                              )}>
+                                                API Automated Testing
+                                              </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
-                                            <SidebarMenuSubButton onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} className="h-8 px-2">
-                                              <span className="text-[13px] truncate ml-2 text-foreground/70">Dataset Testing</span>
+                                            <SidebarMenuSubButton 
+                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
+                                              className="h-8 px-2"
+                                              isActive={pathname.includes('/dataset-testing')}
+                                            >
+                                              <span className={cn(
+                                                "text-[13px] truncate ml-2 transition-colors",
+                                                pathname.includes('/dataset-testing') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                              )}>
+                                                Dataset Testing
+                                              </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                         </SidebarMenuSub>
@@ -634,11 +721,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                   onClick={() => {
                                                     if (premiumStatus) {
                                                       router.push(`/assess/${projectId}/crc?category=${encodeURIComponent(cat)}`);
+                                                      setExpandedCrcCategories(prev => ({ ...prev, [cat]: true }));
                                                     } else {
                                                       openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
                                                     }
                                                   }}
                                                   className="h-8 px-2 group/cat"
+                                                  isActive={currentCategory === cat}
                                                 >
                                                    <button
                                                      type="button"
@@ -657,7 +746,13 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                        )}
                                                      />
                                                    </button>
-                                                  <span className="text-[13px] truncate ml-2 text-foreground/70 group-hover/cat:text-foreground">{cat}</span>
+                                                   <IconFolder className="h-3.5 w-3.5 text-muted-foreground group-hover/cat:text-foreground" />
+                                                  <span className={cn(
+                                                    "text-[13px] truncate ml-2 transition-colors",
+                                                    currentCategory === cat ? "text-foreground font-medium" : "text-foreground/70 group-hover/cat:text-foreground"
+                                                  )}>
+                                                    {cat}
+                                                  </span>
                                                   <CompactProgress
                                                     current={answeredInCat}
                                                     total={catControls.length}
@@ -681,13 +776,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                               }
                                                             }}
                                                             className="h-7 px-2 group/control"
+                                                            isActive={currentControlId === control.id}
                                                           >
                                                             {isAnswered ? (
-                                                              <IconCircleCheck className="h-3.5 w-3.5 text-success" />
+                                                              <IconCircleCheck className={cn("h-3.5 w-3.5", currentControlId === control.id ? "text-primary" : "text-success")} />
                                                             ) : (
-                                                              <div className="w-1.5 h-1.5 rounded-full border border-muted-foreground/40" />
+                                                              <IconCircle className={cn("h-3.5 w-3.5", currentControlId === control.id ? "text-primary" : "text-muted-foreground/40")} />
                                                             )}
-                                                            <span className="text-[12px] truncate ml-2 text-muted-foreground group-hover/control:text-foreground">
+                                                            <span className={cn(
+                                                              "text-[12px] truncate ml-2 transition-colors",
+                                                              currentControlId === control.id ? "text-foreground font-medium" : "text-muted-foreground group-hover/control:text-foreground"
+                                                            )}>
                                                               {control.control_id}
                                                             </span>
                                                           </SidebarMenuSubButton>
