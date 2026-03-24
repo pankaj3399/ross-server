@@ -24,7 +24,11 @@ exports.down = (pgm) => {
   pgm.sql(`
     UPDATE users 
     SET 
-      name = name || ' ' || last_name,
+      name = CASE
+        WHEN last_name IS NULL OR BTRIM(last_name) = '' THEN name
+        WHEN name IS NULL OR BTRIM(name) = '' THEN BTRIM(last_name)
+        ELSE BTRIM(name) || ' ' || BTRIM(last_name)
+      END,
       last_name = NULL
     WHERE backfill_split = TRUE;
   `);
