@@ -57,7 +57,7 @@ const FEATURE_CONFIGS: Record<Exclude<FeatureType, null>, FeatureConfig> = {
     requiresPremiumDomains: false,
   },
   "crc": {
-    title: "Compliance Readiness Controls",
+    title: "Compliance Readiness Controls (CRC)",
     description: "Manage compliance status across multiple frameworks",
     getPath: (projectId: string) => `/assess/${projectId}/crc`,
     requiresPremiumDomains: true,
@@ -236,7 +236,7 @@ export default function PremiumFeaturesPage() {
                     <IconClipboardCheck className="w-28 h-28 text-primary-foreground fill-primary" />
                   </div>
                   <CardTitle className="text-2xl mb-3">
-                    Compliance Readiness Controls
+                    Compliance Readiness Controls (CRC)
                   </CardTitle>
                   <CardDescription className="text-base">
                     Manage compliance status across multiple frameworks

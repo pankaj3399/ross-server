@@ -208,7 +208,7 @@ export default function CRCAssessmentPage() {
               <div className="h-6 w-px bg-border" />
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  Compliance Readiness Controls
+                  Compliance Readiness Controls (CRC)
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {currentControl.category_name} • Control {currentIndex + 1} of {totalControls}

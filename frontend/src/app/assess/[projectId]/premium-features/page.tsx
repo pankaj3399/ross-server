@@ -91,7 +91,7 @@ export default function PremiumFeaturesPage() {
             {/* Card 3: Actionable Governance Controls */}
             <FeatureCard
               icon={<IconShield className="w-28 h-28 text-primary-foreground fill-primary" />}
-              title="Compliance Readiness Controls"
+              title="Compliance Readiness Controls (CRC)"
               description="Manage compliance status across multiple frameworks."
               href={`/assess/${projectId}/crc`}
               delay={0.3}

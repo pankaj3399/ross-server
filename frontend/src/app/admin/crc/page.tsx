@@ -1100,7 +1100,7 @@ export default function CRCAdminPage() {
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">CRC Controls</h1>
-                    <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls and requirements.</p>
+                    <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls (CRC) and requirements.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={openBulkDialog} size="lg">
