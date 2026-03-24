@@ -50,7 +50,7 @@ export async function listComments(
 
   const result = await pool.query(
     `SELECT c.id, c.project_id, c.author_id, c.object_type, c.object_id, c.body, c.parent_comment_id, c.created_at, c.updated_at,
-            u.name AS author_name, u.email AS author_email
+            TRIM(u.name || ' ' || COALESCE(u.last_name, '')) AS author_name, u.email AS author_email
      FROM comments c
      LEFT JOIN users u ON c.author_id = u.id
      WHERE ${conditions.join(" AND ")}

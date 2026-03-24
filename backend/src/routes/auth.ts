@@ -200,7 +200,7 @@ router.post("/register", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(400).json({ error: "Registration failed" });
   }
@@ -411,7 +411,7 @@ router.post("/login", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(401).json({ error: "Login failed" });
   }
@@ -454,7 +454,7 @@ router.post("/forgot-password", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Password reset request failed" });
   }
@@ -499,7 +499,7 @@ router.post("/reset-password", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Password reset failed" });
   }
@@ -558,7 +558,7 @@ router.post("/change-password", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to change password" });
   }
@@ -689,7 +689,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to update profile" });
   }

@@ -316,7 +316,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
     } catch (error: any) {
         console.error("Error evaluating dataset fairness:", error);
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: "Validation failed", details: error.errors });
+            return res.status(400).json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
         }
         // Provide more helpful error messages
         const errorMessage = error?.message || "Failed to evaluate dataset fairness";
@@ -415,7 +415,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Error creating manual prompt evaluation job:", error);
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: "Validation failed", details: error.errors });
+            return res.status(400).json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to create evaluation job" });
     }
@@ -505,7 +505,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Error creating evaluation job:", error);
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: "Validation failed", details: error.errors });
+            return res.status(400).json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to create evaluation job" });
     }
@@ -584,7 +584,7 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Error creating security scan job:", error);
         if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: "Validation failed", details: error.errors });
+            return res.status(400).json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
         }
         res.status(500).json({ error: "Failed to create security scan job" });
     }

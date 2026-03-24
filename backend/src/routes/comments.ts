@@ -98,7 +98,7 @@ router.post("/:projectId/comments", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to create comment" });
   }
@@ -149,7 +149,7 @@ router.patch("/comments/:commentId", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res
         .status(400)
-        .json({ error: "Validation failed", details: error.errors });
+        .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to update comment" });
   }
