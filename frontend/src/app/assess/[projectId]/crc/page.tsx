@@ -73,9 +73,11 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const ANSWER_OPTIONS = [
-  { value: 0, label: "No", description: "Not implemented or not applicable" },
+  { value: 0, label: "No", description: "Not implemented" },
   { value: 0.5, label: "Partially", description: "Partially implemented or in progress" },
   { value: 1, label: "Yes", description: "Fully implemented and operational" },
+  { value: 2, label: "NA", description: "Not applicable to this AI system" },
+  { value: 3, label: "Not Sure", description: "Implementation status unknown" },
 ];
 
 // --- Main Page Component ---

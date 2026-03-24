@@ -891,7 +891,7 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
 
 const crcResponseSchema = z.object({
   controlId: z.string().uuid(),
-  value: z.union([z.literal(0), z.literal(0.5), z.literal(1)]),
+  value: z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
   notes: z.string().max(5000).optional().default(""),
 });
 
