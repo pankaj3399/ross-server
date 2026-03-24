@@ -97,7 +97,7 @@ export default function SettingsPage() {
       let initialName = user.name || "";
       let initialLastName = user.lastName || "";
 
-      // Legacy split: if last name is missing but name contains a space
+      // Handle legacy cases where last name is missing but name contains a space
       if (!initialLastName && initialName.trim().includes(" ")) {
         const parts = initialName.trim().split(/\s+/);
         if (parts.length > 1) {
@@ -363,27 +363,15 @@ export default function SettingsPage() {
     const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
 
     // Legacy only when the field is actually absent/null, not merely empty.
-    const isLegacy = user?.lastName == null;
-
     // Build update payload only with fields that differ
     const updateData: { name?: string; lastName?: string; email?: string } = {};
 
-    if (isLegacy) {
-      // In legacy mode, we merge fields back to 'name' to maintain compatibility
-      const combinedFullName = `${trimmedName} ${trimmedLastName}`.trim();
-      if (combinedFullName !== normalizedUserName) {
-        updateData.name = combinedFullName;
-      }
-      // Note: We don't send lastName here if it wasn't previously present,
-      // avoiding a schema migration until a global backfill is performed.
-    } else {
-      // In new mode, we update name (first name) and lastName independently
-      if (trimmedName !== normalizedUserName) {
-        updateData.name = trimmedName;
-      }
-      if (trimmedLastName !== normalizedUserLastName) {
-        updateData.lastName = trimmedLastName;
-      }
+    // Update name (first name) and lastName independently
+    if (trimmedName !== normalizedUserName) {
+      updateData.name = trimmedName;
+    }
+    if (trimmedLastName !== normalizedUserLastName) {
+      updateData.lastName = trimmedLastName;
     }
 
     if (trimmedEmail !== normalizedUserEmail) {

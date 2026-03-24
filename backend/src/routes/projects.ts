@@ -166,7 +166,7 @@ router.post("/", authenticateToken, async (req, res) => {
     }
     console.error("Error creating project:", error);
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: "Validation failed", details: error.errors });
+      return res.status(400).json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
     }
     res.status(500).json({ error: "Failed to create project" });
   } finally {
@@ -572,7 +572,7 @@ router.post(
       if (error instanceof z.ZodError) {
         return res
           .status(400)
-          .json({ error: "Validation failed", details: error.errors });
+          .json({ error: error.errors[0]?.message || "Validation failed", details: error.errors });
       }
       res.status(500).json({ error: "Failed to create invitation" });
     }

@@ -371,7 +371,7 @@ export default function DashboardPage() {
               </h1>
               <div>
                 <p className="text-muted-foreground font-medium">
-                  Welcome back, <span className="text-primary font-bold">{user?.name}</span>! Manage your AI maturity assessments
+                  Welcome back, <span className="text-primary font-bold">{[user?.name, user?.lastName].filter(Boolean).join(" ")}</span>! Manage your AI maturity assessments
                 </p>
               </div>
             </motion.div>

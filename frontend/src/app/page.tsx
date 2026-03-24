@@ -142,7 +142,7 @@ export default function Home() {
               className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-24"
             >
               <p className="text-xl text-muted-foreground">
-                Welcome back, {user?.name}!
+                Welcome back, {[user?.name, user?.lastName].filter(Boolean).join(" ")}!
               </p>
               <Button
                 asChild
