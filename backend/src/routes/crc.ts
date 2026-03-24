@@ -151,13 +151,16 @@ router.post("/categories", authenticateToken, requireRole(["ADMIN"]), async (req
 // PUT /crc/categories/:id - Update category name
 router.put("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { id } = req.params;
+    const categoryId = Number.parseInt(req.params.id);
+    if (!Number.isInteger(categoryId)) {
+      return res.status(400).json({ success: false, error: "Invalid category ID" });
+    }
     const { name } = categoryNameSchema.parse(req.body);
 
     // Check for duplicate name (case-insensitive) excluding itself
     const existing = await pool.query(
       "SELECT id FROM crc_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id != $2",
-      [name, id]
+      [name, categoryId]
     );
     if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, error: "Category name already exists" });
@@ -165,7 +168,7 @@ router.put("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (
 
     const result = await pool.query(
       "UPDATE crc_categories SET name = $1 WHERE id = $2 RETURNING *",
-      [name.trim(), id]
+      [name.trim(), categoryId]
     );
 
     if (result.rowCount === 0) {
@@ -185,10 +188,13 @@ router.put("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (
 // DELETE /crc/categories/:id - Delete category
 router.delete("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
-    const { id } = req.params;
+    const categoryId = Number.parseInt(req.params.id);
+    if (!Number.isInteger(categoryId)) {
+      return res.status(400).json({ success: false, error: "Invalid category ID" });
+    }
 
     // Check if category has associated controls
-    const controls = await pool.query("SELECT id FROM crc_controls WHERE category_id = $1 LIMIT 1", [id]);
+    const controls = await pool.query("SELECT id FROM crc_controls WHERE category_id = $1 LIMIT 1", [categoryId]);
     if (controls.rows.length > 0) {
       return res.status(400).json({
         success: false,
@@ -196,7 +202,7 @@ router.delete("/categories/:id", authenticateToken, requireRole(["ADMIN"]), asyn
       });
     }
 
-    const result = await pool.query("DELETE FROM crc_categories WHERE id = $1 RETURNING id", [id]);
+    const result = await pool.query("DELETE FROM crc_categories WHERE id = $1 RETURNING id", [categoryId]);
     if (result.rowCount === 0) {
       return res.status(404).json({ success: false, error: "Category not found" });
     }
