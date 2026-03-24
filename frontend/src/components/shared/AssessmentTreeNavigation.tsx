@@ -439,6 +439,16 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     return () => window.clearTimeout(timeoutId);
   }, [activeDomainId, currentPracticeId, currentQuestionIndex]);
 
+  // Synchronize CRC category expansion with the current route-selected category
+  useEffect(() => {
+    if (currentCategory) {
+      setExpandedCrcCategories(prev => {
+        if (prev[currentCategory]) return prev;
+        return { ...prev, [currentCategory]: true };
+      });
+    }
+  }, [currentCategory]);
+
   const toggleDomain = (domainId: string) => {
     setExpandedDomainId((prev) => (prev === domainId ? null : domainId));
   };
@@ -669,12 +679,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="h-8 px-2"
+                                              className="group/fairness h-8 px-2"
                                               isActive={pathname.endsWith('/fairness-bias')}
                                             >
                                               <span className={cn(
                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.endsWith('/fairness-bias') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                                pathname.endsWith('/fairness-bias') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
                                               )}>
                                                 Manual Prompt Testing
                                               </span>
@@ -683,12 +693,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="h-8 px-2"
+                                              className="group/fairness h-8 px-2"
                                               isActive={pathname.includes('/api-endpoint')}
                                             >
                                               <span className={cn(
                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.includes('/api-endpoint') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                                pathname.includes('/api-endpoint') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
                                               )}>
                                                 API Automated Testing
                                               </span>
@@ -697,12 +707,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="h-8 px-2"
+                                              className="group/fairness h-8 px-2"
                                               isActive={pathname.includes('/dataset-testing')}
                                             >
                                               <span className={cn(
                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.includes('/dataset-testing') ? "text-foreground font-medium" : "text-foreground/70 group-hover:text-foreground"
+                                                pathname.includes('/dataset-testing') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
                                               )}>
                                                 Dataset Testing
                                               </span>
