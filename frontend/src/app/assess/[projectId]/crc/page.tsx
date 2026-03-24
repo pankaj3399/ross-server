@@ -73,9 +73,11 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const ANSWER_OPTIONS = [
-  { value: 0, label: "No", description: "Not implemented or not applicable" },
+  { value: 0, label: "No", description: "Not implemented" },
   { value: 0.5, label: "Partially", description: "Partially implemented or in progress" },
   { value: 1, label: "Yes", description: "Fully implemented and operational" },
+  { value: 2, label: "NA", description: "Not applicable to this AI system" },
+  { value: 3, label: "Not Sure", description: "Implementation status unknown" },
 ];
 
 // --- Main Page Component ---
@@ -208,7 +210,7 @@ export default function CRCAssessmentPage() {
               <div className="h-6 w-px bg-border" />
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  Compliance Readiness Controls
+                  Compliance Readiness Controls (CRC)
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   {currentControl.category_name} • Control {currentIndex + 1} of {totalControls}

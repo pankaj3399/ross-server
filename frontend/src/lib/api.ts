@@ -1142,6 +1142,26 @@ class ApiService {
     return this.request<{ data: CRCCategory[] }>("/crc/categories", { signal });
   }
 
+  async createCRCCategory(name: string): Promise<{ data: CRCCategory }> {
+    return this.request<{ data: CRCCategory }>("/crc/categories", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async updateCRCCategory(id: number, name: string): Promise<{ data: CRCCategory }> {
+    return this.request<{ data: CRCCategory }>(`/crc/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  async deleteCRCCategory(id: number): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/crc/categories/${id}`, {
+      method: "DELETE",
+    });
+  }
+
   async getCRCControls(params?: URLSearchParams): Promise<{ data: CRCControl[]; count: number }> {
     const qs = params ? `?${params.toString()}` : "";
     return this.request<{ data: CRCControl[]; count: number }>(`/crc/controls${qs}`);
@@ -1193,6 +1213,13 @@ class ApiService {
   async deleteCRCControl(id: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/crc/controls/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  async deleteCRCControlsBulk(ids: string[]): Promise<{ message: string; deletedCount: number }> {
+    return this.request<{ message: string; deletedCount: number }>("/crc/controls/bulk", {
+      method: "DELETE",
+      body: JSON.stringify({ ids }),
     });
   }
 

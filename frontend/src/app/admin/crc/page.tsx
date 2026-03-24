@@ -8,7 +8,7 @@ import {
     IconPlus, IconSearch, IconFilter, IconEdit, IconTrash, IconCopy,
     IconDownload, IconChevronDown, IconChevronRight, IconArrowLeft,
     IconCheck, IconX, IconHistory, IconEye, IconArchive, IconSend,
-    IconUpload
+    IconUpload, IconSettings, IconFolder
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -286,7 +286,6 @@ export default function CRCAdminPage() {
     const [priorityFilter, setPriorityFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Form State
     const defaultControlState: Partial<Control> = {
@@ -320,6 +319,16 @@ export default function CRCAdminPage() {
     const [bulkEditIndex, setBulkEditIndex] = useState<number | null>(null);
     const [bulkEditFormData, setBulkEditFormData] = useState<Partial<Control>>(defaultControlState);
     const [bulkImporting, setBulkImporting] = useState(false);
+    
+    // Category management state
+    const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+    const [editingCategory, setEditingCategory] = useState<CRCCategory | null>(null);
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [categoryActionLoading, setCategoryActionLoading] = useState(false);
+
+    // Bulk selection state
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
     // fetch controls
     const fetchControls = async (signal?: AbortSignal) => {
@@ -335,6 +344,16 @@ export default function CRCAdminPage() {
             const res = await api.getCRCControls(params);
             if (signal?.aborted) return;
             setControls(res.data);
+            
+            // Prune selectedIds that are no longer in the fetched controls
+            const validIds = new Set(res.data.map((c: any) => c.id));
+            setSelectedIds(prev => {
+                const next = new Set<string>();
+                prev.forEach(id => {
+                    if (validIds.has(id)) next.add(id);
+                });
+                return next;
+            });
         } catch (error) {
             if (signal?.aborted) return;
             toast.error("Failed to fetch controls");
@@ -465,12 +484,12 @@ export default function CRCAdminPage() {
     };
 
     const handleExport = async (format: "json" | "csv") => {
-        if (selectedIds.length === 0) {
+        if (selectedIds.size === 0) {
             toast.error("Please select at least one control to export");
             return;
         }
         try {
-            const blob = await apiService.exportControls(selectedIds, format);
+            const blob = await apiService.exportControls(Array.from(selectedIds), format);
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -788,6 +807,103 @@ export default function CRCAdminPage() {
         }
     };
 
+    const handleCreateCategory = async () => {
+        if (!newCategoryName.trim()) return;
+        setCategoryActionLoading(true);
+        try {
+            await apiService.createCRCCategory(newCategoryName.trim());
+            toast.success("Category created");
+            setNewCategoryName("");
+            fetchCategories();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create category");
+        } finally {
+            setCategoryActionLoading(false);
+        }
+    };
+
+    const handleUpdateCategory = async () => {
+        if (!editingCategory || !newCategoryName.trim()) return;
+        setCategoryActionLoading(true);
+        try {
+            await apiService.updateCRCCategory(editingCategory.id, newCategoryName.trim());
+            toast.success("Category updated");
+            setEditingCategory(null);
+            setNewCategoryName("");
+            fetchCategories();
+            fetchControls(); // Refresh controls to update category names in the list
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update category");
+        } finally {
+            setCategoryActionLoading(false);
+        }
+    };
+
+    const handleDeleteCategory = async (id: number) => {
+        if (!window.confirm("Are you sure you want to delete this category?")) return;
+        setCategoryActionLoading(true);
+        try {
+            await apiService.deleteCRCCategory(id);
+            toast.success("Category deleted");
+            
+            // Reset category filter if the deleted category was selected
+            if (categoryFilter === id.toString()) {
+                setCategoryFilter("all");
+            }
+            
+            fetchCategories();
+            fetchControls(); // Refresh controls list
+        } catch (error: any) {
+            toast.error(error.message || "Failed to delete category");
+        } finally {
+            setCategoryActionLoading(false);
+        }
+    };
+
+    const startEditingCategory = (cat: CRCCategory) => {
+        setEditingCategory(cat);
+        setNewCategoryName(cat.name);
+    };
+
+    const cancelEditingCategory = () => {
+        setEditingCategory(null);
+        setNewCategoryName("");
+    };
+
+    const toggleSelection = (id: string) => {
+        const next = new Set(selectedIds);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
+        }
+        setSelectedIds(next);
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(new Set(controls.map(c => c.id)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        setLoading(true);
+        try {
+            const { deletedCount } = await apiService.deleteCRCControlsBulk(Array.from(selectedIds));
+            toast.success(`${deletedCount} controls deleted`);
+            setSelectedIds(new Set());
+            setShowBulkDeleteConfirm(false);
+            fetchControls();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to delete controls");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     if (viewMode === "form") {
         return (
             <div className="flex flex-col h-full bg-background p-6 overflow-y-auto">
@@ -1100,9 +1216,17 @@ export default function CRCAdminPage() {
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">CRC Controls</h1>
-                    <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls and requirements.</p>
+                    <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls (CRC) and requirements.</p>
                 </div>
                 <div className="flex gap-2">
+                    {selectedIds.size > 0 && (
+                        <Button variant="destructive" onClick={() => setShowBulkDeleteConfirm(true)} size="lg">
+                            <IconTrash className="mr-2 size-5" /> Delete Selected ({selectedIds.size})
+                        </Button>
+                    )}
+                    <Button variant="outline" onClick={() => setShowCategoryDialog(true)} size="lg">
+                        <IconFolder className="mr-2 size-5" /> Manage Categories
+                    </Button>
                     <Button variant="outline" onClick={openBulkDialog} size="lg">
                         <IconUpload className="mr-2 size-5" /> Bulk upload
                     </Button>
@@ -1128,21 +1252,21 @@ export default function CRCAdminPage() {
                     <div className="flex items-center gap-2">
                         <IconFilter className="size-4 text-muted-foreground" />
                         <Select
-                                            value={categoryFilter}
-                                            onValueChange={setCategoryFilter}
-                                        >
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="Category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Categories</SelectItem>
-                                                {categories.map((c) => (
-                                                    <SelectItem key={c.id} value={c.id.toString()}>
-                                                        {c.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                            value={categoryFilter}
+                            onValueChange={setCategoryFilter}
+                        >
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Categories</SelectItem>
+                                {categories.map((c) => (
+                                    <SelectItem key={c.id} value={c.id.toString()}>
+                                        {c.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                             <SelectTrigger className="w-[150px]"><SelectValue placeholder="Priority" /></SelectTrigger>
                             <SelectContent>
@@ -1158,7 +1282,7 @@ export default function CRCAdminPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    {selectedIds.length > 0 && (
+                    {selectedIds.size > 0 && (
                         <div className="flex items-center gap-2 ml-auto animate-in fade-in slide-in-from-right-5">
                             <Button variant="outline" size="sm" onClick={() => handleExport("json")}>
                                 <IconDownload className="mr-2 size-4" /> JSON
@@ -1177,11 +1301,9 @@ export default function CRCAdminPage() {
                             <TableRow>
                                 <TableHead className="w-[50px]">
                                     <Checkbox
-                                        checked={controls.length > 0 && selectedIds.length === controls.length}
-                                        onCheckedChange={(checked) => {
-                                            if (checked) setSelectedIds(controls.map(c => c.id));
-                                            else setSelectedIds([]);
-                                        }}
+                                        checked={controls.length > 0 && selectedIds.size === controls.length}
+                                        onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                                        aria-label="Select all visible controls"
                                     />
                                 </TableHead>
                                 <TableHead>Control ID</TableHead>
@@ -1202,11 +1324,9 @@ export default function CRCAdminPage() {
                                     <TableRow key={control.id}>
                                         <TableCell>
                                             <Checkbox
-                                                checked={selectedIds.includes(control.id)}
-                                                onCheckedChange={(checked) => {
-                                                    if (checked) setSelectedIds([...selectedIds, control.id]);
-                                                    else setSelectedIds(selectedIds.filter(id => id !== control.id));
-                                                }}
+                                                checked={selectedIds.has(control.id)}
+                                                onCheckedChange={() => toggleSelection(control.id)}
+                                                aria-label={`Select ${control.control_id}`}
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">{control.control_id}</TableCell>
@@ -1473,6 +1593,115 @@ export default function CRCAdminPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setBulkEditIndex(null)}>Cancel</Button>
                         <Button onClick={saveBulkEditRow}>Apply</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Category Management Dialog */}
+            <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Manage CRC Categories</DialogTitle>
+                        <DialogDescription>
+                            Add, rename, or delete categories for CRC controls.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-4">
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder={editingCategory ? "Update category name..." : "New category name..."}
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        editingCategory ? handleUpdateCategory() : handleCreateCategory();
+                                    }
+                                }}
+                            />
+                            {editingCategory ? (
+                                <div className="flex gap-1">
+                                    <Button onClick={handleUpdateCategory} disabled={categoryActionLoading}>
+                                        Update
+                                    </Button>
+                                    <Button variant="ghost" onClick={cancelEditingCategory}>
+                                        Cancel
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button onClick={handleCreateCategory} disabled={categoryActionLoading || !newCategoryName.trim()}>
+                                    Add
+                                </Button>
+                            )}
+                        </div>
+
+                        <div className="rounded-md border max-h-[300px] overflow-y-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Category Name</TableHead>
+                                        <TableHead className="w-[100px] text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {categories.map((cat) => (
+                                        <TableRow key={cat.id}>
+                                            <TableCell className="font-medium">
+                                                {cat.name}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <div className="flex justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => startEditingCategory(cat)}
+                                                        disabled={categoryActionLoading}
+                                                        aria-label={`Edit category ${cat.name}`}
+                                                    >
+                                                        <IconEdit className="size-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-destructive"
+                                                        onClick={() => handleDeleteCategory(cat.id)}
+                                                        disabled={categoryActionLoading}
+                                                        aria-label={`Delete category ${cat.name}`}
+                                                    >
+                                                        <IconTrash className="size-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCategoryDialog(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Bulk Delete Confirmation Dialog */}
+            <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Multiple Controls</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete {selectedIds.size} selected controls? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleBulkDelete} disabled={loading}>
+                            {loading ? "Deleting..." : "Delete Controls"}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

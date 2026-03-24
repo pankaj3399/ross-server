@@ -38,8 +38,10 @@ const aimaMappingSchema = z.object({
 
 // Create/Update Control Schema
 const controlSchema = z.object({
-  control_id: z.string().min(1, "Control ID is required").max(20, "Control ID must be 20 chars max"),
-  control_title: z.string().min(1, "Title is required").max(200, "Title must be 200 chars max"),
+  control_id: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Control ID is required").max(20, "Control ID must be 20 chars max")),
+  control_title: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Title is required").max(200, "Title must be 200 chars max")),
   category_id: z.number().int().min(1, "Category ID is required"),
   expected_timeline: z.string().optional().default(""),
   priority: z.string().min(1, "Priority is required"),
@@ -57,13 +59,20 @@ const controlSchema = z.object({
 // Transition Schema
 const transitionSchema = z.object({
   status: z.enum(["Draft", "In Review", "Published", "Archived"]),
-  note: z.string().optional(),
+  note: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().optional()),
 });
 
 // Export Schema
 const exportSchema = z.object({
-  ids: z.array(z.string()).min(1, "At least one control must be selected"),
+  ids: z.array(z.string().uuid()).min(1, "At least one control must be selected"),
   format: z.enum(["json", "csv"]),
+});
+
+// Category Schema
+const categoryNameSchema = z.object({
+  name: z.preprocess((val) => (typeof val === "string" ? val.trim() : val), 
+    z.string().min(1, "Category name is required").max(100, "Category name must be 100 chars max")),
 });
 
 // --- Helper Functions ---
@@ -115,6 +124,103 @@ router.get("/categories", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching categories:", error);
     res.status(500).json({ success: false, error: "Failed to fetch categories" });
+  }
+});
+
+// POST /crc/categories - Create new category
+router.post("/categories", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { name } = categoryNameSchema.parse(req.body);
+    
+    // Check for duplicate name (case-insensitive)
+    const existing = await pool.query("SELECT id FROM crc_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))", [name]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, error: "Category already exists" });
+    }
+
+    const result = await pool.query(
+      "INSERT INTO crc_categories (name) VALUES ($1) RETURNING *",
+      [name.trim()]
+    );
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    console.error("Error creating category:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
+    if (error.code === "23505") {
+      return res.status(400).json({ success: false, error: "Category already exists" });
+    }
+    res.status(500).json({ success: false, error: "Failed to create category" });
+  }
+});
+
+// PUT /crc/categories/:id - Update category name
+router.put("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const categoryId = Number.parseInt(req.params.id);
+    if (!Number.isInteger(categoryId)) {
+      return res.status(400).json({ success: false, error: "Invalid category ID" });
+    }
+    const { name } = categoryNameSchema.parse(req.body);
+
+    // Check for duplicate name (case-insensitive) excluding itself
+    const existing = await pool.query(
+      "SELECT id FROM crc_categories WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id != $2",
+      [name, categoryId]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, error: "Category name already exists" });
+    }
+
+    const result = await pool.query(
+      "UPDATE crc_categories SET name = $1 WHERE id = $2 RETURNING *",
+      [name.trim(), categoryId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: "Category not found" });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    console.error("Error updating category:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
+    if (error.code === "23505") {
+      return res.status(400).json({ success: false, error: "Category name already exists" });
+    }
+    res.status(500).json({ success: false, error: "Failed to update category" });
+  }
+});
+
+// DELETE /crc/categories/:id - Delete category
+router.delete("/categories/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const categoryId = Number.parseInt(req.params.id);
+    if (!Number.isInteger(categoryId)) {
+      return res.status(400).json({ success: false, error: "Invalid category ID" });
+    }
+
+    // Check if category has associated controls
+    const controls = await pool.query("SELECT id FROM crc_controls WHERE category_id = $1 LIMIT 1", [categoryId]);
+    if (controls.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot delete category: It has associated controls. Please move or delete the controls first."
+      });
+    }
+
+    const result = await pool.query("DELETE FROM crc_categories WHERE id = $1 RETURNING id", [categoryId]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, error: "Category not found" });
+    }
+
+    res.json({ success: true, message: "Category deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting category:", error);
+    res.status(500).json({ success: false, error: "Failed to delete category" });
   }
 });
 
@@ -521,6 +627,37 @@ router.put("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (re
   }
 });
 
+// DELETE /crc/controls/bulk - Bulk delete controls
+router.delete("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const MAX_BATCH_SIZE = 500;
+    const { ids } = z.object({ 
+      ids: z.array(z.string().uuid()).min(1).max(MAX_BATCH_SIZE) 
+    }).parse(req.body);
+
+    const result = await pool.query(
+      "DELETE FROM crc_controls WHERE id = ANY($1) RETURNING id",
+      [ids]
+    );
+
+    res.json({
+      success: true,
+      message: `${result.rowCount} controls deleted successfully`,
+      deletedCount: result.rowCount
+    });
+  } catch (error) {
+    console.error("Error bulk deleting controls:", error);
+    if (error instanceof z.ZodError) {
+      const isTooLarge = error.errors.some(e => e.code === "too_big");
+      return res.status(400).json({ 
+        success: false, 
+        error: isTooLarge ? "Batch size cannot exceed 500 controls" : "Invalid control IDs" 
+      });
+    }
+    res.status(500).json({ success: false, error: "Failed to bulk delete controls" });
+  }
+});
+
 // DELETE /crc/controls/:id - Delete control
 router.delete("/controls/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {
@@ -770,7 +907,7 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
 
 const crcResponseSchema = z.object({
   controlId: z.string().uuid(),
-  value: z.union([z.literal(0), z.literal(0.5), z.literal(1)]),
+  value: z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
   notes: z.string().max(5000).optional().default(""),
 });
 

@@ -14,7 +14,7 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
     if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
     if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
-    if (pathname.includes("crc")) return "Compliance Readiness Control";
+    if (pathname.includes("crc")) return "Compliance Readiness Control (CRC)";
     if (pathname.includes("team")) return "Team Management";
     return "AI Maturity Assessment (AIMA)";
 };
