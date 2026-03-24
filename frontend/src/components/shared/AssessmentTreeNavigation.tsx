@@ -334,7 +334,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     // If we're under /assess/[projectId] but not in one of the specific premium sub-paths,
     // it's considered the core AIMA assessment.
     const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && 
-                       (pathname.match(/\/assess\/[^/]+$/) || pathname.match(/\/assess\/[^/]+\?.*$/));
+                       pathname.match(/\/assess\/[^/]+$/);
 
     if (isCrcPage) {
       setIsAssessmentExpanded(false);
@@ -484,7 +484,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       >
         <div className={cn(
           "absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px transition-all duration-200",
-          isResizing ? "bg-primary w-[2px] shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]" : "bg-border group-hover:bg-primary/50 group-hover:w-[1.5px]"
+          isResizing ? "bg-primary w-[2px] shadow-[0_0_10px_hsl(var(--primary)/0.3)]" : "bg-border group-hover:bg-primary/50 group-hover:w-[1.5px]"
         )} />
       </div>
       <Sidebar
@@ -618,6 +618,10 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             if (isFairness) isExpanded = isFairnessExpanded;
                             if (isCrc) isExpanded = isCrcExpanded;
 
+                            const isItemActive = item.id === "vulnerability" 
+                              ? pathname.includes('fairness-bias/api-endpoint') 
+                              : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false));
+
                             return (
                               <SidebarMenuItem key={idx}>
                                 <SidebarMenuButton
@@ -632,7 +636,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       item.onClick();
                                     }
                                   }}
-                                  isActive={item.id === "vulnerability" ? pathname.includes('fairness-bias/api-endpoint') : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false))}
+                                  isActive={isItemActive}
                                   className="group/premium-btn h-10 px-2"
                                 >
                                   <IconChevronRight
@@ -645,9 +649,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                   <item.icon className={cn("ml-1 h-5 w-5", item.color)} />
                                   <span className={cn(
                                     "font-semibold text-[14px] truncate ml-2 transition-colors",
-                                    (item.id === "vulnerability" ? pathname.includes('fairness-bias/api-endpoint') : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false)))
-                                      ? "text-foreground" 
-                                      : "text-foreground/80 group-hover/premium-btn:text-foreground"
+                                    isItemActive ? "text-foreground" : "text-foreground/80 group-hover/premium-btn:text-foreground"
                                   )}>
                                     {item.label}
                                   </span>
