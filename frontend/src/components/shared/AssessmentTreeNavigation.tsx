@@ -98,9 +98,10 @@ const normalize = (value?: string) => value?.trim().toLowerCase() || "";
 const getRouteFlags = (pathname: string | null) => {
   const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/);
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
+  const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/api-endpoint($|\/|\?)/);
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
   const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !!pathname?.match(/\/assess\/[^/]+$/);
-  return { isCrcPage, isFairnessPage, isTeamPage, isAimaPage };
+  return { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isAimaPage };
 };
 
 const CompactProgress = ({ current, total, isCompleted, size = "default" }: { current: number; total: number; isCompleted: boolean; size?: "default" | "sm" }) => {
@@ -318,7 +319,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const currentCategory = activeControl ? activeControl.category_name : queryCategory;
 
   // Derive initial expansion states from pathname
-  const { isCrcPage, isFairnessPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
+  const { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
   const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
@@ -633,9 +634,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             if (isFairness) isExpanded = isFairnessExpanded;
                             if (isCrc) isExpanded = isCrcExpanded;
 
-                            const isItemActive = item.id === "vulnerability" 
-                              ? pathname.includes('fairness-bias/api-endpoint') 
-                              : (isFairness ? pathname.includes('/fairness-bias') : (isCrc ? pathname.includes('/crc') : false));
+                             const isItemActive = item.id === "vulnerability" 
+                               ? isApiEndpointPage 
+                               : (isFairness ? isFairnessPage : (isCrc ? isCrcPage : false));
 
                             return (
                               <SidebarMenuItem key={idx}>
@@ -685,12 +686,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
                                               className="group/fairness h-8 px-2"
-                                              isActive={pathname.endsWith('/fairness-bias')}
-                                            >
-                                              <span className={cn(
-                                                "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.endsWith('/fairness-bias') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
-                                              )}>
+                                               isActive={isFairnessPage && !isApiEndpointPage}
+                                             >
+                                               <span className={cn(
+                                                 "text-[13px] truncate ml-2 transition-colors",
+                                                 (isFairnessPage && !isApiEndpointPage) ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
+                                               )}>
                                                 Manual Prompt Testing
                                               </span>
                                             </SidebarMenuSubButton>
@@ -699,12 +700,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
                                               className="group/fairness h-8 px-2"
-                                              isActive={pathname.includes('/api-endpoint')}
-                                            >
-                                              <span className={cn(
-                                                "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.includes('/api-endpoint') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
-                                              )}>
+                                               isActive={isApiEndpointPage}
+                                             >
+                                               <span className={cn(
+                                                 "text-[13px] truncate ml-2 transition-colors",
+                                                 isApiEndpointPage ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
+                                               )}>
                                                 API Automated Testing
                                               </span>
                                             </SidebarMenuSubButton>
@@ -867,16 +868,16 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                         <SidebarMenuItem>
                           <SidebarMenuButton
                             onClick={() => router.push(`/assess/${projectId}/team`)}
-                            isActive={pathname.includes('/team')}
+                            isActive={isTeamPage}
                             className="group/settings-btn h-10 px-2"
                           >
                             <IconUsers className={cn(
                               "ml-1 h-5 w-5",
-                              pathname.includes('/team') ? "text-primary" : "text-muted-foreground group-hover/settings-btn:text-foreground"
+                              isTeamPage ? "text-primary" : "text-muted-foreground group-hover/settings-btn:text-foreground"
                             )} />
                             <span className={cn(
                               "font-semibold text-[14px] truncate ml-2 transition-colors",
-                              pathname.includes('/team') ? "text-foreground" : "text-foreground/80 group-hover/settings-btn:text-foreground"
+                              isTeamPage ? "text-foreground" : "text-foreground/80 group-hover/settings-btn:text-foreground"
                             )}>
                               TEAMS
                             </span>
