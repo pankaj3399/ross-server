@@ -362,7 +362,6 @@ export default function SettingsPage() {
     const normalizedUserLastName = user?.lastName?.trim() || "";
     const normalizedUserEmail = user?.email?.trim().toLowerCase() || "";
 
-    // Legacy only when the field is actually absent/null, not merely empty.
     // Build update payload only with fields that differ
     const updateData: { name?: string; lastName?: string; email?: string } = {};
 
