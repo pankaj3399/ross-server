@@ -6,7 +6,7 @@ import { Footer } from "./Footer";
 import { AppSidebar } from "./Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
-import { isSidebarVisible, isDashboardRoute, isLandingRoute } from "../../lib/route-utils";
+import { isSidebarVisible, isLandingRoute } from "../../lib/route-utils";
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -28,13 +28,10 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   }
 
   // Show sidebar on all other pages (Dashboard, Assess, etc.)
-  const isDashboard = isDashboardRoute(pathname);
-
 
   return (
     <SidebarProvider
-      defaultOpen={!isDashboard}
-      key={isDashboard ? "dashboard" : "non-dashboard"}
+      defaultOpen={true}
     >
       <AppSidebar />
       <SidebarInset>
