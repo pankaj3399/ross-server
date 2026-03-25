@@ -285,6 +285,61 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     width: 30,
     textAlign: 'right',
+  },
+  // Insights in PDF
+  insightBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#eff6ff', // light blue
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    gap: 4,
+  },
+  insightTitle: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: '#1e40af',
+    textTransform: 'uppercase',
+  },
+  insightBody: {
+    fontSize: 8,
+    color: '#1e3a8a',
+    lineHeight: 1.4,
+  },
+  insightGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  insightCol: {
+    flex: 1,
+  },
+  recommendationItem: {
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 3,
+  },
+  recommendationBullet: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#dbeafe',
+    color: '#1e40af',
+    fontSize: 6,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 10,
+  },
+  recommendationText: {
+    fontSize: 7,
+    color: '#1e3a8a',
+    flex: 1,
   }
 });
 
@@ -301,9 +356,26 @@ const getMaturityLevelForPdf = (score: number) => {
 interface AimaPdfDocumentProps {
   results: any;
   nonPremiumDomains: any[];
+  insights?: Record<string, string>;
 }
 
-export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPremiumDomains }) => {
+// Helper for PDF parsing (simplified)
+const parseInsightsForPdf = (text: string) => {
+    const analysisPattern = /(?:Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
+    const recommendationsPattern = /(?:Specific actionable recommendations|Recommendations|4\.\s*Specific[^:]+):?\s*([\s\S]*)/i;
+
+    const analysis = text.match(analysisPattern)?.[1]?.trim() || text.substring(0, 200) + "...";
+    const rawRecs = text.match(recommendationsPattern)?.[1]?.trim() || "";
+    const recommendations = rawRecs
+        .split(/(?:\r\n|\r|\n)?(?:\d+\.|-|\u2022)\s+/)
+        .map(r => r.trim())
+        .filter(r => r.length > 0)
+        .slice(0, 3); // Limit to top 3 for space in PDF
+
+    return { analysis, recommendations };
+};
+
+export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPremiumDomains, insights = {} }) => {
   const overallMaturity = getMaturityLevelForPdf(results?.results?.overall?.overallMaturityScore ?? 0);
 
   return (
@@ -411,6 +483,41 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
                     </Text>
                   )}
                 </View>
+
+                {/* AI Insights in PDF */}
+                {(insights[domain.domainId] || domain.insights) && (
+                  <View style={styles.insightBox} wrap={false}>
+                    <View style={styles.insightHeader}>
+                      <Text style={styles.insightTitle}>AI Insights & Recommendations</Text>
+                    </View>
+                    
+                    {(() => {
+                      const parsed = parseInsightsForPdf(insights[domain.domainId] || domain.insights);
+                      return (
+                        <View style={styles.insightGrid}>
+                          <View style={styles.insightCol}>
+                            <Text style={styles.insightTitle}>Strategic Analysis</Text>
+                            <Text style={styles.insightBody}>{parsed.analysis}</Text>
+                          </View>
+                          <View style={styles.insightCol}>
+                            <Text style={styles.insightTitle}>Top Recommendations</Text>
+                            <View style={{ marginTop: 5 }}>
+                              {parsed.recommendations.map((rec, i) => (
+                                <View key={i} style={styles.recommendationItem}>
+                                  <Text style={styles.recommendationBullet}>{i + 1}</Text>
+                                  <Text style={styles.recommendationText}>{rec}</Text>
+                                </View>
+                              ))}
+                              {parsed.recommendations.length === 0 && (
+                                <Text style={styles.recommendationText}>Increasing assessment coverage for detailed AI plans.</Text>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
               </View>
             );
           })}
