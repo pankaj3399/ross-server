@@ -172,7 +172,7 @@ export const usePdfReport = ({
     sectionSelector,
     // Add AIMA specific data for vector export
     aimaData
-}: PdfExportOptions & { aimaData?: { results: any, performance: any, nonPremiumDomains: any[] } }) => {
+}: PdfExportOptions & { aimaData?: { results: any, performance: any, nonPremiumDomains: any[], insights?: Record<string, string> } }) => {
     const [isExporting, setIsExporting] = useState(false);
     const isExportingRef = useRef(false);
 
@@ -468,7 +468,8 @@ export const usePdfReport = ({
         try {
             const doc = React.createElement(AimaPdfDocument, {
                 results: aimaData.results,
-                nonPremiumDomains: aimaData.nonPremiumDomains
+                nonPremiumDomains: aimaData.nonPremiumDomains,
+                insights: aimaData.insights
             }) as any;
             
             const blob = await pdf(doc).toBlob();

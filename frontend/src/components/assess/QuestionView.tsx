@@ -14,6 +14,7 @@ import {
 import { SecureTextarea } from "../shared/SecureTextarea";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
+import { sanitizeAimaDescription } from "../../lib/sanitize";
 /**
  * HTML entities for escaping.
  */
@@ -34,6 +35,14 @@ const htmlEscape = (str: string): string => {
  */
 const formatAimaDescription = (description: string | null | undefined): string => {
     if (!description || typeof description !== "string") return "";
+
+    const trimmedDesc = description.trim();
+    
+    // If it already looks like HTML (e.g. from manual database edits), 
+    // sanitize it and return.
+    if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
+        return sanitizeAimaDescription(trimmedDesc);
+    }
 
     // 1. Process line by line and escape before adding tags
     const lines = description.split("\n");
@@ -58,19 +67,27 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 inList = true;
             }
             
-            // Handle various separators: colons, various dashes
-            const bulletMatch = trimmedLine.match(/^[•]\s*(.*?)([:\-–—])\s*(.*)$/);
+            // Handle various separators: colons, dashes, and now parenthesis
+            // Stop bolding before parenthesis or at the separator
+            const bulletMatch = trimmedLine.match(/^[•]\s*(.*?)([:\-–—]|\s\()\s*(.*)$/);
             if (bulletMatch) {
                 const title = htmlEscape(bulletMatch[1]);
-                const separator = htmlEscape(bulletMatch[2]);
+                const separator = bulletMatch[2];
                 const rest = htmlEscape(bulletMatch[3]);
-                resultLines.push(`<li><strong>${title}${separator}</strong> ${rest}</li>`);
+                
+                if (separator === " (") {
+                    resultLines.push(`<li><strong>${title}</strong> (${rest}</li>`);
+                } else {
+                    resultLines.push(`<li><strong>${title}${htmlEscape(separator)}</strong> ${rest}</li>`);
+                }
             } else {
-                // Fallback: Bold the first 3-4 words if no separator is found
+                // Fallback: Bold the first 2-3 words if no separator is found
+                // but avoid bolding across too many words
                 const words = trimmedLine.replace(/^[•]\s*/, "").split(/\s+/);
-                if (words.length > 4) {
-                    const title = htmlEscape(words.slice(0, 3).join(" "));
-                    const rest = htmlEscape(words.slice(3).join(" "));
+                if (words.length > 2) {
+                    const titleCount = Math.min(2, words.length);
+                    const title = htmlEscape(words.slice(0, titleCount).join(" "));
+                    const rest = htmlEscape(words.slice(titleCount).join(" "));
                     resultLines.push(`<li><strong>${title}</strong> ${rest}</li>`);
                 } else {
                     resultLines.push(`<li>${htmlEscape(trimmedLine.replace(/^[•]\s*/, ""))}</li>`);
@@ -91,9 +108,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
         resultLines.push("</ul>");
     }
 
-    // We don't call safeRenderHTML again because we've already manually escaped 
-    // and we're controlling the HTML tags injected. Return raw string for dangerouslySetInnerHTML.
-    return resultLines.join("\n");
+    const rawHtml = resultLines.join("\n");
+    return sanitizeAimaDescription(rawHtml);
 };
 
 export default function QuestionView() {

@@ -7,17 +7,24 @@ import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useAssessmentResultsStore } from "../../store/assessmentResultsStore";
 import { apiService } from "../../lib/api";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { ReportSkeleton } from "../../components/Skeleton";
+import { usePdfReport } from "../../hooks/usePdfReport";
+import { getMaturityLevel } from "../../lib/maturity";
 import {
   IconArrowLeft,
   IconTrophy,
   IconStar,
   IconDownload,
-  IconLoader
+  IconLoader,
+  IconSparkles,
+  IconBrain,
+  IconCheck,
+  IconTrendingUp,
+  IconListCheck
 } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
-import { ReportSkeleton } from "../../components/Skeleton";
-import { usePdfReport } from "../../hooks/usePdfReport";
-import { getMaturityLevel } from "../../lib/maturity";
+import { parseInsightText } from "../../lib/insightUtils";
+
 
 
 export default function ScoreReportPage() {
@@ -28,11 +35,13 @@ export default function ScoreReportPage() {
   const { getProjectResults } = useAssessmentResultsStore();
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(new Set());
+  const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [insights, setInsights] = useState<Record<string, string>>({});
+  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(null);
   const [premiumDomainError, setPremiumDomainError] = useState(false);
+  const projectId = searchParams.get("projectId");
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -77,6 +86,110 @@ export default function ScoreReportPage() {
     fetchData();
   }, [projectId, isAuthenticated, authLoading, router, getProjectResults]);
 
+  useEffect(() => {
+    if (!projectId || !results || loading) return;
+
+    // Collect all existing insights from results
+    const existingInsights: Record<string, string> = {};
+    results.results.domains.forEach((domain: any) => {
+      if (domain.insights) {
+        existingInsights[domain.domainId] = domain.insights;
+      }
+    });
+
+    if (Object.keys(existingInsights).length > 0) {
+      setInsights(prev => ({ ...prev, ...existingInsights }));
+    }
+
+    let safetyTimeout: NodeJS.Timeout | null = null;
+    let isPolling = true;
+
+    const pullInsightsStatus = async (jobId: string) => {
+      if (!isPolling) return;
+      try {
+        const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
+
+        if (jobStatus.status === 'completed') {
+          if (jobStatus.insights) {
+            setInsights(prev => ({ ...prev, ...jobStatus.insights }));
+            updateResultsWithInsights(jobStatus.insights);
+          }
+          setGeneratingInsights(false);
+          isPolling = false;
+          if (safetyTimeout) clearTimeout(safetyTimeout);
+        } else if (jobStatus.status === 'failed') {
+          setGeneratingInsights(false);
+          isPolling = false;
+          if (safetyTimeout) clearTimeout(safetyTimeout);
+        } else if (isPolling) {
+          // Schedule next poll
+          setTimeout(() => pullInsightsStatus(jobId), 2000);
+        }
+      } catch (pollError) {
+        console.error("Polling error:", pollError);
+        setGeneratingInsights(false);
+        isPolling = false;
+      }
+    };
+
+    const generateInsights = async () => {
+      // Guard: Ensure premium domains are resolved and no error
+      if (premiumDomainIds === null || premiumDomainError) return;
+
+      // Check if we already have insights for all relevant domains
+      const nonPremiumDomainsToCheck = results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));
+      const allHaveInsights = nonPremiumDomainsToCheck.every((d: any) => d.insights || existingInsights[d.domainId]);
+      
+      if (allHaveInsights) return;
+
+      setGeneratingInsights(true);
+      try {
+        const response = await apiService.generateDomainInsights(projectId);
+
+        if (response.success && response.insights && response.status === 'completed') {
+          setInsights(prev => ({ ...prev, ...response.insights }));
+          updateResultsWithInsights(response.insights);
+          setGeneratingInsights(false);
+          return;
+        }
+
+        if (response.success && response.jobId && (response.status === 'processing' || response.status === 'pending')) {
+          pullInsightsStatus(response.jobId);
+
+          safetyTimeout = setTimeout(() => {
+            isPolling = false;
+            setGeneratingInsights(false);
+          }, 300000);
+        } else {
+          setGeneratingInsights(false);
+        }
+      } catch (error) {
+        setGeneratingInsights(false);
+      }
+    };
+
+    const updateResultsWithInsights = (newInsights: Record<string, string>) => {
+      setResults((prevResults: any) => {
+        if (!prevResults) return null;
+        const updatedDomains = prevResults.results.domains.map((domain: any) => ({
+          ...domain,
+          insights: newInsights[domain.domainId] || domain.insights
+        }));
+        return {
+          ...prevResults,
+          results: { ...prevResults.results, domains: updatedDomains }
+        };
+      });
+    };
+
+    generateInsights();
+
+    return () => {
+      isPolling = false;
+      if (safetyTimeout) clearTimeout(safetyTimeout);
+    };
+  }, [projectId, results, loading, premiumDomainIds]);
+
   const performance = getMaturityLevel(results?.results?.overall?.overallMaturityScore ?? 0);
 
   // Filter to show only non-premium domains
@@ -97,7 +210,8 @@ export default function ScoreReportPage() {
     aimaData: results && performance ? {
       results,
       performance,
-      nonPremiumDomains
+      nonPremiumDomains,
+      insights
     } : undefined
   });
 
@@ -282,6 +396,76 @@ export default function ScoreReportPage() {
                                 className={`h-full rounded-full transition-all duration-1000 ease-out ${domainMaturity.bgSolid} shadow-[0_0_8px_rgba(0,0,0,0.1)]`}
                                 style={{ width: `${(domain.maturityScore / 3) * 100}%` }}
                               />
+                            </div>
+                            
+                            {/* AI Insights Section */}
+                            <div className="mb-8 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                              <div className="flex items-center gap-2 mb-4">
+                                <IconSparkles className="w-4 h-4 text-primary fill-primary/20" />
+                                <h4 className="text-sm font-black text-foreground tracking-tight uppercase">AI Insights & Recommendations</h4>
+                                {generatingInsights && !insights[domain.domainId] && (
+                                  <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase animate-pulse ml-auto">
+                                    <IconLoader className="w-3 h-3 animate-spin" />
+                                    Analyzing...
+                                  </div>
+                                )}
+                              </div>
+
+                              {(() => {
+                                const domainInsights = parseInsightText(insights[domain.domainId] || domain.insights || "");
+                                if (!domainInsights.analysis && !domainInsights.strengths && !domainInsights.improvements && domainInsights.recommendations.length === 0) {
+                                  return (
+                                    <div className="text-sm text-muted-foreground italic bg-background/50 p-4 rounded-xl border border-border/50">
+                                      {generatingInsights ? "Preparing analysis..." : "Insights will appear once the analysis is complete."}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-4">
+                                      {domainInsights.analysis && (
+                                        <div>
+                                          <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Analysis</span>
+                                          <p className="text-sm text-foreground/80 leading-relaxed">{domainInsights.analysis}</p>
+                                        </div>
+                                      )}
+                                      <div className="grid grid-cols-1 gap-3">
+                                        {domainInsights.strengths && (
+                                          <div className="p-3 rounded-xl bg-success/10 border border-success/20">
+                                            <span className="text-[9px] font-black text-success uppercase tracking-widest block mb-0.5">Key Strengths</span>
+                                            <p className="text-xs text-foreground/80">{domainInsights.strengths}</p>
+                                          </div>
+                                        )}
+                                        {domainInsights.improvements && (
+                                          <div className="p-3 rounded-xl bg-warning/10 border border-warning/20">
+                                            <span className="text-[9px] font-black text-warning uppercase tracking-widest block mb-0.5">Needs Improvement</span>
+                                            <p className="text-xs text-foreground/80">{domainInsights.improvements}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Recommended Actions</span>
+                                      <div className="space-y-2">
+                                        {domainInsights.recommendations.length > 0 ? (
+                                          domainInsights.recommendations.map((rec, i) => (
+                                            <div key={i} className="flex gap-3 group/item bg-background/40 p-2.5 rounded-xl border border-border/50">
+                                              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/20 text-primary text-[9px] font-black flex items-center justify-center">
+                                                {i + 1}
+                                              </div>
+                                              <p className="text-xs text-foreground/80 leading-snug pt-0.5">{rec}</p>
+                                            </div>
+                                          ))
+                                        ) : (
+                                          <p className="text-xs text-muted-foreground italic">No specific recommendations yet.</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             {/* Practice Level Breakdown Section */}

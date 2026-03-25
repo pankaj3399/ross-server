@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import { parseInsightText } from '../insightUtils';
 
 // Define styles for the PDF
 const styles = StyleSheet.create({
@@ -285,6 +286,61 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     width: 30,
     textAlign: 'right',
+  },
+  // Insights in PDF
+  insightBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#eff6ff', // light blue
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  insightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    gap: 4,
+  },
+  insightTitle: {
+    fontSize: 8,
+    fontWeight: 'bold',
+    color: '#1e40af',
+    textTransform: 'uppercase',
+  },
+  insightBody: {
+    fontSize: 8,
+    color: '#1e3a8a',
+    lineHeight: 1.4,
+  },
+  insightGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  insightCol: {
+    flex: 1,
+  },
+  recommendationItem: {
+    flexDirection: 'row',
+    gap: 5,
+    marginBottom: 3,
+  },
+  recommendationBullet: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#dbeafe',
+    color: '#1e40af',
+    fontSize: 6,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 10,
+  },
+  recommendationText: {
+    fontSize: 7,
+    color: '#1e3a8a',
+    flex: 1,
   }
 });
 
@@ -301,9 +357,11 @@ const getMaturityLevelForPdf = (score: number) => {
 interface AimaPdfDocumentProps {
   results: any;
   nonPremiumDomains: any[];
+  insights?: Record<string, string>;
 }
 
-export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPremiumDomains }) => {
+
+export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPremiumDomains, insights = {} }) => {
   const overallMaturity = getMaturityLevelForPdf(results?.results?.overall?.overallMaturityScore ?? 0);
 
   return (
@@ -411,6 +469,42 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
                     </Text>
                   )}
                 </View>
+
+                {/* AI Insights in PDF */}
+                {(insights[domain.domainId] || domain.insights) && (
+                  <View style={styles.insightBox} wrap={false}>
+                    <View style={styles.insightHeader}>
+                      <Text style={styles.insightTitle}>AI Insights & Recommendations</Text>
+                    </View>
+                    
+                    {(() => {
+                      const parsed = parseInsightText(insights[domain.domainId] || domain.insights);
+                      const displayRecommendations = parsed.recommendations.slice(0, 3); // Limit for PDF space
+                      return (
+                        <View style={styles.insightGrid}>
+                          <View style={styles.insightCol}>
+                            <Text style={styles.insightTitle}>Strategic Analysis</Text>
+                            <Text style={styles.insightBody}>{parsed.analysis || "No direct analysis available."}</Text>
+                          </View>
+                          <View style={styles.insightCol}>
+                            <Text style={styles.insightTitle}>Top Recommendations</Text>
+                            <View style={{ marginTop: 5 }}>
+                              {displayRecommendations.map((rec, i) => (
+                                <View key={i} style={styles.recommendationItem}>
+                                  <Text style={styles.recommendationBullet}>{i + 1}</Text>
+                                  <Text style={styles.recommendationText}>{rec}</Text>
+                                </View>
+                              ))}
+                              {displayRecommendations.length === 0 && (
+                                <Text style={styles.recommendationText}>Increasing assessment coverage for detailed AI plans.</Text>
+                              )}
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
               </View>
             );
           })}
