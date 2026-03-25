@@ -356,7 +356,7 @@ router.post(
     const questionsResult = await pool.query(questionsQuery, queryParams);
 
     // Organize structure for scoring
-    const structure = new Map(); // domainId -> { title, isPremium, practices: Map(practiceId -> { title, totalQuestions, totalScore }) }
+    const structure = new Map(); // domainId -> { title, isPremium, practices: Map(practiceId -> { title, totalQuestions, levels, validQuestionKeys }) }
     
     questionsResult.rows.forEach(row => {
       if (!structure.has(row.domain_id)) {
@@ -371,7 +371,7 @@ router.post(
         domain.practices.set(row.practice_id, {
           title: row.practice_title,
           totalQuestions: 0,
-          totalScore: 0,
+          levels: {},
           validQuestionKeys: new Set()
         });
       }
@@ -379,6 +379,11 @@ router.post(
       const questionKey = `${row.level}:${row.stream}:${row.question_index}`;
       if (!practice.validQuestionKeys.has(questionKey)) {
         practice.validQuestionKeys.add(questionKey);
+        
+        if (!practice.levels[row.level]) practice.levels[row.level] = {};
+        if (!practice.levels[row.level][row.stream]) practice.levels[row.level][row.stream] = { total: 0, count: 0 };
+        
+        practice.levels[row.level][row.stream].count++;
         practice.totalQuestions++;
       }
     });
@@ -391,7 +396,7 @@ router.post(
         const practice = domain.practices.get(answer.practice_id);
         const questionKey = `${answer.level}:${answer.stream}:${answer.question_index}`;
         if (practice && practice.validQuestionKeys.has(questionKey)) {
-          practice.totalScore += parseFloat(answer.value);
+          practice.levels[answer.level][answer.stream].total += parseFloat(answer.value);
         }
       }
     });
@@ -399,14 +404,33 @@ router.post(
     // Calculate Maturity Scores
     const domains = (Array.from(structure.entries()) as [string, any][]).map(([domainId, domain]) => {
       const practices = (Array.from(domain.practices.entries()) as [string, any][]).map(([practiceId, practice]) => {
-        const maturityScore = practice.totalQuestions > 0 
-          ? Math.round((practice.totalScore / practice.totalQuestions) * 100) / 100
-          : 0;
+        let practiceMaturityScore = 0;
+        let levelsCount = 0;
+        
+        if (practice.levels) {
+          for (const level of Object.values(practice.levels)) {
+            let levelScore = 0;
+            let streamCount = 0;
+            for (const stream of Object.values(level as Record<string, { total: number, count: number }>)) {
+              if (stream.count > 0) {
+                levelScore += (stream.total / stream.count);
+                streamCount++;
+              }
+            }
+            if (streamCount > 0) {
+              practiceMaturityScore += (levelScore / streamCount);
+              levelsCount++;
+            }
+          }
+        }
+        
+        // Compute average across levels before rounding
+        const finalPracticeScore = levelsCount > 0 ? practiceMaturityScore / levelsCount : 0;
         
         return {
           practiceId,
           practiceTitle: practice.title,
-          maturityScore,
+          maturityScore: Math.round(finalPracticeScore * 100) / 100,
           totalQuestions: practice.totalQuestions
         };
       });
