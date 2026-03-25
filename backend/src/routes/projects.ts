@@ -405,6 +405,7 @@ router.post(
     const domains = (Array.from(structure.entries()) as [string, any][]).map(([domainId, domain]) => {
       const practices = (Array.from(domain.practices.entries()) as [string, any][]).map(([practiceId, practice]) => {
         let practiceMaturityScore = 0;
+        let levelsCount = 0;
         
         if (practice.levels) {
           for (const level of Object.values(practice.levels)) {
@@ -418,14 +419,18 @@ router.post(
             }
             if (streamCount > 0) {
               practiceMaturityScore += (levelScore / streamCount);
+              levelsCount++;
             }
           }
         }
         
+        // Compute average across levels before rounding
+        const finalPracticeScore = levelsCount > 0 ? practiceMaturityScore / levelsCount : 0;
+        
         return {
           practiceId,
           practiceTitle: practice.title,
-          maturityScore: Math.round(practiceMaturityScore * 100) / 100,
+          maturityScore: Math.round(finalPracticeScore * 100) / 100,
           totalQuestions: practice.totalQuestions
         };
       });
