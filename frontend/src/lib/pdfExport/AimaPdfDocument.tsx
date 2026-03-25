@@ -1,5 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font, Image } from '@react-pdf/renderer';
+import { parseInsightText } from '../insightUtils';
 
 // Define styles for the PDF
 const styles = StyleSheet.create({
@@ -359,21 +360,6 @@ interface AimaPdfDocumentProps {
   insights?: Record<string, string>;
 }
 
-// Helper for PDF parsing (simplified)
-const parseInsightsForPdf = (text: string) => {
-    const analysisPattern = /(?:Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
-    const recommendationsPattern = /(?:Specific actionable recommendations|Recommendations|4\.\s*Specific[^:]+):?\s*([\s\S]*)/i;
-
-    const analysis = text.match(analysisPattern)?.[1]?.trim() || text.substring(0, 200) + "...";
-    const rawRecs = text.match(recommendationsPattern)?.[1]?.trim() || "";
-    const recommendations = rawRecs
-        .split(/(?:\r\n|\r|\n)?(?:\d+\.|-|\u2022)\s+/)
-        .map(r => r.trim())
-        .filter(r => r.length > 0)
-        .slice(0, 3); // Limit to top 3 for space in PDF
-
-    return { analysis, recommendations };
-};
 
 export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPremiumDomains, insights = {} }) => {
   const overallMaturity = getMaturityLevelForPdf(results?.results?.overall?.overallMaturityScore ?? 0);
@@ -492,23 +478,24 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
                     </View>
                     
                     {(() => {
-                      const parsed = parseInsightsForPdf(insights[domain.domainId] || domain.insights);
+                      const parsed = parseInsightText(insights[domain.domainId] || domain.insights);
+                      const displayRecommendations = parsed.recommendations.slice(0, 3); // Limit for PDF space
                       return (
                         <View style={styles.insightGrid}>
                           <View style={styles.insightCol}>
                             <Text style={styles.insightTitle}>Strategic Analysis</Text>
-                            <Text style={styles.insightBody}>{parsed.analysis}</Text>
+                            <Text style={styles.insightBody}>{parsed.analysis || "No direct analysis available."}</Text>
                           </View>
                           <View style={styles.insightCol}>
                             <Text style={styles.insightTitle}>Top Recommendations</Text>
                             <View style={{ marginTop: 5 }}>
-                              {parsed.recommendations.map((rec, i) => (
+                              {displayRecommendations.map((rec, i) => (
                                 <View key={i} style={styles.recommendationItem}>
                                   <Text style={styles.recommendationBullet}>{i + 1}</Text>
                                   <Text style={styles.recommendationText}>{rec}</Text>
                                 </View>
                               ))}
-                              {parsed.recommendations.length === 0 && (
+                              {displayRecommendations.length === 0 && (
                                 <Text style={styles.recommendationText}>Increasing assessment coverage for detailed AI plans.</Text>
                               )}
                             </View>

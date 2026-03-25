@@ -14,6 +14,7 @@ import {
 import { SecureTextarea } from "../shared/SecureTextarea";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
+import { sanitizeAimaDescription } from "../../lib/sanitize";
 /**
  * HTML entities for escaping.
  */
@@ -37,10 +38,10 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
     const trimmedDesc = description.trim();
     
-    // If it already looks like HTML (e.g. from manual database edits), return as-is
-    // but ensure it's wrapped properly if it's multiple lines.
+    // If it already looks like HTML (e.g. from manual database edits), 
+    // sanitize it and return.
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
-        return trimmedDesc;
+        return sanitizeAimaDescription(trimmedDesc);
     }
 
     // 1. Process line by line and escape before adding tags
@@ -107,7 +108,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
         resultLines.push("</ul>");
     }
 
-    return resultLines.join("\n");
+    const rawHtml = resultLines.join("\n");
+    return sanitizeAimaDescription(rawHtml);
 };
 
 export default function QuestionView() {

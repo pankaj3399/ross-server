@@ -23,45 +23,8 @@ import {
   IconTrendingUp,
   IconListCheck
 } from "@tabler/icons-react";
+import { parseInsightText } from "../../lib/insightUtils";
 
-// Helper to parse insight text into structured sections
-const parseInsightText = (text: string) => {
-  const sections = {
-    analysis: "",
-    strengths: "",
-    improvements: "",
-    recommendations: [] as string[]
-  };
-
-  if (!text) return sections;
-
-  const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
-  const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?\s*([\s\S]*?)(?=(?:Areas|Improvements|3\.|Specific|$))/i;
-  const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?\s*([\s\S]*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
-  const recommendationsPattern = /(?:Specific actionable recommendations|Actionable Recommendations|Recommendations|4\.\s*Specific[^:]+):?\s*([\s\S]*)/i;
-
-  const analysisMatch = text.match(analysisPattern);
-  const strengthsMatch = text.match(strengthsPattern);
-  const improvementsMatch = text.match(improvementsPattern);
-  const recommendationsMatch = text.match(recommendationsPattern);
-
-  if (analysisMatch) sections.analysis = analysisMatch[1].trim();
-  else if (!strengthsMatch && !improvementsMatch && !recommendationsMatch) sections.analysis = text;
-
-  if (strengthsMatch) sections.strengths = strengthsMatch[1].trim();
-
-  if (improvementsMatch) sections.improvements = improvementsMatch[1].trim();
-
-  if (recommendationsMatch) {
-    const rawRecs = recommendationsMatch[1].trim();
-    sections.recommendations = rawRecs
-      .split(/(?:\r\n|\r|\n)?(?:\d+\.|-|\u2022)\s+/)
-      .map(r => r.trim())
-      .filter(r => r.length > 0);
-  }
-
-  return sections;
-};
 
 
 export default function ScoreReportPage() {
@@ -76,7 +39,7 @@ export default function ScoreReportPage() {
   const [loading, setLoading] = useState(true);
   const [generatingInsights, setGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<Record<string, string>>({});
-  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(new Set());
+  const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string> | null>(null);
   const [premiumDomainError, setPremiumDomainError] = useState(false);
   const projectId = searchParams.get("projectId");
 
@@ -146,9 +109,11 @@ export default function ScoreReportPage() {
       try {
         const jobStatus = await apiService.getInsightsJobStatus(projectId, jobId);
 
-        if (jobStatus.status === 'completed' && jobStatus.insights) {
-          setInsights(prev => ({ ...prev, ...jobStatus.insights }));
-          updateResultsWithInsights(jobStatus.insights);
+        if (jobStatus.status === 'completed') {
+          if (jobStatus.insights) {
+            setInsights(prev => ({ ...prev, ...jobStatus.insights }));
+            updateResultsWithInsights(jobStatus.insights);
+          }
           setGeneratingInsights(false);
           isPolling = false;
           if (safetyTimeout) clearTimeout(safetyTimeout);
@@ -168,6 +133,9 @@ export default function ScoreReportPage() {
     };
 
     const generateInsights = async () => {
+      // Guard: Ensure premium domains are resolved and no error
+      if (premiumDomainIds === null || premiumDomainError) return;
+
       // Check if we already have insights for all relevant domains
       const nonPremiumDomainsToCheck = results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));
       const allHaveInsights = nonPremiumDomainsToCheck.every((d: any) => d.insights || existingInsights[d.domainId]);
@@ -185,7 +153,7 @@ export default function ScoreReportPage() {
           return;
         }
 
-        if (response.success && response.jobId && response.status === 'processing') {
+        if (response.success && response.jobId && (response.status === 'processing' || response.status === 'pending')) {
           pullInsightsStatus(response.jobId);
 
           safetyTimeout = setTimeout(() => {
