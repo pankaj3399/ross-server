@@ -39,6 +39,7 @@ interface SubscriptionModalProps {
   onDowngrade?: () => void;
   title?: string;
   description?: string;
+  isLimitReached?: boolean;
 }
 
 export default function SubscriptionModal({
@@ -48,7 +49,8 @@ export default function SubscriptionModal({
   onUpgrade,
   onDowngrade,
   title = "Choose Your Plan",
-  description
+  description,
+  isLimitReached = false
 }: SubscriptionModalProps) {
   const [prices, setPrices] = useState<{ basic: number | null; pro: number | null }>({
     basic: null,
@@ -217,14 +219,19 @@ export default function SubscriptionModal({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <DialogTitle className="text-4xl font-bold">
-                {title}
+              <DialogTitle className={`text-4xl font-extrabold tracking-tight ${isLimitReached ? 'text-primary' : ''}`}>
+                {isLimitReached ? "Project Limit Reached" : title}
               </DialogTitle>
-              {description && (
-                <div className="mt-2 text-muted-foreground">
-                  {description}
-                </div>
-              )}
+              <div className="mt-4 text-muted-foreground max-w-2xl mx-auto text-lg leading-relaxed">
+                {isLimitReached ? (
+                  <>
+                    You've reached the <span className="text-foreground font-bold underline decoration-primary/50 decoration-2 underline-offset-4">1-project limit</span> on the SEED plan. 
+                    Upgrade now to unlock unlimited projects and advanced AI governance features.
+                  </>
+                ) : (
+                  description
+                )}
+              </div>
             </motion.div>
           </DialogHeader>
 
@@ -244,7 +251,7 @@ export default function SubscriptionModal({
                 Small Teams
               </Badge>
 
-              <Card className="h-full flex flex-col border-border hover:border-primary/50 transition-all duration-300 rounded-2xl">
+              <Card className="h-full flex flex-col border-border/50 bg-background/50 backdrop-blur-sm hover:border-primary/50 transition-all duration-500 rounded-3xl shadow-lg hover:shadow-primary/5 group-hover:bg-background/80">
                 <CardHeader className="text-center pb-4">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -338,7 +345,7 @@ export default function SubscriptionModal({
                 </Badge>
               </motion.div>
 
-              <Card className="h-full flex flex-col border-border hover:border-primary/50 transition-all duration-300 rounded-2xl ring-1 ring-primary/10">
+              <Card className="h-full flex flex-col border-primary/20 bg-background/50 backdrop-blur-sm hover:border-primary/50 transition-all duration-500 rounded-3xl shadow-xl hover:shadow-primary/10 ring-1 ring-primary/20 group-hover:bg-background/80">
                 <CardHeader className="text-center pb-4">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">

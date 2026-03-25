@@ -109,6 +109,7 @@ export default function DashboardPage() {
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [isProjectLimitReached, setIsProjectLimitReached] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decliningTokensRef = useRef<Set<string>>(new Set());
 
@@ -296,6 +297,7 @@ export default function DashboardPage() {
       console.error("Failed to create project:", error);
       if (error.message === ERROR_PROJECT_LIMIT_REACHED) {
         setShowCreateForm(false);
+        setIsProjectLimitReached(true);
         setShowSubscriptionModal(true);
       } else {
         showToast.error("Failed to create project. Please try again.");
@@ -617,7 +619,11 @@ export default function DashboardPage() {
       {/* Unlock Premium Modal */}
       <SubscriptionModal
         isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
+        onClose={() => {
+          setShowSubscriptionModal(false);
+          setIsProjectLimitReached(false);
+        }}
+        isLimitReached={isProjectLimitReached}
         title="Unlock Premium to Access Multiple Projects"
         description="Upgrade to premium to create unlimited projects and unlock many more advanced capabilities."
       />
