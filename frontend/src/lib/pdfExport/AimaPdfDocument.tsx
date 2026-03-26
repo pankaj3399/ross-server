@@ -311,36 +311,42 @@ const styles = StyleSheet.create({
   insightBody: {
     fontSize: 8,
     color: '#1e3a8a',
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
   insightGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     marginTop: 8,
+  },
+  insightColAnalysis: {
+    flex: 1.2,
+  },
+  insightColRecommendations: {
+    flex: 1,
   },
   insightCol: {
     flex: 1,
   },
-  recommendationItem: {
-    flexDirection: 'row',
-    gap: 5,
-    marginBottom: 3,
-  },
-  recommendationBullet: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#dbeafe',
-    color: '#1e40af',
-    fontSize: 6,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 10,
+  recommendationList: {
+    marginTop: 6,
   },
   recommendationText: {
     fontSize: 7,
     color: '#1e3a8a',
-    flex: 1,
+    lineHeight: 1.45,
+  },
+  recommendationEmptyText: {
+    fontSize: 7,
+    color: '#1e3a8a',
+    lineHeight: 1.4,
+    fontStyle: 'italic',
+  },
+  recommendationItemGap: {
+    marginBottom: 5,
+  },
+  recommendationNumber: {
+    fontWeight: 'bold',
+    color: '#1e40af',
   }
 });
 
@@ -482,21 +488,21 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
                       const displayRecommendations = parsed.recommendations.slice(0, 3); // Limit for PDF space
                       return (
                         <View style={styles.insightGrid}>
-                          <View style={styles.insightCol}>
+                          <View style={[styles.insightCol, styles.insightColAnalysis]}>
                             <Text style={styles.insightTitle}>Strategic Analysis</Text>
                             <Text style={styles.insightBody}>{parsed.analysis || "No direct analysis available."}</Text>
                           </View>
-                          <View style={styles.insightCol}>
+                          <View style={[styles.insightCol, styles.insightColRecommendations]}>
                             <Text style={styles.insightTitle}>Top Recommendations</Text>
-                            <View style={{ marginTop: 5 }}>
+                            <View style={styles.recommendationList}>
                               {displayRecommendations.map((rec, i) => (
-                                <View key={i} style={styles.recommendationItem}>
-                                  <Text style={styles.recommendationBullet}>{i + 1}</Text>
-                                  <Text style={styles.recommendationText}>{rec}</Text>
-                                </View>
+                                <Text key={i} style={[styles.recommendationText, styles.recommendationItemGap]}>
+                                  <Text style={styles.recommendationNumber}>{`${i + 1}. `}</Text>
+                                  {rec}
+                                </Text>
                               ))}
                               {displayRecommendations.length === 0 && (
-                                <Text style={styles.recommendationText}>Increasing assessment coverage for detailed AI plans.</Text>
+                                <Text style={styles.recommendationEmptyText}>Increasing assessment coverage for detailed AI plans.</Text>
                               )}
                             </View>
                           </View>

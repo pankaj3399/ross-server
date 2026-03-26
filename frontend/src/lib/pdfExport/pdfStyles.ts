@@ -183,6 +183,11 @@ export const styleVerdictColors = (root: HTMLElement) => {
 };
 
 export const styleTypography = (root: HTMLElement) => {
+    const isSecurityIterationHeader = (text: string) => {
+        const normalized = text.toUpperCase();
+        return /JAILBREAK|ITERATION|PROMPT|TEST|OVERALL|FAILED|PASSED/.test(normalized);
+    };
+
     root.querySelectorAll("h1, h2, h3, h4").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.fontWeight = "900";
@@ -238,6 +243,8 @@ export const styleTypography = (root: HTMLElement) => {
     // GLOBAL VERTICAL REALIGNMENT for category headers (JAILBREAK 4 OVERALL type blocks)
     root.querySelectorAll(".flex.items-center.gap-3.text-xs.font-black, .flex.items-center.gap-2.text-sm.font-semibold").forEach(el => {
         const elem = el as HTMLElement;
+        if (!isSecurityIterationHeader(elem.textContent || "")) return;
+
         elem.style.setProperty("display", "flex", "important");
         elem.style.setProperty("align-items", "center", "important");
         elem.style.setProperty("min-height", "24px", "important");
@@ -279,8 +286,9 @@ export const styleTypography = (root: HTMLElement) => {
         // If it contains an SVG or Lucide icon, or is a header, apply more aggressive alignment
         const hasIcon = container.querySelector("svg, .lucide");
         const isHeader = container.tagName.match(/^H[1-6]$/);
+        const shouldRealign = isSecurityIterationHeader(container.textContent || "");
         
-        if (hasIcon || isHeader) {
+        if ((hasIcon || isHeader) && shouldRealign) {
             container.style.setProperty("min-height", "32px", "important");
             
             // For headers and icon rows, nudge icons and text differently
@@ -316,6 +324,39 @@ export const styleTypography = (root: HTMLElement) => {
                         }
                     }
                 }
+
+                // Premium AIMA AI-insight body formatting for clean PDF readability
+                root.querySelectorAll("h5, h4").forEach((el) => {
+                    const heading = el as HTMLElement;
+                    const headingText = (heading.textContent || "").trim().toUpperCase();
+                    const isInsightHeading = /STRATEGIC ANALYSIS|KEY INDICATORS|ACTION PLAN|TOP RECOMMENDATIONS/.test(headingText);
+                    if (!isInsightHeading) return;
+
+                    heading.style.setProperty("font-size", "12px", "important");
+                    heading.style.setProperty("font-weight", "800", "important");
+                    heading.style.setProperty("line-height", "1.35", "important");
+                    heading.style.setProperty("letter-spacing", "0.06em", "important");
+                    heading.style.setProperty("margin", "0 0 8px 0", "important");
+                    heading.style.setProperty("transform", "none", "important");
+
+                    const section = heading.closest(".space-y-4") as HTMLElement | null;
+                    if (!section) return;
+
+                    section.style.setProperty("display", "flex", "important");
+                    section.style.setProperty("flex-direction", "column", "important");
+                    section.style.setProperty("gap", "10px", "important");
+
+                    section.querySelectorAll("p, li").forEach(node => {
+                        const textNode = node as HTMLElement;
+                        textNode.style.setProperty("font-size", "12px", "important");
+                        textNode.style.setProperty("line-height", "1.55", "important");
+                        textNode.style.setProperty("letter-spacing", "0", "important");
+                        textNode.style.setProperty("word-break", "break-word", "important");
+                        textNode.style.setProperty("white-space", "normal", "important");
+                        textNode.style.setProperty("margin", "0", "important");
+                        textNode.style.setProperty("padding", "0", "important");
+                    });
+                });
             });
         }
     });
