@@ -42,8 +42,9 @@ const formatAimaDescription = (description: string | null | undefined): string =
     // sanitize it, strip erroneous dots from bullets, and return.
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
         let sanitized = sanitizeAimaDescription(trimmedDesc);
-        // Aggressively strip "• ." from LI tags if they exist in the HTML
-        sanitized = sanitized.replace(/<li>\s*[•\-\*·]?\s*[.\-·• ]*\s*/g, "<li>");
+        // Aggressively strip "• ." from LI tags if they exist in the HTML, 
+        // but only if an actual bullet character is present to protect things like ".NET"
+        sanitized = sanitized.replace(/<li(\b[^>]*)>\s*[•\-\*·\u2022\u00B7]\s*[.\-·• ]*\s*/gi, "<li$1>");
         return sanitized;
     }
 
@@ -64,7 +65,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
     for (let line of lines) {
         const trimmedLine = line.trim();
-        if (trimmedLine.startsWith("•")) {
+        // Support multiple bullet characters: •, -, *, ·
+        if (/^[•\-\*·]/.test(trimmedLine)) {
             if (!inList) {
                 resultLines.push('<ul class="mt-2 space-y-1">');
                 inList = true;

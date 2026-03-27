@@ -357,29 +357,35 @@ function pgEscape(str) {
 }
 
 exports.up = async (pgm) => {
-    let updateCount = 0;
+    let totalUpdated = 0;
 
     for (const [practiceId, levels] of Object.entries(HTML_GUIDANCE_DATA)) {
         for (const [level, streams] of Object.entries(levels)) {
             for (const [stream, description] of Object.entries(streams)) {
                 const escapedDesc = pgEscape(description);
-                pgm.sql(
+                // Use pgm.db.query to get actual row count
+                const res = await pgm.db.query(
                     `UPDATE aima_questions
            SET description = ${escapedDesc}
            WHERE practice_id = '${practiceId}'
              AND level = '${level}'
-             AND stream = '${stream}'`
+             AND stream = '${stream}'
+             AND question_index = 0`
                 );
-                updateCount++;
+                totalUpdated += res.rowCount;
             }
         }
     }
 
     console.log(
-        `✅ Updated rich HTML guidance for ${updateCount} AIMA questions`
+        `✅ Updated rich HTML guidance for ${totalUpdated} AIMA questions`
     );
 };
 
 exports.down = async (pgm) => {
-    console.log("⚠️ Downgrade not fully reversible without re-running data population migration.");
+    // Reversibly clear the description for the primary questions (question_index = 0)
+    const res = await pgm.db.query(
+        "UPDATE aima_questions SET description = NULL WHERE question_index = 0"
+    );
+    console.log(`✅ Cleared rich HTML guidance for ${res.rowCount} AIMA questions`);
 };
