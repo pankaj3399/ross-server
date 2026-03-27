@@ -9,6 +9,36 @@ export interface InsightSections {
   recommendations: string[];
 }
 
+const normalizeInsightText = (text: string): string =>
+  text
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const cleanSection = (text: string): string =>
+  text
+    .replace(/^(?:[-•\u2022]|\d+[\.)]|\(\d+\))\s+/gm, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+
+const tryExtractSection = (
+  text: string,
+  headingPattern: RegExp,
+  stopPattern?: RegExp | null,
+  shouldClean: boolean = true
+): string => {
+  const headingMatch = text.match(headingPattern);
+  if (!headingMatch || headingMatch.index === undefined) return "";
+
+  const start = headingMatch.index + headingMatch[0].length;
+  const afterHeading = text.slice(start).trimStart();
+  const stopMatch = stopPattern ? afterHeading.match(stopPattern) : null;
+  const raw = stopMatch ? afterHeading.slice(0, stopMatch.index) : afterHeading;
+  return shouldClean ? cleanSection(raw) : raw.trim();
+};
+
 /**
  * Splits a text block into individual recommendation items based on common bullet patterns.
  * Handles: "1.", "1)", "(1)", "-", "•"
@@ -26,8 +56,14 @@ export const splitRecommendations = (text: string): string[] => {
   return text
     .split(/(?:\r\n|\r|\n)?(?:\d+[\.\)]|\(\d+\)|[-•\u2022])\s+/)
     .map(r => r.trim())
-    .filter(r => r.length > 0);
+    .filter(r => r.length > 0)
+    .filter(r => !/^top recommendations?:?$/i.test(r));
 };
+
+const cleanRecommendationItems = (items: string[]): string[] =>
+  items
+    .map(item => cleanSection(item))
+    .filter(item => item.length > 0);
 
 /**
  * Parses raw AI insight text into structured sections.
@@ -42,24 +78,85 @@ export const parseInsightText = (text: string): InsightSections => {
 
   if (!text) return sections;
 
-  const analysisPattern = /(?:Current Performance Analysis|Analysis|1\.\s*A brief analysis[^:]+):?\s*([\s\S]*?)(?=(?:Key strengths|Strengths|2\.|Areas|Specific|$))/i;
-  const strengthsPattern = /(?:Key strengths|Strengths|2\.\s*Key strengths[^:]+):?\s*([\s\S]*?)(?=(?:Areas|Improvements|3\.|Specific|$))/i;
-  const improvementsPattern = /(?:Areas that need improvement|Areas for Improvement|3\.\s*Areas[^:]+):?\s*([\s\S]*?)(?=(?:Specific|Actionable|Recommendations|4\.)|$)/i;
-  const recommendationsPattern = /(?:Specific actionable recommendations|Actionable Recommendations|Recommendations|4\.\s*Specific[^:]+):?\s*([\s\S]*)/i;
+  const normalized = normalizeInsightText(text);
 
-  const analysisMatch = text.match(analysisPattern);
-  const strengthsMatch = text.match(strengthsPattern);
-  const improvementsMatch = text.match(improvementsPattern);
-  const recommendationsMatch = text.match(recommendationsPattern);
+  const optionalSectionNumberPrefix = String.raw`(?:\d+(?:\.\d+)*(?:[.)])?\s*)?`;
 
-  if (analysisMatch) sections.analysis = analysisMatch[1].trim();
-  else if (!strengthsMatch && !improvementsMatch && !recommendationsMatch) sections.analysis = text;
+  const stopAfterAnalysis = new RegExp(
+    String.raw`(?:\n\s*${optionalSectionNumberPrefix}(?:KEY\s+)?STRENGTHS?\b|\n\s*${optionalSectionNumberPrefix}AREAS?\s+FOR\s+IMPROVEMENT\b|\n\s*${optionalSectionNumberPrefix}GAP\s+ANALYSIS\b|\n\s*${optionalSectionNumberPrefix}(?:TOP\s+)?RECOMMENDATIONS?\b|\n\s*${optionalSectionNumberPrefix}ACTION\s+PLAN\b|\n\s*${optionalSectionNumberPrefix}NEXT\s+STEPS?\b)`,
+    "i"
+  );
+  const stopAfterStrengths = new RegExp(
+    String.raw`(?:\n\s*${optionalSectionNumberPrefix}AREAS?\s+FOR\s+IMPROVEMENT\b|\n\s*${optionalSectionNumberPrefix}GAP\s+ANALYSIS\b|\n\s*${optionalSectionNumberPrefix}(?:TOP\s+)?RECOMMENDATIONS?\b|\n\s*${optionalSectionNumberPrefix}ACTION\s+PLAN\b|\n\s*${optionalSectionNumberPrefix}NEXT\s+STEPS?\b)`,
+    "i"
+  );
+  const stopAfterImprovements = new RegExp(
+    String.raw`(?:\n\s*${optionalSectionNumberPrefix}(?:TOP\s+)?RECOMMENDATIONS?\b|\n\s*${optionalSectionNumberPrefix}ACTION\s+PLAN\b|\n\s*${optionalSectionNumberPrefix}NEXT\s+STEPS?\b)`,
+    "i"
+  );
+  const recommendationHeadingPattern = /(?:^|\n)\s*(?:4[.)]\s*)?(?:TOP\s+RECOMMENDATIONS?|SPECIFIC\s+ACTIONABLE\s+RECOMMENDATIONS?|ACTIONABLE\s+RECOMMENDATIONS?|RECOMMENDATIONS?|ACTION\s+PLAN|NEXT\s+STEPS?)\s*:?\s*/i;
+  const nextTopLevelHeadingPattern = /\n\s*(?:\d+[.)]\s*)?(?:STRATEGIC\s+ANALYSIS|CURRENT\s+PERFORMANCE\s+ANALYSIS|PERFORMANCE\s+ANALYSIS|ANALYSIS|EXECUTIVE\s+SUMMARY|OVERVIEW|KEY\s+STRENGTHS?|STRENGTHS?|KEY\s+INDICATORS|AREAS?\s+THAT\s+NEED\s+IMPROVEMENT|AREAS?\s+FOR\s+IMPROVEMENT|IMPROVEMENTS?|GAP\s+ANALYSIS|TOP\s+RECOMMENDATIONS?|SPECIFIC\s+ACTIONABLE\s+RECOMMENDATIONS?|ACTIONABLE\s+RECOMMENDATIONS?|RECOMMENDATIONS?|ACTION\s+PLAN|NEXT\s+STEPS?)\s*:?\s*/i;
 
-  if (strengthsMatch) sections.strengths = strengthsMatch[1].trim();
-  if (improvementsMatch) sections.improvements = improvementsMatch[1].trim();
+  sections.analysis = tryExtractSection(
+    normalized,
+    /(?:^|\n)\s*(?:1[.)]\s*)?(?:STRATEGIC\s+ANALYSIS|CURRENT\s+PERFORMANCE\s+ANALYSIS|PERFORMANCE\s+ANALYSIS|ANALYSIS|EXECUTIVE\s+SUMMARY|OVERVIEW)\s*:?\s*/i,
+    stopAfterAnalysis
+  );
 
-  if (recommendationsMatch) {
-    sections.recommendations = splitRecommendations(recommendationsMatch[1].trim());
+  sections.strengths = tryExtractSection(
+    normalized,
+    /(?:^|\n)\s*(?:2[.)]\s*)?(?:KEY\s+STRENGTHS?|STRENGTHS?|KEY\s+INDICATORS)\s*:?\s*/i,
+    stopAfterStrengths
+  );
+
+  sections.improvements = tryExtractSection(
+    normalized,
+    /(?:^|\n)\s*(?:3[.)]\s*)?(?:AREAS?\s+THAT\s+NEED\s+IMPROVEMENT|AREAS?\s+FOR\s+IMPROVEMENT|IMPROVEMENTS?|GAP\s+ANALYSIS)\s*:?\s*/i,
+    stopAfterImprovements
+  );
+
+  const recommendationSection = tryExtractSection(
+    normalized,
+    recommendationHeadingPattern,
+    null,
+    false
+  );
+
+  if (recommendationSection) {
+    sections.recommendations = cleanRecommendationItems(splitRecommendations(recommendationSection));
+  }
+
+  if (!sections.analysis) {
+    const firstParagraph = normalized
+      .split(/\n\n+/)
+      .map(part => part.trim())
+      .find(part => part.length > 0 && !/\b(?:TOP\s+)?RECOMMENDATIONS?\b|\bRECOMMEND(?:ATION)?S?\b|\bACTIONABLE\s+RECOMMEND(?:ATION)?S?\b|\bACTION\s+PLAN\b|\bNEXT\s+STEPS?\b|\bKEY\s+STRENGTHS?\b|\bSTRENGTHS?\b|\bAREAS?\s+FOR\s+IMPROVEMENT\b|\bAREAS?\s+THAT\s+NEED\s+IMPROVEMENT\b|\bIMPROVEMENTS?\b|\bGAP\s+ANALYSIS\b|\bKEY\s+INDICATORS?\b/i.test(part));
+
+    if (firstParagraph) {
+      sections.analysis = cleanSection(firstParagraph);
+    }
+  }
+
+  if (!sections.analysis && !sections.strengths && !sections.improvements && sections.recommendations.length === 0) {
+    // Limit fallback to prevent PDF overflow (approximately 2-3 paragraphs)
+    sections.analysis = normalized.length > 1500 ? normalized.slice(0, 1500) + "..." : normalized;
+  }
+
+  if (sections.recommendations.length === 0) {
+    const recommendationHeadingMatch = normalized.match(recommendationHeadingPattern);
+    if (recommendationHeadingMatch && recommendationHeadingMatch.index !== undefined) {
+      const start = recommendationHeadingMatch.index + recommendationHeadingMatch[0].length;
+      const afterHeading = normalized.slice(start).trimStart();
+      const nextHeadingMatch = afterHeading.match(nextTopLevelHeadingPattern);
+      const recommendationOnlyText = nextHeadingMatch
+        ? afterHeading.slice(0, nextHeadingMatch.index)
+        : afterHeading;
+
+      const fallbackSplit = cleanRecommendationItems(splitRecommendations(recommendationOnlyText)).slice(0, 6);
+      if (fallbackSplit.length > 0) {
+        sections.recommendations = fallbackSplit;
+      }
+    }
   }
 
   return sections;
