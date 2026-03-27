@@ -19,7 +19,7 @@ const normalizeInsightText = (text: string): string =>
 
 const cleanSection = (text: string): string =>
   text
-    .replace(/^(?:[-•\u2022]|\d+[\.)]|\(\d+\))\s+/gm, "")
+    .replace(/^(?:[-\u2022]|\d+[\.)]|\(\d+\))\s+/gm, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
 
@@ -54,7 +54,7 @@ export const splitRecommendations = (text: string): string[] => {
   //    c. [-•]      - hyphen or bullet
   // 3. Followed by whitespace
   return text
-    .split(/(?:\r\n|\r|\n)?(?:\d+[\.\)]|\(\d+\)|[-•\u2022])\s+/)
+    .split(/(?:\r\n|\r|\n)?(?:\d+[\.\)]|\(\d+\)|[-\u2022])\s+/)
     .map(r => r.trim())
     .filter(r => r.length > 0 && !/^top recommendations?:?$/i.test(r));
 };
