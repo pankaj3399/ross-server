@@ -1134,16 +1134,6 @@ router.post("/invitations/:token/signup", async (req, res) => {
           objectId: membership.id,
           metadata: { email: acceptedInvitation.email },
         });
-
-        // Send notification to inviter (best-effort)
-        notifyInviterOfInvitationResponse(
-          acceptedInvitation.project_id,
-          acceptedInvitation.inviter_id,
-          acceptedInvitation.email,
-          "accepted",
-        ).catch(err => {
-          console.error("Fire-and-forget notification failed (signup):", err);
-        });
       } catch (logError) {
         console.error("Failed to record audit log for invitation signup", {
           error: logError,
@@ -1153,7 +1143,15 @@ router.post("/invitations/:token/signup", async (req, res) => {
         });
       }
 
-      // Fire-and-forget notification is already sent above (line 1139)
+      // Send notification to inviter (best-effort)
+      notifyInviterOfInvitationResponse(
+        acceptedInvitation.project_id,
+        acceptedInvitation.inviter_id,
+        acceptedInvitation.email,
+        "accepted",
+      ).catch(err => {
+        console.error("Fire-and-forget notification failed (signup):", err);
+      });
 
       // Generate JWT
       const jwtToken = jwt.sign(

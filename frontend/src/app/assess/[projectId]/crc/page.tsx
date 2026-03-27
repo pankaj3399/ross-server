@@ -504,7 +504,7 @@ export default function CRCAssessmentPage() {
             </motion.div>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between pb-8">
+            <div className="flex items-center justify-between pb-8 border-b border-border mb-8">
               <button
                 onClick={handlePrevious}
                 type="button"
@@ -525,13 +525,13 @@ export default function CRCAssessmentPage() {
                 <IconArrowRight className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        </div>
 
-        {/* Project Notes & Collaboration */}
-        <div className="border-t p-6 bg-muted/10 mx-auto w-full max-w-4xl">
-          <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
-          <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+            {/* Project Notes & Collaboration */}
+            <div className="pt-4">
+              <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
+              <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+            </div>
+          </div>
         </div>
       </div>
 
