@@ -52,6 +52,7 @@ import {
     IconX
 } from "@tabler/icons-react";
 import ProjectSettingsTabs from "@/components/features/projects/ProjectSettingsTabs";
+import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 
 export interface ProjectMember {
     id: string;
@@ -90,6 +91,9 @@ export default function TeamManagementPage() {
     const [invitationToRevoke, setInvitationToRevoke] = useState<Invitation | null>(null);
 
     const [processing, setProcessing] = useState(false);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+    const isPremium = user?.subscription_status && ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -228,57 +232,85 @@ export default function TeamManagementPage() {
             <ProjectSettingsTabs projectId={projectId} />
 
             {isOwner && (
-                <Card className="border-primary/20 shadow-md ring-1 ring-primary/5">
-                    <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <IconUserPlus className="w-5 h-5 text-primary" />
-                            Invite New Member
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        <form onSubmit={handleInvite} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
-                            <div className="grid gap-2 sm:col-span-6">
-                                <Label htmlFor="inviteEmail" className="text-sm font-medium">Email Address</Label>
-                                <div className="relative">
-                                    <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        id="inviteEmail"
-                                        type="email"
-                                        value={inviteEmail}
-                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                        placeholder="colleague@example.com"
-                                        required
-                                        className="pl-10 h-10"
-                                    />
+                isPremium ? (
+                    <Card className="border-primary/20 shadow-md ring-1 ring-primary/5">
+                        <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <IconUserPlus className="w-5 h-5 text-primary" />
+                                Invite New Member
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                            <form onSubmit={handleInvite} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                                <div className="grid gap-2 sm:col-span-6">
+                                    <Label htmlFor="inviteEmail" className="text-sm font-medium">Email Address</Label>
+                                    <div className="relative">
+                                        <IconMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="inviteEmail"
+                                            type="email"
+                                            value={inviteEmail}
+                                            onChange={(e) => setInviteEmail(e.target.value)}
+                                            placeholder="colleague@example.com"
+                                            required
+                                            className="pl-10 h-10"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="grid gap-2 sm:col-span-3">
-                                <Label className="text-sm font-medium">Role</Label>
-                                <Select value={inviteRole} onValueChange={(val) => setInviteRole(val as 'OWNER' | 'EDITOR' | 'VIEWER')}>
-                                    <SelectTrigger className="h-10">
-                                        <SelectValue placeholder="Select role" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="EDITOR">Editor</SelectItem>
-                                        <SelectItem value="VIEWER">Viewer</SelectItem>
-                                        <SelectItem value="OWNER">Owner</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2 sm:col-span-3">
-                                <Label className="hidden sm:block opacity-0">&nbsp;</Label>
-                                <Button type="submit" disabled={inviting} className="w-full h-10 px-8">
-                                    {inviting ? (
-                                        <IconLoader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <IconSend className="w-4 h-4" />
-                                    )}
-                                    Send Invite
+                                <div className="grid gap-2 sm:col-span-3">
+                                    <Label className="text-sm font-medium">Role</Label>
+                                    <Select value={inviteRole} onValueChange={(val) => setInviteRole(val as 'OWNER' | 'EDITOR' | 'VIEWER')}>
+                                        <SelectTrigger className="h-10">
+                                            <SelectValue placeholder="Select role" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="EDITOR">Editor</SelectItem>
+                                            <SelectItem value="VIEWER">Viewer</SelectItem>
+                                            <SelectItem value="OWNER">Owner</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="grid gap-2 sm:col-span-3">
+                                    <Label className="hidden sm:block opacity-0">&nbsp;</Label>
+                                    <Button type="submit" disabled={inviting} className="w-full h-10 px-8">
+                                        {inviting ? (
+                                            <IconLoader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <IconSend className="w-4 h-4" />
+                                        )}
+                                        Send Invite
+                                    </Button>
+                                </div>
+                            </form>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Card className="border-primary/20 shadow-md ring-1 ring-primary/5 overflow-hidden">
+                        <div className="absolute top-0 right-0 p-2">
+                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">Pro Feature</Badge>
+                        </div>
+                        <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <IconUserPlus className="w-5 h-5 text-primary" />
+                                Invite New Member
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-8 pb-8 text-center">
+                            <div className="max-w-md mx-auto">
+                                <h3 className="text-lg font-bold mb-2">Collabrative Teams</h3>
+                                <p className="text-muted-foreground text-sm mb-6">
+                                    Invite your colleagues to collaborate on this assessment. Teams and user management are premium features.
+                                </p>
+                                <Button 
+                                    onClick={() => setShowSubscriptionModal(true)}
+                                    className="btn-primary"
+                                >
+                                    Upgrade to Invite Members
                                 </Button>
                             </div>
-                        </form>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )
             )}
 
             {/* Members List */}
@@ -504,6 +536,13 @@ export default function TeamManagementPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <SubscriptionModal
+                isOpen={showSubscriptionModal}
+                onClose={() => setShowSubscriptionModal(false)}
+                title="Unlock Premium to Access Teams"
+                description="Upgrade to premium to invite your colleagues and collaborate on assessments together."
+            />
         </div>
     );
 }
