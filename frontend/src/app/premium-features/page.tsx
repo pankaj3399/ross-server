@@ -193,7 +193,7 @@ export default function PremiumFeaturesPage() {
                     AI Vulnerability Assessment
                   </CardTitle>
                   <CardDescription className="text-base">
-                    Automated scanning for security risks in models.
+                    Advanced adversarial scanning to identify vulnerabilities, prompt injections, and safety filter bypasses in your AI models.
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -216,7 +216,7 @@ export default function PremiumFeaturesPage() {
                     Automated Bias & Fairness Testing
                   </CardTitle>
                   <CardDescription className="text-base">
-                    Detect and mitigate algorithmic bias across datasets.
+                    Comprehensive evaluation of algorithmic bias and disparate impact across datasets and model responses.
                   </CardDescription>
                 </CardContent>
               </Card>

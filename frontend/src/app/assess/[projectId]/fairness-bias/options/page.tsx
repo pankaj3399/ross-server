@@ -16,6 +16,7 @@ import {
 import SubscriptionModal from "../../../../../components/features/subscriptions/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
 import { apiService } from "../../../../../lib/api";
+import InfoSection from "../../../../../components/features/governance/InfoSection";
 
 type TestMethod =
   | "prompt-response"
@@ -203,6 +204,14 @@ export default function FairnessBiasOptions() {
             <p className="text-muted-foreground">
               Select one of the following options to proceed with fairness and bias testing
             </p>
+          </div>
+
+          <div className="mb-12 max-w-5xl mx-auto">
+            <InfoSection
+              title="About Automated Bias & Fairness Testing"
+              description="This assessment evaluates your AI system's responses across various demographic groups and sensitive topics to ensure equitable performance. It uses specialized metrics to detect statistical imbalances that could lead to discriminatory or unfair outcomes."
+              limitations="Automated tests are limited by the predefined categories and metrics in our suite. They may not capture intersectional biases or nuances unique to your specific use case. A passing score indicates compliance with statistical thresholds but does not guarantee the complete absence of bias in all real-world interactions."
+            />
           </div>
 
           {/* Options Grid */}

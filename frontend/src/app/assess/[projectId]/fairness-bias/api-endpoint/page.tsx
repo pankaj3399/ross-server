@@ -20,6 +20,7 @@ import { AnimatePresence } from "framer-motion";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "../api-history/components/ApiHistory";
+import InfoSection from "@/components/features/governance/InfoSection";
 
 const DEFAULT_REQUEST_TEMPLATE = `{
   "contents": [
@@ -243,6 +244,19 @@ export default function ApiEndpointPage() {
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-12">
+        <div className="mb-8 space-y-4">
+          <InfoSection
+            title="About API Automated Testing"
+            description="API Automated Testing integrates directly with your model's endpoint to run large-scale evaluations. It provides a repeatable and consistent way to monitor model behavior in its production-ready state by sending a battery of fairness-focused prompts and analyzing the responses."
+            limitations="The accuracy of this test depends on the quality of the automated evaluator and the stability of your API. It may fail to correctly interpret ambiguous responses or those that deviate significantly from expected formats."
+          />
+          <InfoSection
+            title="About AI Vulnerability Assessment (Security Scan)"
+            description="The Security Scan uses advanced adversarial techniques to identify potential security flaws in your AI models. It tests for common attack vectors such as prompt injection, jailbreaking, and bypasses of safety guardrails by simulating real-world malicious inputs."
+            limitations="This scan is a behavioral assessment of the model's output and does not constitute a full system-level security audit. It cannot detect infrastructure-level vulnerabilities or capture 'zero-day' exploits discovered after the latest test suite update."
+          />
+        </div>
+
         {/* API Endpoint Input */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

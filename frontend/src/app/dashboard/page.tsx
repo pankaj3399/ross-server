@@ -52,40 +52,11 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import ProjectEditForm from "@/components/features/projects/ProjectEditForm";
+import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES } from "@/lib/constants";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 const SKELETON_COUNT = 5;
-const INDUSTRY_OPTIONS = [
-  "Healthcare & Life Sciences",
-  "Finance & Banking",
-  "Insurance",
-  "Retail & E-commerce",
-  "Manufacturing",
-  "Transportation & Logistics",
-  "Energy & Utilities",
-  "Telecommunications",
-  "Technology & Software",
-  "Government & Public Sector",
-  "Education",
-  "Legal & Compliance",
-  "Marketing & Advertising",
-  "HR & Workforce Tech",
-  "Media & Entertainment",
-  "Real Estate & Property Tech",
-  "Nonprofit",
-  "Research & Development",
-  "Others",
-];
-
-const AI_SYSTEM_TYPES = [
-  "Machine Learning Model",
-  "Deep Learning System",
-  "NLP System",
-  "Computer Vision",
-  "Recommendation System",
-  "Autonomous System",
-  "Other",
-];
 
 export default function DashboardPage() {
   const { user, isAuthenticated, logout, refreshUser } = useAuth();
@@ -317,13 +288,12 @@ export default function DashboardPage() {
     });
   };
 
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditSubmit = async (data: { name: string; description: string; aiSystemType: string; industry: string }) => {
     if (!editingProject) return;
     setIsLoading(true);
 
     try {
-      const response = await apiService.updateProject(editingProject.id, editProjectData);
+      const response = await apiService.updateProject(editingProject.id, data);
       const updatedProject: Project = response.project;
       setProjects(prev => prev.map(p => (p.id === editingProject.id ? updatedProject : p)));
       setEditingProject(null);
@@ -754,113 +724,12 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-project-name">
-                Project Name <span className="text-destructive">*</span>
-              </Label>
-              <div className="relative">
-                <IconFolder className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="edit-project-name"
-                  value={editProjectData.name}
-                  onChange={(e) =>
-                    setEditProjectData({ ...editProjectData, name: e.target.value })
-                  }
-                  placeholder="Enter project name"
-                  required
-                  className="pl-10"
-                  maxLength={50}
-                />
-              </div>
-              <div className="flex justify-end pt-1">
-                <span className={`text-[10px] ${editProjectData.name.length >= 50 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
-                  {editProjectData.name.length}/50
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-project-description">Description</Label>
-              <Textarea
-                id="edit-project-description"
-                value={editProjectData.description}
-                onChange={(e) =>
-                  setEditProjectData({ ...editProjectData, description: e.target.value })
-                }
-                placeholder="Describe your AI system"
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>AI System Type</Label>
-              <Select
-                value={editProjectData.aiSystemType}
-                onValueChange={(value) =>
-                  setEditProjectData({ ...editProjectData, aiSystemType: value })
-                }
-              >
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <IconRobot className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select AI System Type" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {AI_SYSTEM_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Industry</Label>
-              <Select
-                value={editProjectData.industry}
-                onValueChange={(value) =>
-                  setEditProjectData({ ...editProjectData, industry: value })
-                }
-              >
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <IconBriefcase className="h-4 w-4 text-muted-foreground" />
-                    <SelectValue placeholder="Select Industry" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {INDUSTRY_OPTIONS.map((industry) => (
-                    <SelectItem key={industry} value={industry}>
-                      {industry}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex space-x-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditingProject(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="btn-primary"
-              >
-                {isLoading ? (
-                  <>
-                    <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Changes"
-                )}
-              </Button>
-            </div>
-          </form>
+          <ProjectEditForm
+            initialData={editProjectData}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setEditingProject(null)}
+            isLoading={isLoading}
+          />
         </DialogContent>
       </Dialog>
       {/* Delete Confirmation Modal */}

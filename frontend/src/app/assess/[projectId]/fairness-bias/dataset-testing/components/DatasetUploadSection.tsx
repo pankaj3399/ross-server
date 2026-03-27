@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import InfoSection from "@/components/features/governance/InfoSection";
 
 const PRIVACY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const MAX_PREVIEW_COLUMNS = 20;
@@ -62,6 +63,13 @@ export const DatasetUploadSection = ({
             </section>
 
             <main className="max-w-7xl mx-auto px-6 pb-16 space-y-10 -mt-8">
+                <div className="max-w-4xl">
+                    <InfoSection
+                        title="About Dataset Testing"
+                        description="Dataset Testing analyzes your training or evaluation data for statistical imbalances and representation gaps. It identifies potential sources of bias by looking at the underlying distributions of your data before it even reaches the model."
+                        limitations="This test only identifies biases present in the provided dataset. It cannot predict how a model's own logic might introduce new biases during training or how it will behave when encountering 'out-of-distribution' data."
+                    />
+                </div>
                 <section className="grid gap-8 lg:grid-cols-1">
                     <Card className="shadow-xl overflow-hidden">
                         <CardHeader className="bg-primary text-primary-foreground">

@@ -15,3 +15,36 @@ export const ROLES = {
 
 // Auth routes
 export const AUTH_LOGIN_URL = "/auth?isLogin=true";
+
+// Project Constants
+export const INDUSTRY_OPTIONS = [
+  "Healthcare & Life Sciences",
+  "Finance & Banking",
+  "Insurance",
+  "Retail & E-commerce",
+  "Manufacturing",
+  "Transportation & Logistics",
+  "Energy & Utilities",
+  "Telecommunications",
+  "Technology & Software",
+  "Government & Public Sector",
+  "Education",
+  "Legal & Compliance",
+  "Marketing & Advertising",
+  "HR & Workforce Tech",
+  "Media & Entertainment",
+  "Real Estate & Property Tech",
+  "Nonprofit",
+  "Research & Development",
+  "Others",
+];
+
+export const AI_SYSTEM_TYPES = [
+  "Machine Learning Model",
+  "Deep Learning System",
+  "NLP System",
+  "Computer Vision",
+  "Recommendation System",
+  "Autonomous System",
+  "Other",
+];
