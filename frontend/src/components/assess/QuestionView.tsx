@@ -39,9 +39,12 @@ const formatAimaDescription = (description: string | null | undefined): string =
     const trimmedDesc = description.trim();
     
     // If it already looks like HTML (e.g. from manual database edits), 
-    // sanitize it and return.
+    // sanitize it, strip erroneous dots from bullets, and return.
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
-        return sanitizeAimaDescription(trimmedDesc);
+        let sanitized = sanitizeAimaDescription(trimmedDesc);
+        // Aggressively strip "• ." from LI tags if they exist in the HTML
+        sanitized = sanitized.replace(/<li>\s*[•\-\*·]?\s*[.\-·• ]*\s*/g, "<li>");
+        return sanitized;
     }
 
     // 1. Process line by line and escape before adding tags
@@ -67,9 +70,11 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 inList = true;
             }
             
+            // Use a regex that strips the bullet symbol AND any following dot/dash/space junk
+            const cleanedBulletLine = trimmedLine.replace(/^[•\-\*·]\s*[.\-\s]*\s*/, "");
+            
             // Handle various separators: colons, dashes, and now parenthesis
-            // Stop bolding before parenthesis or at the separator
-            const bulletMatch = trimmedLine.match(/^[•]\s*(.*?)([:\-–—]|\s\()\s*(.*)$/);
+            const bulletMatch = cleanedBulletLine.match(/^(.*?)([:\-–—]|\s\()\s*(.*)$/);
             if (bulletMatch) {
                 const title = htmlEscape(bulletMatch[1]);
                 const separator = bulletMatch[2];
@@ -77,21 +82,16 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 
                 if (separator === " (") {
                     resultLines.push(`<li><strong>${title}</strong> (${rest}</li>`);
+                } else if (separator === ":") {
+                    // Only bold if it's a colon (likely a label)
+                    resultLines.push(`<li><strong>${title}:</strong> ${rest}</li>`);
                 } else {
-                    resultLines.push(`<li><strong>${title}${htmlEscape(separator)}</strong> ${rest}</li>`);
+                    // For dashes/etc, just show them without bolding the title
+                    resultLines.push(`<li>${title}${htmlEscape(separator)} ${rest}</li>`);
                 }
             } else {
-                // Fallback: Bold the first 2-3 words if no separator is found
-                // but avoid bolding across too many words
-                const words = trimmedLine.replace(/^[•]\s*/, "").split(/\s+/);
-                if (words.length > 2) {
-                    const titleCount = Math.min(2, words.length);
-                    const title = htmlEscape(words.slice(0, titleCount).join(" "));
-                    const rest = htmlEscape(words.slice(titleCount).join(" "));
-                    resultLines.push(`<li><strong>${title}</strong> ${rest}</li>`);
-                } else {
-                    resultLines.push(`<li>${htmlEscape(trimmedLine.replace(/^[•]\s*/, ""))}</li>`);
-                }
+                // No separator found, just show the cleaned line without bolding
+                resultLines.push(`<li>${htmlEscape(cleanedBulletLine)}</li>`);
             }
         } else {
             if (inList) {
@@ -354,7 +354,7 @@ export default function QuestionView() {
                                         </div>
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
-                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_li:before]:font-bold [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
+                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_li:before]:font-bold [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
                                         <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
                                     </div>
                                 </div>
