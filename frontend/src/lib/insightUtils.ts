@@ -138,7 +138,8 @@ export const parseInsightText = (text: string): InsightSections => {
   }
 
   if (!sections.analysis && !sections.strengths && !sections.improvements && sections.recommendations.length === 0) {
-    sections.analysis = normalized;
+    // Limit fallback to prevent PDF overflow (approximately 2-3 paragraphs)
+    sections.analysis = normalized.length > 1500 ? normalized.slice(0, 1500) + "..." : normalized;
   }
 
   if (sections.recommendations.length === 0) {
