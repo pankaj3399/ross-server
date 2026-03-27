@@ -50,6 +50,7 @@ export default function ProjectEditForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     await onSubmit(data);
   };
 
@@ -93,12 +94,12 @@ export default function ProjectEditForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <Label>AI System Type</Label>
+          <Label htmlFor="ai-system-type">AI System Type</Label>
           <Select
             value={data.aiSystemType}
             onValueChange={(value) => setData({ ...data, aiSystemType: value })}
           >
-            <SelectTrigger>
+            <SelectTrigger id="ai-system-type">
               <div className="flex items-center gap-2">
                 <IconRobot className="h-4 w-4 text-muted-foreground" />
                 <SelectValue placeholder="Select AI System Type" />
@@ -115,12 +116,12 @@ export default function ProjectEditForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Industry</Label>
+          <Label htmlFor="industry">Industry</Label>
           <Select
             value={data.industry}
             onValueChange={(value) => setData({ ...data, industry: value })}
           >
-            <SelectTrigger>
+            <SelectTrigger id="industry">
               <div className="flex items-center gap-2">
                 <IconBriefcase className="h-4 w-4 text-muted-foreground" />
                 <SelectValue placeholder="Select Industry" />

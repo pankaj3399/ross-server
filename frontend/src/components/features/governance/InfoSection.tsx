@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IconInfoCircle, IconAlertTriangle, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,13 +21,15 @@ export default function InfoSection({
   defaultExpanded = false,
 }: InfoSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const sectionId = useId();
+  const contentId = `info-section-content-${sectionId}`;
 
   return (
     <Card className={`overflow-hidden transition-all duration-300 ${className} ${isExpanded ? "border-primary/30 shadow-md" : "border-border shadow-sm hover:border-primary/20"}`}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
-        aria-controls="info-section-content"
+        aria-controls={contentId}
         className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-3">
@@ -48,7 +50,7 @@ export default function InfoSection({
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            id="info-section-content"
+            id={contentId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}

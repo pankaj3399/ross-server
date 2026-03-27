@@ -56,8 +56,7 @@ export const splitRecommendations = (text: string): string[] => {
   return text
     .split(/(?:\r\n|\r|\n)?(?:\d+[\.\)]|\(\d+\)|[-•\u2022])\s+/)
     .map(r => r.trim())
-    .filter(r => r.length > 0)
-    .filter(r => !/^top recommendations?:?$/i.test(r));
+    .filter(r => r.length > 0 && !/^top recommendations?:?$/i.test(r));
 };
 
 const cleanRecommendationItems = (items: string[]): string[] =>

@@ -12,7 +12,9 @@ export default function ProjectSettingsTabs({ projectId }: ProjectSettingsTabsPr
   const pathname = usePathname();
   const router = useRouter();
 
-  const activeTab = pathname?.includes("/team") ? "teams" : "info";
+  const segments = pathname?.split("/").filter(Boolean) || [];
+  const lastSegment = segments[segments.length - 1];
+  const activeTab = lastSegment === "team" ? "teams" : "info";
 
   return (
     <div className="mb-8">

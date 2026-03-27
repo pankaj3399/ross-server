@@ -45,8 +45,8 @@ export default function ProjectSettingsPage() {
         setSaving(true);
         try {
             await apiService.updateProject(projectId, data);
+            await fetchProject(); // refresh local state and wait for it
             showToast.success("Project updated successfully");
-            fetchProject(); // refresh local state
         } catch (error: any) {
             showToast.error(error.message || "Failed to update project");
         } finally {
