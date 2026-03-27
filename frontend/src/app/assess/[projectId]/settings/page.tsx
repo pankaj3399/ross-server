@@ -50,14 +50,25 @@ export default function ProjectSettingsPage() {
         setSaving(true);
         try {
             await apiService.updateProject(projectId, data);
-            await fetchProject({ suppressGlobalLoading: true }); // refresh local state without full page spinner
             showToast.success("Project updated successfully");
+            // refresh local state silently - we don't await this for the success toast
+            fetchProject({ suppressGlobalLoading: true }); 
         } catch (error: any) {
             showToast.error(error.message || "Failed to update project");
         } finally {
             setSaving(false);
         }
     };
+
+    if (!isAuthenticated) {
+        return (
+            <div className="text-center py-12 bg-muted/50 rounded-lg border border-border/50">
+                <IconSettings className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-20" />
+                <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
+                <p className="text-muted-foreground">Please sign in to view and manage project settings.</p>
+            </div>
+        );
+    }
 
     if (loading) {
         return (

@@ -142,19 +142,18 @@ export const parseInsightText = (text: string): InsightSections => {
   }
 
   if (sections.recommendations.length === 0) {
-    const recommendationHeadingMatch = normalized.match(recommendationHeadingPattern);
-    if (recommendationHeadingMatch && recommendationHeadingMatch.index !== undefined) {
-      const start = recommendationHeadingMatch.index + recommendationHeadingMatch[0].length;
-      const afterHeading = normalized.slice(start).trimStart();
-      const nextHeadingMatch = afterHeading.match(nextTopLevelHeadingPattern);
-      const recommendationOnlyText = nextHeadingMatch
-        ? afterHeading.slice(0, nextHeadingMatch.index)
-        : afterHeading;
+    const fallbackRecommendationSection = tryExtractSection(
+        normalized,
+        recommendationHeadingPattern,
+        nextTopLevelHeadingPattern,
+        false
+    );
 
-      const fallbackSplit = cleanRecommendationItems(splitRecommendations(recommendationOnlyText)).slice(0, 6);
-      if (fallbackSplit.length > 0) {
-        sections.recommendations = fallbackSplit;
-      }
+    if (fallbackRecommendationSection) {
+        const fallbackItems = cleanRecommendationItems(splitRecommendations(fallbackRecommendationSection)).slice(0, 6);
+        if (fallbackItems.length > 0) {
+            sections.recommendations = fallbackItems;
+        }
     }
   }
 
