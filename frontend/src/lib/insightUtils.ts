@@ -141,21 +141,5 @@ export const parseInsightText = (text: string): InsightSections => {
     sections.analysis = normalized.length > 1500 ? normalized.slice(0, 1500) + "..." : normalized;
   }
 
-  if (sections.recommendations.length === 0) {
-    const fallbackRecommendationSection = tryExtractSection(
-        normalized,
-        recommendationHeadingPattern,
-        nextTopLevelHeadingPattern,
-        false
-    );
-
-    if (fallbackRecommendationSection) {
-        const fallbackItems = cleanRecommendationItems(splitRecommendations(fallbackRecommendationSection)).slice(0, 6);
-        if (fallbackItems.length > 0) {
-            sections.recommendations = fallbackItems;
-        }
-    }
-  }
-
   return sections;
 };

@@ -12,19 +12,24 @@ import ProjectSettingsTabs from "@/components/features/projects/ProjectSettingsT
 
 export default function ProjectSettingsPage() {
     const { projectId } = useParams() as { projectId: string };
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+
     const fetchProject = useCallback(async (options: { suppressGlobalLoading?: boolean } = {}) => {
+        setLoadError(false);
         if (!options.suppressGlobalLoading) {
             setLoading(true);
         }
         try {
             const data = await apiService.getProject(projectId);
             setProject(data);
+            setLoadError(false);
         } catch (error) {
             console.error("Failed to fetch project", error);
+            setLoadError(true);
             showToast.error("Failed to load project details");
         } finally {
             if (!options.suppressGlobalLoading) {
@@ -34,12 +39,14 @@ export default function ProjectSettingsPage() {
     }, [projectId]);
 
     useEffect(() => {
-        if (isAuthenticated) {
-            fetchProject();
-        } else {
-            setLoading(false);
+        if (!authLoading) {
+            if (isAuthenticated) {
+                fetchProject();
+            } else {
+                setLoading(false);
+            }
         }
-    }, [isAuthenticated, fetchProject]);
+    }, [isAuthenticated, authLoading, fetchProject]);
 
     const handleUpdateProject = async (data: {
         name: string;
@@ -59,28 +66,58 @@ export default function ProjectSettingsPage() {
         }
     };
 
-    if (!isAuthenticated) {
+    if (authLoading || (loading && !loadError)) {
         return (
-            <div className="text-center py-12 bg-muted/50 rounded-lg border border-border/50">
-                <IconSettings className="w-12 h-12 mx-auto text-muted-foreground mb-4 opacity-20" />
-                <h2 className="text-xl font-semibold mb-2">Access Restricted</h2>
-                <p className="text-muted-foreground">Please sign in to view and manage project settings.</p>
+            <div className="flex flex-col justify-center items-center py-20 space-y-4">
+                <IconLoader2 className="w-10 h-10 animate-spin text-primary" />
+                <p className="text-muted-foreground animate-pulse text-sm font-medium">Loading project settings...</p>
             </div>
         );
     }
 
-    if (loading) {
+    if (!isAuthenticated) {
         return (
-            <div className="flex justify-center items-center py-12">
-                <IconLoader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="text-center py-20 bg-muted/30 rounded-xl border border-dashed border-border/60 max-w-2xl mx-auto mt-10">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <IconSettings className="w-8 h-8 text-primary/40" />
+                </div>
+                <h2 className="text-2xl font-bold mb-3">Access Restricted</h2>
+                <p className="text-muted-foreground mb-8 max-w-sm mx-auto">Please sign in with an authorized account to view and manage these project settings.</p>
+                <div className="flex justify-center gap-4">
+                    <button 
+                        onClick={() => window.location.href = "/auth?isLogin=true"}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
+                    >
+                        Sign In
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="text-center py-20 bg-destructive/5 rounded-xl border border-destructive/20 max-w-2xl mx-auto mt-10">
+                <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <IconSettings className="w-8 h-8 text-destructive/40" />
+                </div>
+                <h2 className="text-2xl font-bold mb-3 text-destructive">Loading Error</h2>
+                <p className="text-muted-foreground mb-8 max-w-sm mx-auto">We encountered a problem while retrieving your project details. This might be a temporary connection issue.</p>
+                <button 
+                    onClick={() => fetchProject()}
+                    className="px-6 py-2 bg-destructive/10 text-destructive rounded-lg font-medium hover:bg-destructive/20 transition-colors"
+                >
+                    Try Again
+                </button>
             </div>
         );
     }
 
     if (!project) {
         return (
-            <div className="text-center py-12">
-                <p className="text-muted-foreground">Project not found.</p>
+            <div className="text-center py-20">
+                <h2 className="text-xl font-semibold mb-2">Project Not Found</h2>
+                <p className="text-muted-foreground">The project you are looking for does not exist or has been removed.</p>
             </div>
         );
     }
