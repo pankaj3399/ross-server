@@ -487,6 +487,13 @@ export default function CRCAssessmentPage() {
                   onChange={(note) =>
                     setLocalNotes(prev => ({ ...prev, [currentControl.id]: note }))
                   }
+                  onBeforeSave={() => {
+                    if (currentAnswer === undefined || currentAnswer === null) {
+                      showToast.error("Please answer the control question before saving notes");
+                      return false;
+                    }
+                    return true;
+                  }}
                   onSave={(value) => handleCrcNoteSave(currentControl.id, value)}
                   placeholder="Add your notes about this control — evidence, gaps, action items..."
                   maxLength={5000}

@@ -498,19 +498,29 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
-        // Removed trim() check to allow saving empty strings (deleting notes)
-
         setSavingNote(true);
         try {
+            // If note is empty, delete it from the database
             const sanitizedNote = sanitizeNoteInput(note);
-            await apiService.saveQuestionNote(projectId, {
-                domainId: currentDomainId,
-                practiceId: currentPracticeId,
-                level: question.level,
-                stream: question.stream,
-                questionIndex,
-                note: sanitizedNote,
-            });
+            if (!sanitizedNote.trim()) {
+                await apiService.deleteQuestionNote(
+                    projectId,
+                    currentDomainId,
+                    currentPracticeId,
+                    question.level,
+                    question.stream,
+                    questionIndex
+                );
+            } else {
+                await apiService.saveQuestionNote(projectId, {
+                    domainId: currentDomainId,
+                    practiceId: currentPracticeId,
+                    level: question.level,
+                    stream: question.stream,
+                    questionIndex,
+                    note: sanitizedNote,
+                });
+            }
         } catch (error) {
             console.error("Failed to save note:", error);
         } finally {

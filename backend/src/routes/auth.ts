@@ -1153,15 +1153,7 @@ router.post("/invitations/:token/signup", async (req, res) => {
         });
       }
 
-      // Fire-and-forget notification
-      notifyInviterOfInvitationResponse(
-        acceptedInvitation.project_id,
-        acceptedInvitation.inviter_id,
-        acceptedInvitation.email,
-        "accepted",
-      ).catch((err) =>
-        console.error("Error in fire-and-forget signup notification:", err),
-      );
+      // Fire-and-forget notification is already sent above (line 1139)
 
       // Generate JWT
       const jwtToken = jwt.sign(

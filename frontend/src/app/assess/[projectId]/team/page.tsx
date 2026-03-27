@@ -53,6 +53,7 @@ import {
 } from "@tabler/icons-react";
 import ProjectSettingsTabs from "@/components/features/projects/ProjectSettingsTabs";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import { isPremiumStatus } from "@/lib/constants";
 
 export interface ProjectMember {
     id: string;
@@ -93,7 +94,7 @@ export default function TeamManagementPage() {
     const [processing, setProcessing] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-    const isPremium = user?.subscription_status && ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
+    const isPremium = isPremiumStatus(user?.subscription_status);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -285,7 +286,7 @@ export default function TeamManagementPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                    <Card className="border-primary/20 shadow-md ring-1 ring-primary/5 overflow-hidden">
+                    <Card className="relative border-primary/20 shadow-md ring-1 ring-primary/5 overflow-hidden">
                         <div className="absolute top-0 right-0 p-2">
                              <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">Pro Feature</Badge>
                         </div>
@@ -297,7 +298,7 @@ export default function TeamManagementPage() {
                         </CardHeader>
                         <CardContent className="pt-8 pb-8 text-center">
                             <div className="max-w-md mx-auto">
-                                <h3 className="text-lg font-bold mb-2">Collabrative Teams</h3>
+                                <h3 className="text-lg font-bold mb-2">Collaborative Teams</h3>
                                 <p className="text-muted-foreground text-sm mb-6">
                                     Invite your colleagues to collaborate on this assessment. Teams and user management are premium features.
                                 </p>
