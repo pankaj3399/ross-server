@@ -27,6 +27,7 @@ export default function InfoSection({
   return (
     <Card className={`overflow-hidden transition-all duration-300 ${className} ${isExpanded ? "border-primary/30 shadow-md" : "border-border shadow-sm hover:border-primary/20"}`}>
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}
         aria-controls={contentId}

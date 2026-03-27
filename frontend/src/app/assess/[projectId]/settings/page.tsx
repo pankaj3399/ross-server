@@ -16,9 +16,10 @@ export default function ProjectSettingsPage() {
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-    const fetchProject = useCallback(async () => {
-        setLoading(true);
+    const fetchProject = useCallback(async (options: { suppressGlobalLoading?: boolean } = {}) => {
+        if (!options.suppressGlobalLoading) {
+            setLoading(true);
+        }
         try {
             const data = await apiService.getProject(projectId);
             setProject(data);
@@ -26,13 +27,17 @@ export default function ProjectSettingsPage() {
             console.error("Failed to fetch project", error);
             showToast.error("Failed to load project details");
         } finally {
-            setLoading(false);
+            if (!options.suppressGlobalLoading) {
+                setLoading(false);
+            }
         }
     }, [projectId]);
 
     useEffect(() => {
         if (isAuthenticated) {
             fetchProject();
+        } else {
+            setLoading(false);
         }
     }, [isAuthenticated, fetchProject]);
 
@@ -45,7 +50,7 @@ export default function ProjectSettingsPage() {
         setSaving(true);
         try {
             await apiService.updateProject(projectId, data);
-            await fetchProject(); // refresh local state and wait for it
+            await fetchProject({ suppressGlobalLoading: true }); // refresh local state without full page spinner
             showToast.success("Project updated successfully");
         } catch (error: any) {
             showToast.error(error.message || "Failed to update project");
