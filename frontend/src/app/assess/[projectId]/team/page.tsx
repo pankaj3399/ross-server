@@ -51,6 +51,7 @@ import {
     IconSend,
     IconX
 } from "@tabler/icons-react";
+import ProjectSettingsTabs from "@/components/features/projects/ProjectSettingsTabs";
 
 export interface ProjectMember {
     id: string;
@@ -216,13 +217,15 @@ export default function TeamManagementPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-br from-primary via-primary to-primary">
-                        Team Management
+                        Project Settings
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">
-                        Manage who has access to this project.
+                        Manage your project details and team access.
                     </p>
                 </div>
             </div>
+
+            <ProjectSettingsTabs projectId={projectId} />
 
             {isOwner && (
                 <Card className="border-primary/20 shadow-md ring-1 ring-primary/5">

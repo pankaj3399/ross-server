@@ -17,6 +17,7 @@ import {
   IconShieldCheck,
   IconUsers,
   IconSettings,
+  IconBriefcase,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
@@ -100,8 +101,9 @@ const getRouteFlags = (pathname: string | null) => {
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
   const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/api-endpoint($|\/|\?)/);
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
-  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !!pathname?.match(/\/assess\/[^/]+$/);
-  return { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isAimaPage };
+  const isSettingsPage = !!pathname?.match(/\/settings($|\/|\?)/);
+  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !!pathname?.match(/\/assess\/[^/]+$/);
+  return { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isSettingsPage, isAimaPage };
 };
 
 const CompactProgress = ({ current, total, isCompleted, size = "default" }: { current: number; total: number; isCompleted: boolean; size?: "default" | "sm" }) => {
@@ -319,7 +321,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const currentCategory = activeControl ? activeControl.category_name : queryCategory;
 
   // Derive initial expansion states from pathname
-  const { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
+  const { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isSettingsPage, isAimaPage } = getRouteFlags(pathname);
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
   const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
@@ -333,7 +335,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
     currentCategory ? { [currentCategory]: true } : {}
   );
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage || !!isSettingsPage);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
@@ -342,7 +344,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   useEffect(() => {
     if (!pathname) return;
 
-    const { isCrcPage, isFairnessPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
+    const { isCrcPage, isFairnessPage, isTeamPage, isSettingsPage, isAimaPage } = getRouteFlags(pathname);
 
     if (isCrcPage) {
       setIsAssessmentExpanded(false);
@@ -362,7 +364,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       setIsCrcExpanded(false);
       setIsFairnessExpanded(false);
       setIsSettingsExpanded(false);
-    } else if (isTeamPage) {
+    } else if (isTeamPage || isSettingsPage) {
       setIsAssessmentExpanded(false);
       setIsPremiumFeaturesExpanded(false);
       setIsCrcExpanded(false);
@@ -851,7 +853,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   )}
                 />
                 <span className="ml-2 text-[13px] font-bold uppercase tracking-[0.15em] text-foreground group-hover/label:text-foreground">
-                  Settings
+                  Project Settings
                 </span>
               </button>
               <AnimatePresence>
@@ -865,6 +867,24 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                   >
                     <SidebarGroupContent>
                       <SidebarMenu className="gap-1">
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            onClick={() => router.push(`/assess/${projectId}/settings`)}
+                            isActive={isSettingsPage}
+                            className="group/settings-btn h-10 px-2"
+                          >
+                            <IconBriefcase className={cn(
+                              "ml-1 h-5 w-5",
+                              isSettingsPage ? "text-primary" : "text-muted-foreground group-hover/settings-btn:text-foreground"
+                            )} />
+                            <span className={cn(
+                              "font-semibold text-[14px] truncate ml-2 transition-colors",
+                              isSettingsPage ? "text-foreground" : "text-foreground/80 group-hover/settings-btn:text-foreground"
+                            )}>
+                              PROJECT INFORMATION
+                            </span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
                         <SidebarMenuItem>
                           <SidebarMenuButton
                             onClick={() => router.push(`/assess/${projectId}/team`)}

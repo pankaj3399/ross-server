@@ -22,6 +22,7 @@ import SubscriptionModal from "../../../../components/features/subscriptions/Sub
 import { FairnessTestSkeleton, SimplePageSkeleton } from "../../../../components/Skeleton";
 import { Button } from "@/components/ui/button";
 import { ManualTestHistory } from "./manual-history/components/ManualTestHistory";
+import InfoSection from "@/components/features/governance/InfoSection";
 
 interface FairnessQuestion {
   label: string;
@@ -466,6 +467,13 @@ export default function FairnessBiasTest() {
 
         <div className="flex-1 p-6 overflow-y-auto">
           <div className="max-w-4xl mx-auto">
+            <div className="mb-8 space-y-4">
+              <InfoSection
+                title="About Manual Prompt Testing"
+                description="Manual Prompt Testing allows human experts to qualitatively evaluate the model's responses. This method is ideal for catching subtle issues in tone, context, and creative reasoning that automated systems might overlook."
+                limitations="Manual testing is highly subjective and depends on the expertise and perspective of the human tester. It is not statistically significant and cannot scale to cover the same breadth of scenarios as computerized automated testing."
+              />
+            </div>
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-foreground">
