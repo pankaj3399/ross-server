@@ -105,6 +105,14 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
           ref={textareaRef}
           value={value}
           onChange={handleChange}
+          onBlur={() => {
+            if (readOnly || disabled || !isValid) return;
+            // Trim whitespace for the final save
+            const trimmedValue = value.trim();
+            onSave(trimmedValue).catch((error) => {
+              console.error("Failed to auto-save note on blur:", error);
+            });
+          }}
           placeholder={placeholder}
           maxLength={maxLength}
           disabled={disabled}

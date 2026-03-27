@@ -23,6 +23,7 @@ import { AssessmentSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { PREMIUM_STATUS } from "@/lib/constants";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import CommentsPanel from "@/components/shared/CommentsPanel";
 
 // --- Interfaces ---
 
@@ -518,6 +519,12 @@ export default function CRCAssessmentPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Project Notes & Collaboration */}
+        <div className="border-t p-6 bg-muted/10 mx-auto w-full max-w-4xl">
+          <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
+          <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
         </div>
       </div>
 

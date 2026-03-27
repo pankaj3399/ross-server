@@ -498,7 +498,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
-        if (!note.trim()) return;
+        // Removed trim() check to allow saving empty strings (deleting notes)
 
         setSavingNote(true);
         try {
