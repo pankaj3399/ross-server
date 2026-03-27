@@ -23,6 +23,7 @@ import { AssessmentSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { PREMIUM_STATUS } from "@/lib/constants";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import CommentsPanel from "@/components/shared/CommentsPanel";
 
 // --- Interfaces ---
 
@@ -486,6 +487,13 @@ export default function CRCAssessmentPage() {
                   onChange={(note) =>
                     setLocalNotes(prev => ({ ...prev, [currentControl.id]: note }))
                   }
+                  onBeforeSave={() => {
+                    if (currentAnswer === undefined || currentAnswer === null) {
+                      showToast.error("Please answer the control question before saving notes");
+                      return false;
+                    }
+                    return true;
+                  }}
                   onSave={(value) => handleCrcNoteSave(currentControl.id, value)}
                   placeholder="Add your notes about this control — evidence, gaps, action items..."
                   maxLength={5000}
@@ -496,7 +504,7 @@ export default function CRCAssessmentPage() {
             </motion.div>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between pb-8">
+            <div className="flex items-center justify-between pb-8 border-b border-border mb-8">
               <button
                 onClick={handlePrevious}
                 type="button"
@@ -516,6 +524,12 @@ export default function CRCAssessmentPage() {
                 Next
                 <IconArrowRight className="w-4 h-4" />
               </button>
+            </div>
+
+            {/* Project Notes & Collaboration */}
+            <div className="pt-4">
+              <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
+              <CommentsPanel projectId={projectId} objectType="PROJECT" objectId={projectId} />
             </div>
           </div>
         </div>

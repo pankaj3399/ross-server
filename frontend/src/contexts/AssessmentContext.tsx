@@ -498,19 +498,29 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
-        if (!note.trim()) return;
-
         setSavingNote(true);
         try {
+            // If note is empty, delete it from the database
             const sanitizedNote = sanitizeNoteInput(note);
-            await apiService.saveQuestionNote(projectId, {
-                domainId: currentDomainId,
-                practiceId: currentPracticeId,
-                level: question.level,
-                stream: question.stream,
-                questionIndex,
-                note: sanitizedNote,
-            });
+            if (!sanitizedNote.trim()) {
+                await apiService.deleteQuestionNote(
+                    projectId,
+                    currentDomainId,
+                    currentPracticeId,
+                    question.level,
+                    question.stream,
+                    questionIndex
+                );
+            } else {
+                await apiService.saveQuestionNote(projectId, {
+                    domainId: currentDomainId,
+                    practiceId: currentPracticeId,
+                    level: question.level,
+                    stream: question.stream,
+                    questionIndex,
+                    note: sanitizedNote,
+                });
+            }
         } catch (error) {
             console.error("Failed to save note:", error);
         } finally {
@@ -553,10 +563,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const handleCrcNoteSave = async (controlId: string, notes: string) => {
         if (isReadOnly) return;
         const currentResponse = crcResponses[controlId];
-        if (currentResponse === undefined) {
-            showToast.error("Please answer the control question before saving notes");
-            return;
-        }
+        // Note: validation for existence of answer is handled by onBeforeSave in the UI
 
         const sanitizedNotes = sanitizeNoteInput(notes);
         const previousResponse = { ...currentResponse };

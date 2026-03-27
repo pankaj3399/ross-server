@@ -1,5 +1,10 @@
 export const PREMIUM_STATUS = ["basic_premium", "pro_premium"] as const;
 
+export const isPremiumStatus = (status?: string | null): boolean => {
+  if (!status) return false;
+  return PREMIUM_STATUS.includes(status as typeof PREMIUM_STATUS[number]);
+};
+
 // Fallback prices for subscription plans (used when pricing API fails)
 export const FALLBACK_PRICES = {
   basic: 100, // BLOOM

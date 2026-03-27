@@ -14,6 +14,8 @@ interface SecureTextareaProps {
   disabled?: boolean;
   readOnly?: boolean;
   className?: string;
+  disableAutoSaveOnBlur?: boolean;
+  onBeforeSave?: () => boolean | Promise<boolean>;
 }
 
 export const SecureTextarea: React.FC<SecureTextareaProps> = ({
@@ -25,6 +27,8 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
   disabled = false,
   readOnly = false,
   className = "",
+  disableAutoSaveOnBlur = false,
+  onBeforeSave,
 }) => {
   const [isValid, setIsValid] = useState(true);
   const [validationMessage, setValidationMessage] = useState("");
@@ -105,6 +109,27 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
           ref={textareaRef}
           value={value}
           onChange={handleChange}
+          onBlur={async () => {
+            if (readOnly || disabled || !isValid || disableAutoSaveOnBlur) return;
+            
+            // Optional pre-save validation/check
+            if (onBeforeSave) {
+              const shouldProceed = await Promise.resolve(onBeforeSave());
+              if (!shouldProceed) return;
+            }
+
+            // Trim whitespace for the final save
+            const trimmedValue = value.trim();
+            
+            // Sync local state if trimmed to ensure UI matches saved value
+            if (trimmedValue !== value) {
+              onChange(trimmedValue);
+            }
+
+            onSave(trimmedValue).catch((error) => {
+              console.error("Failed to auto-save note on blur:", error);
+            });
+          }}
           placeholder={placeholder}
           maxLength={maxLength}
           disabled={disabled}

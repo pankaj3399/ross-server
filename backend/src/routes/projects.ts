@@ -519,6 +519,15 @@ router.post(
       const { email, role, permissions } = inviteBodySchema.parse(req.body);
       const project = req.project as { id: string; name: string };
       const inviterId = req.user!.id;
+      const status = req.user!.subscription_status;
+
+      // Enforce premium for inviting members (Teams feature)
+      if (!isPremiumUser(status)) {
+        return res.status(403).json({
+          error: "TEAM_ACCESS_RESTRICTED",
+          message: "The Teams feature is only available for premium subscribers. Please upgrade to invite members.",
+        });
+      }
 
       // Check if the user is already a member
       const userResult = await pool.query(
