@@ -185,7 +185,7 @@ export const styleVerdictColors = (root: HTMLElement) => {
 export const styleTypography = (root: HTMLElement) => {
     const isSecurityIterationHeader = (text: string) => {
         const normalized = text.toUpperCase();
-        return /JAILBREAK|ITERATION|PROMPT|TEST|OVERALL|FAILED|PASSED/.test(normalized);
+        return /\b(?:JAILBREAK|ITERATION|PROMPT|TEST|OVERALL|FAILED|PASSED)\b/.test(normalized);
     };
 
     root.querySelectorAll("h1, h2, h3, h4, h5").forEach((el) => {
