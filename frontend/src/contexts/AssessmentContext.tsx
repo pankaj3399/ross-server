@@ -563,10 +563,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const handleCrcNoteSave = async (controlId: string, notes: string) => {
         if (isReadOnly) return;
         const currentResponse = crcResponses[controlId];
-        if (currentResponse === undefined) {
-            showToast.error("Please answer the control question before saving notes");
-            return;
-        }
+        // Note: validation for existence of answer is handled by onBeforeSave in the UI
 
         const sanitizedNotes = sanitizeNoteInput(notes);
         const previousResponse = { ...currentResponse };

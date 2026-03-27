@@ -529,7 +529,7 @@ export default function CRCAssessmentPage() {
             {/* Project Notes & Collaboration */}
             <div className="pt-4">
               <h3 className="text-lg font-semibold mb-4 px-2">Project Notes & Collaboration</h3>
-              <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+              <CommentsPanel projectId={projectId} objectType="PROJECT" objectId={projectId} />
             </div>
           </div>
         </div>
