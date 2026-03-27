@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { apiService, Project } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 import { useAuth } from "@/contexts/AuthContext";

@@ -330,7 +330,12 @@ export const styleTypography = (root: HTMLElement) => {
     });
 
     // Premium AIMA AI-insight body formatting for clean PDF readability
-    root.querySelectorAll("h5, h4").forEach((el) => {
+    const aimaContainer = root.querySelector(".premium-aima-report, [data-premium-aima]");
+    const aimaHeadings = aimaContainer 
+        ? aimaContainer.querySelectorAll("h5, h4") 
+        : [];
+
+    aimaHeadings.forEach((el) => {
         const heading = el as HTMLElement;
         const headingText = (heading.textContent || "").trim().toUpperCase();
         const isInsightHeading = /STRATEGIC ANALYSIS|KEY INDICATORS|ACTION PLAN|TOP RECOMMENDATIONS/.test(headingText);

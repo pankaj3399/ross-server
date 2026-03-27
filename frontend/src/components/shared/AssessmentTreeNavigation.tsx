@@ -335,7 +335,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
     currentCategory ? { [currentCategory]: true } : {}
   );
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage || !!isSettingsPage);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
@@ -344,7 +344,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   useEffect(() => {
     if (!pathname) return;
 
-    const { isCrcPage, isFairnessPage, isTeamPage, isAimaPage } = getRouteFlags(pathname);
+    const { isCrcPage, isFairnessPage, isTeamPage, isSettingsPage, isAimaPage } = getRouteFlags(pathname);
 
     if (isCrcPage) {
       setIsAssessmentExpanded(false);

@@ -16,7 +16,7 @@ import {
 import SubscriptionModal from "../../../../../components/features/subscriptions/SubscriptionModal";
 import { OptionsGridSkeleton } from "../../../../../components/Skeleton";
 import { apiService } from "../../../../../lib/api";
-import InfoSection from "../../../../../components/features/governance/InfoSection";
+import InfoSection from "@/components/features/governance/InfoSection";
 
 type TestMethod =
   | "prompt-response"

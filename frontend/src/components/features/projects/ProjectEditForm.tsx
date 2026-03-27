@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IconFolder, IconRobot, IconBriefcase, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES } from "@/lib/constants";
-import { Project } from "@/lib/api";
+
 
 interface ProjectEditFormProps {
   initialData: {
@@ -42,6 +42,11 @@ export default function ProjectEditForm({
   submitLabel = "Save Changes",
 }: ProjectEditFormProps) {
   const [data, setData] = useState(initialData);
+  
+  // Sync state when initialData prop changes
+  useEffect(() => {
+    setData(initialData);
+  }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

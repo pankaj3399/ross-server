@@ -237,7 +237,7 @@ export default function ScoreReportPage() {
   }
 
   return (
-      <div ref={reportRef} className="text-foreground selection:bg-primary/30 transition-colors duration-300">
+      <div ref={reportRef} data-premium-aima className="text-foreground selection:bg-primary/30 transition-colors duration-300">
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           {/* Navigation / Actions */}

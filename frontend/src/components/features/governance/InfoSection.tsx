@@ -26,6 +26,8 @@ export default function InfoSection({
     <Card className={`overflow-hidden transition-all duration-300 ${className} ${isExpanded ? "border-primary/30 shadow-md" : "border-border shadow-sm hover:border-primary/20"}`}>
       <button
         onClick={() => setIsExpanded(!isExpanded)}
+        aria-expanded={isExpanded}
+        aria-controls="info-section-content"
         className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
       >
         <div className="flex items-center gap-3">
@@ -46,6 +48,7 @@ export default function InfoSection({
       <AnimatePresence>
         {isExpanded && (
           <motion.div
+            id="info-section-content"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
