@@ -33,7 +33,7 @@ export default function PremiumDomainsPage() {
 
     if (isPremium) {
       hasInitializedRef.current = true;
-      router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
+      router.push(`/assess/${projectId}/vulnerability-assessment`);
       return;
     }
 

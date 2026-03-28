@@ -85,6 +85,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const projectId = params.projectId as string;
+  const basePath = mode === "vulnerability" ? `/assess/${projectId}/vulnerability-assessment` : `/assess/${projectId}/fairness-bias/api-endpoint`;
 
   const [apiEndpoint, setApiEndpoint] = useState("");
   const [requestTemplate, setRequestTemplate] = useState(DEFAULT_REQUEST_TEMPLATE);
@@ -175,7 +176,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
         apiKeyPlacement,
         apiKeyFieldName: trimmedApiKeyFieldName || null,
       });
-      router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
+      router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to schedule evaluation");
     } finally {
@@ -213,7 +214,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
         apiKeyPlacement,
         apiKeyFieldName: trimmedApiKeyFieldName || null,
       });
-      router.push(`/assess/${projectId}/fairness-bias/api-endpoint/job/${response.jobId}`);
+      router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to start security scan");
     } finally {
@@ -230,7 +231,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
       {/* Actions Area */}
       <div className="max-w-4xl mx-auto px-6 pt-4 flex justify-end">
         <Button
-          onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint/pending-jobs`)}
+          onClick={() => router.push(`${basePath}/pending-jobs`)}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors"
         >
           Show all pending jobs

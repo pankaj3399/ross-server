@@ -355,7 +355,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   );
   const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(!!isAimaPage);
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
-  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(!!isCrcPage || !!isFairnessPage);
+  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(!!isCrcPage || !!isFairnessPage || !!isVulnerabilityPage || !!isDatasetTestingPage);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!isFairnessPage);
   const [isCrcExpanded, setIsCrcExpanded] = useState(!!isCrcPage);
   const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
