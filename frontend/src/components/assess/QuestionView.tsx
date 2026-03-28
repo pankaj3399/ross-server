@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useAssessmentContext } from "../../contexts/AssessmentContext";
 import { useAssessmentNavigation } from "../../hooks/useAssessmentNavigation"; // Assuming this hook is available and needed or we pass helpers
 import { motion } from "framer-motion";
@@ -43,23 +44,6 @@ const formatAimaDescription = (description: string | null | undefined): string =
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
         let sanitized = sanitizeAimaDescription(trimmedDesc);
         sanitized = sanitized.replace(/<li(\b[^>]*)>\s*[•\-\*·\u2022\u00B7]\s*[.\-·• ]*\s*/gi, "<li$1>");
-        // Strip <strong> and <b> tags from inside <li> tags to ensure non-bold bullets
-        // Using a DOM-based approach to handle nested/multiline lists robustly
-        if (typeof document !== "undefined") {
-            const container = document.createElement("div");
-            container.innerHTML = sanitized;
-            const listItems = container.querySelectorAll("li");
-            listItems.forEach((li) => {
-                const bolds = li.querySelectorAll("strong, b");
-                bolds.forEach((bold) => {
-                    while (bold.firstChild) {
-                        bold.parentNode?.insertBefore(bold.firstChild, bold);
-                    }
-                    bold.parentNode?.removeChild(bold);
-                });
-            });
-            sanitized = container.innerHTML;
-        }
         return sanitized;
     }
 
@@ -131,6 +115,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
 export default function QuestionView() {
     const router = useRouter();
+    const [formattedDescription, setFormattedDescription] = useState<string>("");
+
     const {
         projectId,
         domains,
@@ -167,6 +153,47 @@ export default function QuestionView() {
         currentQuestionIndex,
     });
 
+    const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
+    const currentQuestion = questions[validQuestionIndex];
+
+    // --- Client-side effect to handle DOM-based bolding removal in lists ---
+    useEffect(() => {
+        if (!currentQuestion?.description) {
+            setFormattedDescription("");
+            return;
+        }
+
+        const initial = formatAimaDescription(currentQuestion.description);
+        
+        // If it's not HTML, just use it directly
+        if (!currentQuestion.description.trim().startsWith("<")) {
+            setFormattedDescription(initial);
+            return;
+        }
+
+        // DOM-based stripping of strong/b tags from list items only on the client
+        // to avoid hydration mismatch errors.
+        const container = document.createElement("div");
+        container.innerHTML = initial;
+        const listItems = container.querySelectorAll("li");
+        listItems.forEach((li) => {
+            const bolds = li.querySelectorAll("strong, b");
+            bolds.forEach((bold) => {
+                while (bold.firstChild) {
+                    bold.parentNode?.insertBefore(bold.firstChild, bold);
+                }
+                bold.parentNode?.removeChild(bold);
+            });
+        });
+        setFormattedDescription(container.innerHTML);
+    }, [currentQuestion?.description]);
+
+
+
+    if (loading || !questions) {
+        return <AssessmentSkeleton />;
+    }
+
     // --- Navigation Handlers ---
     const handleNextQuestion = () => {
         const next = getNextQuestion();
@@ -185,18 +212,6 @@ export default function QuestionView() {
             setCurrentQuestionIndex(prev.questionIndex);
         }
     };
-
-
-
-    if (loading || !questions) {
-        return <AssessmentSkeleton />;
-    }
-
-    const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
-
-
-
-    const currentQuestion = questions[validQuestionIndex];
 
     if (!currentQuestion) {
         return <AssessmentSkeleton />;
@@ -372,7 +387,7 @@ export default function QuestionView() {
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
                                     <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-normal [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
-                                        <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
+                                        <div dangerouslySetInnerHTML={{ __html: formattedDescription || formatAimaDescription(currentQuestion.description) }} />
                                     </div>
                                 </div>
                             )}
