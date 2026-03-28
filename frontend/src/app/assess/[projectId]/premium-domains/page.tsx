@@ -44,7 +44,7 @@ export default function PremiumDomainsPage() {
     // Attempt to set current domain to a premium one if not already
     const currentIsPremium = premiumDomains.some(d => d.id === currentDomainId);
 
-    if (!currentIsPremium) {
+    if (!currentIsPremium && isPremium) {
       const firstPremiumDomain = premiumDomains[0];
       setCurrentDomainId(firstPremiumDomain.id);
       
@@ -57,15 +57,13 @@ export default function PremiumDomainsPage() {
       }
     }
 
-    // Now that domains are initialized, handle the redirect
-    if (!hasInitializedRef.current) {
-      hasInitializedRef.current = true;
-      if (isPremium) {
-        router.push(`/assess/${projectId}/vulnerability-assessment`);
-      } else {
-        router.push(`/assess/${projectId}/premium-features`);
-      }
+    // Now handle the redirect based on premium status
+    if (isPremium) {
+      router.push(`/assess/${projectId}/vulnerability-assessment`);
+    } else {
+      router.push(`/assess/${projectId}/premium-features`);
     }
+    hasInitializedRef.current = true;
 
     setInitializing(false);
   }, [loading, isPremium, domains, currentDomainId, projectId, router, setCurrentDomainId, setCurrentPracticeId, setCurrentQuestionIndex]);

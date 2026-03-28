@@ -32,9 +32,10 @@ type ApiReport = {
 
 type ApiHistoryProps = {
     projectId: string;
+    routeMode?: 'fairness' | 'vulnerability';
 };
 
-export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
+export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProps) => {
     const router = useRouter();
     const [reports, setReports] = useState<ApiReport[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +69,10 @@ export const ApiHistory = ({ projectId }: ApiHistoryProps) => {
     }, [projectId]);
 
     const handleViewReport = (report: ApiReport) => {
-        router.push(`/assess/${projectId}/fairness-bias/api-history/${report.id}`);
+        const pathBase = routeMode === 'vulnerability' 
+            ? `/assess/${projectId}/vulnerability-assessment/api-history`
+            : `/assess/${projectId}/fairness-bias/api-history`;
+        router.push(`${pathBase}/${report.id}`);
     };
 
     const parseBackendDate = (dateStr: string) => {

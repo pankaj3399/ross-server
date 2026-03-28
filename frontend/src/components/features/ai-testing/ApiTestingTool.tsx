@@ -122,12 +122,25 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     }
 
     try {
-      JSON.parse(trimmed);
+      const parsed = JSON.parse(trimmed);
+      const isPlainObject = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+
+      if (!isPlainObject) {
+        setTemplateError("Request template must be a top-level JSON object (e.g., { \"field\": \"value\" }).");
+        return;
+      }
+
+      if (apiKeyPlacement === "body_field") {
+        setTemplateError(null); // Clear first to check again
+        // Additional check for body_field could go here if needed, 
+        // but isPlainObject is the primary requirement.
+      }
+
       setTemplateError(null);
     } catch {
       setTemplateError("Request template must be valid JSON.");
     }
-  }, [requestTemplate]);
+  }, [requestTemplate, apiKeyPlacement]);
 
   const trimmedResponseKey = responseKey.trim();
   const trimmedRequestTemplate = requestTemplate.trim();
@@ -651,7 +664,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
 
         {/* History Section */}
         <div className="mt-12 pt-24 border-t border-border">
-          <ApiHistory projectId={projectId} />
+        <ApiHistory projectId={projectId} routeMode={mode === "vulnerability" ? "vulnerability" : "fairness"} />
         </div>
       </div>
     </div>
