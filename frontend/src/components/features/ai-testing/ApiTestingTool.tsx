@@ -14,7 +14,7 @@ import {
   Shield,
   Lock,
 } from "lucide-react";
-import { PREMIUM_STATUS } from "@/lib/constants";
+import { PREMIUM_STATUS, isPremiumStatus } from "@/lib/constants";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "@/app/assess/[projectId]/fairness-bias/api-history/components/ApiHistory";
@@ -70,12 +70,6 @@ const API_KEY_FIELD_HINTS: Record<ApiKeyPlacement, string> = {
   body_field: "api_key",
 };
 
-type SubscriptionStatus = typeof PREMIUM_STATUS[number];
-
-const isSubscriptionStatus = (value: unknown): value is SubscriptionStatus => {
-  return typeof value === 'string' && (PREMIUM_STATUS as readonly string[]).includes(value);
-};
-
 interface ApiTestingToolProps {
   mode: "vulnerability" | "api-testing";
 }
@@ -99,8 +93,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  const isPremium = isSubscriptionStatus(user?.subscription_status) && 
-    PREMIUM_STATUS.includes(user.subscription_status);
+  const isPremium = isPremiumStatus(user?.subscription_status);
 
   useEffect(() => {
     if (apiEndpoint) {
@@ -151,36 +144,31 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   );
   const canSubmit = hasRequiredFields && !jobStarting;
 
+  const buildPayload = () => {
+    const payload: any = {
+      projectId,
+      apiUrl: apiEndpoint,
+      requestTemplate: requestTemplate.trim(),
+      responseKey: responseKey.trim(),
+      apiKeyPlacement,
+    };
+
+    if (apiKeyPlacement !== "none") {
+      payload.apiKey = apiKey.trim() || null;
+      payload.apiKeyFieldName = apiKeyFieldName.trim() || null;
+    }
+
+    return payload;
+  };
+
   const handleTestModel = async () => {
-    const trimmedTemplate = requestTemplate.trim();
-    if (
-      !apiEndpoint ||
-      !isValidUrl ||
-      !responseKey.trim() ||
-      !trimmedTemplate ||
-      templateError ||
-      (requiresApiKey && !trimmedApiKey)
-    )
-      return;
+    if (!canSubmit) return;
 
     setJobStartError(null);
     setJobStarting(true);
 
     try {
-      const payload: any = {
-        projectId,
-        apiUrl: apiEndpoint,
-        requestTemplate: trimmedTemplate,
-        responseKey: responseKey.trim(),
-        apiKeyPlacement,
-      };
-
-      if (apiKeyPlacement !== "none") {
-        payload.apiKey = trimmedApiKey || null;
-        payload.apiKeyFieldName = trimmedApiKeyFieldName || null;
-      }
-
-      const response = await apiService.startFairnessEvaluationJob(payload);
+      const response = await apiService.startFairnessEvaluationJob(buildPayload());
       router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to schedule evaluation");
@@ -190,16 +178,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   };
 
   const handleSecurityScan = async () => {
-    const trimmedTemplate = requestTemplate.trim();
-    if (
-      !apiEndpoint ||
-      !isValidUrl ||
-      !responseKey.trim() ||
-      !trimmedTemplate ||
-      templateError ||
-      (requiresApiKey && !trimmedApiKey)
-    )
-      return;
+    if (!canSubmit) return;
 
     if (!isPremium) {
       setShowSubscriptionModal(true);
@@ -210,20 +189,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     setJobStarting(true);
 
     try {
-      const payload: any = {
-        projectId,
-        apiUrl: apiEndpoint,
-        requestTemplate: trimmedTemplate,
-        responseKey: responseKey.trim(),
-        apiKeyPlacement,
-      };
-
-      if (apiKeyPlacement !== "none") {
-        payload.apiKey = trimmedApiKey || null;
-        payload.apiKeyFieldName = trimmedApiKeyFieldName || null;
-      }
-
-      const response = await apiService.startSecurityScan(payload);
+      const response = await apiService.startSecurityScan(buildPayload());
       router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to start security scan");

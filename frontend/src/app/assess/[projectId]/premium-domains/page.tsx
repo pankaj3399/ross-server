@@ -48,7 +48,8 @@ export default function PremiumDomainsPage() {
       const firstPremiumDomain = premiumDomains[0];
       setCurrentDomainId(firstPremiumDomain.id);
       
-      const firstPractice = firstPremiumDomain.practices?.[0];
+      const practicesArray = Object.values(firstPremiumDomain.practices || {});
+      const firstPractice = practicesArray[0];
       if (firstPractice) {
         // Correct property name based on PracticeWithLevels type
         setCurrentPracticeId((firstPractice as any).id || (firstPractice as any).practice_id);
@@ -57,11 +58,13 @@ export default function PremiumDomainsPage() {
     }
 
     // Now that domains are initialized, handle the redirect
-    hasInitializedRef.current = true;
-    if (isPremium) {
-      router.push(`/assess/${projectId}/vulnerability-assessment`);
-    } else {
-      router.push(`/assess/${projectId}/premium-features`);
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      if (isPremium) {
+        router.push(`/assess/${projectId}/vulnerability-assessment`);
+      } else {
+        router.push(`/assess/${projectId}/premium-features`);
+      }
     }
 
     setInitializing(false);
