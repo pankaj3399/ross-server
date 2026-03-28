@@ -99,11 +99,24 @@ const normalize = (value?: string) => value?.trim().toLowerCase() || "";
 const getRouteFlags = (pathname: string | null) => {
   const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/);
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
+  const isFairnessRootPage = !!pathname?.match(/\/fairness-bias($|\?|\/$)/);
   const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/api-endpoint($|\/|\?)/);
+  const isDatasetTestingPage = !!pathname?.match(/\/fairness-bias\/dataset-testing($|\/|\?)/);
+  const isFairnessOptionsPage = !!pathname?.match(/\/fairness-bias\/options($|\/|\?)/);
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
   const isSettingsPage = !!pathname?.match(/\/settings($|\/|\?)/);
   const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !!pathname?.match(/\/assess\/[^/]+$/);
-  return { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isSettingsPage, isAimaPage };
+  return { 
+    isCrcPage, 
+    isFairnessPage, 
+    isFairnessRootPage,
+    isApiEndpointPage, 
+    isDatasetTestingPage,
+    isFairnessOptionsPage,
+    isTeamPage, 
+    isSettingsPage, 
+    isAimaPage 
+  };
 };
 
 const CompactProgress = ({ current, total, isCompleted, size = "default" }: { current: number; total: number; isCompleted: boolean; size?: "default" | "sm" }) => {
@@ -321,7 +334,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   const currentCategory = activeControl ? activeControl.category_name : queryCategory;
 
   // Derive initial expansion states from pathname
-  const { isCrcPage, isFairnessPage, isApiEndpointPage, isTeamPage, isSettingsPage, isAimaPage } = getRouteFlags(pathname);
+  const { 
+    isCrcPage, 
+    isFairnessPage, 
+    isFairnessRootPage,
+    isApiEndpointPage, 
+    isDatasetTestingPage,
+    isFairnessOptionsPage,
+    isTeamPage, 
+    isSettingsPage, 
+    isAimaPage 
+  } = getRouteFlags(pathname);
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
   const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
@@ -688,7 +711,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
                                               className="group/fairness h-8 px-2"
-                                               isActive={isFairnessPage && !isApiEndpointPage}
+                                               isActive={(isFairnessRootPage || isFairnessPage) && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage}
                                              >
                                                <span className={cn(
                                                  "text-[13px] truncate ml-2 transition-colors",
@@ -716,7 +739,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
                                               className="group/fairness h-8 px-2"
-                                              isActive={pathname.includes('/dataset-testing')}
+                                               isActive={isDatasetTestingPage}
                                             >
                                               <span className={cn(
                                                 "text-[13px] truncate ml-2 transition-colors",
