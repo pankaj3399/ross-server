@@ -371,12 +371,12 @@ export default function QuestionView() {
                                     description: "Not implemented or not applicable",
                                 },
                                 {
-                                    value: 0.5,
+                                    value: 1.5,
                                     label: "Partially",
                                     description: "Partially implemented or in progress",
                                 },
                                 {
-                                    value: 1,
+                                    value: 3,
                                     label: "Yes",
                                     description: "Fully implemented and operational",
                                 },
