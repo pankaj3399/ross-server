@@ -44,10 +44,22 @@ const formatAimaDescription = (description: string | null | undefined): string =
         let sanitized = sanitizeAimaDescription(trimmedDesc);
         sanitized = sanitized.replace(/<li(\b[^>]*)>\s*[•\-\*·\u2022\u00B7]\s*[.\-·• ]*\s*/gi, "<li$1>");
         // Strip <strong> and <b> tags from inside <li> tags to ensure non-bold bullets
-        sanitized = sanitized.replace(/<li(\b[^>]*)>(.*?)<\/li>/gi, (match, attrs, content) => {
-            const cleaned = content.replace(/<\/?(strong|b)\b[^>]*>/gi, "");
-            return `<li${attrs}>${cleaned}</li>`;
-        });
+        // Using a DOM-based approach to handle nested/multiline lists robustly
+        if (typeof document !== "undefined") {
+            const container = document.createElement("div");
+            container.innerHTML = sanitized;
+            const listItems = container.querySelectorAll("li");
+            listItems.forEach((li) => {
+                const bolds = li.querySelectorAll("strong, b");
+                bolds.forEach((bold) => {
+                    while (bold.firstChild) {
+                        bold.parentNode?.insertBefore(bold.firstChild, bold);
+                    }
+                    bold.parentNode?.removeChild(bold);
+                });
+            });
+            sanitized = container.innerHTML;
+        }
         return sanitized;
     }
 
