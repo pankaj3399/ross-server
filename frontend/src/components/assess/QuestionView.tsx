@@ -42,9 +42,12 @@ const formatAimaDescription = (description: string | null | undefined): string =
     // sanitize it, strip erroneous dots from bullets, and return.
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
         let sanitized = sanitizeAimaDescription(trimmedDesc);
-        // Aggressively strip "• ." from LI tags if they exist in the HTML, 
-        // but only if an actual bullet character is present to protect things like ".NET"
         sanitized = sanitized.replace(/<li(\b[^>]*)>\s*[•\-\*·\u2022\u00B7]\s*[.\-·• ]*\s*/gi, "<li$1>");
+        // Strip <strong> and <b> tags from inside <li> tags to ensure non-bold bullets
+        sanitized = sanitized.replace(/<li(\b[^>]*)>(.*?)<\/li>/gi, (match, attrs, content) => {
+            const cleaned = content.replace(/<\/?(strong|b)\b[^>]*>/gi, "");
+            return `<li${attrs}>${cleaned}</li>`;
+        });
         return sanitized;
     }
 
@@ -356,7 +359,7 @@ export default function QuestionView() {
                                         </div>
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
-                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
+                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-normal [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
                                         <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
                                     </div>
                                 </div>
