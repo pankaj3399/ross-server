@@ -83,10 +83,10 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 const rest = htmlEscape(bulletMatch[3]);
                 
                 if (separator === " (") {
-                    resultLines.push(`<li><strong>${title}</strong> (${rest}</li>`);
+                    resultLines.push(`<li>${title} (${rest}</li>`);
                 } else if (separator === ":") {
                     // Only bold if it's a colon (likely a label)
-                    resultLines.push(`<li><strong>${title}:</strong> ${rest}</li>`);
+                    resultLines.push(`<li>${title}: ${rest}</li>`);
                 } else {
                     // For dashes/etc, just show them without bolding the title
                     resultLines.push(`<li>${title}${htmlEscape(separator)} ${rest}</li>`);
@@ -356,7 +356,7 @@ export default function QuestionView() {
                                         </div>
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
-                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_li:before]:font-bold [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
+                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
                                         <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
                                     </div>
                                 </div>
