@@ -12,6 +12,7 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("premium-domains")) return "Premium Domains";
     if (pathname.includes("fairness-bias/options")) return "Fairness & Bias Testing";
     if (pathname.includes("fairness-bias/api-endpoint")) return "API Automated Testing";
+    if (pathname.includes("vulnerability-assessment")) return "AI Vulnerability Assessment";
     if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
     if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
     if (pathname.includes("crc")) return "Compliance Readiness Control (CRC)";

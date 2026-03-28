@@ -31,18 +31,6 @@ export default function PremiumDomainsPage() {
     if (hasInitializedRef.current) return;
     if (loading) return;
 
-    if (isPremium) {
-      hasInitializedRef.current = true;
-      router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
-      return;
-    }
-
-    if (!isPremium) {
-      hasInitializedRef.current = true;
-      router.push(`/assess/${projectId}/premium-features`);
-      return;
-    }
-
     // Find premium domains
     const premiumDomains = domains.filter(d => d.is_premium === true);
 
@@ -54,24 +42,30 @@ export default function PremiumDomainsPage() {
     }
 
     // Attempt to set current domain to a premium one if not already
-    // If currentDomainId is already a premium domain, we are good.
     const currentIsPremium = premiumDomains.some(d => d.id === currentDomainId);
 
-    if (!currentIsPremium) {
-      // Select first premium domain
-      const firstDomain = premiumDomains[0];
-      if (firstDomain) {
-        setCurrentDomainId(firstDomain.id);
-        const firstPracticeId = Object.keys(firstDomain.practices)[0];
-        if (firstPracticeId) {
-          setCurrentPracticeId(firstPracticeId);
-          setCurrentQuestionIndex(0);
-        }
+    if (!currentIsPremium && isPremium) {
+      const firstPremiumDomain = premiumDomains[0];
+      setCurrentDomainId(firstPremiumDomain.id);
+      
+      const practicesEntries = Object.entries(firstPremiumDomain.practices || {});
+      const [firstPracticeId, firstPractice] = practicesEntries[0] || [null, null];
+      
+      if (firstPracticeId && firstPractice) {
+        setCurrentPracticeId(firstPracticeId);
+        setCurrentQuestionIndex(0);
       }
     }
 
-    setInitializing(false);
+    // Now handle the redirect based on premium status
+    if (isPremium) {
+      router.push(`/assess/${projectId}/vulnerability-assessment`);
+    } else {
+      router.push(`/assess/${projectId}/premium-features`);
+    }
     hasInitializedRef.current = true;
+
+    setInitializing(false);
   }, [loading, isPremium, domains, currentDomainId, projectId, router, setCurrentDomainId, setCurrentPracticeId, setCurrentQuestionIndex]);
 
   if (loading || initializing) {
