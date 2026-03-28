@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useAssessmentContext } from "../../contexts/AssessmentContext";
 import { useAssessmentNavigation } from "../../hooks/useAssessmentNavigation"; // Assuming this hook is available and needed or we pass helpers
 import { motion } from "framer-motion";
@@ -42,8 +43,6 @@ const formatAimaDescription = (description: string | null | undefined): string =
     // sanitize it, strip erroneous dots from bullets, and return.
     if (trimmedDesc.startsWith("<") && trimmedDesc.endsWith(">")) {
         let sanitized = sanitizeAimaDescription(trimmedDesc);
-        // Aggressively strip "• ." from LI tags if they exist in the HTML, 
-        // but only if an actual bullet character is present to protect things like ".NET"
         sanitized = sanitized.replace(/<li(\b[^>]*)>\s*[•\-\*·\u2022\u00B7]\s*[.\-·• ]*\s*/gi, "<li$1>");
         return sanitized;
     }
@@ -83,10 +82,10 @@ const formatAimaDescription = (description: string | null | undefined): string =
                 const rest = htmlEscape(bulletMatch[3]);
                 
                 if (separator === " (") {
-                    resultLines.push(`<li><strong>${title}</strong> (${rest}</li>`);
+                    resultLines.push(`<li>${title} (${rest}</li>`);
                 } else if (separator === ":") {
                     // Only bold if it's a colon (likely a label)
-                    resultLines.push(`<li><strong>${title}:</strong> ${rest}</li>`);
+                    resultLines.push(`<li>${title}: ${rest}</li>`);
                 } else {
                     // For dashes/etc, just show them without bolding the title
                     resultLines.push(`<li>${title}${htmlEscape(separator)} ${rest}</li>`);
@@ -116,6 +115,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
 export default function QuestionView() {
     const router = useRouter();
+    const [descriptionCache, setDescriptionCache] = useState<{ key: string; html: string } | null>(null);
+
     const {
         projectId,
         domains,
@@ -152,6 +153,48 @@ export default function QuestionView() {
         currentQuestionIndex,
     });
 
+    const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
+    const currentQuestion = questions[validQuestionIndex];
+    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion?.level}:${currentQuestion?.stream}:${validQuestionIndex}`;
+
+    // --- Client-side effect to handle DOM-based bolding removal in lists ---
+    useEffect(() => {
+        if (!currentQuestion?.description) {
+            setDescriptionCache({ key: questionKey, html: "" });
+            return;
+        }
+
+        const initial = formatAimaDescription(currentQuestion.description);
+        
+        // If it's not HTML, just use it directly
+        if (!currentQuestion.description.trim().startsWith("<")) {
+            setDescriptionCache({ key: questionKey, html: initial });
+            return;
+        }
+
+        // DOM-based stripping of strong/b tags from list items only on the client
+        // to avoid hydration mismatch errors.
+        const container = document.createElement("div");
+        container.innerHTML = initial;
+        const listItems = container.querySelectorAll("li");
+        listItems.forEach((li) => {
+            const bolds = li.querySelectorAll("strong, b");
+            bolds.forEach((bold) => {
+                while (bold.firstChild) {
+                    bold.parentNode?.insertBefore(bold.firstChild, bold);
+                }
+                bold.parentNode?.removeChild(bold);
+            });
+        });
+        setDescriptionCache({ key: questionKey, html: container.innerHTML });
+    }, [currentQuestion?.description, questionKey]);
+
+
+
+    if (loading || !questions) {
+        return <AssessmentSkeleton />;
+    }
+
     // --- Navigation Handlers ---
     const handleNextQuestion = () => {
         const next = getNextQuestion();
@@ -171,23 +214,10 @@ export default function QuestionView() {
         }
     };
 
-
-
-    if (loading || !questions) {
-        return <AssessmentSkeleton />;
-    }
-
-    const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
-
-
-
-    const currentQuestion = questions[validQuestionIndex];
-
     if (!currentQuestion) {
         return <AssessmentSkeleton />;
     }
 
-    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${validQuestionIndex}`;
     const currentAnswer = answers[questionKey];
     const currentNote = notes[questionKey] || "";
 
@@ -356,8 +386,10 @@ export default function QuestionView() {
                                         </div>
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
-                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-medium [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_li:before]:font-bold [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
-                                        <div dangerouslySetInnerHTML={{ __html: formatAimaDescription(currentQuestion.description) }} />
+                                    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-normal [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
+                                        <div dangerouslySetInnerHTML={{ 
+                                            __html: (descriptionCache?.key === questionKey ? descriptionCache.html : null) || formatAimaDescription(currentQuestion.description) 
+                                        }} />
                                     </div>
                                 </div>
                             )}
@@ -371,12 +403,12 @@ export default function QuestionView() {
                                     description: "Not implemented or not applicable",
                                 },
                                 {
-                                    value: 0.5,
+                                    value: 1.5,
                                     label: "Partially",
                                     description: "Partially implemented or in progress",
                                 },
                                 {
-                                    value: 1,
+                                    value: 3,
                                     label: "Yes",
                                     description: "Fully implemented and operational",
                                 },

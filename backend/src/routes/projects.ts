@@ -464,6 +464,11 @@ router.post(
     const overallPercentage = (overallMaturityScore / 3) * 100;
 
     // Update project status to completed
+    await pool.query(
+      "DELETE FROM project_insights WHERE project_id = $1",
+      [projectId]
+    );
+
     const result = await pool.query(
       "UPDATE projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
       [projectId],
