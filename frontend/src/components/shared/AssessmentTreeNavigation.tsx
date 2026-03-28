@@ -101,6 +101,7 @@ const getRouteFlags = (pathname: string | null) => {
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
   const isFairnessRootPage = !!pathname?.match(/\/fairness-bias($|\?|\/$)/);
   const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/api-endpoint($|\/|\?)/);
+  const isVulnerabilityPage = !!pathname?.match(/\/vulnerability-assessment($|\/|\?)/);
   const isDatasetTestingPage = !!pathname?.match(/\/fairness-bias\/dataset-testing($|\/|\?)/);
   const isFairnessOptionsPage = !!pathname?.match(/\/fairness-bias\/options($|\/|\?)/);
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
@@ -111,6 +112,7 @@ const getRouteFlags = (pathname: string | null) => {
     isFairnessPage, 
     isFairnessRootPage,
     isApiEndpointPage, 
+    isVulnerabilityPage,
     isDatasetTestingPage,
     isFairnessOptionsPage,
     isTeamPage, 
@@ -339,6 +341,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     isFairnessPage, 
     isFairnessRootPage,
     isApiEndpointPage, 
+    isVulnerabilityPage,
     isDatasetTestingPage,
     isFairnessOptionsPage,
     isTeamPage, 
@@ -375,11 +378,11 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       setIsCrcExpanded(true);
       setIsFairnessExpanded(false);
       setIsSettingsExpanded(false);
-    } else if (isFairnessPage) {
+    } else if (isFairnessPage || isVulnerabilityPage) {
       setIsAssessmentExpanded(false);
       setIsPremiumFeaturesExpanded(true);
       setIsCrcExpanded(false);
-      setIsFairnessExpanded(true);
+      setIsFairnessExpanded(isFairnessPage);
       setIsSettingsExpanded(false);
     } else if (isAimaPage) {
       setIsAssessmentExpanded(true);
@@ -628,18 +631,11 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             label: "AI Vulnerability Assessment",
                             icon: IconShield,
                             onClick: () => premiumStatus 
-                              ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)
+                              ? router.push(`/assess/${projectId}/vulnerability-assessment`)
                               : openSubscriptionModal("Unlock Premium to Access AI Vulnerability Assessment", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
-                            color: "text-blue-500"
-                          },
-                          {
-                            id: "fairness",
-                            label: "Automated Bias & Fairness Testing",
-                            icon: IconScale,
-                            onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
-                            locked: false,
-                            color: "text-amber-500"
+                            color: "text-blue-500",
+                            active: isVulnerabilityPage
                           },
                           {
                             id: "crc",
@@ -649,19 +645,27 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             locked: !premiumStatus,
                             color: "text-emerald-500",
                             active: pathname.includes('/crc')
+                          },
+                          {
+                            id: "fairness",
+                            label: "Automated Bias & Fairness Testing",
+                            icon: IconScale,
+                            onClick: () => router.push(`/assess/${projectId}/fairness-bias/options`),
+                            locked: false,
+                            color: "text-amber-500",
+                            active: isFairnessPage && !isVulnerabilityPage
                           }
                         ].map((item, idx) => {
                             const isFairness = item.id === "fairness";
                             const isCrc = item.id === "crc";
-                            const showToggle = isFairness;
+                            const isVulnerability = item.id === "vulnerability";
+                            const showToggle = isFairness || isCrc;
 
                             let isExpanded = false;
                             if (isFairness) isExpanded = isFairnessExpanded;
                             if (isCrc) isExpanded = isCrcExpanded;
 
-                             const isItemActive = item.id === "vulnerability" 
-                               ? isApiEndpointPage 
-                               : (isFairness ? isFairnessPage : (isCrc ? isCrcPage : false));
+                             const isItemActive = item.active;
 
                             return (
                               <SidebarMenuItem key={idx}>
@@ -715,7 +719,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                              >
                                                <span className={cn(
                                                  "text-[13px] truncate ml-2 transition-colors",
-                                                 (isFairnessPage && !isApiEndpointPage) ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
+                                                 (isFairnessRootPage || (isFairnessPage && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage)) ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
                                                )}>
                                                 Manual Prompt Testing
                                               </span>
@@ -743,7 +747,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                             >
                                               <span className={cn(
                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                pathname.includes('/dataset-testing') ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
+                                                isDatasetTestingPage ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
                                               )}>
                                                 Dataset Testing
                                               </span>
