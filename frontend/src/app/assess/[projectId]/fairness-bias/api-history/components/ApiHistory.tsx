@@ -148,10 +148,10 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                     </div>
                     <div>
                         <h2 className="text-xl font-semibold text-foreground">
-                            API Test History
+                            {routeMode === 'vulnerability' ? 'Vulnerability Scan History' : 'API Test History'}
                         </h2>
                         <p className="text-sm text-muted-foreground">
-                            Past automated fairness evaluations
+                            {routeMode === 'vulnerability' ? 'Past automated security assessments' : 'Past automated fairness evaluations'}
                         </p>
                     </div>
                 </div>
@@ -165,9 +165,13 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                     <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
                         <Search className="w-6 h-6 text-muted-foreground" />
                     </div>
-                    <h3 className="text-sm font-medium text-foreground mb-1">No API test history found</h3>
+                    <h3 className="text-sm font-medium text-foreground mb-1">
+                        {routeMode === 'vulnerability' ? 'No vulnerability scan history found' : 'No API test history found'}
+                    </h3>
                     <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                        Run a new API evaluation to see your past results and archived reports here.
+                        {routeMode === 'vulnerability' 
+                            ? 'Run a new security scan to see your past results and archived reports here.' 
+                            : 'Run a new API evaluation to see your past results and archived reports here.'}
                     </p>
                 </div>
             ) : (

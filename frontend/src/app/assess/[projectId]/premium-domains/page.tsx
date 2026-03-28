@@ -48,11 +48,11 @@ export default function PremiumDomainsPage() {
       const firstPremiumDomain = premiumDomains[0];
       setCurrentDomainId(firstPremiumDomain.id);
       
-      const practicesArray = Object.values(firstPremiumDomain.practices || {});
-      const firstPractice = practicesArray[0];
-      if (firstPractice) {
-        // Correct property name based on PracticeWithLevels type
-        setCurrentPracticeId((firstPractice as any).id || (firstPractice as any).practice_id);
+      const practicesEntries = Object.entries(firstPremiumDomain.practices || {});
+      const [firstPracticeId, firstPractice] = practicesEntries[0] || [null, null];
+      
+      if (firstPracticeId && firstPractice) {
+        setCurrentPracticeId(firstPracticeId);
         setCurrentQuestionIndex(0);
       }
     }

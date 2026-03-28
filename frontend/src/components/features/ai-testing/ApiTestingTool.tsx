@@ -439,7 +439,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                 )}
                 <p className="mt-2 text-xs text-muted-foreground">
                   {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.description}
-                  {apiKeyPlacement === "body_field" && " (We append an \"api_key\" property to your JSON body.)"}
+                  {apiKeyPlacement === "body_field" && ` (We append an "${trimmedApiKeyFieldName || "api_key"}" property to your JSON body.)`}
                 </p>
               </div>
             </div>
