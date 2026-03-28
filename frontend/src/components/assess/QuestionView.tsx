@@ -115,7 +115,7 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
 export default function QuestionView() {
     const router = useRouter();
-    const [formattedDescription, setFormattedDescription] = useState<string>("");
+    const [descriptionCache, setDescriptionCache] = useState<{ key: string; html: string } | null>(null);
 
     const {
         projectId,
@@ -155,11 +155,12 @@ export default function QuestionView() {
 
     const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
     const currentQuestion = questions[validQuestionIndex];
+    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion?.level}:${currentQuestion?.stream}:${validQuestionIndex}`;
 
     // --- Client-side effect to handle DOM-based bolding removal in lists ---
     useEffect(() => {
         if (!currentQuestion?.description) {
-            setFormattedDescription("");
+            setDescriptionCache({ key: questionKey, html: "" });
             return;
         }
 
@@ -167,7 +168,7 @@ export default function QuestionView() {
         
         // If it's not HTML, just use it directly
         if (!currentQuestion.description.trim().startsWith("<")) {
-            setFormattedDescription(initial);
+            setDescriptionCache({ key: questionKey, html: initial });
             return;
         }
 
@@ -185,8 +186,8 @@ export default function QuestionView() {
                 bold.parentNode?.removeChild(bold);
             });
         });
-        setFormattedDescription(container.innerHTML);
-    }, [currentQuestion?.description]);
+        setDescriptionCache({ key: questionKey, html: container.innerHTML });
+    }, [currentQuestion?.description, questionKey]);
 
 
 
@@ -217,7 +218,6 @@ export default function QuestionView() {
         return <AssessmentSkeleton />;
     }
 
-    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion.level}:${currentQuestion.stream}:${validQuestionIndex}`;
     const currentAnswer = answers[questionKey];
     const currentNote = notes[questionKey] || "";
 
@@ -387,7 +387,9 @@ export default function QuestionView() {
                                         <span className="text-sm font-bold text-foreground uppercase tracking-wider">Description (Guide Text)</span>
                                     </div>
                                     <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 text-sm text-foreground/90 font-normal [&_strong]:text-foreground [&_strong]:font-bold [&_b]:text-foreground [&_b]:font-bold [&_ul]:mt-3 [&_ul]:space-y-2 [&_li]:relative [&_li]:pl-5 [&_li:before]:content-['•'] [&_li:before]:absolute [&_li:before]:left-0 [&_li:before]:text-primary [&_p]:mb-3 [&_p:last-child]:mb-0 shadow-sm">
-                                        <div dangerouslySetInnerHTML={{ __html: formattedDescription || formatAimaDescription(currentQuestion.description) }} />
+                                        <div dangerouslySetInnerHTML={{ 
+                                            __html: (descriptionCache?.key === questionKey ? descriptionCache.html : null) || formatAimaDescription(currentQuestion.description) 
+                                        }} />
                                     </div>
                                 </div>
                             )}
