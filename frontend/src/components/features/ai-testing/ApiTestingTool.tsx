@@ -105,8 +105,8 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   useEffect(() => {
     if (apiEndpoint) {
       try {
-        new URL(apiEndpoint);
-        setIsValidUrl(true);
+        const url = new URL(apiEndpoint);
+        setIsValidUrl(url.protocol === 'http:' || url.protocol === 'https:');
       } catch {
         setIsValidUrl(false);
       }
@@ -167,15 +167,20 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     setJobStarting(true);
 
     try {
-      const response = await apiService.startFairnessEvaluationJob({
+      const payload: any = {
         projectId,
         apiUrl: apiEndpoint,
         requestTemplate: trimmedTemplate,
         responseKey: responseKey.trim(),
-        apiKey: trimmedApiKey || null,
         apiKeyPlacement,
-        apiKeyFieldName: trimmedApiKeyFieldName || null,
-      });
+      };
+
+      if (apiKeyPlacement !== "none") {
+        payload.apiKey = trimmedApiKey || null;
+        payload.apiKeyFieldName = trimmedApiKeyFieldName || null;
+      }
+
+      const response = await apiService.startFairnessEvaluationJob(payload);
       router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to schedule evaluation");
@@ -205,15 +210,20 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     setJobStarting(true);
 
     try {
-      const response = await apiService.startSecurityScan({
+      const payload: any = {
         projectId,
         apiUrl: apiEndpoint,
         requestTemplate: trimmedTemplate,
         responseKey: responseKey.trim(),
-        apiKey: trimmedApiKey || null,
         apiKeyPlacement,
-        apiKeyFieldName: trimmedApiKeyFieldName || null,
-      });
+      };
+
+      if (apiKeyPlacement !== "none") {
+        payload.apiKey = trimmedApiKey || null;
+        payload.apiKeyFieldName = trimmedApiKeyFieldName || null;
+      }
+
+      const response = await apiService.startSecurityScan(payload);
       router.push(`${basePath}/job/${response.jobId}`);
     } catch (error: any) {
       setJobStartError(error.message || "Failed to start security scan");
@@ -390,11 +400,12 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                   htmlFor="api-key-value"
                   className="block text-sm font-medium text-foreground mb-2"
                 >
-                  API Key (secured locally)
+                  API Key
                 </label>
                 <input
                   id="api-key-value"
-                  type="text"
+                  type="password"
+                  autoComplete="off"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="Paste your provider API key"
@@ -410,7 +421,8 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                   `}
                 />
                 <p className="mt-2 text-xs text-muted-foreground">
-                  We only use this key when sending requests to your model. It is never logged or shared.
+                  This key is sent to the backend so the queued job can call your model endpoint.
+                  Only use a credential whose storage and logging policy permits that flow.
                 </p>
               </div>
               <div>
@@ -581,7 +593,9 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                   <ul className="text-xs text-primary/90 space-y-1 mb-3 list-disc list-inside">
                     <li>Tell us how to locate the model&apos;s final text in your JSON response.</li>
                     <li>Use dot/bracket notation (e.g. <code>choices[0].message.content</code>).</li>
-                    <li>We will extract that string and feed it into the fairness evaluator.</li>
+                    <li>
+                      We will extract that string and feed it into the {mode === 'vulnerability' ? 'vulnerability' : mode === 'api-testing' ? 'fairness' : 'selected'} evaluator.
+                    </li>
                   </ul>
                   <pre className="text-xs font-mono text-primary/90 bg-background rounded-lg border border-primary/20 p-3 whitespace-pre-wrap">
                     {`{
