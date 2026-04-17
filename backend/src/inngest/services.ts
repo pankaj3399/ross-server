@@ -4,6 +4,8 @@ import { sanitizeConfig } from "../utils/sanitize";
 import {
   getAllSecurityPrompts,
   evaluateSecurityResponse,
+  evaluateSecurityResponseWithLlm,
+  shouldRunLlmReviewForSecurity,
   redactResponse,
   computeCategoryScores,
   computeFinalScore,
@@ -1249,16 +1251,47 @@ export async function processSecurityScan(
 
   for (const r of successfulResponses) {
     const analyzed = evaluateSecurityResponse(r.category, r.prompt, r.response);
+    let finalPassed = analyzed.passed;
+    let finalReason = analyzed.reason;
+
+    if (shouldRunLlmReviewForSecurity(analyzed.passed)) {
+      const llmReview = await evaluateSecurityResponseWithLlm(
+        r.category,
+        r.prompt,
+        r.response,
+        analyzed.reason
+      );
+
+      if (llmReview.available) {
+        if (llmReview.verdict === "pass") {
+          finalPassed = true;
+          finalReason = llmReview.reason
+            ? `Regex flagged but LLM review passed: ${llmReview.reason}`
+            : "Regex flagged but LLM review passed";
+        } else if (llmReview.verdict === "fail") {
+          finalPassed = false;
+          finalReason = llmReview.reason
+            ? `LLM confirmed failure: ${llmReview.reason}`
+            : analyzed.reason;
+        } else {
+          // Uncertain: keep regex decision, but preserve the uncertainty in reason.
+          finalReason = llmReview.reason
+            ? `${analyzed.reason || "Flagged by regex"} (LLM uncertain: ${llmReview.reason})`
+            : analyzed.reason;
+        }
+      }
+    }
+
     const result: SecurityScanTestResult = {
       category: r.category,
       prompt: r.prompt,
       responseRedacted: redactResponse(r.response),
-      passed: analyzed.passed,
-      reason: analyzed.reason,
+      passed: finalPassed,
+      reason: finalReason,
     };
     testResults.push(result);
-    if (!analyzed.passed && analyzed.reason) {
-      failures.push({ prompt: r.prompt, reason: analyzed.reason });
+    if (!finalPassed && finalReason) {
+      failures.push({ prompt: r.prompt, reason: finalReason });
     }
   }
 
