@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useId } from "react";
+import { useState, useId, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { IconInfoCircle, IconAlertTriangle, IconChevronDown, IconChevronUp } from "@tabler/icons-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,8 @@ interface InfoSectionProps {
   limitations: string;
   className?: string;
   defaultExpanded?: boolean;
+  /** Optional rich content shown below limitations inside the same expandable panel */
+  children?: ReactNode;
 }
 
 export default function InfoSection({
@@ -19,6 +21,7 @@ export default function InfoSection({
   limitations,
   className = "",
   defaultExpanded = false,
+  children,
 }: InfoSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const sectionId = useId();
@@ -78,6 +81,12 @@ export default function InfoSection({
                   {limitations}
                 </p>
               </div>
+
+              {children ? (
+                <div className="space-y-4 pt-4 border-t border-border/50 text-sm text-muted-foreground leading-relaxed">
+                  {children}
+                </div>
+              ) : null}
             </CardContent>
           </motion.div>
         )}

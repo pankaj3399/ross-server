@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../../contexts/AuthContext";
-import { PREMIUM_STATUS } from "../../../../../lib/constants";
+import { FALLBACK_PRICES, PREMIUM_STATUS } from "../../../../../lib/constants";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -208,10 +208,41 @@ export default function FairnessBiasOptions() {
 
           <div className="mb-12 max-w-5xl mx-auto">
             <InfoSection
-              title="About Automated Bias & Fairness Testing"
-              description="This assessment evaluates your AI system's responses across various demographic groups and sensitive topics to ensure equitable performance. It uses specialized metrics to detect statistical imbalances that could lead to discriminatory or unfair outcomes."
-              limitations="Automated tests are limited by the predefined categories and metrics in our suite. They may not capture intersectional biases or nuances unique to your specific use case. A passing score indicates compliance with statistical thresholds but does not guarantee the complete absence of bias in all real-world interactions."
-            />
+              title="About Automated Bias and Fairness Testing"
+              description={`This premium hub connects three fairness paths: manual prompt testing, API automated testing, and dataset testing. Each path is designed to produce evidence you can archive for governance. Premium lists Basic at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
+              limitations="Automated metrics cannot cover every intersectional nuance or every jurisdiction. High scores reduce risk but are not a legal guarantee of nondiscrimination for regulated decisions."
+              defaultExpanded
+            >
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">Why premium includes this</p>
+                <p>
+                  You receive guided workflows, stored reports, and consistent scoring models so teams can rerun tests
+                  after model or policy changes without rebuilding spreadsheets or bespoke scripts.
+                </p>
+              </div>
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <p className="text-sm font-semibold text-foreground">Manual prompt testing</p>
+                <p>
+                  You paste answers to MATUR prompts. Each answer is scored with Gemini for bias, toxicity, relevancy,
+                  and faithfulness, blended with LangFair when configured, then summarized with verdict bands.
+                </p>
+              </div>
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <p className="text-sm font-semibold text-foreground">API automated testing</p>
+                <p>
+                  MATUR sends fairness questions to your endpoint using your JSON template and response path. Analysis is
+                  the same Gemini plus LangFair pipeline as manual testing, stored per job for regression review.
+                </p>
+              </div>
+              <div className="space-y-2 pt-4 border-t border-border/50">
+                <p className="text-sm font-semibold text-foreground">Dataset testing</p>
+                <p>
+                  You upload a CSV. The service computes statistical fairness signals on the table, then Gemini explains
+                  key metrics such as fairness, bias, toxicity, relevancy, and faithfulness for the sample. Use it to
+                  catch representation issues before prompts ever reach a model.
+                </p>
+              </div>
+            </InfoSection>
           </div>
 
           {/* Options Grid */}

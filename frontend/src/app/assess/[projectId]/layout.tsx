@@ -15,7 +15,8 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("vulnerability-assessment")) return "AI Vulnerability Assessment";
     if (pathname.includes("fairness-bias/dataset-testing")) return "Dataset Testing";
     if (pathname.includes("fairness-bias")) return "Fairness & Bias Testing";
-    if (pathname.includes("crc")) return "Compliance Readiness Control (CRC)";
+    if (pathname.includes("crc/welcome")) return "Compliance Readiness Controls";
+    if (pathname.includes("crc")) return "Compliance Readiness Controls";
     if (pathname.includes("team")) return "Team Management";
     return "AI Maturity Assessment (AIMA)";
 };

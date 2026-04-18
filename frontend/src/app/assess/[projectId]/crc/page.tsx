@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { safeRenderHTML } from "@/lib/htmlUtils";
@@ -210,12 +211,16 @@ export default function CRCAssessmentPage() {
               </button>
               <div className="h-6 w-px bg-border" />
               <div>
-                <h1 className="text-lg font-semibold text-foreground">
-                  Compliance Readiness Controls (CRC)
-                </h1>
+                <h1 className="text-lg font-semibold text-foreground">Compliance Readiness Controls</h1>
                 <p className="text-sm text-muted-foreground">
                   {currentControl.category_name} • Control {currentIndex + 1} of {totalControls}
                 </p>
+                <Link
+                  href={`/assess/${projectId}/crc/welcome`}
+                  className="text-xs text-primary hover:text-primary/80 font-medium mt-1 inline-block"
+                >
+                  About this assessment
+                </Link>
               </div>
               {isReadOnly && (
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-muted-foreground text-xs font-medium ml-4">

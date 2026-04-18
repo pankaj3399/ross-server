@@ -639,9 +639,9 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                           },
                           {
                             id: "crc",
-                            label: "Compliance Readiness Controls (CRC)",
+                            label: "Compliance Readiness Controls",
                             icon: IconShieldCheck,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls (CRC)", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc/welcome`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
                             color: "text-emerald-500",
                             active: pathname.includes('/crc')
@@ -822,7 +822,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                                               if (premiumStatus) {
                                                                 router.push(`/assess/${projectId}/crc?controlId=${control.id}`);
                                                               } else {
-                                                                openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls (CRC)", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                                openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
                                                               }
                                                             }}
                                                             className="h-7 px-2 group/control"

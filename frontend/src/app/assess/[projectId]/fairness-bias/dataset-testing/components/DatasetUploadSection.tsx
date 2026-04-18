@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import InfoSection from "@/components/features/governance/InfoSection";
+import { FALLBACK_PRICES } from "@/lib/constants";
 
 const PRIVACY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const MAX_PREVIEW_COLUMNS = 20;
@@ -66,9 +67,25 @@ export const DatasetUploadSection = ({
                 <div className="max-w-4xl">
                     <InfoSection
                         title="About Dataset Testing"
-                        description="Dataset Testing analyzes your training or evaluation data for statistical imbalances and representation gaps. It identifies potential sources of bias by looking at the underlying distributions of your data before it even reaches the model."
-                        limitations="This test only identifies biases present in the provided dataset. It cannot predict how a model's own logic might introduce new biases during training or how it will behave when encountering 'out-of-distribution' data."
-                    />
+                        description={`This premium path analyzes a CSV you upload for statistical fairness signals and representation gaps before prompts reach a model. MATUR also asks Gemini to explain key metrics such as fairness, bias, toxicity, relevancy, and faithfulness for the sample. Basic premium lists at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
+                        limitations="Results only reflect the file you uploaded. They cannot predict new bias introduced during training or behavior on data that was not in the file."
+                        defaultExpanded
+                    >
+                        <div className="space-y-2">
+                            <p className="text-sm font-semibold text-foreground">Why premium includes this</p>
+                            <p>
+                                You get a guided upload, automatic purge after inactivity, and a stored narrative alongside
+                                table metrics so reviewers can show what the dataset looked like at a point in time.
+                            </p>
+                        </div>
+                        <div className="space-y-2 pt-4 border-t border-border/50">
+                            <p className="text-sm font-semibold text-foreground">How the evaluation runs</p>
+                            <p>
+                                The service parses your columns, computes statistical fairness measures on the table, then
+                                sends a structured summary to Gemini for plain language commentary on the headline metrics.
+                            </p>
+                        </div>
+                    </InfoSection>
                 </div>
                 <section className="grid gap-8 lg:grid-cols-1">
                     <Card className="shadow-xl overflow-hidden">

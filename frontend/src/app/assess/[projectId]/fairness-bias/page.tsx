@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { apiService } from "../../../../lib/api";
 import { sanitizeNoteInput, containsDangerousContent } from "../../../../lib/sanitize";
-import { PREMIUM_STATUS } from "../../../../lib/constants";
+import { FALLBACK_PRICES, PREMIUM_STATUS } from "../../../../lib/constants";
 import { showToast } from "../../../../lib/toast";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -470,9 +470,35 @@ export default function FairnessBiasTest() {
             <div className="mb-8 space-y-4">
               <InfoSection
                 title="About Manual Prompt Testing"
-                description="Manual Prompt Testing allows human experts to qualitatively evaluate the model's responses. This method is ideal for catching subtle issues in tone, context, and creative reasoning that automated systems might overlook."
-                limitations="Manual testing is highly subjective and depends on the expertise and perspective of the human tester. It is not statistically significant and cannot scale to cover the same breadth of scenarios as computerized automated testing."
-              />
+                description={`You answer MATUR fairness prompts yourself, then MATUR scores each answer automatically. Premium lists Basic at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
+                limitations="Human judgment still matters for tone and context. Automated scores can miss subtle harms or over flag benign language. This path is not a statistical sample of all user traffic."
+                defaultExpanded
+              >
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Why premium includes this</p>
+                  <p>
+                    You capture expert written answers alongside machine scored bias, toxicity, relevancy, and
+                    faithfulness in one place so reviewers can defend decisions with stored reasoning.
+                  </p>
+                </div>
+                <div className="space-y-2 pt-4 border-t border-border/50">
+                  <p className="text-sm font-semibold text-foreground">How we analyze each response</p>
+                  <ul className="list-disc pl-5 space-y-1.5">
+                    <li>
+                      Gemini returns structured scores for bias, toxicity, relevancy, and faithfulness with instructions
+                      to treat your text as data, not new system commands.
+                    </li>
+                    <li>
+                      LangFair adds toxicity and stereotype signals when the service URL is configured. Final bias and
+                      toxicity numbers combine both sources similar to API automated testing.
+                    </li>
+                    <li>
+                      Verdict labels translate numeric scores into Low, Moderate, or High buckets so stakeholders can read
+                      results quickly.
+                    </li>
+                  </ul>
+                </div>
+              </InfoSection>
             </div>
             <div className="mb-8">
               <div className="flex items-center justify-between mb-2">
