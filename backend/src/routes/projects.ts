@@ -431,7 +431,10 @@ async function computeProjectResults(
       : 0;
 
     const domainTotalQuestions = practices.reduce((sum: number, p: any) => sum + p.totalQuestions, 0);
-    if (!domain.isPremium) {
+    // Mirror the `relevantDomains` filter below: premium users count premium
+    // domains too, otherwise Questions Analyzed undercounts what was actually
+    // scored into overallMaturityScore.
+    if (isPremium || !domain.isPremium) {
       totalQuestions += domainTotalQuestions;
     }
 
@@ -526,6 +529,11 @@ router.get(
     try {
       const { projectId } = req.params;
       const project = req.project as { id: string; name: string; status: string; version_id: string | null };
+
+      if (project.status !== 'completed') {
+        return res.status(404).json({ error: "Project has not been submitted yet" });
+      }
+
       const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
       const { domains, overall } = await computeProjectResults(
@@ -547,7 +555,7 @@ router.get(
         "SELECT updated_at FROM projects WHERE id = $1",
         [projectId]
       );
-      const submittedAt = project.status === 'completed' && submittedRow.rows[0]?.updated_at
+      const submittedAt = submittedRow.rows[0]?.updated_at
         ? new Date(submittedRow.rows[0].updated_at).toISOString()
         : null;
 

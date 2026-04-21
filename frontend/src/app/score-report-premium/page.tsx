@@ -170,7 +170,6 @@ export default function ScoreReportPage() {
         if (response.success && response.jobId && response.status === 'processing') {
           if (response.existingInsights && Object.keys(response.existingInsights).length > 0) {
             setInsights(prev => ({ ...prev, ...response.existingInsights }));
-            updateResultsWithInsights(response.existingInsights);
           }
           pullInsightsStatus(response.jobId);
 
