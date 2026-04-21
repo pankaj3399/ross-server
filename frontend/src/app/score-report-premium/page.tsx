@@ -61,12 +61,32 @@ export default function ScoreReportPage() {
     }
 
     const fetchData = async () => {
-      const projectResults = getProjectResults(projectId);
+      // Prefer the local cache; fall back to server so the report remains
+      // available across browsers, devices, and after localStorage clears.
+      let projectResults = getProjectResults(projectId) as any;
+
+      if (!projectResults) {
+        try {
+          const report = await apiService.getProjectReport(projectId);
+          if (report?.results?.domains?.length) {
+            const domainsWithInsights = report.results.domains.map((d: any) => ({
+              ...d,
+              insights: report.insights?.[d.domainId] || d.insights,
+            }));
+            projectResults = {
+              projectId,
+              project: report.project,
+              results: { ...report.results, domains: domainsWithInsights },
+              submittedAt: report.submittedAt ?? new Date().toISOString(),
+            };
+          }
+        } catch (err) {
+          console.error("Failed to fetch project report from server:", err);
+        }
+      }
+
       if (projectResults) {
         setResults(projectResults);
-      } else if (projectId) {
-        // Handle case where we have a projectId but no results yet
-        // This might happen if user bookmarked or manually navigated
       }
 
       try {
@@ -237,15 +257,22 @@ export default function ScoreReportPage() {
 
             <Button
               onClick={exportPdf}
-              disabled={isExporting}
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf px-6 py-2 rounded-xl"
+              disabled={isExporting || generatingInsights}
+              title={generatingInsights ? "Insights are still being generated — please wait" : undefined}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf px-6 py-2 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isExporting ? (
+              {isExporting || generatingInsights ? (
                 <IconLoader className="w-5 h-5 animate-spin" />
               ) : (
                 <IconDownload className="w-5 h-5" />
               )}
-              <span className="font-medium">{isExporting ? "Generating PDF..." : "Download Report"}</span>
+              <span className="font-medium">
+                {isExporting
+                  ? "Generating PDF..."
+                  : generatingInsights
+                  ? "Preparing insights..."
+                  : "Download Report"}
+              </span>
             </Button>
           </div>
 

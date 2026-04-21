@@ -59,13 +59,35 @@ export default function ScoreReportPage() {
     }
 
     const fetchData = async () => {
-      // 1. Get Results
-      const projectResults = getProjectResults(projectId);
+      // Prefer the local cache (fast path, typical after submit). Fall back to
+      // the server when the browser has no entry — handles refresh after
+      // localStorage clear, another browser, another device, or a shared link.
+      let projectResults = getProjectResults(projectId) as any;
+
+      if (!projectResults) {
+        try {
+          const report = await apiService.getProjectReport(projectId);
+          if (report?.results?.domains?.length) {
+            const domainsWithInsights = report.results.domains.map((d: any) => ({
+              ...d,
+              insights: report.insights?.[d.domainId] || d.insights,
+            }));
+            projectResults = {
+              projectId,
+              project: report.project,
+              results: { ...report.results, domains: domainsWithInsights },
+              submittedAt: report.submittedAt ?? new Date().toISOString(),
+            };
+          }
+        } catch (err) {
+          console.error("Failed to fetch project report from server:", err);
+        }
+      }
+
       if (projectResults) {
         setResults(projectResults);
       }
 
-      // 2. Get Domain Details to check for premium status
       try {
         const domainsData = await apiService.getDomainsFull(projectId);
         const premiumIds = new Set(
@@ -259,16 +281,23 @@ export default function ScoreReportPage() {
 
             <Button
               onClick={exportVectorPdf}
-              disabled={isExporting}
+              disabled={isExporting || generatingInsights}
               size="sm"
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              title={generatingInsights ? "Insights are still being generated — please wait" : undefined}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isExporting ? (
+              {isExporting || generatingInsights ? (
                 <IconLoader className="w-4 h-4 animate-spin" />
               ) : (
                 <IconDownload className="w-4 h-4" />
               )}
-              <span className="font-medium text-xs">{isExporting ? "Generating..." : "Download Report"}</span>
+              <span className="font-medium text-xs">
+                {isExporting
+                  ? "Generating..."
+                  : generatingInsights
+                  ? "Preparing insights..."
+                  : "Download Report"}
+              </span>
             </Button>
           </div>
 

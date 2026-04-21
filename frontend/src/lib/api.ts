@@ -1125,6 +1125,36 @@ class ApiService {
     });
   }
 
+  async getProjectReport(projectId: string): Promise<{
+    project: any;
+    results: {
+      domains: Array<{
+        domainId: string;
+        domainTitle: string;
+        maturityScore: number;
+        practiceScores: Array<{
+          practiceId: string;
+          practiceTitle: string;
+          maturityScore: number;
+          totalQuestions: number;
+        }>;
+        totalQuestions: number;
+        isPremium?: boolean;
+        percentage: number;
+        insights?: string;
+      }>;
+      overall: {
+        overallMaturityScore: number;
+        totalQuestions: number;
+        overallPercentage: number;
+      };
+    };
+    insights: Record<string, string>;
+    submittedAt: string | null;
+  }> {
+    return this.request(`/projects/${projectId}/results`);
+  }
+
   async getInsightsJobStatus(projectId: string, jobId: string): Promise<{
     jobId: string;
     status: InsightsJobStatus;
