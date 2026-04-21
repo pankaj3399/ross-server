@@ -1106,6 +1106,7 @@ class ApiService {
   async generateDomainInsights(projectId: string): Promise<{
     success: boolean;
     insights?: Record<string, string>; // domainId -> insights text
+    existingInsights?: Record<string, string>; // cached insights when a new job is kicked off
     jobId?: string;
     status?: InsightsJobStatus;
     message?: string;
@@ -1114,6 +1115,7 @@ class ApiService {
     return this.request<{
       success: boolean;
       insights?: Record<string, string>;
+      existingInsights?: Record<string, string>;
       jobId?: string;
       status?: InsightsJobStatus;
       message?: string;

@@ -1227,11 +1227,14 @@ router.post(
         }
     });
 
-    // Return immediately
-    res.json({ 
-      success: true, 
-      jobId, 
+    // Return immediately. Surface already-cached insights so the client can
+    // render them without waiting for the new job to finish regenerating
+    // the missing (or previously-failed) domains.
+    res.json({
+      success: true,
+      jobId,
       status: 'processing',
+      existingInsights: cachedAllowed,
       message: "Insights generation started. Please poll status."
     });
 
