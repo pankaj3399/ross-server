@@ -37,6 +37,9 @@ export default function ScoreReportPage() {
   const { getProjectResults } = useAssessmentResultsStore();
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Fallback only — premium-insight visibility is now driven by the
+  // project/report capability flag (see hasPremiumInsights below) so that
+  // free collaborators on a premium owner's project still get full insights.
   const isUserPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
   const projectId = searchParams.get("projectId");
@@ -61,12 +64,42 @@ export default function ScoreReportPage() {
     }
 
     const fetchData = async () => {
-      const projectResults = getProjectResults(projectId);
+      // Prefer the local cache; fall back to server so the report remains
+      // available across browsers, devices, and after localStorage clears.
+      let projectResults = getProjectResults(projectId) as any;
+
+      // Refresh from the server when the cache predates the capability flag
+      // (legacy entries) — without this, hasPremiumInsights silently falls
+      // back to the viewer's plan and free collaborators on a premium project
+      // see the same blanked insights as before.
+      const cacheNeedsCapabilityRefresh =
+        !!projectResults && projectResults.capabilities?.premiumInsights === undefined;
+
+      if (!projectResults || cacheNeedsCapabilityRefresh) {
+        try {
+          const report = await apiService.getProjectReport(projectId);
+          if (report?.results?.domains?.length) {
+            const domainsWithInsights = report.results.domains.map((d: any) => ({
+              ...d,
+              insights: report.insights?.[d.domainId] || d.insights,
+            }));
+            projectResults = {
+              projectId,
+              project: report.project,
+              results: { ...report.results, domains: domainsWithInsights },
+              // Preserve a missing submission timestamp instead of inventing
+              // one — consumers render a fallback label when null.
+              submittedAt: report.submittedAt ?? null,
+              capabilities: report.capabilities,
+            };
+          }
+        } catch (err) {
+          console.error("Failed to fetch project report from server:", err);
+        }
+      }
+
       if (projectResults) {
         setResults(projectResults);
-      } else if (projectId) {
-        // Handle case where we have a projectId but no results yet
-        // This might happen if user bookmarked or manually navigated
       }
 
       try {
@@ -87,8 +120,16 @@ export default function ScoreReportPage() {
     fetchData();
   }, [projectId, isAuthenticated, authLoading, getProjectResults]);
 
+  // Project/report-level capability — falls back to the viewer's plan only
+  // when the cached results predate the capability field.
+  const hasPremiumInsights = results?.capabilities?.premiumInsights ?? isUserPremium;
+  // VIEWERs can read but not generate; the /generate-insights route would
+  // 403 them. Default true so cached entries that predate the flag continue
+  // to work for OWNER/EDITOR sessions (same role that produced the cache).
+  const canGenerateInsights = results?.capabilities?.canGenerateInsights ?? true;
+
   useEffect(() => {
-    if (!projectId || !results || loading || !isUserPremium) return;
+    if (!projectId || !results || loading || !hasPremiumInsights || !canGenerateInsights) return;
 
     // Collect all existing insights from results
     const existingInsights: Record<string, string> = {};
@@ -148,6 +189,9 @@ export default function ScoreReportPage() {
         }
 
         if (response.success && response.jobId && response.status === 'processing') {
+          if (response.existingInsights && Object.keys(response.existingInsights).length > 0) {
+            setInsights(prev => ({ ...prev, ...response.existingInsights }));
+          }
           pullInsightsStatus(response.jobId);
 
           safetyTimeout = setTimeout(() => {
@@ -182,7 +226,7 @@ export default function ScoreReportPage() {
       isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
-  }, [projectId, results, loading, isUserPremium]);
+  }, [projectId, results, loading, hasPremiumInsights, canGenerateInsights]);
 
   if (loading) {
     return <ReportSkeleton />;
@@ -233,15 +277,22 @@ export default function ScoreReportPage() {
 
             <Button
               onClick={exportPdf}
-              disabled={isExporting}
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf px-6 py-2 rounded-xl"
+              disabled={isExporting || generatingInsights}
+              title={generatingInsights ? "Insights are still being generated — please wait" : undefined}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 hide-in-pdf px-6 py-2 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isExporting ? (
+              {isExporting || generatingInsights ? (
                 <IconLoader className="w-5 h-5 animate-spin" />
               ) : (
                 <IconDownload className="w-5 h-5" />
               )}
-              <span className="font-medium">{isExporting ? "Generating PDF..." : "Download Report"}</span>
+              <span className="font-medium">
+                {isExporting
+                  ? "Generating PDF..."
+                  : generatingInsights
+                  ? "Preparing insights..."
+                  : "Download Report"}
+              </span>
             </Button>
           </div>
 
@@ -258,7 +309,9 @@ export default function ScoreReportPage() {
                 <span className="font-semibold text-foreground">{results.project.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
                 <span className="text-muted-foreground">
-                    {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {results.submittedAt
+                      ? new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                      : "Submission date unavailable"}
                 </span>
               </div>
             </div>
@@ -395,7 +448,7 @@ export default function ScoreReportPage() {
           <div className="space-y-12">
             {results.results.domains.map((domain: any, index: number) => {
               const domainMaturity = getMaturityLevel(domain.maturityScore);
-              const domainInsights = parseInsightText(insights[domain.domainId] || (isUserPremium ? domain.insights : "") || "");
+              const domainInsights = parseInsightText(insights[domain.domainId] || (hasPremiumInsights ? domain.insights : "") || "");
 
               return (
                 <motion.div

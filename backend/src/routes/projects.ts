@@ -281,6 +281,191 @@ router.delete(
   },
 );
 
+// Shared: compute per-domain / per-practice maturity scores for a project.
+// Used by POST /:projectId/submit (writes score into response after persisting
+// status change) and GET /:projectId/results (recomputes on demand so the
+// report stays available even when the client's local store is empty).
+async function computeProjectResults(
+  projectId: string,
+  isPremium: boolean,
+  projectVersionId: string | null
+): Promise<{
+  domains: any[];
+  overall: {
+    overallMaturityScore: number;
+    totalQuestions: number;
+    overallPercentage: number;
+  };
+}> {
+  const answersResult = await pool.query(
+    `SELECT domain_id, practice_id, level, stream, question_index, value
+     FROM assessment_answers
+     WHERE project_id = $1`,
+    [projectId]
+  );
+
+  let questionsQuery = `
+    SELECT d.id as domain_id, d.title as domain_title, COALESCE(d.is_premium, false) as is_premium,
+           p.id as practice_id, p.title as practice_title,
+           aq.level, aq.stream, aq.question_index
+    FROM aima_domains d
+    JOIN aima_practices p ON d.id = p.domain_id
+    JOIN aima_questions aq ON p.id = aq.practice_id
+  `;
+
+  const whereConditions: string[] = [];
+  const queryParams: any[] = [];
+  let paramIndex = 1;
+
+  if (!isPremium) {
+    whereConditions.push(`COALESCE(d.is_premium, false) = false`);
+  }
+
+  if (projectVersionId) {
+    whereConditions.push(`(d.version_id IS NULL OR EXISTS (
+      SELECT 1 FROM versions v1 WHERE v1.id = d.version_id
+      AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+    ))`);
+    queryParams.push(projectVersionId);
+    paramIndex++;
+
+    whereConditions.push(`(p.version_id IS NULL OR EXISTS (
+      SELECT 1 FROM versions v2 WHERE v2.id = p.version_id
+      AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+    ))`);
+    queryParams.push(projectVersionId);
+    paramIndex++;
+
+    whereConditions.push(`(aq.version_id IS NULL OR EXISTS (
+      SELECT 1 FROM versions v3 WHERE v3.id = aq.version_id
+      AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
+    ))`);
+    queryParams.push(projectVersionId);
+    paramIndex++;
+  }
+
+  if (whereConditions.length > 0) {
+    questionsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
+  }
+
+  const questionsResult = await pool.query(questionsQuery, queryParams);
+
+  const structure = new Map<string, any>();
+
+  questionsResult.rows.forEach(row => {
+    if (!structure.has(row.domain_id)) {
+      structure.set(row.domain_id, {
+        title: row.domain_title,
+        isPremium: row.is_premium,
+        practices: new Map()
+      });
+    }
+    const domain = structure.get(row.domain_id);
+    if (!domain.practices.has(row.practice_id)) {
+      domain.practices.set(row.practice_id, {
+        title: row.practice_title,
+        totalQuestions: 0,
+        levels: {},
+        validQuestionKeys: new Set()
+      });
+    }
+    const practice = domain.practices.get(row.practice_id);
+    const questionKey = `${row.level}:${row.stream}:${row.question_index}`;
+    if (!practice.validQuestionKeys.has(questionKey)) {
+      practice.validQuestionKeys.add(questionKey);
+
+      if (!practice.levels[row.level]) practice.levels[row.level] = {};
+      if (!practice.levels[row.level][row.stream]) practice.levels[row.level][row.stream] = { total: 0, count: 0 };
+
+      practice.levels[row.level][row.stream].count++;
+      practice.totalQuestions++;
+    }
+  });
+
+  let totalQuestions = 0;
+  answersResult.rows.forEach(answer => {
+    const domain = structure.get(answer.domain_id);
+    if (domain) {
+      const practice = domain.practices.get(answer.practice_id);
+      const questionKey = `${answer.level}:${answer.stream}:${answer.question_index}`;
+      if (practice && practice.validQuestionKeys.has(questionKey)) {
+        practice.levels[answer.level][answer.stream].total += parseFloat(answer.value);
+      }
+    }
+  });
+
+  const domains = (Array.from(structure.entries()) as [string, any][]).map(([domainId, domain]) => {
+    const practices = (Array.from(domain.practices.entries()) as [string, any][]).map(([practiceId, practice]) => {
+      let practiceMaturityScore = 0;
+      let levelsCount = 0;
+
+      if (practice.levels) {
+        for (const level of Object.values(practice.levels)) {
+          let levelScore = 0;
+          let streamCount = 0;
+          for (const stream of Object.values(level as Record<string, { total: number, count: number }>)) {
+            if (stream.count > 0) {
+              levelScore += (stream.total / stream.count);
+              streamCount++;
+            }
+          }
+          if (streamCount > 0) {
+            practiceMaturityScore += (levelScore / streamCount);
+            levelsCount++;
+          }
+        }
+      }
+
+      const finalPracticeScore = levelsCount > 0 ? practiceMaturityScore / levelsCount : 0;
+
+      return {
+        practiceId,
+        practiceTitle: practice.title,
+        maturityScore: Math.round(finalPracticeScore * 100) / 100,
+        totalQuestions: practice.totalQuestions
+      };
+    });
+
+    const domainScore = practices.length > 0
+      ? Math.round((practices.reduce((sum: number, p: any) => sum + p.maturityScore, 0) / practices.length) * 100) / 100
+      : 0;
+
+    const domainTotalQuestions = practices.reduce((sum: number, p: any) => sum + p.totalQuestions, 0);
+    // Mirror the `relevantDomains` filter below: premium users count premium
+    // domains too, otherwise Questions Analyzed undercounts what was actually
+    // scored into overallMaturityScore.
+    if (isPremium || !domain.isPremium) {
+      totalQuestions += domainTotalQuestions;
+    }
+
+    return {
+      domainId,
+      domainTitle: domain.title,
+      maturityScore: domainScore,
+      practiceScores: practices,
+      totalQuestions: domainTotalQuestions,
+      isPremium: domain.isPremium,
+      percentage: (domainScore / 3) * 100
+    };
+  });
+
+  const relevantDomains = domains.filter(d => isPremium || !d.isPremium);
+  const overallMaturityScore = relevantDomains.length > 0
+    ? Math.round((relevantDomains.reduce((sum: number, d: any) => sum + d.maturityScore, 0) / relevantDomains.length) * 100) / 100
+    : 0;
+
+  const overallPercentage = (overallMaturityScore / 3) * 100;
+
+  return {
+    domains,
+    overall: {
+      overallMaturityScore,
+      totalQuestions,
+      overallPercentage
+    }
+  };
+}
+
 // Submit project
 router.post(
   "/:projectId/submit",
@@ -294,183 +479,20 @@ router.post(
 
     const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
-
-    // Check if project brand/owner is premium
     const isPremium = isPremiumUser((req.project as any).owner_subscription);
 
-    // Get all assessment answers for this project
-    const answersResult = await pool.query(
-      `SELECT domain_id, practice_id, level, stream, question_index, value 
-       FROM assessment_answers 
-       WHERE project_id = $1`,
-      [projectId]
-    );
+    const { domains, overall } = await computeProjectResults(projectId, isPremium, projectVersionId);
 
-    // Get total questions for each domain and practice
-    let questionsQuery = `
-      SELECT d.id as domain_id, d.title as domain_title, COALESCE(d.is_premium, false) as is_premium,
-             p.id as practice_id, p.title as practice_title,
-             aq.level, aq.stream, aq.question_index
-      FROM aima_domains d
-      JOIN aima_practices p ON d.id = p.domain_id
-      JOIN aima_questions aq ON p.id = aq.practice_id
-    `;
-    
-    const whereConditions: string[] = [];
-    const queryParams: any[] = [];
-    let paramIndex = 1;
-    
-    if (!isPremium) {
-      whereConditions.push(`COALESCE(d.is_premium, false) = false`);
-    }
-    
-    if (projectVersionId) {
-      whereConditions.push(`(d.version_id IS NULL OR EXISTS (
-        SELECT 1 FROM versions v1 WHERE v1.id = d.version_id 
-        AND v1.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
-      ))`);
-      queryParams.push(projectVersionId);
-      paramIndex++;
-      
-      whereConditions.push(`(p.version_id IS NULL OR EXISTS (
-        SELECT 1 FROM versions v2 WHERE v2.id = p.version_id 
-        AND v2.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
-      ))`);
-      queryParams.push(projectVersionId);
-      paramIndex++;
-      
-      whereConditions.push(`(aq.version_id IS NULL OR EXISTS (
-        SELECT 1 FROM versions v3 WHERE v3.id = aq.version_id 
-        AND v3.created_at <= (SELECT created_at FROM versions WHERE id = $${paramIndex})
-      ))`);
-      queryParams.push(projectVersionId);
-      paramIndex++;
-    }
-    
-    if (whereConditions.length > 0) {
-      questionsQuery += ` WHERE ${whereConditions.join(" AND ")}`;
-    }
-    
-    // No GROUP BY needed here as we want individual questions
-    
-    const questionsResult = await pool.query(questionsQuery, queryParams);
-
-    // Organize structure for scoring
-    const structure = new Map(); // domainId -> { title, isPremium, practices: Map(practiceId -> { title, totalQuestions, levels, validQuestionKeys }) }
-    
-    questionsResult.rows.forEach(row => {
-      if (!structure.has(row.domain_id)) {
-        structure.set(row.domain_id, {
-          title: row.domain_title,
-          isPremium: row.is_premium,
-          practices: new Map()
-        });
-      }
-      const domain = structure.get(row.domain_id);
-      if (!domain.practices.has(row.practice_id)) {
-        domain.practices.set(row.practice_id, {
-          title: row.practice_title,
-          totalQuestions: 0,
-          levels: {},
-          validQuestionKeys: new Set()
-        });
-      }
-      const practice = domain.practices.get(row.practice_id);
-      const questionKey = `${row.level}:${row.stream}:${row.question_index}`;
-      if (!practice.validQuestionKeys.has(questionKey)) {
-        practice.validQuestionKeys.add(questionKey);
-        
-        if (!practice.levels[row.level]) practice.levels[row.level] = {};
-        if (!practice.levels[row.level][row.stream]) practice.levels[row.level][row.stream] = { total: 0, count: 0 };
-        
-        practice.levels[row.level][row.stream].count++;
-        practice.totalQuestions++;
-      }
-    });
-
-    // Populate scores from answers
-    let totalQuestions = 0;
-    answersResult.rows.forEach(answer => {
-      const domain = structure.get(answer.domain_id);
-      if (domain) {
-        const practice = domain.practices.get(answer.practice_id);
-        const questionKey = `${answer.level}:${answer.stream}:${answer.question_index}`;
-        if (practice && practice.validQuestionKeys.has(questionKey)) {
-          practice.levels[answer.level][answer.stream].total += parseFloat(answer.value);
-        }
-      }
-    });
-
-    // Calculate Maturity Scores
-    const domains = (Array.from(structure.entries()) as [string, any][]).map(([domainId, domain]) => {
-      const practices = (Array.from(domain.practices.entries()) as [string, any][]).map(([practiceId, practice]) => {
-        let practiceMaturityScore = 0;
-        let levelsCount = 0;
-        
-        if (practice.levels) {
-          for (const level of Object.values(practice.levels)) {
-            let levelScore = 0;
-            let streamCount = 0;
-            for (const stream of Object.values(level as Record<string, { total: number, count: number }>)) {
-              if (stream.count > 0) {
-                levelScore += (stream.total / stream.count);
-                streamCount++;
-              }
-            }
-            if (streamCount > 0) {
-              practiceMaturityScore += (levelScore / streamCount);
-              levelsCount++;
-            }
-          }
-        }
-        
-        // Compute average across levels before rounding
-        const finalPracticeScore = levelsCount > 0 ? practiceMaturityScore / levelsCount : 0;
-        
-        return {
-          practiceId,
-          practiceTitle: practice.title,
-          maturityScore: Math.round(finalPracticeScore * 100) / 100,
-          totalQuestions: practice.totalQuestions
-        };
-      });
-
-      const domainScore = practices.length > 0
-        ? Math.round((practices.reduce((sum: number, p: any) => sum + p.maturityScore, 0) / practices.length) * 100) / 100
-        : 0;
-      
-      const domainTotalQuestions = practices.reduce((sum: number, p: any) => sum + p.totalQuestions, 0);
-      if (!domain.isPremium) {
-        totalQuestions += domainTotalQuestions;
-      }
-
-      return {
-        domainId,
-        domainTitle: domain.title,
-        maturityScore: domainScore,
-        practiceScores: practices,
-        totalQuestions: domainTotalQuestions,
-        isPremium: domain.isPremium,
-        // Legacy percentage field for compatibility during transition if needed
-        percentage: (domainScore / 3) * 100 
-      };
-    });
-
-    const relevantDomains = domains.filter(d => isPremium || !d.isPremium);
-    const overallMaturityScore = relevantDomains.length > 0
-      ? Math.round((relevantDomains.reduce((sum: number, d: any) => sum + d.maturityScore, 0) / relevantDomains.length) * 100) / 100
-      : 0;
-
-    const overallPercentage = (overallMaturityScore / 3) * 100;
-
-    // Update project status to completed
+    // New submission invalidates any previously-cached AI insights.
     await pool.query(
       "DELETE FROM project_insights WHERE project_id = $1",
       [projectId]
     );
 
     const result = await pool.query(
-      "UPDATE projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      // submitted_at is set on the first submission only; resubmits and later
+      // metadata edits must not shift it (updated_at moves freely instead).
+      "UPDATE projects SET status = 'completed', submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
       [projectId],
     );
 
@@ -481,29 +503,113 @@ router.post(
       objectType: "PROJECT",
       objectId: projectId,
       metadata: {
-        overallMaturityScore,
-        totalQuestions,
-        overallPercentage,
+        overallMaturityScore: overall.overallMaturityScore,
+        totalQuestions: overall.totalQuestions,
+        overallPercentage: overall.overallPercentage,
       },
     });
+
+    // Same normalization getMembership uses: legacy projects without a
+    // project_members row still grant OWNER to the project's user_id, so
+    // canGenerateInsights must mirror that fallback.
+    const submitterRole =
+      req.projectMembership?.role ??
+      (req.user?.id === (req.project as any)?.user_id ? "OWNER" : undefined);
+    const canGenerateInsights = submitterRole === "OWNER" || submitterRole === "EDITOR";
 
     res.json({
       message: "Project submitted successfully",
       project: result.rows[0],
-      results: {
-        domains,
-        overall: {
-          overallMaturityScore,
-          totalQuestions,
-          overallPercentage
-        }
-      }
+      results: { domains, overall },
+      capabilities: {
+        premiumInsights: isPremium,
+        canGenerateInsights,
+      },
     });
   } catch (error) {
     console.error("Error submitting project:", error);
     res.status(500).json({ error: "Failed to submit project" });
   }
 });
+
+// Fetch computed report for a submitted project. Makes the score-report URL
+// load for any authorized viewer (not just the browser session that submitted).
+router.get(
+  "/:projectId/results",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
+  async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const project = req.project as { id: string; name: string; status: string; version_id: string | null };
+
+      if (project.status !== 'completed') {
+        return res.status(404).json({ error: "Project has not been submitted yet" });
+      }
+
+      const isPremium = isPremiumUser((req.project as any).owner_subscription);
+
+      const { domains, overall } = await computeProjectResults(
+        projectId,
+        isPremium,
+        project.version_id
+      );
+
+      const insightsResult = await pool.query(
+        "SELECT domain_id, insight_text FROM project_insights WHERE project_id = $1",
+        [projectId]
+      );
+      // Only surface insights for domains the viewer is actually allowed to
+      // see (computeProjectResults already filtered out premium domains for
+      // non-premium projects). Without this guard, stale cache rows from a
+      // prior premium state could leak premium-domain text.
+      const allowedDomainIds = new Set(domains.map((d: any) => d.domainId));
+      const insights: Record<string, string> = {};
+      insightsResult.rows.forEach(row => {
+        if (allowedDomainIds.has(row.domain_id)) {
+          insights[row.domain_id] = row.insight_text;
+        }
+      });
+
+      const submittedRow = await pool.query(
+        "SELECT submitted_at FROM projects WHERE id = $1",
+        [projectId]
+      );
+      const submittedAt = submittedRow.rows[0]?.submitted_at
+        ? new Date(submittedRow.rows[0].submitted_at).toISOString()
+        : null;
+
+      // Insight generation is a write (mutates project_insights) and is
+      // restricted to OWNER/EDITOR by the /generate-insights route. Surface
+      // that as a capability so VIEWERs don't auto-trigger a request that
+      // will only ever 403. Same owner fallback as getMembership: legacy
+      // projects without a project_members row still treat the project's
+      // user_id as OWNER.
+      const viewerRole =
+        req.projectMembership?.role ??
+        (req.user?.id === (req.project as any)?.user_id ? "OWNER" : undefined);
+      const canGenerateInsights = viewerRole === "OWNER" || viewerRole === "EDITOR";
+
+      res.json({
+        project,
+        results: { domains, overall },
+        insights,
+        submittedAt,
+        // Project-level capability so the UI can gate premium insights by the
+        // project/owner's plan rather than the viewer's plan — free
+        // collaborators on a premium owner's project still get full insights.
+        capabilities: {
+          premiumInsights: isPremium,
+          canGenerateInsights,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching project results:", error);
+      res.status(500).json({ error: "Failed to fetch project results" });
+    }
+  }
+);
 
 // --- Project invitations ---
 
@@ -934,8 +1040,21 @@ const generateInsightsAsync = async (
       return;
     }
 
-    // Initialize insights with existing ones so we don't regenerate them
-    const insights: Record<string, string> = { ...existingInsights };
+    // Filter cached insights to only domains the current isPremium gate
+    // allows. Without this guard, a downgrade (premium → free) would let
+    // previously-cached premium-domain text leak back through job.insights
+    // and the /insights/status/:jobId response.
+    const allowedDomainIds = new Set(domains.map(d => d.id));
+    const allowedExistingInsights: Record<string, string> = {};
+    for (const [domainId, text] of Object.entries(existingInsights)) {
+      if (allowedDomainIds.has(domainId)) {
+        allowedExistingInsights[domainId] = text;
+      }
+    }
+
+    // Initialize insights with allowed-only existing ones so we don't
+    // regenerate them and don't reintroduce disallowed domains.
+    const insights: Record<string, string> = { ...allowedExistingInsights };
     const domainsToProcess = domains.filter(d => !insights[d.id]);
     
     // Optimization: Prefetch detailed answers for ALL domains if Premium
@@ -1017,20 +1136,28 @@ const generateInsightsAsync = async (
             detailedContext = detailedContextMap.get(domain.id) || "";
         }
 
-        const prompt = `You are an AI assessment expert analyzing domain maturity based on the OWASP AIMA model. Generate actionable insights and recommendations for the following domain:
- 
- Domain: ${domain.title}
- Description: ${domain.description || 'N/A'}
- Maturity Score: ${maturityScore.toFixed(2)} / 3.0
- Project: ${projectName}${detailedContext}
- 
- Based on this maturity scoring${isPremium ? ' and the detailed question analysis above' : ''}, provide:
- 1. A brief analysis of the current maturity level
- 2. Key strengths (if any)
- 3. Areas that need improvement
- 4. Specific actionable recommendations${isPremium ? ' based on the specific question scores' : ''}
- 
- Keep the response concise (2-3 paragraphs) and focused on practical next steps. Format as plain text without markdown.`;
+        // Sections must be parseable by the frontend (see insightUtils.parseInsightText).
+        // Headings and the numbered RECOMMENDATIONS list are the contract — do not reword.
+        const prompt = `You are an AI assessment expert analyzing domain maturity based on the OWASP AIMA model.
+
+Domain: ${domain.title}
+Description: ${domain.description || 'N/A'}
+Maturity Score: ${maturityScore.toFixed(2)} / 3.0
+Project: ${projectName}${detailedContext}
+
+Produce the response in exactly FOUR sections using these EXACT headings, each on its own line, in this order. Do not use markdown, bold, or any other formatting — plain text only.
+
+ANALYSIS:
+A single paragraph (3-5 sentences) summarizing the current maturity level${isPremium ? ' and what the detailed question scores reveal' : ''}.
+
+STRENGTHS:
+A short paragraph listing current strengths. If there are none at this maturity level, write exactly: "None identified at this maturity level."
+
+AREAS FOR IMPROVEMENT:
+A short paragraph naming the most important gaps${isPremium ? ' based on the specific question scores' : ''}.
+
+RECOMMENDATIONS:
+Exactly 3 to 5 concrete, actionable recommendations as a numbered list, each on its own line. Use the format "1. <action>", "2. <action>", etc. Each recommendation must be an imperative sentence the team can act on (e.g., "Draft a high-level AI policy statement covering ethical principles and compliance requirements."). Do not restate analysis here — only actions. This section must never be empty; if the domain is at score 0, still produce foundational Level-0-to-Level-1 actions (e.g., forming a working group, drafting initial policies, running an initial risk workshop).`;
 
         let lastError: any = null;
         let insightText = "";
@@ -1227,11 +1354,14 @@ router.post(
         }
     });
 
-    // Return immediately
-    res.json({ 
-      success: true, 
-      jobId, 
+    // Return immediately. Surface already-cached insights so the client can
+    // render them without waiting for the new job to finish regenerating
+    // the missing (or previously-failed) domains.
+    res.json({
+      success: true,
+      jobId,
       status: 'processing',
+      existingInsights: cachedAllowed,
       message: "Insights generation started. Please poll status."
     });
 

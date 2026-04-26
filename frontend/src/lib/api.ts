@@ -343,8 +343,8 @@ class ApiService {
     });
   }
 
-  async submitProject(id: string): Promise<{ message: string; project: Project; results: any }> {
-    return this.request<{ message: string; project: Project; results: any }>(`/projects/${id}/submit`, {
+  async submitProject(id: string): Promise<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }> {
+    return this.request<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }>(`/projects/${id}/submit`, {
       method: "POST",
     });
   }
@@ -1106,6 +1106,7 @@ class ApiService {
   async generateDomainInsights(projectId: string): Promise<{
     success: boolean;
     insights?: Record<string, string>; // domainId -> insights text
+    existingInsights?: Record<string, string>; // cached insights when a new job is kicked off
     jobId?: string;
     status?: InsightsJobStatus;
     message?: string;
@@ -1114,6 +1115,7 @@ class ApiService {
     return this.request<{
       success: boolean;
       insights?: Record<string, string>;
+      existingInsights?: Record<string, string>;
       jobId?: string;
       status?: InsightsJobStatus;
       message?: string;
@@ -1121,6 +1123,40 @@ class ApiService {
     }>(`/projects/${projectId}/generate-insights`, {
       method: "POST",
     });
+  }
+
+  async getProjectReport(projectId: string): Promise<{
+    project: any;
+    results: {
+      domains: Array<{
+        domainId: string;
+        domainTitle: string;
+        maturityScore: number;
+        practiceScores: Array<{
+          practiceId: string;
+          practiceTitle: string;
+          maturityScore: number;
+          totalQuestions: number;
+        }>;
+        totalQuestions: number;
+        isPremium?: boolean;
+        percentage: number;
+        insights?: string;
+      }>;
+      overall: {
+        overallMaturityScore: number;
+        totalQuestions: number;
+        overallPercentage: number;
+      };
+    };
+    insights: Record<string, string>;
+    submittedAt: string | null;
+    capabilities?: {
+      premiumInsights?: boolean;
+      canGenerateInsights?: boolean;
+    };
+  }> {
+    return this.request(`/projects/${projectId}/results`);
   }
 
   async getInsightsJobStatus(projectId: string, jobId: string): Promise<{

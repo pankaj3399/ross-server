@@ -396,7 +396,9 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Assessment Date</Text>
               <Text style={styles.metaValue}>
-                {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                {results.submittedAt
+                  ? new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                  : "Submission date unavailable"}
               </Text>
             </View>
           </View>

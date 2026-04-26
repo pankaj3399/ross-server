@@ -670,7 +670,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
             const response = await apiService.submitProject(projectId);
 
-            setProjectResults(projectId, response.project, response.results);
+            setProjectResults(projectId, response.project, response.results, response.capabilities);
             router.push(`/score-report-aima?projectId=${projectId}`);
         } catch (error) {
             console.error("Failed to submit project:", error);

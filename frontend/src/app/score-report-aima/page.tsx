@@ -59,13 +59,41 @@ export default function ScoreReportPage() {
     }
 
     const fetchData = async () => {
-      // 1. Get Results
-      const projectResults = getProjectResults(projectId);
+      // Prefer the local cache (fast path, typical after submit). Fall back to
+      // the server when the browser has no entry — handles refresh after
+      // localStorage clear, another browser, another device, or a shared link.
+      let projectResults = getProjectResults(projectId) as any;
+
+      // Refresh when the cache predates the capability flags so VIEWERs
+      // don't auto-trigger a /generate-insights request that will 403.
+      const cacheNeedsCapabilityRefresh =
+        !!projectResults && projectResults.capabilities?.canGenerateInsights === undefined;
+
+      if (!projectResults || cacheNeedsCapabilityRefresh) {
+        try {
+          const report = await apiService.getProjectReport(projectId);
+          if (report?.results?.domains?.length) {
+            const domainsWithInsights = report.results.domains.map((d: any) => ({
+              ...d,
+              insights: report.insights?.[d.domainId] || d.insights,
+            }));
+            projectResults = {
+              projectId,
+              project: report.project,
+              results: { ...report.results, domains: domainsWithInsights },
+              submittedAt: report.submittedAt ?? null,
+              capabilities: report.capabilities,
+            };
+          }
+        } catch (err) {
+          console.error("Failed to fetch project report from server:", err);
+        }
+      }
+
       if (projectResults) {
         setResults(projectResults);
       }
 
-      // 2. Get Domain Details to check for premium status
       try {
         const domainsData = await apiService.getDomainsFull(projectId);
         const premiumIds = new Set(
@@ -136,6 +164,11 @@ export default function ScoreReportPage() {
       // Guard: Ensure premium domains are resolved and no error
       if (premiumDomainIds === null || premiumDomainError) return;
 
+      // VIEWERs can't trigger generation server-side; default true preserves
+      // behavior for cached entries that predate the capability field.
+      const canGenerateInsights = results?.capabilities?.canGenerateInsights ?? true;
+      if (!canGenerateInsights) return;
+
       // Check if we already have insights for all relevant domains
       const nonPremiumDomainsToCheck = results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));
       const allHaveInsights = nonPremiumDomainsToCheck.every((d: any) => d.insights || existingInsights[d.domainId]);
@@ -154,6 +187,9 @@ export default function ScoreReportPage() {
         }
 
         if (response.success && response.jobId && (response.status === 'processing' || response.status === 'pending')) {
+          if (response.existingInsights && Object.keys(response.existingInsights).length > 0) {
+            setInsights(prev => ({ ...prev, ...response.existingInsights }));
+          }
           pullInsightsStatus(response.jobId);
 
           safetyTimeout = setTimeout(() => {
@@ -255,16 +291,23 @@ export default function ScoreReportPage() {
 
             <Button
               onClick={exportVectorPdf}
-              disabled={isExporting}
+              disabled={isExporting || generatingInsights}
               size="sm"
-              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20"
+              title={generatingInsights ? "Insights are still being generated — please wait" : undefined}
+              className="group flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isExporting ? (
+              {isExporting || generatingInsights ? (
                 <IconLoader className="w-4 h-4 animate-spin" />
               ) : (
                 <IconDownload className="w-4 h-4" />
               )}
-              <span className="font-medium text-xs">{isExporting ? "Generating..." : "Download Report"}</span>
+              <span className="font-medium text-xs">
+                {isExporting
+                  ? "Generating..."
+                  : generatingInsights
+                  ? "Preparing insights..."
+                  : "Download Report"}
+              </span>
             </Button>
           </div>
 
@@ -289,7 +332,9 @@ export default function ScoreReportPage() {
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Assessment Date</span>
                   <span className="text-base font-bold text-foreground">
-                    {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {results.submittedAt
+                      ? new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                      : "Submission date unavailable"}
                   </span>
                 </div>
               </div>
