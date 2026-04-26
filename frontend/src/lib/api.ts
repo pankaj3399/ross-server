@@ -343,8 +343,8 @@ class ApiService {
     });
   }
 
-  async submitProject(id: string): Promise<{ message: string; project: Project; results: any }> {
-    return this.request<{ message: string; project: Project; results: any }>(`/projects/${id}/submit`, {
+  async submitProject(id: string): Promise<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean } }> {
+    return this.request<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean } }>(`/projects/${id}/submit`, {
       method: "POST",
     });
   }
@@ -1151,6 +1151,9 @@ class ApiService {
     };
     insights: Record<string, string>;
     submittedAt: string | null;
+    capabilities?: {
+      premiumInsights?: boolean;
+    };
   }> {
     return this.request(`/projects/${projectId}/results`);
   }

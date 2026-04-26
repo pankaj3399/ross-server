@@ -28,18 +28,23 @@ interface AssessmentResults {
   overall: OverallResult;
 }
 
+interface ProjectCapabilities {
+  premiumInsights?: boolean;
+}
+
 interface ProjectResult {
   projectId: string;
   project: any; // Project data from backend
   results: AssessmentResults;
   submittedAt: string; // ISO timestamp
+  capabilities?: ProjectCapabilities;
 }
 
 interface AssessmentResultsStore {
   projectResults: ProjectResult[];
-  
+
   // Store assessment results for a project
-  setProjectResults: (projectId: string, project: any, results: AssessmentResults) => void;
+  setProjectResults: (projectId: string, project: any, results: AssessmentResults, capabilities?: ProjectCapabilities) => void;
   
   // Get assessment results for a specific project
   getProjectResults: (projectId: string) => ProjectResult | null;
@@ -65,15 +70,16 @@ export const useAssessmentResultsStore = create<AssessmentResultsStore>()(
     (set, get) => ({
       projectResults: [],
       
-      setProjectResults: (projectId: string, project: any, results: AssessmentResults) => {
+      setProjectResults: (projectId: string, project: any, results: AssessmentResults, capabilities?: ProjectCapabilities) => {
         set((state) => {
           const existingIndex = state.projectResults.findIndex(pr => pr.projectId === projectId);
-          
+
           const newProjectResult: ProjectResult = {
             projectId,
             project,
             results,
             submittedAt: new Date().toISOString(),
+            capabilities,
           };
           
           if (existingIndex >= 0) {
@@ -134,4 +140,4 @@ export const useAssessmentResultsStore = create<AssessmentResultsStore>()(
 );
 
 // Export types for use in components
-export type { DomainResult, OverallResult, AssessmentResults, ProjectResult };
+export type { DomainResult, OverallResult, AssessmentResults, ProjectResult, ProjectCapabilities };

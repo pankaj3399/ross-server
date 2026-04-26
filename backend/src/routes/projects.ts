@@ -490,7 +490,9 @@ router.post(
     );
 
     const result = await pool.query(
-      "UPDATE projects SET status = 'completed', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      // submitted_at is set on the first submission only; resubmits and later
+      // metadata edits must not shift it (updated_at moves freely instead).
+      "UPDATE projects SET status = 'completed', submitted_at = COALESCE(submitted_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
       [projectId],
     );
 
@@ -510,7 +512,10 @@ router.post(
     res.json({
       message: "Project submitted successfully",
       project: result.rows[0],
-      results: { domains, overall }
+      results: { domains, overall },
+      capabilities: {
+        premiumInsights: isPremium,
+      },
     });
   } catch (error) {
     console.error("Error submitting project:", error);
@@ -546,17 +551,24 @@ router.get(
         "SELECT domain_id, insight_text FROM project_insights WHERE project_id = $1",
         [projectId]
       );
+      // Only surface insights for domains the viewer is actually allowed to
+      // see (computeProjectResults already filtered out premium domains for
+      // non-premium projects). Without this guard, stale cache rows from a
+      // prior premium state could leak premium-domain text.
+      const allowedDomainIds = new Set(domains.map((d: any) => d.domainId));
       const insights: Record<string, string> = {};
       insightsResult.rows.forEach(row => {
-        insights[row.domain_id] = row.insight_text;
+        if (allowedDomainIds.has(row.domain_id)) {
+          insights[row.domain_id] = row.insight_text;
+        }
       });
 
       const submittedRow = await pool.query(
-        "SELECT updated_at FROM projects WHERE id = $1",
+        "SELECT submitted_at FROM projects WHERE id = $1",
         [projectId]
       );
-      const submittedAt = submittedRow.rows[0]?.updated_at
-        ? new Date(submittedRow.rows[0].updated_at).toISOString()
+      const submittedAt = submittedRow.rows[0]?.submitted_at
+        ? new Date(submittedRow.rows[0].submitted_at).toISOString()
         : null;
 
       res.json({
@@ -564,6 +576,12 @@ router.get(
         results: { domains, overall },
         insights,
         submittedAt,
+        // Project-level capability so the UI can gate premium insights by the
+        // project/owner's plan rather than the viewer's plan — free
+        // collaborators on a premium owner's project still get full insights.
+        capabilities: {
+          premiumInsights: isPremium,
+        },
       });
     } catch (error) {
       console.error("Error fetching project results:", error);

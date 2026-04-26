@@ -37,6 +37,9 @@ export default function ScoreReportPage() {
   const { getProjectResults } = useAssessmentResultsStore();
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Fallback only — premium-insight visibility is now driven by the
+  // project/report capability flag (see hasPremiumInsights below) so that
+  // free collaborators on a premium owner's project still get full insights.
   const isUserPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
 
   const projectId = searchParams.get("projectId");
@@ -78,6 +81,7 @@ export default function ScoreReportPage() {
               project: report.project,
               results: { ...report.results, domains: domainsWithInsights },
               submittedAt: report.submittedAt ?? new Date().toISOString(),
+              capabilities: report.capabilities,
             };
           }
         } catch (err) {
@@ -107,8 +111,12 @@ export default function ScoreReportPage() {
     fetchData();
   }, [projectId, isAuthenticated, authLoading, getProjectResults]);
 
+  // Project/report-level capability — falls back to the viewer's plan only
+  // when the cached results predate the capability field.
+  const hasPremiumInsights = results?.capabilities?.premiumInsights ?? isUserPremium;
+
   useEffect(() => {
-    if (!projectId || !results || loading || !isUserPremium) return;
+    if (!projectId || !results || loading || !hasPremiumInsights) return;
 
     // Collect all existing insights from results
     const existingInsights: Record<string, string> = {};
@@ -205,7 +213,7 @@ export default function ScoreReportPage() {
       isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
-  }, [projectId, results, loading, isUserPremium]);
+  }, [projectId, results, loading, hasPremiumInsights]);
 
   if (loading) {
     return <ReportSkeleton />;
@@ -425,7 +433,7 @@ export default function ScoreReportPage() {
           <div className="space-y-12">
             {results.results.domains.map((domain: any, index: number) => {
               const domainMaturity = getMaturityLevel(domain.maturityScore);
-              const domainInsights = parseInsightText(insights[domain.domainId] || (isUserPremium ? domain.insights : "") || "");
+              const domainInsights = parseInsightText(insights[domain.domainId] || (hasPremiumInsights ? domain.insights : "") || "");
 
               return (
                 <motion.div
