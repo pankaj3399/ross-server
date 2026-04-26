@@ -92,7 +92,8 @@ export default function AuthPage() {
         });
 
         showToast.success("Registration successful! Please check your email for verification.");
-        router.push(`/auth/verify-otp?email=${formData.email}`);
+        sessionStorage.setItem('pendingVerificationEmail', formData.email);
+        router.push(`/auth/verify-otp?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (err: any) {
       if (err.message === "MFA_REQUIRED") {

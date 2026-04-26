@@ -14,6 +14,7 @@ import {
 } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { PREMIUM_STATUS } from "../lib/constants";
+import { getReportRoute } from "../lib/reportRoute";
 import { usePracticeStore } from "../store/practiceStore";
 import { useAssessmentResultsStore } from "../store/assessmentResultsStore";
 import { stripHTML } from "../lib/htmlUtils";
@@ -671,7 +672,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             const response = await apiService.submitProject(projectId);
 
             setProjectResults(projectId, response.project, response.results, response.capabilities);
-            router.push(`/score-report-aima?projectId=${projectId}`);
+            router.push(getReportRoute(projectId, user?.subscription_status));
         } catch (error) {
             console.error("Failed to submit project:", error);
             // If we are in 'submitting' phase, it means notes were saved.

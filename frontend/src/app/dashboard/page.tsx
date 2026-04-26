@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ProjectEditForm from "@/components/features/projects/ProjectEditForm";
 import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES } from "@/lib/constants";
+import { getReportRoute } from "@/lib/reportRoute";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
 const SKELETON_COUNT = 5;
@@ -519,12 +520,16 @@ export default function DashboardPage() {
                                 </Badge>
                               )}
                               <Link
-                                href={`/assess/${project.id}`}
+                                href={
+                                  project.status === 'completed'
+                                    ? getReportRoute(project.id, user?.subscription_status)
+                                    : `/assess/${project.id}`
+                                }
                                 className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
                               >
                                 <span>
-                                  {project.status === 'completed' ? 'Completed' :
-                                    project.status === 'in_progress' ? 'In Progress' :
+                                  {project.status === 'completed' ? 'View Report' :
+                                    project.status === 'in_progress' ? 'Continue' :
                                       'Start'}
                                 </span>
                                 <IconArrowRight className="w-3.5 h-3.5" />
