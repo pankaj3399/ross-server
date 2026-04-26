@@ -15,7 +15,7 @@ export default function AssessmentPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params?.projectId as string;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   // Gate render until we know whether this is a completed project we need to
   // redirect away from. Without this, the assessment briefly renders before the
   // redirect fires (Bug 5 follow-up).
@@ -30,7 +30,10 @@ export default function AssessmentPage() {
   } = useAssessmentContext();
 
   useEffect(() => {
-    if (!projectId) return;
+    // Wait for auth to resolve — without this, user?.subscription_status can
+    // be undefined when the redirect fires, sending premium users to the free
+    // report URL.
+    if (!projectId || authLoading) return;
     let cancelled = false;
     apiService.getProject(projectId).then((project) => {
       if (cancelled) return;
@@ -44,7 +47,7 @@ export default function AssessmentPage() {
       if (!cancelled) setStatusCheck('open');
     });
     return () => { cancelled = true; };
-  }, [projectId, router, user?.subscription_status]);
+  }, [projectId, router, user?.subscription_status, authLoading]);
 
   if (statusCheck !== 'open') {
     return <AssessmentSkeleton />;
