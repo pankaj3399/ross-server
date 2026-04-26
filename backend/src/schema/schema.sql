@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS projects (
 ALTER TABLE projects
 ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP;
 
+-- Match the backfill in migration 1774900000000_add-submitted-at-to-projects:
+-- existing completed projects use updated_at as their best available
+-- submission timestamp so historical reports keep rendering a date.
+UPDATE projects
+SET submitted_at = updated_at
+WHERE status = 'completed' AND submitted_at IS NULL;
+
 -- Assessment answers table
 CREATE TABLE IF NOT EXISTS assessment_answers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

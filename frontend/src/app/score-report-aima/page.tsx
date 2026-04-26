@@ -64,7 +64,12 @@ export default function ScoreReportPage() {
       // localStorage clear, another browser, another device, or a shared link.
       let projectResults = getProjectResults(projectId) as any;
 
-      if (!projectResults) {
+      // Refresh when the cache predates the capability flags so VIEWERs
+      // don't auto-trigger a /generate-insights request that will 403.
+      const cacheNeedsCapabilityRefresh =
+        !!projectResults && projectResults.capabilities?.canGenerateInsights === undefined;
+
+      if (!projectResults || cacheNeedsCapabilityRefresh) {
         try {
           const report = await apiService.getProjectReport(projectId);
           if (report?.results?.domains?.length) {
@@ -77,6 +82,7 @@ export default function ScoreReportPage() {
               project: report.project,
               results: { ...report.results, domains: domainsWithInsights },
               submittedAt: report.submittedAt ?? null,
+              capabilities: report.capabilities,
             };
           }
         } catch (err) {
@@ -157,6 +163,11 @@ export default function ScoreReportPage() {
     const generateInsights = async () => {
       // Guard: Ensure premium domains are resolved and no error
       if (premiumDomainIds === null || premiumDomainError) return;
+
+      // VIEWERs can't trigger generation server-side; default true preserves
+      // behavior for cached entries that predate the capability field.
+      const canGenerateInsights = results?.capabilities?.canGenerateInsights ?? true;
+      if (!canGenerateInsights) return;
 
       // Check if we already have insights for all relevant domains
       const nonPremiumDomainsToCheck = results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));

@@ -509,7 +509,12 @@ router.post(
       },
     });
 
-    const submitterRole = req.projectMembership?.role;
+    // Same normalization getMembership uses: legacy projects without a
+    // project_members row still grant OWNER to the project's user_id, so
+    // canGenerateInsights must mirror that fallback.
+    const submitterRole =
+      req.projectMembership?.role ??
+      (req.user?.id === (req.project as any)?.user_id ? "OWNER" : undefined);
     const canGenerateInsights = submitterRole === "OWNER" || submitterRole === "EDITOR";
 
     res.json({
@@ -578,8 +583,12 @@ router.get(
       // Insight generation is a write (mutates project_insights) and is
       // restricted to OWNER/EDITOR by the /generate-insights route. Surface
       // that as a capability so VIEWERs don't auto-trigger a request that
-      // will only ever 403.
-      const viewerRole = req.projectMembership?.role;
+      // will only ever 403. Same owner fallback as getMembership: legacy
+      // projects without a project_members row still treat the project's
+      // user_id as OWNER.
+      const viewerRole =
+        req.projectMembership?.role ??
+        (req.user?.id === (req.project as any)?.user_id ? "OWNER" : undefined);
       const canGenerateInsights = viewerRole === "OWNER" || viewerRole === "EDITOR";
 
       res.json({
@@ -1031,8 +1040,21 @@ const generateInsightsAsync = async (
       return;
     }
 
-    // Initialize insights with existing ones so we don't regenerate them
-    const insights: Record<string, string> = { ...existingInsights };
+    // Filter cached insights to only domains the current isPremium gate
+    // allows. Without this guard, a downgrade (premium → free) would let
+    // previously-cached premium-domain text leak back through job.insights
+    // and the /insights/status/:jobId response.
+    const allowedDomainIds = new Set(domains.map(d => d.id));
+    const allowedExistingInsights: Record<string, string> = {};
+    for (const [domainId, text] of Object.entries(existingInsights)) {
+      if (allowedDomainIds.has(domainId)) {
+        allowedExistingInsights[domainId] = text;
+      }
+    }
+
+    // Initialize insights with allowed-only existing ones so we don't
+    // regenerate them and don't reintroduce disallowed domains.
+    const insights: Record<string, string> = { ...allowedExistingInsights };
     const domainsToProcess = domains.filter(d => !insights[d.id]);
     
     // Optimization: Prefetch detailed answers for ALL domains if Premium

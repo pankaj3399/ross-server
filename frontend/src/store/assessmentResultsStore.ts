@@ -78,18 +78,19 @@ export const useAssessmentResultsStore = create<AssessmentResultsStore>()(
           // Prefer the server's persisted submission timestamp (carried on the
           // project row as submitted_at, or on the results payload if a caller
           // attached one). Fall back to whatever was already cached so we
-          // don't clobber a real timestamp with a fresh wall-clock value, and
-          // only synthesize Date.now() as a last resort when neither exists.
+          // don't clobber a real timestamp with a fresh wall-clock value.
+          // When no server-side timestamp is available anywhere, leave
+          // submittedAt null and let UI/PDF render a fallback label rather
+          // than inventing a misleading "submitted today" date.
           const incomingSubmittedAt =
             (results as any)?.submitted_at ??
             project?.submitted_at ??
             null;
           const existingSubmittedAt =
             existingIndex >= 0 ? state.projectResults[existingIndex].submittedAt : null;
-          const submittedAt: string | null =
-            incomingSubmittedAt
-              ? new Date(incomingSubmittedAt).toISOString()
-              : existingSubmittedAt ?? new Date().toISOString();
+          const submittedAt: string | null = incomingSubmittedAt
+            ? new Date(incomingSubmittedAt).toISOString()
+            : existingSubmittedAt ?? null;
 
           const newProjectResult: ProjectResult = {
             projectId,
