@@ -43,7 +43,8 @@ export default function AssessmentPage() {
       } else {
         setStatusCheck('open');
       }
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('Failed to fetch project status for redirect guard:', err);
       if (!cancelled) setStatusCheck('open');
     });
     return () => { cancelled = true; };
