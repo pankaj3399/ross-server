@@ -34,6 +34,7 @@ export default function AssessmentPage() {
     // be undefined when the redirect fires, sending premium users to the free
     // report URL.
     if (!projectId || authLoading) return;
+    setStatusCheck('pending');
     let cancelled = false;
     apiService.getProject(projectId).then((project) => {
       if (cancelled) return;
