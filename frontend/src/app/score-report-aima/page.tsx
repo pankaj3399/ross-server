@@ -76,7 +76,7 @@ export default function ScoreReportPage() {
               projectId,
               project: report.project,
               results: { ...report.results, domains: domainsWithInsights },
-              submittedAt: report.submittedAt ?? new Date().toISOString(),
+              submittedAt: report.submittedAt ?? null,
             };
           }
         } catch (err) {
@@ -321,7 +321,9 @@ export default function ScoreReportPage() {
                 <div className="flex flex-col">
                   <span className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-0.5">Assessment Date</span>
                   <span className="text-base font-bold text-foreground">
-                    {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {results.submittedAt
+                      ? new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                      : "Submission date unavailable"}
                   </span>
                 </div>
               </div>

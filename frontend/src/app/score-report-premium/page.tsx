@@ -68,7 +68,14 @@ export default function ScoreReportPage() {
       // available across browsers, devices, and after localStorage clears.
       let projectResults = getProjectResults(projectId) as any;
 
-      if (!projectResults) {
+      // Refresh from the server when the cache predates the capability flag
+      // (legacy entries) — without this, hasPremiumInsights silently falls
+      // back to the viewer's plan and free collaborators on a premium project
+      // see the same blanked insights as before.
+      const cacheNeedsCapabilityRefresh =
+        !!projectResults && projectResults.capabilities?.premiumInsights === undefined;
+
+      if (!projectResults || cacheNeedsCapabilityRefresh) {
         try {
           const report = await apiService.getProjectReport(projectId);
           if (report?.results?.domains?.length) {
@@ -80,7 +87,9 @@ export default function ScoreReportPage() {
               projectId,
               project: report.project,
               results: { ...report.results, domains: domainsWithInsights },
-              submittedAt: report.submittedAt ?? new Date().toISOString(),
+              // Preserve a missing submission timestamp instead of inventing
+              // one — consumers render a fallback label when null.
+              submittedAt: report.submittedAt ?? null,
               capabilities: report.capabilities,
             };
           }
@@ -114,9 +123,13 @@ export default function ScoreReportPage() {
   // Project/report-level capability — falls back to the viewer's plan only
   // when the cached results predate the capability field.
   const hasPremiumInsights = results?.capabilities?.premiumInsights ?? isUserPremium;
+  // VIEWERs can read but not generate; the /generate-insights route would
+  // 403 them. Default true so cached entries that predate the flag continue
+  // to work for OWNER/EDITOR sessions (same role that produced the cache).
+  const canGenerateInsights = results?.capabilities?.canGenerateInsights ?? true;
 
   useEffect(() => {
-    if (!projectId || !results || loading || !hasPremiumInsights) return;
+    if (!projectId || !results || loading || !hasPremiumInsights || !canGenerateInsights) return;
 
     // Collect all existing insights from results
     const existingInsights: Record<string, string> = {};
@@ -213,7 +226,7 @@ export default function ScoreReportPage() {
       isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
-  }, [projectId, results, loading, hasPremiumInsights]);
+  }, [projectId, results, loading, hasPremiumInsights, canGenerateInsights]);
 
   if (loading) {
     return <ReportSkeleton />;
@@ -296,7 +309,9 @@ export default function ScoreReportPage() {
                 <span className="font-semibold text-foreground">{results.project.name}</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
                 <span className="text-muted-foreground">
-                    {new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    {results.submittedAt
+                      ? new Date(results.submittedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                      : "Submission date unavailable"}
                 </span>
               </div>
             </div>

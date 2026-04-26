@@ -23,8 +23,15 @@ CREATE TABLE IF NOT EXISTS projects (
   ai_system_type VARCHAR(255),
   status VARCHAR(50) DEFAULT 'not_started' CHECK (status IN ('not_started', 'in_progress', 'completed')),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- Stamped on the first successful submission only; nullable so unsubmitted
+  -- projects stay NULL. Mirrors migration 1774900000000_add-submitted-at-to-projects.
+  submitted_at TIMESTAMP
 );
+
+-- Older DBs created before submitted_at existed get the column added here too.
+ALTER TABLE projects
+ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP;
 
 -- Assessment answers table
 CREATE TABLE IF NOT EXISTS assessment_answers (

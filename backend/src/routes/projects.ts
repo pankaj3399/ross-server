@@ -509,12 +509,16 @@ router.post(
       },
     });
 
+    const submitterRole = req.projectMembership?.role;
+    const canGenerateInsights = submitterRole === "OWNER" || submitterRole === "EDITOR";
+
     res.json({
       message: "Project submitted successfully",
       project: result.rows[0],
       results: { domains, overall },
       capabilities: {
         premiumInsights: isPremium,
+        canGenerateInsights,
       },
     });
   } catch (error) {
@@ -571,6 +575,13 @@ router.get(
         ? new Date(submittedRow.rows[0].submitted_at).toISOString()
         : null;
 
+      // Insight generation is a write (mutates project_insights) and is
+      // restricted to OWNER/EDITOR by the /generate-insights route. Surface
+      // that as a capability so VIEWERs don't auto-trigger a request that
+      // will only ever 403.
+      const viewerRole = req.projectMembership?.role;
+      const canGenerateInsights = viewerRole === "OWNER" || viewerRole === "EDITOR";
+
       res.json({
         project,
         results: { domains, overall },
@@ -581,6 +592,7 @@ router.get(
         // collaborators on a premium owner's project still get full insights.
         capabilities: {
           premiumInsights: isPremium,
+          canGenerateInsights,
         },
       });
     } catch (error) {

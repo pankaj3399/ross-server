@@ -30,13 +30,14 @@ interface AssessmentResults {
 
 interface ProjectCapabilities {
   premiumInsights?: boolean;
+  canGenerateInsights?: boolean;
 }
 
 interface ProjectResult {
   projectId: string;
   project: any; // Project data from backend
   results: AssessmentResults;
-  submittedAt: string; // ISO timestamp
+  submittedAt: string | null; // ISO timestamp from the server; null until backfilled
   capabilities?: ProjectCapabilities;
 }
 
@@ -74,11 +75,27 @@ export const useAssessmentResultsStore = create<AssessmentResultsStore>()(
         set((state) => {
           const existingIndex = state.projectResults.findIndex(pr => pr.projectId === projectId);
 
+          // Prefer the server's persisted submission timestamp (carried on the
+          // project row as submitted_at, or on the results payload if a caller
+          // attached one). Fall back to whatever was already cached so we
+          // don't clobber a real timestamp with a fresh wall-clock value, and
+          // only synthesize Date.now() as a last resort when neither exists.
+          const incomingSubmittedAt =
+            (results as any)?.submitted_at ??
+            project?.submitted_at ??
+            null;
+          const existingSubmittedAt =
+            existingIndex >= 0 ? state.projectResults[existingIndex].submittedAt : null;
+          const submittedAt: string | null =
+            incomingSubmittedAt
+              ? new Date(incomingSubmittedAt).toISOString()
+              : existingSubmittedAt ?? new Date().toISOString();
+
           const newProjectResult: ProjectResult = {
             projectId,
             project,
             results,
-            submittedAt: new Date().toISOString(),
+            submittedAt,
             capabilities,
           };
           
@@ -123,9 +140,12 @@ export const useAssessmentResultsStore = create<AssessmentResultsStore>()(
         const state = get();
         if (state.projectResults.length === 0) return null;
         
-        // Sort by submittedAt descending and return the latest
+        // Sort by submittedAt descending and return the latest. Treat null
+        // timestamps as the epoch so they sort to the bottom rather than
+        // throwing on Date(null).
+        const tsOrZero = (v: string | null) => (v ? new Date(v).getTime() : 0);
         const sortedResults = [...state.projectResults].sort(
-          (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+          (a, b) => tsOrZero(b.submittedAt) - tsOrZero(a.submittedAt)
         );
         
         return sortedResults[0];
