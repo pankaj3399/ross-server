@@ -1,16 +1,25 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAssessmentContext } from "../../../contexts/AssessmentContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { IconAlertTriangle, IconBrain } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../components/Skeleton";
 import QuestionView from "../../../components/assess/QuestionView";
 import CommentsPanel from "../../../components/shared/CommentsPanel";
+import { apiService } from "../../../lib/api";
+import { getReportRoute } from "../../../lib/reportRoute";
 
 export default function AssessmentPage() {
   const router = useRouter();
   const params = useParams();
   const projectId = params?.projectId as string;
+  const { user, loading: authLoading } = useAuth();
+  // Gate render until we know whether this is a completed project we need to
+  // redirect away from. Without this, the assessment briefly renders before the
+  // redirect fires (Bug 5 follow-up).
+  const [statusCheck, setStatusCheck] = useState<'pending' | 'redirecting' | 'open'>('pending');
 
   const {
     domains,
@@ -19,6 +28,32 @@ export default function AssessmentPage() {
     projectNotFound,
     questions,
   } = useAssessmentContext();
+
+  useEffect(() => {
+    // Wait for auth to resolve — without this, user?.subscription_status can
+    // be undefined when the redirect fires, sending premium users to the free
+    // report URL.
+    if (!projectId || authLoading) return;
+    setStatusCheck('pending');
+    let cancelled = false;
+    apiService.getProject(projectId).then((project) => {
+      if (cancelled) return;
+      if (project?.status === 'completed') {
+        setStatusCheck('redirecting');
+        router.replace(getReportRoute(projectId, user?.subscription_status));
+      } else {
+        setStatusCheck('open');
+      }
+    }).catch((err) => {
+      console.error('Failed to fetch project status for redirect guard:', err);
+      if (!cancelled) setStatusCheck('open');
+    });
+    return () => { cancelled = true; };
+  }, [projectId, router, user?.subscription_status, authLoading]);
+
+  if (statusCheck !== 'open') {
+    return <AssessmentSkeleton />;
+  }
 
   // --- Render Loading / Error States ---
 

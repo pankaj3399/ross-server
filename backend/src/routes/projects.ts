@@ -375,9 +375,10 @@ async function computeProjectResults(
       practice.validQuestionKeys.add(questionKey);
 
       if (!practice.levels[row.level]) practice.levels[row.level] = {};
+      // count is incremented from answers below, not here — otherwise unanswered
+      // or key-mismatched slots dilute the average toward 0 (Bugs 4 & 7).
       if (!practice.levels[row.level][row.stream]) practice.levels[row.level][row.stream] = { total: 0, count: 0 };
 
-      practice.levels[row.level][row.stream].count++;
       practice.totalQuestions++;
     }
   });
@@ -390,6 +391,7 @@ async function computeProjectResults(
       const questionKey = `${answer.level}:${answer.stream}:${answer.question_index}`;
       if (practice && practice.validQuestionKeys.has(questionKey)) {
         practice.levels[answer.level][answer.stream].total += parseFloat(answer.value);
+        practice.levels[answer.level][answer.stream].count += 1;
       }
     }
   });
@@ -422,12 +424,16 @@ async function computeProjectResults(
         practiceId,
         practiceTitle: practice.title,
         maturityScore: Math.round(finalPracticeScore * 100) / 100,
-        totalQuestions: practice.totalQuestions
+        totalQuestions: practice.totalQuestions,
+        // hasAnswers: practices with no answered questions are excluded from
+        // the domain average so they don't dilute it toward 0 (Bugs 4 & 7).
+        hasAnswers: levelsCount > 0,
       };
     });
 
-    const domainScore = practices.length > 0
-      ? Math.round((practices.reduce((sum: number, p: any) => sum + p.maturityScore, 0) / practices.length) * 100) / 100
+    const scoredPractices = practices.filter((p: any) => p.hasAnswers);
+    const domainScore = scoredPractices.length > 0
+      ? Math.round((scoredPractices.reduce((sum: number, p: any) => sum + p.maturityScore, 0) / scoredPractices.length) * 100) / 100
       : 0;
 
     const domainTotalQuestions = practices.reduce((sum: number, p: any) => sum + p.totalQuestions, 0);
@@ -445,11 +451,12 @@ async function computeProjectResults(
       practiceScores: practices,
       totalQuestions: domainTotalQuestions,
       isPremium: domain.isPremium,
-      percentage: (domainScore / 3) * 100
+      percentage: (domainScore / 3) * 100,
+      hasAnswers: scoredPractices.length > 0,
     };
   });
 
-  const relevantDomains = domains.filter(d => isPremium || !d.isPremium);
+  const relevantDomains = domains.filter(d => (isPremium || !d.isPremium) && d.hasAnswers);
   const overallMaturityScore = relevantDomains.length > 0
     ? Math.round((relevantDomains.reduce((sum: number, d: any) => sum + d.maturityScore, 0) / relevantDomains.length) * 100) / 100
     : 0;
@@ -950,13 +957,13 @@ const generateInsightsAsync = async (
     let domainsQuery = `
       SELECT d.id as domain_id, d.title as domain_title, d.description as domain_description, COALESCE(d.is_premium, false) as is_premium,
              p.id as practice_id, p.title as practice_title,
-             COUNT(aq.id) as questions_in_practice,
+             COUNT(aa.value) as questions_in_practice,
              SUM(COALESCE(aa.value, 0)) as practice_total_score
        FROM aima_domains d
        JOIN aima_practices p ON d.id = p.domain_id
        JOIN aima_questions aq ON p.id = aq.practice_id
-       LEFT JOIN assessment_answers aa ON 
-          aa.project_id = $1 AND 
+       LEFT JOIN assessment_answers aa ON
+          aa.project_id = $1 AND
           aa.domain_id = d.id AND
           aa.practice_id = p.id AND
           aa.level = aq.level AND
@@ -1016,10 +1023,12 @@ const generateInsightsAsync = async (
         });
       }
       const domain = domainMap.get(row.domain_id);
-      const practiceScore = row.questions_in_practice > 0 
-        ? row.practice_total_score / row.questions_in_practice
-        : 0;
-      domain.practices.push(practiceScore);
+      // Only include practices that have at least one answer; practices with
+      // zero answers should be skipped, not averaged in as 0 (Bugs 4 & 7).
+      if (row.questions_in_practice > 0) {
+        const practiceScore = row.practice_total_score / row.questions_in_practice;
+        domain.practices.push(practiceScore);
+      }
     });
 
     const domains = Array.from(domainMap.values()).map(d => {

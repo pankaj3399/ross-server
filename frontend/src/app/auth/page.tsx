@@ -92,7 +92,15 @@ export default function AuthPage() {
         });
 
         showToast.success("Registration successful! Please check your email for verification.");
-        router.push(`/auth/verify-otp?email=${formData.email}`);
+        // Best-effort: sessionStorage can throw in restricted browsers (Safari
+        // private mode, storage-disabled, quota). Don't let that block the
+        // redirect — the URL fallback still carries the email.
+        try {
+          sessionStorage.setItem('pendingVerificationEmail', formData.email);
+        } catch (storageErr) {
+          console.warn('Could not persist pending verification email:', storageErr);
+        }
+        router.push(`/auth/verify-otp?email=${encodeURIComponent(formData.email)}`);
       }
     } catch (err: any) {
       if (err.message === "MFA_REQUIRED") {
