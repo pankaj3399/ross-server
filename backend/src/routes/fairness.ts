@@ -300,12 +300,17 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             rows: parsed.rows.slice(0, PREVIEW_ROW_LIMIT)
         };
 
+        // Compute nonLatinDetected against the full row set before persisting —
+        // the csv_preview is capped at 100 rows so a recompute later would miss
+        // non-Latin text appearing past that cap.
+        const nonLatinDetected = hasNonLatinText(rows);
+
         // Save evaluation results to database
         try {
             await pool.query(
-                `INSERT INTO dataset_fairness_reports 
-                 (user_id, project_id, file_name, file_size, uploaded_at, 
-                  fairness_data, fairness_result, biasness_result, toxicity_result, 
+                `INSERT INTO dataset_fairness_reports
+                 (user_id, project_id, file_name, file_size, uploaded_at,
+                  fairness_data, fairness_result, biasness_result, toxicity_result,
                   relevance_result, faithfulness_result, csv_preview, selections)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
                 [
@@ -321,6 +326,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
                         positiveOutcome: fairnessAssessment.positiveOutcome,
                         datasetStats: fairnessAssessment.datasetStats,
                         metricDefinitions: fairnessAssessment.metricDefinitions,
+                        nonLatinDetected,
                     }),
                     JSON.stringify(fairnessResult),
                     JSON.stringify(biasness),
@@ -335,8 +341,6 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             console.error("Failed to save fairness report to database:", dbError);
             // Don't fail the request if saving fails, just log it
         }
-
-        const nonLatinDetected = hasNonLatinText(rows);
 
         res.json({
             fairness: {
@@ -863,10 +867,14 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
             [projectId, userId, limit, offset]
         );
 
-        // The non-Latin flag isn't persisted; recompute it from csv_preview so
-        // historical reports surface the same warning banner as fresh evaluations.
+        // Prefer the persisted flag in fairness_data; fall back to recomputing
+        // from csv_preview for legacy rows written before the flag was stored.
         const NON_LATIN = /[^ -ɏ\s]/;
         const reports = result.rows.map((row: any) => {
+            const fd = row.fairness_data;
+            if (fd && typeof fd.nonLatinDetected === "boolean") {
+                return { ...row, nonLatinDetected: fd.nonLatinDetected };
+            }
             const preview = row.csv_preview;
             const previewRows: any[] = preview && Array.isArray(preview.rows) ? preview.rows : [];
             const nonLatinDetected = previewRows.some((r: any) => {

@@ -50,6 +50,12 @@ export default function ScoreReportCrcPage() {
       return;
     }
 
+    // Clear stale state from a prior projectId so the new project's skeleton
+    // shows instead of the previous report flashing while the new fetch runs.
+    setLoading(true);
+    setResults(null);
+    setError(null);
+
     const fetchResults = async () => {
       try {
         const response = await apiService.getCRCResults(projectId);
