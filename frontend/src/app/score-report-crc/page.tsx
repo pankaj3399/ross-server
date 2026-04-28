@@ -42,7 +42,13 @@ export default function ScoreReportCrcPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !projectId) return;
+    if (authLoading) return;
+    // Stop the loading skeleton in the no-fetch paths; otherwise the missing-
+    // projectId / unauthenticated branches below stay behind the skeleton forever.
+    if (!isAuthenticated || !projectId) {
+      setLoading(false);
+      return;
+    }
 
     const fetchResults = async () => {
       try {

@@ -1020,6 +1020,7 @@ router.post("/submit/:projectId", authenticateToken, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Cannot submit: not all controls have been answered.",
+        errorCode: "INCOMPLETE_ASSESSMENT",
         progress: {
           answered: results.overall.answeredControls,
           total: results.overall.totalControls,

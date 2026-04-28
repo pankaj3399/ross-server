@@ -254,8 +254,16 @@ class ApiService {
       if (typeof errorMessage === "object") {
         errorMessage = JSON.stringify(errorMessage);
       }
-      const errorWithStatus = new Error(errorMessage) as Error & { status?: number };
+      const errorWithStatus = new Error(errorMessage) as Error & {
+        status?: number;
+        errorCode?: string;
+        progress?: unknown;
+        body?: unknown;
+      };
       errorWithStatus.status = response.status;
+      if (typeof error?.errorCode === "string") errorWithStatus.errorCode = error.errorCode;
+      if (error?.progress !== undefined) errorWithStatus.progress = error.progress;
+      errorWithStatus.body = error;
       throw errorWithStatus;
     }
 

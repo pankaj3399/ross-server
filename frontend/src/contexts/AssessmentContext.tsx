@@ -696,7 +696,15 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             router.push(getReportRoute(projectId, user?.subscription_status, "CRC"));
         } catch (error: any) {
             console.error("Failed to submit CRC assessment:", error);
-            const message = error?.message?.includes("not all controls")
+            // Branch on the structured fields the API now returns. errorCode is the
+            // primary signal; progress is a fallback for older callers/responses.
+            const isIncomplete =
+                error?.errorCode === "INCOMPLETE_ASSESSMENT" ||
+                (error?.progress &&
+                    typeof error.progress.answered === "number" &&
+                    typeof error.progress.total === "number" &&
+                    error.progress.answered < error.progress.total);
+            const message = isIncomplete
                 ? "Please answer all controls before submitting."
                 : "Failed to submit CRC assessment. Please try again.";
             showToast.error(message);

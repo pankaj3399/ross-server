@@ -141,10 +141,12 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`;
         
         // Calculate biasness score from sensitive columns. When no sensitive columns
-        // are detected (or no outcome column was inferred), group-fairness metrics
+        // are detected, or no outcome column was inferred, group-fairness metrics
         // cannot be computed — surface that as "insufficient data" rather than 0.0,
         // which would otherwise contradict toxicity findings on the same dataset.
-        const hasMeasurableBias = fairnessAssessment.sensitiveColumns.length > 0;
+        const hasMeasurableBias =
+            fairnessAssessment.sensitiveColumns.length > 0 &&
+            fairnessAssessment.outcomeColumn !== null;
         const maxDisparity = hasMeasurableBias
             ? Math.max(0, ...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
             : 0;
@@ -179,14 +181,15 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             textContent = textContent.substring(0, 5000) + "...";
         }
 
-        // If the dataset has no text content, every text-based metric (toxicity,
-        // relevancy via AI, faithfulness via AI) would receive an empty prompt
-        // and silently return 0.0. Reject the request with a real reason instead.
-        if (!textContent.trim()) {
-            return res.status(400).json({
-                error: "Dataset has no analyzable text content. Please ensure at least one column contains free-text values for the evaluator to score.",
-            });
-        }
+        // When the dataset has no analyzable text, the AI text evaluators (toxicity,
+        // relevancy, faithfulness) would silently return 0.0 / fallback scores. We
+        // still want to compute structural fairness, so we don't abort — instead
+        // each text-driven promise is short-circuited with an insufficient_data
+        // result below, mirroring how biasness handles missing sensitive columns.
+        const hasTextContent = textContent.trim().length > 0;
+        const noTextExplanation = [
+            "Dataset has no analyzable free-text content; this metric cannot be scored.",
+        ];
 
         // Prepare Relevancy data
         const { score: relevancyScore, factors } = calculateRelevancyHeuristics(rows, headers, fairnessAssessment);
@@ -231,18 +234,29 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const biasnessPromise: Promise<string[]> = hasMeasurableBias
             ? generateExplanationWithGemini("Biasness", biasnessScore as number, biasnessLabel, biasnessContext, datasetSummary)
             : Promise.resolve([biasnessContext]);
-        const toxicityPromise = evaluateToxicity(textContent, sampleRows.length, datasetSummary);
+        type WideMetricResult = {
+            score: number | null;
+            label: "low" | "moderate" | "high" | "insufficient_data";
+            explanation: string[];
+        };
+        const toxicityPromise: Promise<WideMetricResult> = hasTextContent
+            ? evaluateToxicity(textContent, sampleRows.length, datasetSummary)
+            : Promise.resolve({ score: null, label: "insufficient_data", explanation: noTextExplanation });
         // Use AI-based Relevancy evaluation (combines structural score with AI content analysis)
-        const relevancyPromise = evaluateRelevancyWithAI(textContent, relevancyScore, headers, datasetSummary);
+        const relevancyPromise: Promise<WideMetricResult> = hasTextContent
+            ? evaluateRelevancyWithAI(textContent, relevancyScore, headers, datasetSummary)
+            : Promise.resolve({ score: null, label: "insufficient_data", explanation: noTextExplanation });
         // Use AI-based Faithfulness evaluation (combines data quality metrics with AI analysis)
-        const faithfulnessPromise = evaluateFaithfulnessWithAI(
-            textContent, 
-            faithfulnessScore, 
-            metrics.completeness,
-            metrics.typeConsistency,
-            metrics.uniqueness,
-            datasetSummary
-        );
+        const faithfulnessPromise: Promise<WideMetricResult> = hasTextContent
+            ? evaluateFaithfulnessWithAI(
+                textContent,
+                faithfulnessScore,
+                metrics.completeness,
+                metrics.typeConsistency,
+                metrics.uniqueness,
+                datasetSummary
+            )
+            : Promise.resolve({ score: null, label: "insufficient_data", explanation: noTextExplanation });
 
         // Await all promises
         const [
@@ -837,7 +851,7 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
         const total = parseInt(countResult.rows[0].total || '0');
 
         const result = await pool.query(
-            `SELECT 
+            `SELECT
                 id, file_name, file_size, uploaded_at,
                 fairness_data, fairness_result, biasness_result,
                 toxicity_result, relevance_result, faithfulness_result,
@@ -848,15 +862,28 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
              LIMIT $3 OFFSET $4`,
             [projectId, userId, limit, offset]
         );
-        
-        res.json({ 
-            success: true, 
-            reports: result.rows,
+
+        // The non-Latin flag isn't persisted; recompute it from csv_preview so
+        // historical reports surface the same warning banner as fresh evaluations.
+        const NON_LATIN = /[^ -ɏ\s]/;
+        const reports = result.rows.map((row: any) => {
+            const preview = row.csv_preview;
+            const previewRows: any[] = preview && Array.isArray(preview.rows) ? preview.rows : [];
+            const nonLatinDetected = previewRows.some((r: any) => {
+                const values = Array.isArray(r) ? r : Object.values(r ?? {});
+                return values.some((v: any) => typeof v === "string" && NON_LATIN.test(v));
+            });
+            return { ...row, nonLatinDetected };
+        });
+
+        res.json({
+            success: true,
+            reports,
             pagination: {
                 total,
                 limit,
                 offset,
-                hasMore: offset + result.rows.length < total
+                hasMore: offset + reports.length < total
             }
         });
     } catch (error: any) {
