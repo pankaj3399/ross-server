@@ -182,6 +182,34 @@ export interface CRCControl {
   updated_at: string;
 }
 
+export interface CRCCategoryResult {
+  categoryId: number | null;
+  categoryName: string;
+  totalControls: number;
+  answeredControls: number;
+  scoredControls: number;
+  averageScore: number | null;
+  percentage: number | null;
+}
+
+export interface CRCResults {
+  overall: {
+    totalControls: number;
+    answeredControls: number;
+    scoredControls: number;
+    averageScore: number | null;
+    percentage: number | null;
+  };
+  categories: CRCCategoryResult[];
+  breakdown: {
+    yes: number;
+    partial: number;
+    no: number;
+    na: number;
+    notSure: number;
+  };
+}
+
 export interface CRCControlVersion {
   id: string;
   version: number;
@@ -226,8 +254,16 @@ class ApiService {
       if (typeof errorMessage === "object") {
         errorMessage = JSON.stringify(errorMessage);
       }
-      const errorWithStatus = new Error(errorMessage) as Error & { status?: number };
+      const errorWithStatus = new Error(errorMessage) as Error & {
+        status?: number;
+        errorCode?: string;
+        progress?: unknown;
+        body?: unknown;
+      };
       errorWithStatus.status = response.status;
+      if (typeof error?.errorCode === "string") errorWithStatus.errorCode = error.errorCode;
+      if (error?.progress !== undefined) errorWithStatus.progress = error.progress;
+      errorWithStatus.body = error;
       throw errorWithStatus;
     }
 
@@ -1307,6 +1343,16 @@ class ApiService {
 
   async getCRCResponses(projectId: string): Promise<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }> {
     return this.request<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }>(`/crc/assess/${projectId}`);
+  }
+
+  async submitCRCAssessment(projectId: string): Promise<{ success: boolean; results: CRCResults }> {
+    return this.request<{ success: boolean; results: CRCResults }>(`/crc/submit/${projectId}`, {
+      method: "POST",
+    });
+  }
+
+  async getCRCResults(projectId: string): Promise<{ success: boolean; results: CRCResults; complete: boolean }> {
+    return this.request<{ success: boolean; results: CRCResults; complete: boolean }>(`/crc/results/${projectId}`);
   }
 
   // ==========================================

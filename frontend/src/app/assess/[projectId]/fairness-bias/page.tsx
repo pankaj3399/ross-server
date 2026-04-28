@@ -248,11 +248,14 @@ export default function FairnessBiasTest() {
         const key = `${catIdx}:${promptIdx}`;
         const response = responses[key];
         if (response && response.trim()) {
-          responsesArray.push({
-            category: category.label,
-            prompt: prompt,
-            response: response.trim(),
-          });
+          const sanitized = sanitizeNoteInput(response, false);
+          if (sanitized) {
+            responsesArray.push({
+              category: category.label,
+              prompt: prompt,
+              response: sanitized,
+            });
+          }
         }
       });
     });
@@ -545,39 +548,23 @@ export default function FairnessBiasTest() {
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
                       const originalValue = e.target.value;
-                      try {
-                        const sanitizedValue = sanitizeNoteInput(originalValue, true);
 
-                        // Reset warning state if field is cleared
-                        if (!originalValue.trim()) {
-                          setHasShownDangerWarning(prev => {
-                            const newSet = new Set(prev);
-                            newSet.delete(currentResKey);
-                            return newSet;
-                          });
-                        }
-
-                        // Check if dangerous content was removed - only show warning once per field
-                        if (containsDangerousContent(originalValue) && !hasShownDangerWarning.has(currentResKey)) {
-                          // Dangerous content was detected and removed - show warning toast once
-                          showToast.warning(
-                            "Potentially dangerous content was removed from your input for security."
-                          );
-                          // Mark that we've shown the warning for this field
-                          setHasShownDangerWarning(prev => new Set(prev).add(currentResKey));
-                        }
-
-                        // Update state with the sanitized (cleaned) value
-                        setResponses({ ...responses, [currentResKey]: sanitizedValue });
-                      } catch (error) {
-                        // If sanitization fails (shouldn't happen now, but safety check)
-                        console.error("Error sanitizing note input:", error);
-                        showToast.error(
-                          "Unable to process input. Dangerous content was detected and rejected."
-                        );
-                        // Early return - don't update state
-                        return;
+                      if (!originalValue.trim()) {
+                        setHasShownDangerWarning(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(currentResKey);
+                          return newSet;
+                        });
                       }
+
+                      if (containsDangerousContent(originalValue) && !hasShownDangerWarning.has(currentResKey)) {
+                        showToast.warning(
+                          "Potentially dangerous content was detected and will be removed when you submit."
+                        );
+                        setHasShownDangerWarning(prev => new Set(prev).add(currentResKey));
+                      }
+
+                      setResponses({ ...responses, [currentResKey]: originalValue });
                     }}
                     onBlur={() => {
                       // Reset warning state when field loses focus so warning can be shown again if needed

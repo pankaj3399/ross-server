@@ -94,6 +94,7 @@ interface AssessmentContextType {
     handleCrcNoteSave: (controlId: string, notes: string) => Promise<void>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
+    submitCrcProject: () => Promise<void>;
 
     userRole: string | null;
     isReadOnly: boolean;
@@ -686,6 +687,33 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
+    const submitCrcProject = async () => {
+        if (isReadOnly) return;
+        setSubmitting(true);
+        try {
+            setSubmissionPhase('submitting');
+            await apiService.submitCRCAssessment(projectId);
+            router.push(getReportRoute(projectId, user?.subscription_status, "CRC"));
+        } catch (error: any) {
+            console.error("Failed to submit CRC assessment:", error);
+            // Branch on the structured fields the API now returns. errorCode is the
+            // primary signal; progress is a fallback for older callers/responses.
+            const isIncomplete =
+                error?.errorCode === "INCOMPLETE_ASSESSMENT" ||
+                (error?.progress &&
+                    typeof error.progress.answered === "number" &&
+                    typeof error.progress.total === "number" &&
+                    error.progress.answered < error.progress.total);
+            const message = isIncomplete
+                ? "Please answer all controls before submitting."
+                : "Failed to submit CRC assessment. Please try again.";
+            showToast.error(message);
+        } finally {
+            setSubmitting(false);
+            setSubmissionPhase(null);
+        }
+    };
+
     const value = {
         projectId,
         domains,
@@ -709,6 +737,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleCrcNoteSave,
         saveAllNotes,
         submitProject,
+        submitCrcProject,
         userRole,
         isReadOnly,
         saving,

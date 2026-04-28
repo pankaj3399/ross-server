@@ -278,11 +278,14 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                     pdfDoc.setTextColor(100, 116, 139);
                     pdfDoc.text(metric.name, x + cardWidth / 2, yPos + 7, { align: "center" });
 
-                    const score = (metric.data.score * 100).toFixed(0) + "%";
+                    const score = metric.data.score === null
+                        ? "—"
+                        : (metric.data.score * 100).toFixed(0) + "%";
                     let scoreColor: [number, number, number];
                     switch (metric.data.label) {
                         case "high": scoreColor = [5, 150, 105]; break;
                         case "moderate": scoreColor = [217, 119, 6]; break;
+                        case "insufficient_data": scoreColor = [100, 116, 139]; break;
                         default: scoreColor = [220, 38, 38];
                     }
                     pdfDoc.setFont("helvetica", "bold");

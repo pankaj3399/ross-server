@@ -250,7 +250,15 @@ export const callUserApiForPrompt = inngest.createFunction(
 
     const response = await step.run("call-user-api", async () => {
       const normalizedConfig = normalizeFairnessApiJobConfig(config);
-      return await callUserApi(normalizedConfig, modifiedPrompt);
+      const apiResponse = await callUserApi(normalizedConfig, modifiedPrompt);
+      // If the API call succeeded but returned no content (commonly a wrong
+      // responseKey path or an endpoint that doesn't return JSON at the
+      // expected location), treat it as a failure so the user sees a real
+      // reason rather than every metric scoring 0.0 downstream (bug 16).
+      if (typeof apiResponse !== "string" || !apiResponse.trim()) {
+        throw new Error("API endpoint returned no content at the configured responseKey. Verify the endpoint URL, auth, and responseKey path.");
+      }
+      return apiResponse;
     });
 
     await step.run("store-response", async () => {
