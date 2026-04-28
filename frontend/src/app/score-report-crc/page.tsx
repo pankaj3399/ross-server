@@ -56,20 +56,31 @@ export default function ScoreReportCrcPage() {
     setResults(null);
     setError(null);
 
+    // Guard against late/overlapping fetches: if the user navigates from
+    // project A to project B before A's request resolves, the cleanup flips
+    // `cancelled` so A's response can't overwrite B's state.
+    let cancelled = false;
+
     const fetchResults = async () => {
       try {
         const response = await apiService.getCRCResults(projectId);
+        if (cancelled) return;
         setResults(response.results);
         setComplete(response.complete);
       } catch (err: any) {
+        if (cancelled) return;
         console.error("Failed to load CRC results:", err);
         setError(err?.message || "Failed to load CRC results");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchResults();
+
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, isAuthenticated, projectId]);
 
   if (authLoading || loading) {
