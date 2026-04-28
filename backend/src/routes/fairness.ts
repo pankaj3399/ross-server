@@ -3,6 +3,7 @@ import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { evaluateDatasetFairness, parseCSV, FairnessAssessment, hasNonLatinText } from "../utils/datasetFairness";
+import { WideMetricResult } from "../types/fairnessMetrics";
 import { inngest } from "../inngest/client";
 import { 
     isGeminiConfigured, 
@@ -234,11 +235,6 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const biasnessPromise: Promise<string[]> = hasMeasurableBias
             ? generateExplanationWithGemini("Biasness", biasnessScore as number, biasnessLabel, biasnessContext, datasetSummary)
             : Promise.resolve([biasnessContext]);
-        type WideMetricResult = {
-            score: number | null;
-            label: "low" | "moderate" | "high" | "insufficient_data";
-            explanation: string[];
-        };
         const toxicityPromise: Promise<WideMetricResult> = hasTextContent
             ? evaluateToxicity(textContent, sampleRows.length, datasetSummary)
             : Promise.resolve({ score: null, label: "insufficient_data", explanation: noTextExplanation });
