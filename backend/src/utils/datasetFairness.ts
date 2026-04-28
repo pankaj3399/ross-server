@@ -234,7 +234,12 @@ const sanitizeValue = (value: string | null | undefined) => (value ?? "").toStri
 // Used to surface a warning when CSV content is in a script the English-only
 // keyword/pattern detectors and toxicity word-lists cannot reliably evaluate.
 const NON_LATIN_CHAR_REGEX = /[^ -ɏ\s]/;
-export const hasNonLatinText = (rows: CSVRow[]): boolean =>
+// Accepts either record-shaped CSV rows (Record<string, string>) or array-shaped
+// rows (string[]) — historical csv_preview payloads may hold either form.
+// Object.values handles both at runtime.
+export const hasNonLatinText = (
+    rows: ReadonlyArray<Record<string, string> | string[]>,
+): boolean =>
     rows.some((row) =>
         Object.values(row).some((value) => typeof value === "string" && NON_LATIN_CHAR_REGEX.test(value))
     );

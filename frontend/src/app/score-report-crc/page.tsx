@@ -43,10 +43,12 @@ export default function ScoreReportCrcPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    // Stop the loading skeleton in the no-fetch paths and clear any stale
-    // report state so a previous project's data can't bleed through after
-    // sign-out or after the projectId query param is removed.
-    if (!isAuthenticated || !projectId) {
+    // Unauthenticated users are redirected by useRequireAuth — leave state
+    // alone here; the component returns null below before any UI shows.
+    if (!isAuthenticated) return;
+    // Authenticated but no projectId: clear any stale report state so the
+    // missing-project card renders cleanly instead of behind old data.
+    if (!projectId) {
       setResults(null);
       setError(null);
       setLoading(false);
@@ -85,6 +87,12 @@ export default function ScoreReportCrcPage() {
       cancelled = true;
     };
   }, [authLoading, isAuthenticated, projectId]);
+
+  // useRequireAuth pushes to login when unauthenticated; rendering null here
+  // avoids a UI flash of skeleton/error during that redirect.
+  if (!authLoading && !isAuthenticated) {
+    return null;
+  }
 
   if (authLoading || loading) {
     return <ReportSkeleton />;

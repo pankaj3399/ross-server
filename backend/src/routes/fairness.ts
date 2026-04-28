@@ -865,16 +865,17 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
 
         // Prefer the persisted flag in fairness_data; fall back to the shared
         // helper against csv_preview for legacy rows written before the flag
-        // was stored. Object.values inside hasNonLatinText handles both the
-        // record-shaped and array-shaped row representations csv_preview can hold.
+        // was stored. hasNonLatinText accepts both record-shaped and array-
+        // shaped rows, so no cast is needed.
         const reports = result.rows.map((row: any) => {
             const fd = row.fairness_data;
             if (fd && typeof fd.nonLatinDetected === "boolean") {
                 return { ...row, nonLatinDetected: fd.nonLatinDetected };
             }
             const preview = row.csv_preview;
-            const previewRows = preview && Array.isArray(preview.rows) ? preview.rows : [];
-            const nonLatinDetected = hasNonLatinText(previewRows as Record<string, string>[]);
+            const previewRows: ReadonlyArray<Record<string, string> | string[]> =
+                preview && Array.isArray(preview.rows) ? preview.rows : [];
+            const nonLatinDetected = hasNonLatinText(previewRows);
             return { ...row, nonLatinDetected };
         });
 
