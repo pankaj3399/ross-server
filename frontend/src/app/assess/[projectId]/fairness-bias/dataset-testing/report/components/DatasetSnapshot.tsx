@@ -47,7 +47,7 @@ export const DatasetSnapshot = ({ preview }: { preview: PreviewData }) => {
                                         <tr key={rowIndex} className="border-t border-border">
                                             {cells.map((value: any, colIndex: number) => (
                                                 <td key={`${rowIndex}-${colIndex}`} className="px-4 py-2 text-foreground whitespace-nowrap">
-                                                    {(value === null || value === undefined || value === '') ? <span className="text-[#64748b] dark:text-muted-foreground italic">—</span> : value}
+                                                    {(value === null || value === undefined || value === '') ? <span className="text-[#64748b] dark:text-muted-foreground italic">—</span> : String(value)}
                                                 </td>
                                             ))}
                                         </tr>

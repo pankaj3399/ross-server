@@ -182,6 +182,34 @@ export interface CRCControl {
   updated_at: string;
 }
 
+export interface CRCCategoryResult {
+  categoryId: number | null;
+  categoryName: string;
+  totalControls: number;
+  answeredControls: number;
+  scoredControls: number;
+  averageScore: number | null;
+  percentage: number | null;
+}
+
+export interface CRCResults {
+  overall: {
+    totalControls: number;
+    answeredControls: number;
+    scoredControls: number;
+    averageScore: number | null;
+    percentage: number | null;
+  };
+  categories: CRCCategoryResult[];
+  breakdown: {
+    yes: number;
+    partial: number;
+    no: number;
+    na: number;
+    notSure: number;
+  };
+}
+
 export interface CRCControlVersion {
   id: string;
   version: number;
@@ -1307,6 +1335,16 @@ class ApiService {
 
   async getCRCResponses(projectId: string): Promise<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }> {
     return this.request<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }>(`/crc/assess/${projectId}`);
+  }
+
+  async submitCRCAssessment(projectId: string): Promise<{ success: boolean; results: CRCResults }> {
+    return this.request<{ success: boolean; results: CRCResults }>(`/crc/submit/${projectId}`, {
+      method: "POST",
+    });
+  }
+
+  async getCRCResults(projectId: string): Promise<{ success: boolean; results: CRCResults; complete: boolean }> {
+    return this.request<{ success: boolean; results: CRCResults; complete: boolean }>(`/crc/results/${projectId}`);
   }
 
   // ==========================================

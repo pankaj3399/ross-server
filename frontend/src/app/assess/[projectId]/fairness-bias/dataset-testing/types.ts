@@ -1,10 +1,10 @@
 export type VerdictStatus = "pass" | "caution" | "fail" | "insufficient";
 
-export type MetricLabel = "low" | "moderate" | "high";
+export type MetricLabel = "low" | "moderate" | "high" | "insufficient_data";
 
 export type DatasetMetric = {
-  /** Score value (0.0-1.0 scale) */
-  score: number;
+  /** Score value (0.0-1.0 scale). null when the metric cannot be computed for this dataset. */
+  score: number | null;
   /** Label classification based on metric-specific thresholds */
   label: MetricLabel;
   /** AI-generated explanation points */

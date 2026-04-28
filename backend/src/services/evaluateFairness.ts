@@ -42,7 +42,15 @@ export async function evaluateFairnessResponse(
 
     // Sanitize user response to prevent XSS
     const userResponse = sanitizeNote(rawUserResponse);
-    
+
+    // An empty user response means the upstream model returned nothing — usually
+    // a misconfigured `responseKey` or an API endpoint that doesn't return JSON
+    // at the expected path. Without this guard the empty string flows into Gemini
+    // and every metric defaults to 0.0, which is what bug 16 reported.
+    if (!userResponse.trim()) {
+        throw new Error("Empty model response — verify the API endpoint returns content at the configured responseKey.");
+    }
+
     // Sanitize inputs for prompt injection prevention
     const sanitizedQuestionText = sanitizeForPrompt(questionText);
     const sanitizedUserResponse = sanitizeForPrompt(userResponse);

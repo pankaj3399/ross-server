@@ -151,6 +151,8 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
 
     // Error/unavailable state with friendly message
     if (!isValid || !data) {
+        const unavailableLabel = data?.label === "insufficient_data" ? "Insufficient data" : "Unavailable";
+        const unavailableExplanation = normalizeExplanation(data?.explanation);
         return (
             <Card>
                 <CardContent className="p-4 flex flex-col">
@@ -161,9 +163,25 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                     <div className="flex-1 flex items-center justify-center py-4">
                         <div className="text-center">
                             <p className="text-2xl font-bold text-muted-foreground">—</p>
-                            <p className="text-xs text-muted-foreground mt-1">Unavailable</p>
+                            <p className="text-xs text-muted-foreground mt-1">{unavailableLabel}</p>
                         </div>
                     </div>
+                    {unavailableExplanation.length > 0 && (
+                        <div className="mt-1 p-3 bg-[#f8fafc] dark:bg-muted rounded-lg border border-border">
+                            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                                <HelpCircle className="w-3 h-3" />
+                                Why
+                            </p>
+                            <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                                {unavailableExplanation.map((line, i) => (
+                                    <div key={i} className="flex items-start gap-2">
+                                        <span className="text-muted-foreground mt-0.5">•</span>
+                                        <span>{line}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         );

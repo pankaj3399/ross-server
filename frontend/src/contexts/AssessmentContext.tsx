@@ -94,6 +94,7 @@ interface AssessmentContextType {
     handleCrcNoteSave: (controlId: string, notes: string) => Promise<void>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
+    submitCrcProject: () => Promise<void>;
 
     userRole: string | null;
     isReadOnly: boolean;
@@ -686,6 +687,25 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
+    const submitCrcProject = async () => {
+        if (isReadOnly) return;
+        setSubmitting(true);
+        try {
+            setSubmissionPhase('submitting');
+            await apiService.submitCRCAssessment(projectId);
+            router.push(getReportRoute(projectId, user?.subscription_status, "CRC"));
+        } catch (error: any) {
+            console.error("Failed to submit CRC assessment:", error);
+            const message = error?.message?.includes("not all controls")
+                ? "Please answer all controls before submitting."
+                : "Failed to submit CRC assessment. Please try again.";
+            showToast.error(message);
+        } finally {
+            setSubmitting(false);
+            setSubmissionPhase(null);
+        }
+    };
+
     const value = {
         projectId,
         domains,
@@ -709,6 +729,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleCrcNoteSave,
         saveAllNotes,
         submitProject,
+        submitCrcProject,
         userRole,
         isReadOnly,
         saving,

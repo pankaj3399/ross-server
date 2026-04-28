@@ -2,7 +2,7 @@ import express, { Router } from "express";
 import { z } from "zod";
 import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
-import { evaluateDatasetFairness, parseCSV, FairnessAssessment } from "../utils/datasetFairness";
+import { evaluateDatasetFairness, parseCSV, FairnessAssessment, hasNonLatinText } from "../utils/datasetFairness";
 import { inngest } from "../inngest/client";
 import { 
     isGeminiConfigured, 
@@ -140,16 +140,26 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const fairnessContext = `The dataset fairness assessment resulted in a "${fairnessAssessment.overallVerdict}" verdict with a score of ${overallScore.toFixed(3)}. ` +
             `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`;
         
-        // Calculate biasness score from sensitive columns
-        const maxDisparity = fairnessAssessment.sensitiveColumns.length > 0
-            ? Math.max(0, ...fairnessAssessment.sensitiveColumns.map(col => col.disparity)) // Ensure non-negative and handle empty case implicitly via length check
+        // Calculate biasness score from sensitive columns. When no sensitive columns
+        // are detected (or no outcome column was inferred), group-fairness metrics
+        // cannot be computed — surface that as "insufficient data" rather than 0.0,
+        // which would otherwise contradict toxicity findings on the same dataset.
+        const hasMeasurableBias = fairnessAssessment.sensitiveColumns.length > 0;
+        const maxDisparity = hasMeasurableBias
+            ? Math.max(0, ...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
             : 0;
-        const biasnessScore = Math.min(1, maxDisparity * 2); // Scale disparity to 0-1
-        const biasnessLabel = getBiasLabel(biasnessScore);
-        const biasnessContext = maxDisparity > 0
-            ? `Maximum disparity of ${(maxDisparity * 100).toFixed(1)}% detected across sensitive groups. ` +
-              `Sensitive columns analyzed: ${fairnessAssessment.sensitiveColumns.map(col => col.column).join(", ")}.`
-            : "No significant bias detected in sensitive columns. The dataset shows relatively balanced representation across demographic groups.";
+        const biasnessScore: number | null = hasMeasurableBias
+            ? Math.min(1, maxDisparity * 2)
+            : null;
+        const biasnessLabel: string = hasMeasurableBias
+            ? getBiasLabel(biasnessScore as number)
+            : "insufficient_data";
+        const biasnessContext = hasMeasurableBias
+            ? (maxDisparity > 0
+                ? `Maximum disparity of ${(maxDisparity * 100).toFixed(1)}% detected across sensitive groups. ` +
+                  `Sensitive columns analyzed: ${fairnessAssessment.sensitiveColumns.map(col => col.column).join(", ")}.`
+                : "No significant bias detected in sensitive columns. The dataset shows relatively balanced representation across demographic groups.")
+            : "No sensitive columns or outcome column were detected, so demographic-group fairness cannot be computed for this dataset. Toxicity is still evaluated independently.";
         
         // Prepare toxicity sample
         // Extract text content from CSV for evaluation
@@ -167,6 +177,15 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         // Limit text content to 5000 characters (increased from 2000)
         if (textContent.length > 5000) {
             textContent = textContent.substring(0, 5000) + "...";
+        }
+
+        // If the dataset has no text content, every text-based metric (toxicity,
+        // relevancy via AI, faithfulness via AI) would receive an empty prompt
+        // and silently return 0.0. Reject the request with a real reason instead.
+        if (!textContent.trim()) {
+            return res.status(400).json({
+                error: "Dataset has no analyzable text content. Please ensure at least one column contains free-text values for the evaluator to score.",
+            });
         }
 
         // Prepare Relevancy data
@@ -206,7 +225,12 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         // Execute all AI calls in parallel
         // Define promises for each explanation/evaluation
         const fairnessPromise = generateExplanationWithGemini("Fairness", overallScore, fairnessLabel, fairnessContext, datasetSummary);
-        const biasnessPromise = generateExplanationWithGemini("Biasness", biasnessScore, biasnessLabel, biasnessContext, datasetSummary);
+        // When biasness is unmeasurable, skip the AI explanation and use the
+        // pre-built context string directly so we don't burn a Gemini call
+        // generating prose around a null score.
+        const biasnessPromise: Promise<string[]> = hasMeasurableBias
+            ? generateExplanationWithGemini("Biasness", biasnessScore as number, biasnessLabel, biasnessContext, datasetSummary)
+            : Promise.resolve([biasnessContext]);
         const toxicityPromise = evaluateToxicity(textContent, sampleRows.length, datasetSummary);
         // Use AI-based Relevancy evaluation (combines structural score with AI content analysis)
         const relevancyPromise = evaluateRelevancyWithAI(textContent, relevancyScore, headers, datasetSummary);
@@ -298,6 +322,8 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             // Don't fail the request if saving fails, just log it
         }
 
+        const nonLatinDetected = hasNonLatinText(rows);
+
         res.json({
             fairness: {
                 overallVerdict: fairnessAssessment.overallVerdict,
@@ -312,6 +338,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             toxicity,
             relevance,
             faithfulness,
+            nonLatinDetected,
         });
     } catch (error: any) {
         console.error("Error evaluating dataset fairness:", error);

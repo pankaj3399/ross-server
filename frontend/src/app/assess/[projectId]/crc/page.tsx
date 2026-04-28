@@ -101,7 +101,9 @@ export default function CRCAssessmentPage() {
     isPremium,
     loading: contextLoading,
     saving,
-    isReadOnly
+    isReadOnly,
+    submitCrcProject,
+    submitting,
   } = useAssessmentContext();
 
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
@@ -235,6 +237,31 @@ export default function CRCAssessmentPage() {
                   <IconLoader2 className="w-4 h-4 animate-spin" />
                   Saving...
                 </div>
+              )}
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={submitCrcProject}
+                  disabled={submitting || answeredControls < totalControls}
+                  title={
+                    answeredControls < totalControls
+                      ? `Answer all controls (${answeredControls}/${totalControls}) before submitting`
+                      : "Finalize this CRC assessment"
+                  }
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {submitting ? (
+                    <>
+                      <IconLoader2 className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <IconShieldCheck className="w-4 h-4" />
+                      Submit Assessment
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>

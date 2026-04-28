@@ -174,6 +174,10 @@ const SENSITIVE_KEYWORDS = [
     "orientation",
     "age",
     "marital",
+    "category",
+    "group",
+    "cohort",
+    "demographic",
 ];
 
 const POSITIVE_KEYWORDS = ["approved", "success", "accepted", "true", "1", "positive", "pass", "hire", "hired", "qualified", "yes", "selected"];
@@ -225,6 +229,15 @@ const METRIC_DEFINITIONS: FairnessAssessment["metricDefinitions"] = {
 };
 
 const sanitizeValue = (value: string | null | undefined) => (value ?? "").toString().trim();
+
+// Detects characters outside the Basic Latin and Latin-1 Supplement blocks.
+// Used to surface a warning when CSV content is in a script the English-only
+// keyword/pattern detectors and toxicity word-lists cannot reliably evaluate.
+const NON_LATIN_CHAR_REGEX = /[^ -ɏ\s]/;
+export const hasNonLatinText = (rows: CSVRow[]): boolean =>
+    rows.some((row) =>
+        Object.values(row).some((value) => typeof value === "string" && NON_LATIN_CHAR_REGEX.test(value))
+    );
 
 /**
  * Helper function to determine if a target value represents a positive outcome.
@@ -339,7 +352,10 @@ const detectSensitiveColumns = (
             ).slice(0, 15);
 
             if (!reasons.length && uniqueValues.length > 1 && uniqueValues.length <= 12) {
-                const sensitiveValuePatterns = ["male", "female", "non-binary", "asian", "black", "white", "hispanic", "latino", "caucasian"];
+                const sensitiveValuePatterns = [
+                    "male", "female", "non-binary", "asian", "black", "white", "hispanic", "latino", "caucasian",
+                    "gender", "race", "age", "religion", "nationality", "ethnicity", "disability", "orientation",
+                ];
                 const hasSensitiveValues = uniqueValues.some((value) => {
                     const lowerValue = value.toLowerCase();
                     return sensitiveValuePatterns.some((pattern) => lowerValue.includes(pattern));

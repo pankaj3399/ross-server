@@ -3,6 +3,8 @@ import pool from "../config/database";
 import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
+import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
+import { recordEvent } from "../services/auditLogService";
 
 const router = Router();
 
@@ -995,6 +997,76 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching CRC responses:", error);
     res.status(500).json({ success: false, error: "Failed to fetch responses" });
+  }
+});
+
+// POST /crc/submit/:projectId - Finalize CRC assessment and return scored results
+router.post("/submit/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ success: false, error: "Insufficient project role" });
+    }
+
+    const results = await computeCrcResults(projectId);
+
+    if (!isCrcAssessmentComplete(results)) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot submit: not all controls have been answered.",
+        progress: {
+          answered: results.overall.answeredControls,
+          total: results.overall.totalControls,
+        },
+      });
+    }
+
+    await recordEvent({
+      projectId,
+      actorId: userId,
+      action: "crc.submitted",
+      objectType: "PROJECT",
+      objectId: projectId,
+      metadata: {
+        overallPercentage: results.overall.percentage,
+        totalControls: results.overall.totalControls,
+        scoredControls: results.overall.scoredControls,
+      },
+    });
+
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error("Error submitting CRC assessment:", error);
+    res.status(500).json({ success: false, error: "Failed to submit CRC assessment" });
+  }
+});
+
+// GET /crc/results/:projectId - Read computed CRC results (recomputed on demand)
+router.get("/results/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    const results = await computeCrcResults(projectId);
+    res.json({
+      success: true,
+      results,
+      complete: isCrcAssessmentComplete(results),
+    });
+  } catch (error) {
+    console.error("Error fetching CRC results:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch CRC results" });
   }
 });
 

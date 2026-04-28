@@ -53,6 +53,12 @@ export const metricStyles: Record<
         bg: "bg-rose-50 dark:bg-[#881337]",
         border: "border-rose-100 dark:border-[#881337]",
     },
+    insufficient_data: {
+        label: "Insufficient data",
+        color: "text-slate-500",
+        bg: "bg-slate-50 dark:bg-[#1e293b]",
+        border: "border-slate-100 dark:border-[#1e293b]",
+    },
 };
 
 /**
