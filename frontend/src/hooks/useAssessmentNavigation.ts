@@ -131,7 +131,7 @@ export const useAssessmentNavigation = ({
                     return;
                   }
                   const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
-                  const isAnswered = key in assessmentData;
+                  const isAnswered = assessmentData[key] !== undefined;
 
                   questions.push({
                     level,
@@ -349,7 +349,7 @@ export const useAssessmentNavigation = ({
                   return;
                 }
                 const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
-                if (key in assessmentData) {
+                if (assessmentData[key] !== undefined) {
                   answeredCount++;
                 } else if (firstUnansweredIndex === null) {
                   firstUnansweredIndex = questionIndex;

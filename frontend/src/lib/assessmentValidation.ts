@@ -36,7 +36,7 @@ export const getMissingQuestions = (
               typeof entry === "string" ? entry : entry?.question_text;
             if (!text) continue;
             const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
-            if (!(key in answers)) {
+            if (answers[key] === undefined) {
               missing.push({
                 domainId: domain.id,
                 practiceId,
