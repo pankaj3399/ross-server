@@ -16,7 +16,7 @@ import { SecureTextarea } from "../shared/SecureTextarea";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
 import { sanitizeAimaDescription } from "../../lib/sanitize";
-import { getMissingQuestions, type MissingQuestion } from "../../lib/assessmentValidation";
+import { getMissingQuestions, buildAssessmentAnswerKey, type MissingQuestion } from "../../lib/assessmentValidation";
 import MissingAnswersDialog from "./MissingAnswersDialog";
 /**
  * HTML entities for escaping.
@@ -159,7 +159,7 @@ export default function QuestionView() {
 
     const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
     const currentQuestion = questions[validQuestionIndex];
-    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion?.level}:${currentQuestion?.stream}:${validQuestionIndex}`;
+    const questionKey = buildAssessmentAnswerKey(currentDomainId, currentPracticeId, currentQuestion?.level ?? "", currentQuestion?.stream ?? "", validQuestionIndex);
 
     const topAnchorRef = useRef<HTMLDivElement | null>(null);
 

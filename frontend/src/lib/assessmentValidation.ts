@@ -1,6 +1,14 @@
 import type { DomainWithLevels } from "../contexts/AssessmentContext";
 import { stripHTML } from "./htmlUtils";
 
+export const buildAssessmentAnswerKey = (
+  domainId: string,
+  practiceId: string,
+  level: string | number,
+  stream: string,
+  questionIndex: number,
+): string => `${domainId}:${practiceId}:${level}:${stream}:${questionIndex}`;
+
 export interface MissingQuestion {
   domainId: string;
   practiceId: string;
@@ -27,7 +35,7 @@ export const getMissingQuestions = (
             const text =
               typeof entry === "string" ? entry : entry?.question_text;
             if (!text) continue;
-            const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
+            const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
             if (!(key in answers)) {
               missing.push({
                 domainId: domain.id,

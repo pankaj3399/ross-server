@@ -10,7 +10,7 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { IconAlertTriangle } from "@tabler/icons-react";
-import type { MissingQuestion } from "../../lib/assessmentValidation";
+import { buildAssessmentAnswerKey, type MissingQuestion } from "../../lib/assessmentValidation";
 
 interface Props {
     open: boolean;
@@ -41,7 +41,7 @@ export default function MissingAnswersDialog({
                 <ul className="max-h-[50vh] overflow-y-auto divide-y divide-border rounded-md border border-border">
                     {missing.map((m) => (
                         <li
-                            key={`${m.domainId}:${m.practiceId}:${m.level}:${m.stream}:${m.questionIndex}`}
+                            key={buildAssessmentAnswerKey(m.domainId, m.practiceId, m.level, m.stream, m.questionIndex)}
                             className="p-3 text-sm"
                         >
                             <div className="text-xs text-muted-foreground">
