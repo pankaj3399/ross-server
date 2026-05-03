@@ -52,6 +52,17 @@ export const getMaturityLevel = (score: number): MaturityLevel => {
   return { level: "No Maturity", ...PERFORMANCE_VARIANTS.poor };
 };
 
+export const LEVEL_1_THRESHOLD = 0.5;
+
+export const isBelowLevel1 = (score: number): boolean =>
+  Number.isFinite(score) && score < LEVEL_1_THRESHOLD;
+
+export const getProgressToLevel1 = (score: number): number => {
+  if (!Number.isFinite(score) || score <= 0) return 0;
+  if (score >= LEVEL_1_THRESHOLD) return 100;
+  return Math.round((score / LEVEL_1_THRESHOLD) * 100);
+};
+
 export const getRiskExposure = (score: number): { label: string, colorClass: string } => {
   if (score >= 2.5) return { label: "LOW", colorClass: "text-success" };
   if (score >= 1.5) return { label: "MEDIUM", colorClass: "text-warning" };
