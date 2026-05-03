@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import type { PracticeQuestionLevels, PracticeQuestionDetail, Domain as ApiDomain, Practice as ApiPractice } from "../lib/api";
+import { buildAssessmentAnswerKey } from "../lib/assessmentValidation";
 
 interface Question {
   level: string;
@@ -129,8 +130,8 @@ export const useAssessmentNavigation = ({
                   if (!questionText) {
                     return;
                   }
-                  const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
-                  const isAnswered = key in assessmentData;
+                  const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
+                  const isAnswered = assessmentData[key] !== undefined;
 
                   questions.push({
                     level,
@@ -347,8 +348,8 @@ export const useAssessmentNavigation = ({
                 if (!questionText) {
                   return;
                 }
-                const key = `${domain.id}:${practiceId}:${level}:${stream}:${questionIndex}`;
-                if (key in assessmentData) {
+                const key = buildAssessmentAnswerKey(domain.id, practiceId, level, stream, questionIndex);
+                if (assessmentData[key] !== undefined) {
                   answeredCount++;
                 } else if (firstUnansweredIndex === null) {
                   firstUnansweredIndex = questionIndex;

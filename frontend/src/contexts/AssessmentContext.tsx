@@ -19,6 +19,7 @@ import { usePracticeStore } from "../store/practiceStore";
 import { useAssessmentResultsStore } from "../store/assessmentResultsStore";
 import { stripHTML } from "../lib/htmlUtils";
 import { sanitizeNoteInput } from "../lib/sanitize";
+import { buildAssessmentAnswerKey } from "../lib/assessmentValidation";
 
 // --- Types ---
 
@@ -337,7 +338,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
                 const notesMap: Record<string, string> = {};
                 notesData.forEach((note: NoteResponse) => {
-                    const key = `${note.domain_id}:${note.practice_id}:${note.level}:${note.stream}:${note.question_index}`;
+                    const key = buildAssessmentAnswerKey(note.domain_id, note.practice_id, note.level, note.stream, note.question_index);
                     notesMap[key] = note.note;
                 });
                 setNotes(notesMap);
@@ -460,7 +461,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         const question = questions[questionIndex];
         if (!question) return;
 
-        const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+        const key = buildAssessmentAnswerKey(currentDomainId, currentPracticeId, question.level, question.stream, questionIndex);
         const previousValue = answers[key];
 
         setAnswers((prev) => ({ ...prev, [key]: value }));
@@ -492,7 +493,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (isReadOnly) return;
         const question = questions[questionIndex];
         if (!question) return;
-        const key = `${currentDomainId}:${currentPracticeId}:${question.level}:${question.stream}:${questionIndex}`;
+        const key = buildAssessmentAnswerKey(currentDomainId, currentPracticeId, question.level, question.stream, questionIndex);
         setNotes((prev) => ({ ...prev, [key]: note }));
     };
 

@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import { IconArrowLeft, IconDeviceFloppy, IconTarget } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../../../components/Skeleton";
 import { safeRenderHTML, stripHTML } from "../../../../../lib/htmlUtils";
+import { buildAssessmentAnswerKey } from "../../../../../lib/assessmentValidation";
 
 interface Question {
   level: string;
@@ -127,7 +128,7 @@ export default function AssessmentPage() {
 
   const handleAnswerChange = async (questionIndex: number, value: number) => {
     const question = questions[questionIndex];
-    const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${questionIndex}`;
+    const key = buildAssessmentAnswerKey(domainId, practiceId, question.level, question.stream, questionIndex);
 
     setAnswers((prev) => ({ ...prev, [key]: value }));
 
@@ -172,7 +173,7 @@ export default function AssessmentPage() {
 
   // Calculate practice-specific progress
   const answeredCount = questions.reduce((count, question, idx) => {
-    const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${idx}`;
+    const key = buildAssessmentAnswerKey(domainId, practiceId, question.level, question.stream, idx);
     return answers[key] !== undefined ? count + 1 : count;
   }, 0);
   const progressPercent = questions.length > 0 ? Math.min(100, (answeredCount / questions.length) * 100) : 0;
@@ -217,7 +218,7 @@ export default function AssessmentPage() {
         {/* Questions */}
         <div className="space-y-6">
           {questions.map((question, index) => {
-            const key = `${domainId}:${practiceId}:${question.level}:${question.stream}:${index}`;
+            const key = buildAssessmentAnswerKey(domainId, practiceId, question.level, question.stream, index);
             const currentAnswer = answers[key] ?? undefined;
 
             return (
