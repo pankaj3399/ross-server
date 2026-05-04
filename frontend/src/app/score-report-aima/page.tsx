@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ReportSkeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
-import { getMaturityLevel } from "../../lib/maturity";
+import { getMaturityLevel, isBelowLevel1, getProgressToLevel1 } from "../../lib/maturity";
 import {
   IconArrowLeft,
   IconTrophy,
@@ -356,12 +356,25 @@ export default function ScoreReportPage() {
                   </div>
 
                   <div className="flex flex-col items-center md:items-start py-2">
-                    <div className="text-6xl font-black text-foreground mb-1 tracking-tighter leading-none">
-                      {(results.results.overall.overallMaturityScore ?? 0).toFixed(2)}
-                    </div>
-                    <div className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1">
-                      OUT OF 3.0
-                    </div>
+                    {isBelowLevel1(results.results.overall.overallMaturityScore ?? 0) ? (
+                      <>
+                        <div className="text-6xl font-black text-foreground mb-1 tracking-tighter leading-none">
+                          {getProgressToLevel1(results.results.overall.overallMaturityScore ?? 0)}%
+                        </div>
+                        <div className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1">
+                          PROGRESS TO LEVEL 1
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-6xl font-black text-foreground mb-1 tracking-tighter leading-none">
+                          {(results.results.overall.overallMaturityScore ?? 0).toFixed(2)}
+                        </div>
+                        <div className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.3em] ml-1">
+                          OUT OF 3.0
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -425,12 +438,25 @@ export default function ScoreReportPage() {
                               </div>
                               <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50 px-5">
                                   <div className="text-center">
-                                      <div className="text-2xl font-black text-foreground tracking-tighter leading-none">
-                                          {(domain.maturityScore != null ? domain.maturityScore : 0).toFixed(2)}
-                                      </div>
-                                      <div className="text-[8px] text-muted-foreground uppercase font-black tracking-[0.2em] mt-1">
-                                          SCORE / 3.0
-                                      </div>
+                                      {isBelowLevel1(domain.maturityScore ?? 0) ? (
+                                        <>
+                                          <div className="text-2xl font-black text-foreground tracking-tighter leading-none">
+                                              {getProgressToLevel1(domain.maturityScore ?? 0)}%
+                                          </div>
+                                          <div className="text-[8px] text-muted-foreground uppercase font-black tracking-[0.2em] mt-1">
+                                              PROGRESS TO LEVEL 1
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <div className="text-2xl font-black text-foreground tracking-tighter leading-none">
+                                              {(domain.maturityScore != null ? domain.maturityScore : 0).toFixed(2)}
+                                          </div>
+                                          <div className="text-[8px] text-muted-foreground uppercase font-black tracking-[0.2em] mt-1">
+                                              SCORE / 3.0
+                                          </div>
+                                        </>
+                                      )}
                                   </div>
                               </div>
                             </div>
@@ -439,7 +465,11 @@ export default function ScoreReportPage() {
                             <div className="w-full bg-muted rounded-full h-3 mb-8 overflow-hidden border border-border/50 p-0.5">
                               <div
                                 className={`h-full rounded-full transition-all duration-1000 ease-out ${domainMaturity.bgSolid} shadow-[0_0_8px_rgba(0,0,0,0.1)]`}
-                                style={{ width: `${(domain.maturityScore / 3) * 100}%` }}
+                                style={{ width: `${
+                                  isBelowLevel1(domain.maturityScore ?? 0)
+                                    ? getProgressToLevel1(domain.maturityScore ?? 0)
+                                    : ((domain.maturityScore ?? 0) / 3) * 100
+                                }%` }}
                               />
                             </div>
                             

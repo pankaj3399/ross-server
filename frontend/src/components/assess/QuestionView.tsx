@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAssessmentContext } from "../../contexts/AssessmentContext";
 import { useAssessmentNavigation } from "../../hooks/useAssessmentNavigation"; // Assuming this hook is available and needed or we pass helpers
 import { motion } from "framer-motion";
@@ -16,6 +16,8 @@ import { SecureTextarea } from "../shared/SecureTextarea";
 import { AssessmentSkeleton } from "../Skeleton";
 import { Button } from "../ui/button";
 import { sanitizeAimaDescription } from "../../lib/sanitize";
+import { getMissingQuestions, buildAssessmentAnswerKey, type MissingQuestion } from "../../lib/assessmentValidation";
+import MissingAnswersDialog from "./MissingAnswersDialog";
 /**
  * HTML entities for escaping.
  */
@@ -116,6 +118,8 @@ const formatAimaDescription = (description: string | null | undefined): string =
 export default function QuestionView() {
     const router = useRouter();
     const [descriptionCache, setDescriptionCache] = useState<{ key: string; html: string } | null>(null);
+    const [missingDialogOpen, setMissingDialogOpen] = useState(false);
+    const [missingQuestions, setMissingQuestions] = useState<MissingQuestion[]>([]);
 
     const {
         projectId,
@@ -155,7 +159,16 @@ export default function QuestionView() {
 
     const validQuestionIndex = Math.max(0, Math.min(currentQuestionIndex || 0, questions.length - 1));
     const currentQuestion = questions[validQuestionIndex];
-    const questionKey = `${currentDomainId}:${currentPracticeId}:${currentQuestion?.level}:${currentQuestion?.stream}:${validQuestionIndex}`;
+    const questionKey = buildAssessmentAnswerKey(currentDomainId, currentPracticeId, currentQuestion?.level ?? "", currentQuestion?.stream ?? "", validQuestionIndex);
+
+    const topAnchorRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const id = requestAnimationFrame(() => {
+            topAnchorRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        });
+        return () => cancelAnimationFrame(id);
+    }, [questionKey]);
 
     // --- Client-side effect to handle DOM-based bolding removal in lists ---
     useEffect(() => {
@@ -214,6 +227,26 @@ export default function QuestionView() {
         }
     };
 
+    const handleSubmitClick = () => {
+        if (isReadOnly || submitting) return;
+        const missing = getMissingQuestions(domains, answers);
+        if (missing.length > 0) {
+            setMissingQuestions(missing);
+            setMissingDialogOpen(true);
+            return;
+        }
+        submitProject();
+    };
+
+    const handleGoToFirstMissing = () => {
+        const first = missingQuestions[0];
+        if (!first) return;
+        setMissingDialogOpen(false);
+        setCurrentDomainId(first.domainId);
+        setCurrentPracticeId(first.practiceId);
+        setCurrentQuestionIndex(first.questionIndex);
+    };
+
     if (!currentQuestion) {
         return <AssessmentSkeleton />;
     }
@@ -269,7 +302,7 @@ export default function QuestionView() {
                             </div>
                         )}
                         <Button
-                            onClick={() => submitProject()}
+                            onClick={handleSubmitClick}
                             type="button"
                             disabled={submitting || isReadOnly}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-background rounded-lg hover:bg-primary/80 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -296,6 +329,7 @@ export default function QuestionView() {
             {/* Question Content */}
             <div className="flex-1 p-6 overflow-y-auto">
                 <div className="max-w-4xl mx-auto">
+                    <div ref={topAnchorRef} aria-hidden />
                     {/* Progress Bar */}
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-2">
@@ -488,18 +522,49 @@ export default function QuestionView() {
                             Previous
                         </button>
 
-                        <button
-                            onClick={handleNextQuestion}
-                            type="button"
-                            disabled={!hasNextQuestion}
-                            className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed bg-primary hover:bg-primary/90 text-primary-foreground"
-                        >
-                            Next
-                            <IconArrowRight className="w-4 h-4" />
-                        </button>
+                        {hasNextQuestion ? (
+                            <button
+                                onClick={handleNextQuestion}
+                                type="button"
+                                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 bg-primary hover:bg-primary/90 text-primary-foreground"
+                            >
+                                Next
+                                <IconArrowRight className="w-4 h-4" />
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleSubmitClick}
+                                type="button"
+                                disabled={submitting || isReadOnly}
+                                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 bg-success hover:bg-success/90 text-background disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {submitting ? (
+                                    <>
+                                        <IconLoader2 className="w-4 h-4 animate-spin" />
+                                        {submissionPhase === "saving-notes"
+                                            ? "Saving notes..."
+                                            : submissionPhase === "submitting"
+                                                ? "Submitting..."
+                                                : "Processing..."}
+                                    </>
+                                ) : (
+                                    <>
+                                        Submit Project
+                                        <IconArrowRight className="w-4 h-4" />
+                                    </>
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
+
+            <MissingAnswersDialog
+                open={missingDialogOpen}
+                onClose={() => setMissingDialogOpen(false)}
+                missing={missingQuestions}
+                onGoToFirst={handleGoToFirstMissing}
+            />
         </div>
     );
 }

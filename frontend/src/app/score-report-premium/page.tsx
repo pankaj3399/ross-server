@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ReportSkeleton } from "../../components/Skeleton";
 import { usePdfReport } from "../../hooks/usePdfReport";
-import { getMaturityLevel, getRiskExposure } from "../../lib/maturity";
+import { getMaturityLevel, getRiskExposure, isBelowLevel1, getProgressToLevel1 } from "../../lib/maturity";
 import { parseInsightText } from "../../lib/insightUtils";
 
 
@@ -48,6 +48,7 @@ export default function ScoreReportPage() {
   const [generatingInsights, setGeneratingInsights] = useState(false);
   const [insights, setInsights] = useState<Record<string, string>>({});
   const [premiumDomainIds, setPremiumDomainIds] = useState<Set<string>>(new Set());
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   const { exportPdf, isExporting } = usePdfReport({
     reportRef,
@@ -119,6 +120,22 @@ export default function ScoreReportPage() {
 
     fetchData();
   }, [projectId, isAuthenticated, authLoading, getProjectResults]);
+
+  useEffect(() => {
+    if (!generatingInsights) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    setElapsedSec(0);
+    const id = setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [generatingInsights]);
+
+  const formatElapsed = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   // Project/report-level capability — falls back to the viewer's plan only
   // when the cached results predate the capability field.
@@ -318,6 +335,35 @@ export default function ScoreReportPage() {
           </div>
         </motion.div>
 
+        {generatingInsights && (
+          <div className="mb-8 p-6 rounded-2xl border border-primary/20 bg-primary/5 hide-in-pdf">
+            <div className="flex items-center justify-between gap-4 mb-3">
+              <div className="flex items-center gap-3">
+                <IconSparkles className="w-5 h-5 text-primary animate-pulse" />
+                <div>
+                  <h3 className="text-base font-bold text-foreground">
+                    Generating AI Insights...
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Our AI is analyzing your domain data. This typically takes 30-60 seconds.
+                  </p>
+                </div>
+              </div>
+              <div className="font-mono text-sm font-semibold text-primary tabular-nums">
+                {formatElapsed(elapsedSec)}
+              </div>
+            </div>
+            <div
+              className="h-2 w-full overflow-hidden rounded-full bg-primary/10"
+              role="progressbar"
+              aria-busy="true"
+              aria-label="Generating AI insights"
+            >
+              <div className="h-full w-1/3 rounded-full bg-primary animate-insights-shimmer" />
+            </div>
+          </div>
+        )}
+
         {/* Executive Summary Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
           {/* Main Overall Maturity Card */}
@@ -344,25 +390,46 @@ export default function ScoreReportPage() {
 
               <div className="flex items-center gap-12 mb-10">
                 <div className="relative">
-                  <div className="text-8xl font-black text-foreground tracking-tighter">
-                    {results.results.overall.overallMaturityScore.toFixed(2)}
-                  </div>
-                  <div className="text-sm font-bold text-muted-foreground uppercase tracking-[0.3em] mt-2 ml-1">
-                    OUT OF 3.0
-                  </div>
+                  {isBelowLevel1(results.results.overall.overallMaturityScore) ? (
+                    <>
+                      <div className="text-8xl font-black text-foreground tracking-tighter">
+                        {getProgressToLevel1(results.results.overall.overallMaturityScore)}%
+                      </div>
+                      <div className="text-sm font-bold text-muted-foreground uppercase tracking-[0.3em] mt-2 ml-1">
+                        PROGRESS TO LEVEL 1
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-8xl font-black text-foreground tracking-tighter">
+                        {results.results.overall.overallMaturityScore.toFixed(2)}
+                      </div>
+                      <div className="text-sm font-bold text-muted-foreground uppercase tracking-[0.3em] mt-2 ml-1">
+                        OUT OF 3.0
+                      </div>
+                    </>
+                  )}
                 </div>
-                
+
                 <div className="flex-1 space-y-3">
                   <div className="h-4 w-full bg-muted rounded-full overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${(results.results.overall.overallMaturityScore / 3) * 100}%` }}
+                      animate={{ width: `${
+                        isBelowLevel1(results.results.overall.overallMaturityScore)
+                          ? getProgressToLevel1(results.results.overall.overallMaturityScore)
+                          : (results.results.overall.overallMaturityScore / 3) * 100
+                      }%` }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                       className={`h-full rounded-full ${performance.bgSolid}`}
                     />
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed font-medium">
-                    Your organization is currently at the <span className={`font-bold ${performance.text}`}>{performance.level}</span> stage of the OWASP AIMA maturity model.
+                    {isBelowLevel1(results.results.overall.overallMaturityScore) ? (
+                      <>You're <span className={`font-bold ${performance.text}`}>{getProgressToLevel1(results.results.overall.overallMaturityScore)}%</span> of the way to <span className="font-bold text-foreground">Initial Maturity (Level 1)</span> — the first milestone in the OWASP AIMA model.</>
+                    ) : (
+                      <>Your organization is currently at the <span className={`font-bold ${performance.text}`}>{performance.level}</span> stage of the OWASP AIMA maturity model.</>
+                    )}
                   </p>
                 </div>
               </div>
@@ -471,23 +538,36 @@ export default function ScoreReportPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-6">
-                                <div className="text-right">
-                                    <div className="text-5xl font-black text-foreground">
-                                        {domain.maturityScore.toFixed(2)}
+                                {isBelowLevel1(domain.maturityScore) ? (
+                                    <div className="text-right">
+                                        <div className="text-5xl font-black text-foreground">
+                                            {getProgressToLevel1(domain.maturityScore)}%
+                                        </div>
+                                        <div className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest mt-1">
+                                            Progress to Level 1
+                                        </div>
                                     </div>
-                                    <div className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest mt-1">
-                                        Score / 3.0
-                                    </div>
-                                </div>
-                                <div className="h-16 w-[1.5px] bg-border hidden md:block" />
-                                <div className="hidden md:block">
-                                    <div className="text-lg font-bold text-foreground">
-                                        {((domain.maturityScore / 3) * 100).toFixed(0)}%
-                                    </div>
-                                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                                        Maturity
-                                    </div>
-                                </div>
+                                ) : (
+                                    <>
+                                        <div className="text-right">
+                                            <div className="text-5xl font-black text-foreground">
+                                                {domain.maturityScore.toFixed(2)}
+                                            </div>
+                                            <div className="text-xs font-extrabold text-muted-foreground uppercase tracking-widest mt-1">
+                                                Score / 3.0
+                                            </div>
+                                        </div>
+                                        <div className="h-16 w-[1.5px] bg-border hidden md:block" />
+                                        <div className="hidden md:block">
+                                            <div className="text-lg font-bold text-foreground">
+                                                {((domain.maturityScore / 3) * 100).toFixed(0)}%
+                                            </div>
+                                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                                Maturity
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -495,7 +575,11 @@ export default function ScoreReportPage() {
                         <div className="w-full bg-muted rounded-full h-4 mb-10 overflow-hidden shadow-inner">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${(domain.maturityScore / 3) * 100}%` }}
+                                animate={{ width: `${
+                                    isBelowLevel1(domain.maturityScore)
+                                      ? getProgressToLevel1(domain.maturityScore)
+                                      : (domain.maturityScore / 3) * 100
+                                }%` }}
                                 transition={{ duration: 1, delay: 0.5 }}
                                 className={`h-full rounded-full ${domainMaturity.bgSolid} shadow-lg`}
                             />
