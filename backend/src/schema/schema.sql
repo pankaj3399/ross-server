@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS assessment_answers (
   level VARCHAR(10) NOT NULL CHECK (level IN ('1', '2', '3')),
   stream VARCHAR(10) NOT NULL CHECK (stream IN ('A', 'B')),
   question_index INTEGER NOT NULL,
-  value DECIMAL(3,2) NOT NULL CHECK (value >= 0 AND value <= 1),
+  value DECIMAL(3,2) NOT NULL CHECK (value >= 0 AND value <= 3),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(project_id, domain_id, practice_id, level, stream, question_index)

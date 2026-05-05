@@ -119,7 +119,9 @@ export default function ManualPromptJobPage() {
       return "Completed with some failures. You can check report now.";
     }
     if (jobStatus.status === "failed") {
-      return "Job failed";
+      return jobStatus.errorMessage
+        ? `Job failed: ${jobStatus.errorMessage}`
+        : "Job failed — reason unavailable. Please retry.";
     }
     return "Processing job…";
   }, [jobStatus]);

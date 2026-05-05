@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   IconShield,
@@ -23,7 +23,6 @@ import { Separator } from "@/components/ui/separator";
 
 export default function VerifyOTPPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -35,15 +34,26 @@ export default function VerifyOTPPage() {
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Get email from sessionStorage or fallback to query param
+  // Get email from the URL query (preferred) or sessionStorage as fallback.
+  // The URL is read with decodeURIComponent — not URLSearchParams.get —
+  // because the latter follows form-encoded semantics and decodes "+" to a
+  // space, corrupting plus-addressed emails like user+tag@example.com.
+  // sessionStorage access is wrapped in try/catch so a hardened browser
+  // (private mode / disabled storage) can't break the bootstrap, and is
+  // only consulted when the URL has no email so a stale stored value
+  // can't override a fresh verification link.
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedEmail = sessionStorage.getItem('pendingVerificationEmail');
-      const queryEmail = searchParams.get("email");
-      const emailValue = storedEmail || queryEmail || "";
-      setEmail(emailValue);
+    if (typeof window === 'undefined') return;
+    const match = window.location.search.match(/[?&]email=([^&]*)/);
+    const queryEmail = match ? decodeURIComponent(match[1]) : null;
+    let storedEmail: string | null = null;
+    try {
+      storedEmail = sessionStorage.getItem('pendingVerificationEmail');
+    } catch {
+      storedEmail = null;
     }
-  }, [searchParams]);
+    setEmail(queryEmail || storedEmail || "");
+  }, []);
 
   // Auto-focus first input on mount
   useEffect(() => {

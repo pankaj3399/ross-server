@@ -47,7 +47,7 @@ const FEATURE_CONFIGS: Record<Exclude<FeatureType, null>, FeatureConfig> = {
   "vulnerability": {
     title: "AI Vulnerability Assessment",
     description: "Select a project to run vulnerability assessment",
-    getPath: (projectId: string) => `/assess/${projectId}/fairness-bias/api-endpoint`,
+    getPath: (projectId: string) => `/assess/${projectId}/vulnerability-assessment`,
     requiresPremiumDomains: false,
   },
   "bias-fairness": {

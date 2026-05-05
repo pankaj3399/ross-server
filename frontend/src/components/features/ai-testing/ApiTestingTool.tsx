@@ -15,6 +15,10 @@ import {
   Lock,
 } from "lucide-react";
 import { FALLBACK_PRICES, isPremiumStatus } from "@/lib/constants";
+import {
+  RESPONSE_KEY_REGEX,
+  RESPONSE_KEY_ERROR_MESSAGE,
+} from "@/lib/responseKeyRegex";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "@/app/assess/[projectId]/fairness-bias/api-history/components/ApiHistory";
@@ -88,6 +92,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const [jobStartError, setJobStartError] = useState<string | null>(null);
   const [jobStarting, setJobStarting] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
+  const [responseKeyError, setResponseKeyError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyPlacement, setApiKeyPlacement] = useState<ApiKeyPlacement>("none");
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
@@ -142,6 +147,19 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     }
   }, [requestTemplate, apiKeyPlacement]);
 
+  useEffect(() => {
+    const trimmed = responseKey.trim();
+    if (!trimmed.length) {
+      setResponseKeyError(null);
+      return;
+    }
+    if (!RESPONSE_KEY_REGEX.test(trimmed)) {
+      setResponseKeyError(RESPONSE_KEY_ERROR_MESSAGE);
+      return;
+    }
+    setResponseKeyError(null);
+  }, [responseKey]);
+
   const trimmedResponseKey = responseKey.trim();
   const trimmedRequestTemplate = requestTemplate.trim();
   const trimmedApiKey = apiKey.trim();
@@ -151,6 +169,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
     apiEndpoint &&
     isValidUrl &&
     trimmedResponseKey &&
+    !responseKeyError &&
     trimmedRequestTemplate &&
     !templateError &&
     (!requiresApiKey || trimmedApiKey),
@@ -469,10 +488,11 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                 onChange={(e) => setResponseKey(e.target.value)}
                 placeholder="data.answers[0].message"
                 disabled={jobStarting}
+                aria-invalid={Boolean(responseKeyError)}
                 className={`
                   w-full px-4 py-3 rounded-xl border transition-colors font-mono text-sm
                   bg-background
-                  border-input focus:border-primary
+                  ${responseKeyError ? "border-destructive focus:border-destructive" : "border-input focus:border-primary"}
                   text-foreground
                   placeholder-muted-foreground
                   focus:outline-none focus:ring-2 focus:ring-primary/20
@@ -482,6 +502,12 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
               <p className="mt-2 text-xs text-muted-foreground">
                 Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to tell us where your model&apos;s final answer lives.
               </p>
+              {responseKeyError && (
+                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {responseKeyError}
+                </p>
+              )}
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
