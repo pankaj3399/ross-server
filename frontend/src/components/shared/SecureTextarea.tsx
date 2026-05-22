@@ -82,7 +82,16 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
 
     const currentVal = valueRef.current;
     const space = currentVal.length > 0 && !currentVal.endsWith(' ') ? ' ' : '';
-    const newVal = currentVal + space + text;
+    
+    const max = maxLength ?? Infinity;
+    const availableChars = max - currentVal.length - space.length;
+    
+    if (availableChars <= 0) return;
+    
+    const truncatedText = text.slice(0, availableChars);
+    if (!truncatedText) return;
+
+    const newVal = currentVal + space + truncatedText;
 
     try {
       const sanitizedValue = sanitizeNoteInput(newVal, true);
@@ -100,7 +109,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
       setIsValid(false);
       setValidationMessage("Invalid input: Contains potentially dangerous content");
     }
-  }, [disabled, readOnly]);
+  }, [disabled, readOnly, maxLength]);
 
   const { isListening, isSupported, toggleListening } = useSpeechToText(handleTranscript);
 

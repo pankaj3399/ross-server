@@ -5,11 +5,11 @@ import { useSpeechToText } from "../../hooks/useSpeechToText"
 import { motion } from "framer-motion"
 
 const Textarea = React.forwardRef<
-  HTMLTextAreaElement,
+  HTMLTextAreaElement | null,
   React.ComponentProps<"textarea">
 >(({ className, onChange, value, defaultValue, ...props }, ref) => {
   const innerRef = React.useRef<HTMLTextAreaElement>(null);
-  React.useImperativeHandle(ref, () => innerRef.current as HTMLTextAreaElement);
+  React.useImperativeHandle(ref as React.Ref<HTMLTextAreaElement | null>, () => innerRef.current, [innerRef.current]);
 
   // Speech → text injection for React controlled textareas.
   // Bypasses React's value tracker via native setter, updates React's internal state tracker,
@@ -39,7 +39,6 @@ const Textarea = React.forwardRef<
       // Dispatch events so React/RHF captures the state change
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
-      console.log('SpeechToText (Textarea): Successfully injected value:', newVal);
     } else {
       el.value = newVal;
       el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -77,6 +76,7 @@ const Textarea = React.forwardRef<
               : "text-muted-foreground hover:bg-muted opacity-0 group-hover:opacity-100 focus:opacity-100"
           )}
           title={isListening ? "Stop listening" : "Start speaking"}
+          aria-label={isListening ? "Stop listening" : "Start speaking"}
         >
           {isListening ? (
             <>

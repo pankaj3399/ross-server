@@ -86,6 +86,11 @@ export function useSpeechToText(
         showToast.error("Speech recognition failed: Network/configuration error. (Note: Chromium on Linux often lacks Google API keys. Please try official Google Chrome or check your connection).");
         shouldBeListeningRef.current = false;
         setIsListening(false);
+      } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        console.error('SpeechToText: Non-recoverable error:', event.error);
+        showToast.error(`Speech recognition failed: ${event.error}`);
+        shouldBeListeningRef.current = false;
+        setIsListening(false);
       }
     };
 

@@ -4,10 +4,10 @@ import { Mic } from "lucide-react"
 import { useSpeechToText } from "../../hooks/useSpeechToText"
 import { motion } from "framer-motion"
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+const Input = React.forwardRef<HTMLInputElement | null, React.ComponentProps<"input">>(
   ({ className, type, onChange, value, defaultValue, ...props }, ref) => {
     const innerRef = React.useRef<HTMLInputElement>(null);
-    React.useImperativeHandle(ref, () => innerRef.current as HTMLInputElement);
+    React.useImperativeHandle(ref as React.Ref<HTMLInputElement | null>, () => innerRef.current, [innerRef.current]);
 
     // Speech → text injection for React controlled inputs.
     // Bypasses React's value tracker via native setter, updates React's internal state tracker,
@@ -37,7 +37,6 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         // Dispatch events so React/RHF captures the state change
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
-        console.log('SpeechToText (Input): Successfully injected value:', newVal);
       } else {
         el.value = newVal;
         el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -59,7 +58,11 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
       && type !== "submit"
       && type !== "hidden"
       && type !== "range"
-      && type !== "color";
+      && type !== "color"
+      && type !== "number"
+      && type !== "date"
+      && type !== "time"
+      && type !== "email";
 
     return (
       <div className="relative w-full group flex items-center">
