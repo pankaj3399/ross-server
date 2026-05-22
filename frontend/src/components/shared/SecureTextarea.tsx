@@ -2,8 +2,9 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Mic } from "lucide-react";
 import { sanitizeNoteInput } from "../../lib/sanitize";
+import { useSpeechToText } from "../../hooks/useSpeechToText";
 
 interface SecureTextareaProps {
   value: string;
@@ -66,6 +67,51 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
     },
     [onChange],
   );
+
+  // Speech-to-text: SecureTextarea has onChange(string), so we
+  // can call it directly — no native setter trick needed.
+  // Uses refs to always read the latest value/onChange without
+  // recreating the callback (which would thrash the hook).
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { valueRef.current = value; }, [value]);
+  useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+
+  const handleTranscript = useCallback((text: string) => {
+    if (disabled || readOnly) return;
+
+    const currentVal = valueRef.current;
+    const space = currentVal.length > 0 && !currentVal.endsWith(' ') ? ' ' : '';
+    
+    const max = maxLength ?? Infinity;
+    const availableChars = max - currentVal.length - space.length;
+    
+    if (availableChars <= 0) return;
+    
+    const truncatedText = text.slice(0, availableChars);
+    if (!truncatedText) return;
+
+    const newVal = currentVal + space + truncatedText;
+
+    try {
+      const sanitizedValue = sanitizeNoteInput(newVal, true);
+      const originalTrimmed = newVal.trim();
+      const sanitizedTrimmed = sanitizedValue.trim();
+      if (sanitizedTrimmed !== originalTrimmed) {
+        setIsValid(false);
+        setValidationMessage("Invalid characters detected and removed");
+      } else {
+        setIsValid(true);
+        setValidationMessage("");
+      }
+      onChangeRef.current(sanitizedValue);
+    } catch (error) {
+      setIsValid(false);
+      setValidationMessage("Invalid input: Contains potentially dangerous content");
+    }
+  }, [disabled, readOnly, maxLength]);
+
+  const { isListening, isSupported, toggleListening } = useSpeechToText(handleTranscript);
 
   // Manual save on Ctrl+S (optional, for user convenience)
   useEffect(() => {
@@ -145,6 +191,7 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
               : "border-destructive bg-destructive/10 text-destructive"
             }
             ${isOverLimit ? "border-destructive" : ""}
+            ${isSupported ? "pr-12" : ""}
           `}
           rows={4}
         />
@@ -154,10 +201,57 @@ export const SecureTextarea: React.FC<SecureTextareaProps> = ({
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="absolute top-2 right-2"
+            className={`absolute top-2 right-2 ${isSupported ? 'mr-10' : ''}`}
           >
             <AlertTriangle className="w-5 h-5 text-destructive" />
           </motion.div>
+        )}
+
+        {isSupported && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleListening();
+            }}
+            className={`absolute right-2 top-2 w-8 h-8 rounded-full transition-colors z-10 flex items-center justify-center overflow-visible ${
+              isListening
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "text-muted-foreground hover:bg-muted opacity-50 hover:opacity-100"
+            }`}
+            title={isListening ? "Stop listening" : "Start speaking"}
+          >
+            {isListening ? (
+              <>
+                {/* Ripple rings */}
+                <span className="absolute inset-0 pointer-events-none overflow-visible flex items-center justify-center">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      className="absolute w-full h-full rounded-full bg-red-500/30"
+                      initial={{ scale: 1, opacity: 0.7 }}
+                      animate={{ scale: 2.4, opacity: 0 }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.5, ease: "easeOut" }}
+                    />
+                  ))}
+                </span>
+                {/* Sound-wave bars */}
+                <div className="flex items-center gap-[3px] h-3 relative z-10">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span
+                      key={i}
+                      className="w-[2.5px] bg-white rounded-full"
+                      animate={{ height: ["30%", "100%", "30%"] }}
+                      transition={{ duration: 0.6, repeat: Infinity, repeatType: "reverse", delay: i * 0.15, ease: "easeInOut" }}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <Mic size={16} />
+            )}
+          </button>
         )}
       </div>
 
