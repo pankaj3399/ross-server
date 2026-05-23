@@ -6,6 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useAssessmentResultsStore } from "../../store/assessmentResultsStore";
 import { apiService } from "../../lib/api";
+import { isPremiumStatus } from "../../lib/constants";
 import { motion } from "framer-motion";
 import {
   IconArrowLeft,
@@ -40,7 +41,7 @@ export default function ScoreReportPage() {
   // Fallback only — premium-insight visibility is now driven by the
   // project/report capability flag (see hasPremiumInsights below) so that
   // free collaborators on a premium owner's project still get full insights.
-  const isUserPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
+  const isUserPremium = isPremiumStatus(user?.subscription_status);
 
   const projectId = searchParams.get("projectId");
   const [results, setResults] = useState<any>(null);

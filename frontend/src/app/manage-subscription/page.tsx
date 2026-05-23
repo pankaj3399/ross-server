@@ -107,7 +107,7 @@ function StatusAlertCard({
     >
       <div className="absolute top-0 right-0 w-32 h-32 bg-warning/5 rounded-full blur-2xl"></div>
       <div className="relative flex items-start gap-4">
-        <div className="w-10 h-10 bg-warning rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+        <div className="w-10 h-10 bg-warning rounded-xl flex items-center justify-center shrink-0 shadow-lg">
           <IconAlertTriangle className="w-5 h-5 text-warning-foreground" />
         </div>
         <div className="flex-1">
@@ -588,6 +588,7 @@ export default function ManageSubscriptionPage() {
   const getPlanDisplayName = () => {
     if (subscription_status === "basic_premium") return "BLOOM";
     if (subscription_status === "pro_premium") return "BLOOM PLUS";
+    if (subscription_status === "trial") return "FREE TRIAL";
     return "SEED (Free)";
   };
 

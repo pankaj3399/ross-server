@@ -1013,6 +1013,7 @@ export default function SettingsPage() {
                       <p className="text-xl font-bold text-foreground capitalize mb-3">
                         {user?.subscription_status === 'basic_premium' ? 'BLOOM' :
                           user?.subscription_status === 'pro_premium' ? 'BLOOM PLUS' :
+                            user?.subscription_status === 'trial' ? 'FREE TRIAL' :
                             'SEED'}
                       </p>
                       {subscriptionDetails?.plan && (

@@ -16,6 +16,7 @@ import {
 import { apiService } from "../../../lib/api";
 import { showToast } from "../../../lib/toast";
 import { FALLBACK_PRICES } from "../../../lib/constants";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,25 @@ export default function SubscriptionModal({
   });
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
+  const { user, refreshUser } = useAuth();
+
+  const handleStartTrial = async () => {
+    if (upgradingPlan !== null) return;
+    try {
+      setUpgradingPlan("trial");
+      await apiService.startTrial();
+      await refreshUser();
+      showToast.success("Free trial started successfully!");
+      onClose();
+      // Optional: reload the page to refresh all state completely
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Failed to start trial:", error);
+      showToast.error(error.message || "Failed to start free trial.");
+    } finally {
+      setUpgradingPlan(null);
+    }
+  };
 
   const saveReturnUrlForCheckout = () => {
     if (typeof window === "undefined") return;
@@ -234,6 +254,41 @@ export default function SubscriptionModal({
               </div>
             </motion.div>
           </DialogHeader>
+
+          {/* Free Trial Section */}
+          {currentPlan === "free" && user && !user.trial_used && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mb-8"
+            >
+              <div className="bg-linear-to-r from-primary/10 via-background to-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <span className="text-primary">✨ Try Free for 7 Days</span>
+                  </h3>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Unlock all BLOOM features including AI Vulnerability Assessment, Bias & Fairness Testing, and Compliance Readiness Controls. No credit card required.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleStartTrial}
+                  disabled={upgradingPlan !== null}
+                  className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-8 shadow-md"
+                >
+                  {upgradingPlan === "trial" ? (
+                    <>
+                      <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
+                      Starting...
+                    </>
+                  ) : (
+                    "Start Free Trial"
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          )}
 
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
