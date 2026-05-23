@@ -11,6 +11,9 @@ export interface User {
   email_verified?: boolean;
   mfa_enabled?: boolean;
   updated_at?: string;
+  trial_started_at?: string | null;
+  trial_ends_at?: string | null;
+  trial_used?: boolean;
 }
 
 export interface PreviewData {
@@ -1463,6 +1466,24 @@ class ApiService {
   }
   public async getMyInvitations(): Promise<{ invitations: any[] }> {
     return this.request<{ invitations: any[] }>("/auth/invitations/me");
+  }
+
+  // ==========================================
+  // TRIAL METHODS
+  // ==========================================
+
+  public async startTrial(): Promise<{ message: string; trial_started_at: string; trial_ends_at: string; days_remaining: number }> {
+    return this.request("/subscriptions/start-trial", {
+      method: "POST",
+    });
+  }
+
+  public async getTrialStatus(): Promise<{ isOnTrial: boolean; trialUsed: boolean; trialStartedAt: string | null; trialEndsAt: string | null; daysRemaining: number; isExpired: boolean }> {
+    return this.request("/subscriptions/trial-status");
+  }
+
+  public async getTrialSummary(): Promise<{ projectsCreated: number; assessmentsCompleted: number; teamMembersInvited: number; questionsAnswered: number }> {
+    return this.request("/subscriptions/trial-summary");
   }
 }
 

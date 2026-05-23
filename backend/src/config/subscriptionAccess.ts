@@ -13,9 +13,8 @@ const COMMON_ROUTES: string[] = [
 
 export const SUBSCRIPTION_ROUTES: Record<SubscriptionStatus, string[]> = {
   free: [],
-  // Trial currently has the same route-level access as free;
-  // business logic for trial-specific perks can be layered on later.
-  trial: [],
+  // Trial unlocks basic_premium routes
+  trial: ['/fairness', '/crc'],
   basic_premium: ['/fairness', '/crc'],
   pro_premium: ['/fairness', '/crc'],
 };

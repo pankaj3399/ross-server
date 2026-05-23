@@ -12,6 +12,9 @@ declare module "express-serve-static-core" {
       subscription_status: string;
       stripe_customer_id?: string | null;
       stripe_subscription_id?: string | null;
+      trial_started_at?: Date | null;
+      trial_ends_at?: Date | null;
+      trial_used?: boolean;
     };
   }
 }
@@ -32,7 +35,7 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
     const result = await pool.query(
-      "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id FROM users WHERE id = $1",
+      "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id, trial_started_at, trial_ends_at, trial_used FROM users WHERE id = $1",
       [decoded.userId],
     );
 
@@ -40,7 +43,21 @@ export const authenticateToken = async (
       return res.status(401).json({ error: "User not found" });
     }
 
-    req.user = result.rows[0];
+    let user = result.rows[0];
+
+    // Trial auto-expiration logic
+    if (user.subscription_status === 'trial' && user.trial_ends_at) {
+      if (new Date() > new Date(user.trial_ends_at)) {
+        await pool.query(
+          "UPDATE users SET subscription_status = 'free', trial_used = true WHERE id = $1",
+          [user.id]
+        );
+        user.subscription_status = 'free';
+        user.trial_used = true;
+      }
+    }
+
+    req.user = user;
     next();
   } catch (error) {
     return res.status(403).json({ error: "Invalid token" });

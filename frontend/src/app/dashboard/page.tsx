@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react";
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
+import TrialExpiredBanner from "../../components/features/trial/TrialExpiredBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -364,6 +365,9 @@ export default function DashboardPage() {
               </Button>
             </motion.div>
           </div>
+
+          {/* Trial Expired Banner */}
+          <TrialExpiredBanner />
 
           {/* Success Message */}
           {showSuccessMessage && (

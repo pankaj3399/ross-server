@@ -17,6 +17,7 @@ import {
 } from "@tabler/icons-react";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { apiService, Project } from "../../lib/api";
+import { isPremiumStatus } from "../../lib/constants";
 import { Button } from "@/components/ui/button";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -76,7 +77,7 @@ export default function PremiumFeaturesPage() {
   const [loadingAccess, setLoadingAccess] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-  const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
+  const isPremium = isPremiumStatus(user?.subscription_status);
 
   useEffect(() => {
     if (isAuthenticated && isPremium) {

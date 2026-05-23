@@ -7,6 +7,7 @@ import { AppSidebar } from "./Sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 import { isSidebarVisible, isLandingRoute } from "../../lib/route-utils";
+import TrialBanner from "../features/trial/TrialBanner";
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -35,6 +36,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     >
       <AppSidebar />
       <SidebarInset>
+        <TrialBanner />
         <main className="flex-1 bg-background">{children}</main>
       </SidebarInset>
     </SidebarProvider>
