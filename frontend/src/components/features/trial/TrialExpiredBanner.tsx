@@ -20,6 +20,7 @@ export default function TrialExpiredBanner() {
   } | null>(null);
 
   useEffect(() => {
+    setSummary(null);
     if (user?.subscription_status === "free" && user.trial_used) {
       apiService.getTrialSummary().then(setSummary).catch(console.error);
     }
@@ -30,7 +31,12 @@ export default function TrialExpiredBanner() {
   }
 
   // Only show if they actually did something
-  if (summary.projectsCreated === 0 && summary.questionsAnswered === 0) {
+  if (
+    summary.projectsCreated === 0 &&
+    summary.questionsAnswered === 0 &&
+    summary.assessmentsCompleted === 0 &&
+    summary.teamMembersInvited === 0
+  ) {
     return (
       <>
         <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-muted/50 to-muted/20 border border-muted flex flex-col md:flex-row items-center justify-between gap-6">

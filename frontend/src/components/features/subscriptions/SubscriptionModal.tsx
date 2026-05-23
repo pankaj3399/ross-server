@@ -62,6 +62,7 @@ export default function SubscriptionModal({
   const { user, refreshUser } = useAuth();
 
   const handleStartTrial = async () => {
+    if (upgradingPlan !== null) return;
     try {
       setUpgradingPlan("trial");
       await apiService.startTrial();
@@ -273,7 +274,7 @@ export default function SubscriptionModal({
                 </div>
                 <Button
                   onClick={handleStartTrial}
-                  disabled={upgradingPlan === "trial"}
+                  disabled={upgradingPlan !== null}
                   className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-8 shadow-md"
                 >
                   {upgradingPlan === "trial" ? (

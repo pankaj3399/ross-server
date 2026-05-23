@@ -48,12 +48,14 @@ export const authenticateToken = async (
     // Trial auto-expiration logic
     if (user.subscription_status === 'trial' && user.trial_ends_at) {
       if (new Date() > new Date(user.trial_ends_at)) {
-        await pool.query(
-          "UPDATE users SET subscription_status = 'free', trial_used = true WHERE id = $1",
+        const updateResult = await pool.query(
+          "UPDATE users SET subscription_status = 'free', trial_used = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND subscription_status = 'trial' AND trial_ends_at <= NOW()",
           [user.id]
         );
-        user.subscription_status = 'free';
-        user.trial_used = true;
+        if (updateResult.rowCount === 1) {
+          user.subscription_status = 'free';
+          user.trial_used = true;
+        }
       }
     }
 

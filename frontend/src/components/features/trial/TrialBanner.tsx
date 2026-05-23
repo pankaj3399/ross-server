@@ -84,6 +84,7 @@ export default function TrialBanner() {
                   variant="ghost"
                   className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                   onClick={handleDismiss}
+                  aria-label="Dismiss banner"
                 >
                   <IconX className="w-4 h-4" />
                 </Button>

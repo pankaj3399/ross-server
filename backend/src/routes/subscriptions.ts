@@ -858,34 +858,38 @@ router.post("/cancel-subscription", authenticateToken, async (req, res) => {
 router.post("/start-trial", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
-    
-    // Get fresh user data
-    const userResult = await pool.query(
-      "SELECT subscription_status, trial_used FROM users WHERE id = $1",
-      [userId]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const user = userResult.rows[0];
-
-    if (user.trial_used) {
-      return res.status(400).json({ error: "You have already used your free trial." });
-    }
-
-    if (user.subscription_status !== 'free') {
-      return res.status(400).json({ error: "Trials are only available for free accounts." });
-    }
-
     const now = new Date();
     const trialEndsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+    // Atomic update with preconditions
     const updateResult = await pool.query(
-      "UPDATE users SET subscription_status = 'trial', trial_started_at = $1, trial_ends_at = $2, trial_used = true, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING trial_started_at, trial_ends_at",
+      "UPDATE users SET subscription_status = 'trial', trial_started_at = $1, trial_ends_at = $2, trial_used = true, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND trial_used = false AND subscription_status = 'free' RETURNING trial_started_at, trial_ends_at",
       [now, trialEndsAt, userId]
     );
+
+    if (updateResult.rowCount === 0) {
+      // Get reason for failure
+      const userResult = await pool.query(
+        "SELECT subscription_status, trial_used FROM users WHERE id = $1",
+        [userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = userResult.rows[0];
+
+      if (user.trial_used) {
+        return res.status(400).json({ error: "You have already used your free trial." });
+      }
+
+      if (user.subscription_status !== 'free') {
+        return res.status(400).json({ error: "Trials are only available for free accounts." });
+      }
+
+      return res.status(400).json({ error: "Failed to start trial" });
+    }
 
     const updated = updateResult.rows[0];
 
@@ -932,10 +936,10 @@ router.get("/trial-status", authenticateToken, async (req, res) => {
       }
     }
 
-    // Auto-downgrade logic duplicated here just in case token middleware hasn't run recently
+    // Auto-downgrade logic conditional UPDATE
     if (isOnTrial && isExpired) {
       await pool.query(
-        "UPDATE users SET subscription_status = 'free' WHERE id = $1",
+        "UPDATE users SET subscription_status = 'free', trial_used = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND subscription_status = 'trial' AND trial_ends_at <= NOW()",
         [userId]
       );
     }
@@ -958,32 +962,53 @@ router.get("/trial-status", authenticateToken, async (req, res) => {
 router.get("/trial-summary", authenticateToken, async (req, res) => {
   try {
     const userId = req.user!.id;
-    
-    // Count projects
-    const projectsResult = await pool.query(
-      "SELECT COUNT(*) as count FROM projects WHERE user_id = $1",
+
+    // Get the trial timestamps from database to be absolutely accurate
+    const userRes = await pool.query(
+      "SELECT trial_started_at, trial_ends_at FROM users WHERE id = $1",
       [userId]
+    );
+
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { trial_started_at, trial_ends_at } = userRes.rows[0];
+
+    if (!trial_started_at || !trial_ends_at) {
+      return res.json({
+        projectsCreated: 0,
+        assessmentsCompleted: 0,
+        teamMembersInvited: 0,
+        questionsAnswered: 0
+      });
+    }
+    
+    // Count projects within the trial window
+    const projectsResult = await pool.query(
+      "SELECT COUNT(*) as count FROM projects WHERE user_id = $1 AND created_at BETWEEN $2 AND $3",
+      [userId, trial_started_at, trial_ends_at]
     );
     const projectsCreated = parseInt(projectsResult.rows[0].count, 10);
 
-    // Count submitted assessments
+    // Count submitted assessments within the trial window
     const assessmentsResult = await pool.query(
-      "SELECT COUNT(*) as count FROM projects WHERE user_id = $1 AND status = 'completed'",
-      [userId]
+      "SELECT COUNT(*) as count FROM projects WHERE user_id = $1 AND status = 'completed' AND created_at BETWEEN $2 AND $3",
+      [userId, trial_started_at, trial_ends_at]
     );
     const assessmentsCompleted = parseInt(assessmentsResult.rows[0].count, 10);
 
-    // Count team members
+    // Count team members invited within the trial window
     const membersResult = await pool.query(
-      "SELECT COUNT(DISTINCT pm.user_id) as count FROM project_members pm JOIN projects p ON pm.project_id = p.id WHERE p.user_id = $1 AND pm.user_id != $1",
-      [userId]
+      "SELECT COUNT(DISTINCT pm.user_id) as count FROM project_members pm JOIN projects p ON pm.project_id = p.id WHERE p.user_id = $1 AND pm.user_id != $1 AND pm.created_at BETWEEN $2 AND $3",
+      [userId, trial_started_at, trial_ends_at]
     );
     const teamMembersInvited = parseInt(membersResult.rows[0].count, 10);
 
-    // AIMA answers count
+    // AIMA answers count within the trial window
     const answersResult = await pool.query(
-      "SELECT COUNT(*) as count FROM assessment_answers aa JOIN projects p ON aa.project_id = p.id WHERE p.user_id = $1",
-      [userId]
+      "SELECT COUNT(*) as count FROM assessment_answers aa JOIN projects p ON aa.project_id = p.id WHERE p.user_id = $1 AND aa.created_at BETWEEN $2 AND $3",
+      [userId, trial_started_at, trial_ends_at]
     );
     const questionsAnswered = parseInt(answersResult.rows[0].count, 10);
 
