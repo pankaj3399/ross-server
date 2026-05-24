@@ -1117,6 +1117,20 @@ router.get("/risks/:projectId/summary", authenticateToken, async (req, res) => {
 
 // --- Feature 3: Risk Register CRUD Endpoints ---
 
+const targetDateSchema = z.preprocess((val) => {
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  return val;
+}, z.string().nullable().optional().refine((val) => {
+  if (val === null || val === undefined) return true;
+  const parsed = Date.parse(val);
+  return !isNaN(parsed);
+}, {
+  message: "Invalid target date format"
+}));
+
 const manualRiskSchema = z.object({
   title: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
     z.string().min(1, "Risk title is required").max(300, "Title must be 300 characters max")),
@@ -1126,7 +1140,7 @@ const manualRiskSchema = z.object({
   description: z.string().optional().default(""),
   mitigation_plan: z.string().optional().default(""),
   owner: z.string().max(200).optional().default(""),
-  target_date: z.string().nullable().optional(),
+  target_date: targetDateSchema,
   review_frequency: z.string().max(50).optional().default("Quarterly"),
 });
 
@@ -1137,7 +1151,7 @@ const updateRiskSchema = z.object({
   description: z.string().optional(),
   mitigation_plan: z.string().optional(),
   owner: z.string().max(200).optional(),
-  target_date: z.string().nullable().optional(),
+  target_date: targetDateSchema,
   review_frequency: z.string().max(50).optional(),
   status: z.enum(["Open", "Closed"]).optional(),
 });
@@ -1265,7 +1279,7 @@ router.put("/risks/:projectId/:riskId", authenticateToken, async (req, res) => {
       ? (data.target_date ? (data.target_date === null ? null : new Date(data.target_date)) : null) 
       : currentRisk.target_date;
     const reviewFrequency = data.review_frequency !== undefined ? data.review_frequency : currentRisk.review_frequency;
-    const status = data.status !== undefined ? data.status : currentRisk.status;
+    const status = (isManual && data.status !== undefined) ? data.status : currentRisk.status;
 
     const result = await pool.query(
       `UPDATE crc_risks SET
@@ -1351,7 +1365,7 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     
     // Fetch control details
     const controlResult = await pool.query(
-      "SELECT control_id, control_title FROM crc_controls WHERE id = $1 OR control_id = $1",
+      "SELECT control_id, control_title, status FROM crc_controls WHERE id = $1 OR control_id = $1",
       [controlId]
     );
 
@@ -1359,7 +1373,12 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
       return res.status(404).json({ success: false, error: "Compliance control not found" });
     }
 
-    const { control_id: controlShortId, control_title: controlTitle } = controlResult.rows[0];
+    const { control_id: controlShortId, control_title: controlTitle, status } = controlResult.rows[0];
+
+    const user = (req as any).user;
+    if (status !== "Published" && user?.role !== "ADMIN") {
+      return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
+    }
 
     let templateHtml = "";
     if (controlShortId === "OPS-INC-01") {

@@ -345,10 +345,21 @@ export default function CRCAssessmentPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const downloadUrl = apiService.downloadCRCTemplateUrl(currentControl.id);
-                    window.open(downloadUrl, "_blank");
-                    showToast.success("Downloading compliance template...");
+                  onClick={async () => {
+                    try {
+                      showToast.success("Downloading compliance template...");
+                      const blob = await apiService.downloadCRCTemplate(currentControl.id);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `MATUR-CRC-${currentControl.control_id || currentControl.id}-Template.doc`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err: any) {
+                      showToast.error("Failed to download compliance template.");
+                    }
                   }}
                   className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 flex items-center gap-1.5"
                 >

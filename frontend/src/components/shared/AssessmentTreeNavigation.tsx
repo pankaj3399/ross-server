@@ -756,7 +756,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                           </SidebarMenuSubItem>
                                         </SidebarMenuSub>
                                       )}
-                                      {item.id === "crc" && crcCategories.length > 0 && (
+                                      {item.id === "crc" && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
                                           {/* Dashboard Link */}
                                           <SidebarMenuSubItem>

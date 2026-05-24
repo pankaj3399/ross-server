@@ -1440,7 +1440,23 @@ class ApiService {
 
   // CRC Templates
   downloadCRCTemplateUrl(controlId: string): string {
-    return `${API_BASE_URL}/crc/templates/${controlId}/download?Authorization=Bearer ${encodeURIComponent(this.getAuthToken() || "")}`;
+    return `${API_BASE_URL}/crc/templates/${controlId}/download`;
+  }
+
+  async downloadCRCTemplate(controlId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/download`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${this.getAuthToken()}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Download failed" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
   }
 
   // ==========================================

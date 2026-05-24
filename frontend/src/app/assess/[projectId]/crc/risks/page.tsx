@@ -418,8 +418,15 @@ export default function CRCRiskRegisterPage() {
                     <motion.tr
                       key={risk.id}
                       onClick={() => handleRowClick(risk)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleRowClick(risk);
+                        }
+                      }}
+                      tabIndex={0}
                       whileHover={{ backgroundColor: "rgba(var(--primary-rgb), 0.02)" }}
-                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                      className="cursor-pointer hover:bg-muted/30 transition-colors focus:bg-muted/30 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                     >
                       <td className="p-4 font-mono text-xs font-semibold text-primary">{risk.risk_code}</td>
                       <td className="p-4">
