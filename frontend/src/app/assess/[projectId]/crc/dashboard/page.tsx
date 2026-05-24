@@ -247,6 +247,7 @@ export default function CRCDashboardPage() {
 
   useEffect(() => {
     if (requireAuthLoading || contextLoading) return;
+    if (!isPremium) return;
     if (!projectId) {
       setLoading(false);
       return;
@@ -275,7 +276,7 @@ export default function CRCDashboardPage() {
 
     fetchResults();
     return () => { cancelled = true; };
-  }, [requireAuthLoading, contextLoading, projectId]);
+  }, [requireAuthLoading, contextLoading, projectId, isPremium]);
 
   const handleExportPdf = useCallback(async () => {
     if (!results || isExporting) return;

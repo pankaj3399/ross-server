@@ -142,30 +142,41 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         // on the pg driver configuration).
         let mapping: ComplianceMapping = {};
         if (row.compliance_mapping) {
-            mapping = typeof row.compliance_mapping === "string"
-                ? JSON.parse(row.compliance_mapping)
-                : row.compliance_mapping;
+            if (typeof row.compliance_mapping === "string") {
+                try {
+                    mapping = JSON.parse(row.compliance_mapping);
+                } catch (error) {
+                    if (error instanceof SyntaxError) {
+                        console.error(`Malformed compliance_mapping for row ${row.control_id}:`, error);
+                        mapping = {};
+                    } else {
+                        throw error;
+                    }
+                }
+            } else {
+                mapping = row.compliance_mapping;
+            }
         }
 
         const pts = readinessPoints(value);
 
         if (mapping.eu_ai_act && mapping.eu_ai_act.length > 0) {
             fw.eu_ai_act.totalControls++;
-            if (value !== null) {
+            if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.eu_ai_act.scoredControls++;
                 fw.eu_ai_act.points += pts;
             }
         }
         if (mapping.nist_ai_rmf && mapping.nist_ai_rmf.length > 0) {
             fw.nist_ai_rmf.totalControls++;
-            if (value !== null) {
+            if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.nist_ai_rmf.scoredControls++;
                 fw.nist_ai_rmf.points += pts;
             }
         }
         if (mapping.iso_42001 && mapping.iso_42001.length > 0) {
             fw.iso_42001.totalControls++;
-            if (value !== null) {
+            if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.iso_42001.scoredControls++;
                 fw.iso_42001.points += pts;
             }
