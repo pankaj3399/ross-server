@@ -497,7 +497,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   };
 
   return (
-    <div className="relative flex-shrink-0" style={{ width: sidebarWidth }}>
+    <div className="relative shrink-0" style={{ width: sidebarWidth }}>
       {/* Resize Handle - Positioned on the LEFT edge because layout is reversed */}
       <div
         role="separator"
@@ -641,7 +641,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             id: "crc",
                             label: "Compliance Readiness Controls",
                             icon: IconShieldCheck,
-                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc/welcome`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
+                            onClick: () => premiumStatus ? router.push(`/assess/${projectId}/crc/dashboard`) : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
                             locked: !premiumStatus,
                             color: "text-emerald-500",
                             active: pathname.includes('/crc')

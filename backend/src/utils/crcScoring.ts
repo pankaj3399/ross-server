@@ -22,6 +22,13 @@ export type CrcCategoryResult = {
     percentage: number | null;
 };
 
+export type CrcFrameworkResult = {
+    totalControls: number;
+    scoredControls: number;
+    points: number;
+    percentage: number | null;
+};
+
 export type CrcResults = {
     overall: {
         totalControls: number;
@@ -38,6 +45,17 @@ export type CrcResults = {
         na: number;
         notSure: number;
     };
+    frameworks: {
+        eu_ai_act: CrcFrameworkResult;
+        nist_ai_rmf: CrcFrameworkResult;
+        iso_42001: CrcFrameworkResult;
+    };
+};
+
+type ComplianceMapping = {
+    eu_ai_act?: Array<{ ref: string; context: string }>;
+    nist_ai_rmf?: Array<{ ref: string; context: string }>;
+    iso_42001?: Array<{ ref: string; context: string }>;
 };
 
 type ControlRow = {
@@ -45,16 +63,30 @@ type ControlRow = {
     category_id: number | null;
     category_name: string | null;
     response_value: number | null;
+    compliance_mapping: ComplianceMapping | null;
 };
+
+/**
+ * Compute the dashboard readiness score for a single control response.
+ * Fully Implemented (1) = 1 point, Partially (0.5) = 0.5 points,
+ * everything else (No / NA / Not Sure / unanswered) = 0 points.
+ */
+function readinessPoints(value: number | null): number {
+    if (value === ANSWER_YES) return 1;
+    if (value === ANSWER_PARTIAL) return 0.5;
+    return 0;
+}
 
 export async function computeCrcResults(projectId: string): Promise<CrcResults> {
     // Left join: every published control appears once, with the user's response
     // value if any. This is the source of truth for both completion and scoring.
+    // Also fetch compliance_mapping for per-framework scoring.
     const result = await pool.query<ControlRow>(
         `SELECT c.id AS control_id,
                 c.category_id,
                 cat.name AS category_name,
-                r.value AS response_value
+                r.value AS response_value,
+                c.compliance_mapping
          FROM crc_controls c
          LEFT JOIN crc_categories cat ON cat.id = c.category_id
          LEFT JOIN crc_assessment_responses r
@@ -73,6 +105,13 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         scoreSum: number;
         scoredControls: number;
     }>();
+
+    // Per-framework accumulators
+    const fw = {
+        eu_ai_act: { totalControls: 0, scoredControls: 0, points: 0 },
+        nist_ai_rmf: { totalControls: 0, scoredControls: 0, points: 0 },
+        iso_42001: { totalControls: 0, scoredControls: 0, points: 0 },
+    };
 
     let totalControls = 0;
     let answeredControls = 0;
@@ -97,6 +136,40 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         }
         const bucket = categoryMap.get(key)!;
         bucket.totalControls++;
+
+        // --- Per-framework tracking ---
+        // Parse compliance_mapping (may be a string or already an object depending
+        // on the pg driver configuration).
+        let mapping: ComplianceMapping = {};
+        if (row.compliance_mapping) {
+            mapping = typeof row.compliance_mapping === "string"
+                ? JSON.parse(row.compliance_mapping)
+                : row.compliance_mapping;
+        }
+
+        const pts = readinessPoints(value);
+
+        if (mapping.eu_ai_act && mapping.eu_ai_act.length > 0) {
+            fw.eu_ai_act.totalControls++;
+            if (value !== null) {
+                fw.eu_ai_act.scoredControls++;
+                fw.eu_ai_act.points += pts;
+            }
+        }
+        if (mapping.nist_ai_rmf && mapping.nist_ai_rmf.length > 0) {
+            fw.nist_ai_rmf.totalControls++;
+            if (value !== null) {
+                fw.nist_ai_rmf.scoredControls++;
+                fw.nist_ai_rmf.points += pts;
+            }
+        }
+        if (mapping.iso_42001 && mapping.iso_42001.length > 0) {
+            fw.iso_42001.totalControls++;
+            if (value !== null) {
+                fw.iso_42001.scoredControls++;
+                fw.iso_42001.points += pts;
+            }
+        }
 
         if (value === null) continue;
 
@@ -130,6 +203,16 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         }))
         .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
+    // Build per-framework results
+    const buildFrameworkResult = (acc: typeof fw.eu_ai_act): CrcFrameworkResult => ({
+        totalControls: acc.totalControls,
+        scoredControls: acc.scoredControls,
+        points: acc.points,
+        percentage: acc.scoredControls > 0
+            ? (acc.points / acc.scoredControls) * 100
+            : null,
+    });
+
     return {
         overall: {
             totalControls,
@@ -140,6 +223,11 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         },
         categories,
         breakdown,
+        frameworks: {
+            eu_ai_act: buildFrameworkResult(fw.eu_ai_act),
+            nist_ai_rmf: buildFrameworkResult(fw.nist_ai_rmf),
+            iso_42001: buildFrameworkResult(fw.iso_42001),
+        },
     };
 }
 

@@ -195,6 +195,13 @@ export interface CRCCategoryResult {
   percentage: number | null;
 }
 
+export interface CRCFrameworkResult {
+  totalControls: number;
+  scoredControls: number;
+  points: number;
+  percentage: number | null;
+}
+
 export interface CRCResults {
   overall: {
     totalControls: number;
@@ -210,6 +217,11 @@ export interface CRCResults {
     no: number;
     na: number;
     notSure: number;
+  };
+  frameworks: {
+    eu_ai_act: CRCFrameworkResult;
+    nist_ai_rmf: CRCFrameworkResult;
+    iso_42001: CRCFrameworkResult;
   };
 }
 
