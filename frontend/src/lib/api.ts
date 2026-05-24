@@ -191,6 +191,8 @@ export interface CRCCategoryResult {
   totalControls: number;
   answeredControls: number;
   scoredControls: number;
+  naCount: number;
+  applicableControls: number;
   averageScore: number | null;
   percentage: number | null;
 }
@@ -198,8 +200,17 @@ export interface CRCCategoryResult {
 export interface CRCFrameworkResult {
   totalControls: number;
   scoredControls: number;
+  naCount: number;
+  applicableControls: number;
   points: number;
   percentage: number | null;
+}
+
+export interface RiskSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
 }
 
 export interface CRCResults {
@@ -207,6 +218,8 @@ export interface CRCResults {
     totalControls: number;
     answeredControls: number;
     scoredControls: number;
+    naCount: number;
+    applicableControls: number;
     averageScore: number | null;
     percentage: number | null;
   };
@@ -223,6 +236,7 @@ export interface CRCResults {
     nist_ai_rmf: CRCFrameworkResult;
     iso_42001: CRCFrameworkResult;
   };
+  riskSummary?: RiskSummary;
 }
 
 export interface CRCControlVersion {

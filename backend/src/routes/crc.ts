@@ -5,6 +5,7 @@ import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
 import { recordEvent } from "../services/auditLogService";
+import { syncRiskFromResponse } from "../services/crcRiskService";
 
 const router = Router();
 
@@ -952,6 +953,11 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
       [projectId, data.controlId, userId, data.value, data.notes]
     );
 
+    // Sync risk row for this control (fire-and-forget; non-blocking)
+    syncRiskFromResponse(projectId, data.controlId, data.value).catch((err) =>
+      console.error("Risk sync failed for control", data.controlId, err)
+    );
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Error saving CRC response:", error);
@@ -1068,6 +1074,44 @@ router.get("/results/:projectId", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching CRC results:", error);
     res.status(500).json({ success: false, error: "Failed to fetch CRC results" });
+  }
+});
+
+
+// GET /crc/risks/:projectId/summary - Get risk counts by rating for the dashboard
+router.get("/risks/:projectId/summary", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Project not found or access denied" });
+    }
+
+    const result = await pool.query(
+      `SELECT rating, COUNT(*)::int as count
+       FROM crc_risks
+       WHERE project_id = $1 AND status = 'Open'
+       GROUP BY rating`,
+      [projectId]
+    );
+
+    const summary = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const row of result.rows) {
+      const key = (row.rating as string).toLowerCase() as keyof typeof summary;
+      if (key in summary) {
+        summary[key] = row.count;
+      }
+    }
+
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    console.error("Error fetching risk summary:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch risk summary" });
   }
 });
 
