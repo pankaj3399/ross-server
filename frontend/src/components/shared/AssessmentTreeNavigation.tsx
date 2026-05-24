@@ -18,6 +18,7 @@ import {
   IconUsers,
   IconSettings,
   IconBriefcase,
+  IconLayoutDashboard,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
@@ -757,6 +758,52 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       )}
                                       {item.id === "crc" && crcCategories.length > 0 && (
                                         <SidebarMenuSub className="border-l border-sidebar-border ml-[21px] pl-4 mt-1 gap-1">
+                                          {/* Dashboard Link */}
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton
+                                              onClick={() => {
+                                                if (premiumStatus) {
+                                                  router.push(`/assess/${projectId}/crc/dashboard`);
+                                                } else {
+                                                  openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                }
+                                              }}
+                                              className="h-8 px-2 group/cat"
+                                              isActive={pathname.endsWith("/crc/dashboard")}
+                                            >
+                                              <IconLayoutDashboard className="h-3.5 w-3.5 text-muted-foreground group-hover/cat:text-foreground" />
+                                              <span className={cn(
+                                                "text-[13px] truncate ml-2 transition-colors",
+                                                pathname.endsWith("/crc/dashboard") ? "text-foreground font-medium" : "text-foreground/70 group-hover/cat:text-foreground"
+                                              )}>
+                                                Readiness Dashboard
+                                              </span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+
+                                          {/* Risk Register Link */}
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton
+                                              onClick={() => {
+                                                if (premiumStatus) {
+                                                  router.push(`/assess/${projectId}/crc/risks`);
+                                                } else {
+                                                  openSubscriptionModal("Unlock Premium to Access AI Risk Register", "Upgrade to premium to unlock this feature and many more advanced capabilities.");
+                                                }
+                                              }}
+                                              className="h-8 px-2 group/cat"
+                                              isActive={pathname.endsWith("/crc/risks")}
+                                            >
+                                              <IconClipboardCheck className="h-3.5 w-3.5 text-muted-foreground group-hover/cat:text-foreground" />
+                                              <span className={cn(
+                                                "text-[13px] truncate ml-2 transition-colors",
+                                                pathname.endsWith("/crc/risks") ? "text-foreground font-medium" : "text-foreground/70 group-hover/cat:text-foreground"
+                                              )}>
+                                                AI Risk Register
+                                              </span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+
                                           {crcCategories.filter((cat: string) => (controlsByCategory[cat] || []).length > 0).map((cat: string, catIdx: number) => {
                                             const catControls = controlsByCategory[cat] || [];
                                             const answeredInCat = catControls.filter((c: CRCControl) => crcResponses[c.id] !== undefined).length;

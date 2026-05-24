@@ -3,6 +3,9 @@
 exports.shorthands = undefined;
 
 exports.up = (pgm) => {
+  // Create sequence for Risk ID (Feature 3)
+  pgm.sql("CREATE SEQUENCE IF NOT EXISTS crc_risks_seq START WITH 1");
+
   pgm.createTable("crc_risks", {
     id: {
       type: "uuid",
@@ -17,9 +20,15 @@ exports.up = (pgm) => {
     },
     control_id: {
       type: "uuid",
-      notNull: true,
+      notNull: false, // Changed from true to false for manual risks
       references: "crc_controls(id)",
       onDelete: "CASCADE",
+    },
+    risk_code: { // New sequential Risk ID column (e.g. CRC-001)
+      type: "varchar(20)",
+      unique: true,
+      notNull: true,
+      default: pgm.func("'CRC-' || lpad(nextval('crc_risks_seq')::text, 3, '0')"),
     },
     title: {
       type: "varchar(300)",
@@ -110,4 +119,5 @@ exports.down = (pgm) => {
   pgm.sql("DROP TRIGGER IF EXISTS trg_set_updated_at_crc_risks ON crc_risks");
   pgm.sql("DROP FUNCTION IF EXISTS set_crc_risks_updated_at()");
   pgm.dropTable("crc_risks");
+  pgm.sql("DROP SEQUENCE IF EXISTS crc_risks_seq");
 };

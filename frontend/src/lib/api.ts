@@ -239,6 +239,35 @@ export interface CRCResults {
   riskSummary?: RiskSummary;
 }
 
+export interface CRCRisk {
+  id: string;
+  project_id: string;
+  control_id: string | null;
+  risk_code: string;
+  title: string;
+  category: string;
+  rating: 'Critical' | 'High' | 'Medium' | 'Low';
+  status: 'Open' | 'Closed';
+  description: string;
+  mitigation_plan: string;
+  owner: string;
+  target_date: string | null;
+  review_frequency: string;
+  source: 'Automated' | 'Manual';
+  created_at: string;
+  updated_at: string;
+  system_control_id?: string | null;
+  compliance_mapping?: {
+    eu_ai_act?: Array<{ ref: string; context: string }>;
+    nist_ai_rmf?: Array<{ ref: string; context: string }>;
+    iso_42001?: Array<{ ref: string; context: string }>;
+  };
+  implementation?: {
+    requirements?: string[];
+    steps?: string[];
+  };
+}
+
 export interface CRCControlVersion {
   id: string;
   version: number;
@@ -1382,6 +1411,36 @@ class ApiService {
 
   async getCRCResults(projectId: string): Promise<{ success: boolean; results: CRCResults; complete: boolean }> {
     return this.request<{ success: boolean; results: CRCResults; complete: boolean }>(`/crc/results/${projectId}`);
+  }
+
+  // CRC Risks CRUD
+  async getCRCRisks(projectId: string): Promise<{ success: boolean; data: CRCRisk[]; count: number }> {
+    return this.request<{ success: boolean; data: CRCRisk[]; count: number }>(`/crc/risks/${projectId}`);
+  }
+
+  async createCRCRisk(projectId: string, data: Partial<CRCRisk>): Promise<{ success: boolean; data: CRCRisk }> {
+    return this.request<{ success: boolean; data: CRCRisk }>(`/crc/risks/${projectId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCRCRisk(projectId: string, riskId: string, data: Partial<CRCRisk>): Promise<{ success: boolean; data: CRCRisk }> {
+    return this.request<{ success: boolean; data: CRCRisk }>(`/crc/risks/${projectId}/${riskId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCRCRisk(projectId: string, riskId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/crc/risks/${projectId}/${riskId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // CRC Templates
+  downloadCRCTemplateUrl(controlId: string): string {
+    return `${API_BASE_URL}/crc/templates/${controlId}/download?Authorization=Bearer ${encodeURIComponent(this.getAuthToken() || "")}`;
   }
 
   // ==========================================
