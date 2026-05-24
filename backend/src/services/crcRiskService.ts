@@ -51,19 +51,29 @@ function computeRiskRating(priority: string, answerValue: number): RiskRating | 
  */
 export async function syncRiskFromResponse(
     projectId: string,
-    controlId: string,
-    answerValue: number
+    controlId: string
 ): Promise<void> {
-    // Fetch control metadata for risk title & category & priority
+    // Fetch latest persisted response for this project and control
+    const responseResult = await pool.query(
+        `SELECT value FROM crc_assessment_responses
+         WHERE project_id = $1 AND control_id = $2`,
+        [projectId, controlId]
+    );
+
+    const answerValue = responseResult.rows.length > 0 && responseResult.rows[0].value !== null
+        ? Number(responseResult.rows[0].value)
+        : null;
+
+    // Fetch control metadata for risk title & category_id & priority
     const controlResult = await pool.query(
-        `SELECT control_id, control_title, category, priority, risk_description
+        `SELECT control_id, control_title, category_id, priority, risk_description
          FROM crc_controls WHERE id = $1`,
         [controlId]
     );
     if (controlResult.rows.length === 0) return;
 
     const control = controlResult.rows[0];
-    const rating = computeRiskRating(control.priority, answerValue);
+    const rating = answerValue !== null ? computeRiskRating(control.priority, answerValue) : null;
 
     if (rating === null) {
         // Yes or NA — close any existing risk
@@ -77,10 +87,17 @@ export async function syncRiskFromResponse(
         const title = `${control.control_id}: ${control.control_title}`;
         const description = control.risk_description || "";
 
-        // Fetch category name if control has a category_id, otherwise use control.category
-        let categoryName = control.category || "Uncategorized";
-        // The category column on crc_controls may be the direct name or mapped via
-        // crc_categories. We use whatever is on the row.
+        // Fetch category name if control has a category_id
+        let categoryName = "Uncategorized";
+        if (control.category_id) {
+            const catResult = await pool.query(
+                `SELECT name FROM crc_categories WHERE id = $1`,
+                [control.category_id]
+            );
+            if (catResult.rows.length > 0) {
+                categoryName = catResult.rows[0].name;
+            }
+        }
 
         await pool.query(
             `INSERT INTO crc_risks (project_id, control_id, title, category, rating, status, description, source)

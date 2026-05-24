@@ -277,13 +277,20 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
             [projectId]
         );
         for (const row of riskResult.rows) {
+            if (!row.rating) continue;
             const key = (row.rating as string).toLowerCase() as keyof RiskSummary;
             if (key in riskSummary) {
                 riskSummary[key] = row.count;
             }
         }
-    } catch {
-        // Table may not exist yet (pre-migration); silently return zeros
+    } catch (error: any) {
+        // Table may not exist yet (pre-migration); silently return zeros only for missing table (PG error code '42P01')
+        if (error && error.code === "42P01") {
+            // Silently return zeros
+        } else {
+            console.error("Database error querying crc_risks summary:", error);
+            throw error;
+        }
     }
 
     const overallApplicable = totalControls - naCount;

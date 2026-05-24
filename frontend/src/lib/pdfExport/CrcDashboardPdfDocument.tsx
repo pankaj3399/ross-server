@@ -31,6 +31,7 @@ const colors = {
   indigoBg: "#e0e7ff",
   emerald: "#059669",
   emeraldBg: "#d1fae5",
+  orange: "#ea580c",
 };
 
 const styles = StyleSheet.create({
@@ -480,8 +481,8 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
         <View style={styles.breakdownRow}>
           {[
             { count: results.riskSummary?.critical ?? 0, label: "Critical", color: colors.red },
-            { count: results.riskSummary?.high ?? 0, label: "High", color: colors.amber },
-            { count: results.riskSummary?.medium ?? 0, label: "Medium", color: colors.indigo },
+            { count: results.riskSummary?.high ?? 0, label: "High", color: colors.orange },
+            { count: results.riskSummary?.medium ?? 0, label: "Medium", color: colors.amber },
             { count: results.riskSummary?.low ?? 0, label: "Low", color: colors.blue },
           ].map((item) => (
             <View key={item.label} style={styles.breakdownItem}>

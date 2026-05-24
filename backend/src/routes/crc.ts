@@ -954,7 +954,7 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
     );
 
     // Sync risk row for this control (fire-and-forget; non-blocking)
-    syncRiskFromResponse(projectId, data.controlId, data.value).catch((err) =>
+    syncRiskFromResponse(projectId, data.controlId).catch((err) =>
       console.error("Risk sync failed for control", data.controlId, err)
     );
 
