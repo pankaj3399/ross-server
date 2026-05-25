@@ -36,17 +36,15 @@ const formatPercent = (value: number | null): string =>
 
 const getReadinessTier = (percent: number | null): { label: string; color: string; bg: string } => {
   if (percent === null) return { label: "Insufficient Data", color: "text-muted-foreground", bg: "bg-muted" };
-  if (percent >= 90) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
-  if (percent >= 75) return { label: "Mostly Ready", color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10" };
-  if (percent >= 55) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
+  if (percent >= 60) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
+  if (percent >= 30) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
   return { label: "Not Ready", color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" };
 };
 
 const getCategoryColor = (percent: number | null): string => {
   if (percent === null) return "text-muted-foreground";
-  if (percent >= 80) return "text-emerald-600 dark:text-emerald-400";
-  if (percent >= 60) return "text-blue-600 dark:text-blue-400";
-  if (percent >= 40) return "text-amber-600 dark:text-amber-400";
+  if (percent >= 60) return "text-emerald-600 dark:text-emerald-400";
+  if (percent >= 30) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 };
 
@@ -119,12 +117,20 @@ function CountdownTimer() {
   );
 }
 
+const getProgressColor = (percent: number | null): string => {
+  if (percent === null) return "#94a3b8"; // slate-400
+  if (percent >= 60) return "#059669"; // emerald-600
+  if (percent >= 30) return "#d97706"; // amber-600
+  return "#dc2626"; // red-600
+};
+
 function CircularProgress({ percentage, size = 160 }: { percentage: number | null; size?: number }) {
   const value = percentage ?? 0;
   const radius = (size - 16) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (value / 100) * circumference;
   const tier = getReadinessTier(percentage);
+  const progressColor = getProgressColor(percentage);
 
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
@@ -153,8 +159,8 @@ function CircularProgress({ percentage, size = 160 }: { percentage: number | nul
         />
         <defs>
           <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="var(--primary)" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.6} />
+            <stop offset="0%" stopColor={progressColor} />
+            <stop offset="100%" stopColor={progressColor} stopOpacity={0.6} />
           </linearGradient>
         </defs>
       </svg>
@@ -347,7 +353,7 @@ export default function CRCDashboardPage() {
   }
 
   const { overall, categories = [], breakdown, frameworks } = results;
-  const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, points: 0, percentage: null };
+  const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, naCount: 0, applicableControls: 0, points: 0, percentage: null };
   const fw = frameworks || {
     eu_ai_act: defaultFramework,
     nist_ai_rmf: defaultFramework,
@@ -535,6 +541,35 @@ export default function CRCDashboardPage() {
                   </CardContent>
                 </Card>
               </motion.div>
+            </div>
+
+            {/* Risk Summary Badges Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">Risk Summary</h2>
+                <p className="text-sm text-muted-foreground">Open risks from the Risk Register</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Critical", count: results.riskSummary?.critical ?? 0, bg: "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400" },
+                  { label: "High", count: results.riskSummary?.high ?? 0, bg: "bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400" },
+                  { label: "Medium", count: results.riskSummary?.medium ?? 0, bg: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400" },
+                  { label: "Low", count: results.riskSummary?.low ?? 0, bg: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400" },
+                ].map((badge) => (
+                  <Link key={badge.label} href={`/assess/${projectId}/crc/risks`}>
+                    <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
+                      <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                        <span className="text-2xl font-bold tabular-nums text-foreground">
+                          {badge.count}
+                        </span>
+                        <Badge variant="outline" className={`mt-2 text-xs font-semibold px-2 py-0.5 border ${badge.bg}`}>
+                          {badge.label}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
             </div>
 
             {/* Framework Readiness Cards */}

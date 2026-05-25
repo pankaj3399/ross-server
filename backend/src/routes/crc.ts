@@ -5,6 +5,7 @@ import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
 import { recordEvent } from "../services/auditLogService";
+import { syncRiskFromResponse } from "../services/crcRiskService";
 
 const router = Router();
 
@@ -952,6 +953,11 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
       [projectId, data.controlId, userId, data.value, data.notes]
     );
 
+    // Sync risk row for this control (fire-and-forget; non-blocking)
+    syncRiskFromResponse(projectId, data.controlId).catch((err) =>
+      console.error("Risk sync failed for control", data.controlId, err)
+    );
+
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Error saving CRC response:", error);
@@ -1068,6 +1074,599 @@ router.get("/results/:projectId", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching CRC results:", error);
     res.status(500).json({ success: false, error: "Failed to fetch CRC results" });
+  }
+});
+
+
+// GET /crc/risks/:projectId/summary - Get risk counts by rating for the dashboard
+router.get("/risks/:projectId/summary", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Project not found or access denied" });
+    }
+
+    const result = await pool.query(
+      `SELECT rating, COUNT(*)::int as count
+       FROM crc_risks
+       WHERE project_id = $1 AND status = 'Open'
+       GROUP BY rating`,
+      [projectId]
+    );
+
+    const summary = { critical: 0, high: 0, medium: 0, low: 0 };
+    for (const row of result.rows) {
+      const key = (row.rating as string).toLowerCase() as keyof typeof summary;
+      if (key in summary) {
+        summary[key] = row.count;
+      }
+    }
+
+    res.json({ success: true, data: summary });
+  } catch (error) {
+    console.error("Error fetching risk summary:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch risk summary" });
+  }
+});
+
+// --- Feature 3: Risk Register CRUD Endpoints ---
+
+const targetDateSchema = z.preprocess((val) => {
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  return val;
+}, z.string().nullable().optional().refine((val) => {
+  if (val === null || val === undefined) return true;
+  const parsed = Date.parse(val);
+  return !isNaN(parsed);
+}, {
+  message: "Invalid target date format"
+}));
+
+const manualRiskSchema = z.object({
+  title: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Risk title is required").max(300, "Title must be 300 characters max")),
+  category: z.preprocess((val) => (typeof val === "string" ? val.trim() : val),
+    z.string().min(1, "Category is required").max(100, "Category must be 100 characters max")),
+  rating: z.enum(["Critical", "High", "Medium", "Low"]),
+  description: z.string().optional().default(""),
+  mitigation_plan: z.string().optional().default(""),
+  owner: z.string().max(200).optional().default(""),
+  target_date: targetDateSchema,
+  review_frequency: z.string().max(50).optional().default("Quarterly"),
+});
+
+const updateRiskSchema = z.object({
+  title: z.string().min(1).max(300).optional(),
+  category: z.string().min(1).max(100).optional(),
+  rating: z.enum(["Critical", "High", "Medium", "Low"]).optional(),
+  description: z.string().optional(),
+  mitigation_plan: z.string().optional(),
+  owner: z.string().max(200).optional(),
+  target_date: targetDateSchema,
+  review_frequency: z.string().max(50).optional(),
+  status: z.enum(["Open", "Closed"]).optional(),
+});
+
+// GET /crc/risks/:projectId - Fetch all risks for a project
+router.get("/risks/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify user membership
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    const result = await pool.query(
+      `SELECT r.*, c.control_id as system_control_id, c.compliance_mapping, c.implementation
+       FROM crc_risks r
+       LEFT JOIN crc_controls c ON r.control_id = c.id
+       WHERE r.project_id = $1
+       ORDER BY r.created_at DESC`,
+      [projectId]
+    );
+
+    res.json({ success: true, data: result.rows, count: result.rowCount });
+  } catch (error) {
+    console.error("Error fetching project risks:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch risks" });
+  }
+});
+
+// POST /crc/risks/:projectId - Create a manual risk
+router.post("/risks/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+    const data = manualRiskSchema.parse(req.body);
+
+    // Verify OWNER or EDITOR role
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ success: false, error: "Insufficient project role" });
+    }
+
+    const targetDate = data.target_date ? new Date(data.target_date) : null;
+
+    const result = await pool.query(
+      `INSERT INTO crc_risks (
+        project_id, control_id, title, category, rating, status, description,
+        mitigation_plan, owner, target_date, review_frequency, source
+      )
+      VALUES ($1, NULL, $2, $3, $4, 'Open', $5, $6, $7, $8, $9, 'Manual')
+      RETURNING *`,
+      [
+        projectId,
+        data.title,
+        data.category,
+        data.rating,
+        data.description,
+        data.mitigation_plan,
+        data.owner,
+        targetDate,
+        data.review_frequency
+      ]
+    );
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("Error creating manual risk:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
+    res.status(500).json({ success: false, error: "Failed to create manual risk" });
+  }
+});
+
+// PUT /crc/risks/:projectId/:riskId - Update risk details
+router.put("/risks/:projectId/:riskId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId, riskId } = req.params;
+    const userId = (req as any).user.id;
+    const data = updateRiskSchema.parse(req.body);
+
+    // Verify OWNER or EDITOR role
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ success: false, error: "Insufficient project role" });
+    }
+
+    // Check if risk exists
+    const riskCheck = await pool.query(
+      "SELECT * FROM crc_risks WHERE id = $1 AND project_id = $2",
+      [riskId, projectId]
+    );
+    if (riskCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Risk not found" });
+    }
+
+    const currentRisk = riskCheck.rows[0];
+    const isManual = currentRisk.source === "Manual";
+
+    // Validate update fields (only allow title/category/rating/description updates on manual risks)
+    if (!isManual && (data.title || data.category || data.rating || data.description)) {
+      return res.status(400).json({
+        success: false,
+        error: "System-generated risks cannot have their title, category, rating, or description updated manually. These are controlled by the corresponding assessment answers."
+      });
+    }
+
+    const title = data.title !== undefined ? data.title : currentRisk.title;
+    const category = data.category !== undefined ? data.category : currentRisk.category;
+    const rating = data.rating !== undefined ? data.rating : currentRisk.rating;
+    const description = data.description !== undefined ? data.description : currentRisk.description;
+    
+    const mitigationPlan = data.mitigation_plan !== undefined ? data.mitigation_plan : currentRisk.mitigation_plan;
+    const owner = data.owner !== undefined ? data.owner : currentRisk.owner;
+    const targetDate = data.target_date !== undefined 
+      ? (data.target_date ? (data.target_date === null ? null : new Date(data.target_date)) : null) 
+      : currentRisk.target_date;
+    const reviewFrequency = data.review_frequency !== undefined ? data.review_frequency : currentRisk.review_frequency;
+    const status = (isManual && data.status !== undefined) ? data.status : currentRisk.status;
+
+    const result = await pool.query(
+      `UPDATE crc_risks SET
+        title = $1, category = $2, rating = $3, description = $4,
+        mitigation_plan = $5, owner = $6, target_date = $7,
+        review_frequency = $8, status = $9, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10 AND project_id = $11
+       RETURNING *`,
+      [
+        title,
+        category,
+        rating,
+        description,
+        mitigationPlan,
+        owner,
+        targetDate,
+        reviewFrequency,
+        status,
+        riskId,
+        projectId
+      ]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("Error updating risk:", error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors });
+    }
+    res.status(500).json({ success: false, error: "Failed to update risk" });
+  }
+});
+
+// DELETE /crc/risks/:projectId/:riskId - Delete a manual risk
+router.delete("/risks/:projectId/:riskId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId, riskId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify OWNER or EDITOR role
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+    if (!["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ success: false, error: "Insufficient project role" });
+    }
+
+    // Fetch risk and confirm source
+    const riskCheck = await pool.query(
+      "SELECT source FROM crc_risks WHERE id = $1 AND project_id = $2",
+      [riskId, projectId]
+    );
+    if (riskCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Risk not found" });
+    }
+
+    if (riskCheck.rows[0].source !== "Manual") {
+      return res.status(400).json({
+        success: false,
+        error: "System-generated risks cannot be manually deleted. They are managed through your assessment responses."
+      });
+    }
+
+    await pool.query(
+      "DELETE FROM crc_risks WHERE id = $1 AND project_id = $2",
+      [riskId, projectId]
+    );
+
+    res.json({ success: true, message: "Risk deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting risk:", error);
+    res.status(500).json({ success: false, error: "Failed to delete risk" });
+  }
+});
+
+// --- Feature 6: Compliance Template Download Endpoint ---
+
+// GET /crc/templates/:controlId/download - Download compliance template document
+router.get("/templates/:controlId/download", authenticateToken, async (req, res) => {
+  try {
+    const { controlId } = req.params; // UUID or control short ID
+    
+    // Fetch control details
+    const controlResult = await pool.query(
+      "SELECT control_id, control_title, status FROM crc_controls WHERE id = $1 OR control_id = $1",
+      [controlId]
+    );
+
+    if (controlResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Compliance control not found" });
+    }
+
+    const { control_id: controlShortId, control_title: controlTitle, status } = controlResult.rows[0];
+
+    const user = (req as any).user;
+    if (status !== "Published" && user?.role !== "ADMIN") {
+      return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
+    }
+
+    let templateHtml = "";
+    if (controlShortId === "OPS-INC-01") {
+      templateHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <title>CRC Compliance Template - OPS-INC-01</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333333; margin: 40px; }
+            h1 { color: #0284c7; font-size: 24px; border-bottom: 2px solid #0284c7; padding-bottom: 5px; margin-top: 30px; }
+            h2 { color: #0f172a; font-size: 18px; margin-top: 25px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+            h3 { color: #334155; font-size: 15px; margin-top: 20px; }
+            p { font-size: 13px; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }
+            th { background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 12px; font-weight: bold; }
+            td { border: 1px solid #cbd5e1; padding: 10px; font-size: 12px; vertical-align: top; }
+            .badge { display: inline-block; padding: 3px 8px; font-size: 10px; font-weight: bold; border-radius: 4px; background-color: #e0f2fe; color: #0369a1; }
+            .alert { background-color: #fffbeb; border-left: 4px solid #d97706; padding: 15px; margin-top: 15px; margin-bottom: 15px; border-radius: 4px; }
+            .checklist { list-style-type: none; padding-left: 0; }
+            .checklist li { margin-bottom: 8px; font-size: 13px; }
+            .checklist-box { display: inline-block; width: 15px; height: 15px; border: 1px solid #64748b; margin-right: 10px; vertical-align: middle; }
+          </style>
+        </head>
+        <body>
+          <div style='text-align: center; margin-bottom: 30px;'>
+            <span style='font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0284c7;'>MATUR.ai Compliance Framework</span>
+            <h1 style='margin-top: 5px; border-bottom: none;'>CRC COMPLIANCE TEMPLATE</h1>
+            <span class='badge'>Control ID: OPS-INC-01</span>
+            <h2 style='border-bottom: none; margin-top: 5px;'>Incident Detection and Response</h2>
+          </div>
+
+          <h2>Framework Alignment</h2>
+          <table>
+            <tr>
+              <th style='width: 30%;'>Framework</th>
+              <th>Applicable Requirements</th>
+            </tr>
+            <tr>
+              <td><b>EU AI Act</b></td>
+              <td>Article 17(1)(i): QMS procedures for reporting serious incidents | Article 16(j): Corrective actions | Article 73: Serious incident reporting to market surveillance authorities</td>
+            </tr>
+            <tr>
+              <td><b>NIST AI RMF</b></td>
+              <td>GOVERN.4.3: Enable AI testing and incident identification | MANAGE.2.3: Respond to and recover from previously unknown risks</td>
+            </tr>
+            <tr>
+              <td><b>ISO 42001</b></td>
+              <td>Clause 10.2: Nonconformity response, control, and correction | Annex A.8.4: AI system incident communication plan</td>
+            </tr>
+          </table>
+
+          <div class='alert'>
+            <b>💡 ALREADY HAVE SOC 2 OR ISO 27001?</b><br/>
+            If your organization already has an Incident Response Plan under SOC 2 (CC7.4, CC7.5) or ISO 27001 (A.16), you do not need to create a new one from scratch. Use this template as an AI-specific supplement. Review each section below and add the AI-specific elements (marked with 🛡️) to your existing documentation. Your current plan likely covers general IT incidents but may not address AI-specific scenarios such as model drift, adversarial attacks, bias incidents, or EU AI Act Article 73 serious incident reporting.
+          </div>
+
+          <h2>Document Information</h2>
+          <table>
+            <tr><td style='width: 40%; font-weight: bold;'>Organization Name</td><td>[Enter Organization Name]</td></tr>
+            <tr><td style='font-weight: bold;'>Document Owner</td><td>[Enter Document Owner Name and Title]</td></tr>
+            <tr><td style='font-weight: bold;'>Version</td><td>1.0</td></tr>
+            <tr><td style='font-weight: bold;'>Date Created</td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td style='font-weight: bold;'>Last Reviewed</td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td style='font-weight: bold;'>Next Review Date</td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td style='font-weight: bold;'>Approved By</td><td>[Name, Title, and Signature]</td></tr>
+          </table>
+
+          <h1>Section 1: AI Incident Response Plan</h1>
+          <p>This section defines the end-to-end procedures for detecting, managing, and resolving AI system incidents. 🛡️ indicates AI-specific elements that may need to be added to your existing incident response plan.</p>
+          
+          <h3>1.1 Purpose and Scope</h3>
+          <p>Define the purpose of this plan and which AI systems it covers:</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 15px; color: #64748b;'>[Enter details here]</div>
+
+          <h3>1.2 🛡️ AI-Specific Incident Definitions</h3>
+          <p>Define what constitutes an AI incident in your organization. Consider the following AI-specific scenarios:</p>
+          <table>
+            <tr>
+              <th style='width: 30%;'>AI Incident Type</th>
+              <th style='width: 40%;'>Definition</th>
+              <th>Example</th>
+            </tr>
+            <tr>
+              <td><b>Model performance degradation</b></td>
+              <td>[Define threshold that triggers an incident]</td>
+              <td>e.g., Accuracy drops below 85% on production data</td>
+            </tr>
+            <tr>
+              <td><b>Bias or discrimination event</b></td>
+              <td>[Define what constitutes a bias incident]</td>
+              <td>e.g., Disparate rejection rates detected across demographic groups</td>
+            </tr>
+            <tr>
+              <td><b>Adversarial attack or manipulation</b></td>
+              <td>[Define attack scenarios]</td>
+              <td>e.g., Prompt injection causing data exfiltration</td>
+            </tr>
+            <tr>
+              <td><b>Data integrity compromise</b></td>
+              <td>[Define data-related incidents]</td>
+              <td>e.g., Training data poisoning discovered</td>
+            </tr>
+            <tr>
+              <td><b>Unintended autonomous behavior</b></td>
+              <td>[Define scope of unintended actions]</td>
+              <td>e.g., AI system taking actions outside defined boundaries</td>
+            </tr>
+          </table>
+
+          <h3>1.3 🛡️ Detection Sources</h3>
+          <p>List the mechanisms through which AI incidents are detected in your organization:</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 15px; color: #64748b;'>
+            List detection sources (e.g., automated monitoring dashboards, model performance alerts, user complaints, bias detection tools, security scanning, manual review)
+          </div>
+
+          <h3>1.4 Response Procedures</h3>
+          <p>Document your step-by-step response procedure from initial detection through resolution, including: who is notified first, containment actions (e.g., taking model offline), investigation steps, resolution and remediation, post-incident review.</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 15px; color: #64748b;'>[Enter details here]</div>
+
+          <h1>Section 2: Incident Classification Matrix</h1>
+          <p>Define severity levels for AI incidents so responders can quickly determine appropriate response actions and escalation.</p>
+          <table>
+            <tr>
+              <th>Severity</th>
+              <th>Criteria</th>
+              <th>Response Time</th>
+              <th>Escalation</th>
+              <th>Example</th>
+            </tr>
+            <tr>
+              <td><b>Critical</b></td>
+              <td>[Define criteria]</td>
+              <td>[e.g., 1 hour]</td>
+              <td>[e.g., CEO, Board]</td>
+              <td>AI causing physical harm or major rights violation</td>
+            </tr>
+            <tr>
+              <td><b>High</b></td>
+              <td>[Define criteria]</td>
+              <td>[e.g., 4 hours]</td>
+              <td>[e.g., CTO, Legal]</td>
+              <td>Significant bias detected affecting decisions</td>
+            </tr>
+            <tr>
+              <td><b>Medium</b></td>
+              <td>[Define criteria]</td>
+              <td>[e.g., 24 hours]</td>
+              <td>[e.g., AI Lead]</td>
+              <td>Performance degradation within tolerance</td>
+            </tr>
+            <tr>
+              <td><b>Low</b></td>
+              <td>[Define criteria]</td>
+              <td>[e.g., 72 hours]</td>
+              <td>[e.g., Team Lead]</td>
+              <td>Minor logging anomaly, no user impact</td>
+            </tr>
+          </table>
+
+          <h1>Section 3: Incident Reporting Procedure</h1>
+          <p>Standardize how AI incidents are documented from initial detection through resolution.</p>
+          <h3>3.1 Incident Report Form</h3>
+          <table>
+            <tr><th style='width: 40%;'>Field</th><th>Value</th></tr>
+            <tr><td><b>Incident ID</b></td><td>[Auto-generated or manual]</td></tr>
+            <tr><td><b>Date/Time Detected</b></td><td>[DD/MM/YYYY HH:MM]</td></tr>
+            <tr><td><b>Reported By</b></td><td>[Name and role]</td></tr>
+            <tr><td><b>Affected AI System(s)</b></td><td>[List systems impacted]</td></tr>
+            <tr><td><b>Severity Classification</b></td><td>[Critical / High / Medium / Low]</td></tr>
+            <tr><td><b>🛡️ AI-Specific Category</b></td><td>[Model failure / Bias event / Adversarial attack / Data issue / Other]</td></tr>
+            <tr><td><b>Description of Incident</b></td><td>[Detailed narrative of what happened]</td></tr>
+            <tr><td><b>🛡️ Impact on AI Outputs</b></td><td>[What decisions or outputs were affected]</td></tr>
+            <tr><td><b>Immediate Actions Taken</b></td><td>[Containment steps performed]</td></tr>
+            <tr><td><b>Root Cause (if known)</b></td><td>[Preliminary or confirmed root cause]</td></tr>
+            <tr><td><b>Corrective Actions</b></td><td>[Planned or completed remediation]</td></tr>
+            <tr><td><b>🛡️ Regulatory Notification Required?</b></td><td>[Yes/No - if Yes, see Section 5]</td></tr>
+            <tr><td><b>Status</b></td><td>[Open / Investigating / Resolved / Closed]</td></tr>
+            <tr><td><b>Resolution Date</b></td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td><b>Lessons Learned</b></td><td>[Key takeaways for future prevention]</td></tr>
+          </table>
+
+          <h1>Section 4: Root Cause Analysis Template</h1>
+          <p>Use this template for all Critical and High severity AI incidents. Structured analysis prevents recurrence.</p>
+          <h3>4.1 5-Why Analysis</h3>
+          <table>
+            <tr><th style='width: 30%;'>Step</th><th>Question / Finding</th></tr>
+            <tr><td><b>Problem Statement</b></td><td>[What happened?]</td></tr>
+            <tr><td><b>Why #1</b></td><td>[Why did this happen?]</td></tr>
+            <tr><td><b>Why #2</b></td><td>[Why did that happen?]</td></tr>
+            <tr><td><b>Why #3</b></td><td>[Why did that happen?]</td></tr>
+            <tr><td><b>Why #4</b></td><td>[Why did that happen?]</td></tr>
+            <tr><td><b>Why #5 (Root Cause)</b></td><td>[The underlying root cause]</td></tr>
+            <tr><td><b>Corrective Action</b></td><td>[What will be done to prevent recurrence?]</td></tr>
+            <tr><td><b>Owner</b></td><td>[Who is responsible?]</td></tr>
+            <tr><td><b>Target Date</b></td><td>[DD/MM/YYYY]</td></tr>
+          </table>
+
+          <h1>Section 5: 🛡️ Serious Incident Notification Form (EU AI Act Article 73)</h1>
+          <p>Complete this form when an AI incident meets the threshold for "serious incident" under EU AI Act Article 73. Providers of high-risk AI systems must report serious incidents to the market surveillance authorities of the Member State where the incident occurred.</p>
+          <table>
+            <tr><th style='width: 40%;'>Field</th><th>Value</th></tr>
+            <tr><td><b>Provider Name</b></td><td>[Your organization name]</td></tr>
+            <tr><td><b>Provider Contact</b></td><td>[Name, email, phone]</td></tr>
+            <tr><td><b>AI System Name & Version</b></td><td>[System identifier and version number]</td></tr>
+            <tr><td><b>EU Database Registration #</b></td><td>[If applicable]</td></tr>
+            <tr><td><b>Date/Time of Incident</b></td><td>[DD/MM/YYYY HH:MM]</td></tr>
+            <tr><td><b>Member State(s) Affected</b></td><td>[Country/countries where incident occurred]</td></tr>
+            <tr><td><b>Description of Serious Incident</b></td><td>[Detailed account of what happened]</td></tr>
+            <tr><td><b>Nature of Harm</b></td><td>[Death / Serious damage to health / Serious damage to property / Environment / Fundamental rights]</td></tr>
+            <tr><td><b>Number of Persons Affected</b></td><td>[Known or estimated count]</td></tr>
+            <tr><td><b>Immediate Measures Taken</b></td><td>[Actions to contain harm]</td></tr>
+            <tr><td><b>Corrective Actions Planned</b></td><td>[Remediation steps with timeline]</td></tr>
+            <tr><td><b>Contact for Follow-up</b></td><td>[Designated liaison for authority inquiries]</td></tr>
+            <tr><td><b>Date of This Notification</b></td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td><b>Submitted By</b></td><td>[Name, title, signature]</td></tr>
+          </table>
+          <p><b>Note:</b> Under EU AI Act Article 73, this notification must be submitted immediately after the provider has established a causal link between the AI system and the serious incident, and in any event not later than 15 days after the provider becomes aware of the serious incident.</p>
+
+          <h2>Evidence Checklist</h2>
+          <p>The following evidence items are required to demonstrate compliance with this control:</p>
+          <ul class='checklist'>
+            <li><span class='checklist-box'></span> Completed Incident Response Plan (Section 1)</li>
+            <li><span class='checklist-box'></span> Incident Classification Matrix (Section 2)</li>
+            <li><span class='checklist-box'></span> Incident Reporting Procedure and blank report form (Section 3)</li>
+            <li><span class='checklist-box'></span> Root Cause Analysis Template (Section 4)</li>
+            <li><span class='checklist-box'></span> Serious Incident Notification Form (Section 5)</li>
+          </ul>
+        </body>
+        </html>
+      `;
+    } else {
+      templateHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <title>CRC Compliance Template - ${controlShortId}</title>
+          <style>
+            body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333333; margin: 40px; }
+            h1 { color: #0284c7; font-size: 24px; border-bottom: 2px solid #0284c7; padding-bottom: 5px; margin-top: 30px; }
+            h2 { color: #0f172a; font-size: 18px; margin-top: 25px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+            p { font-size: 13px; margin-bottom: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th { background-color: #f1f5f9; border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 12px; font-weight: bold; }
+            td { border: 1px solid #cbd5e1; padding: 10px; font-size: 12px; }
+            .badge { display: inline-block; padding: 3px 8px; font-size: 10px; font-weight: bold; border-radius: 4px; background-color: #e0f2fe; color: #0369a1; }
+          </style>
+        </head>
+        <body>
+          <div style='text-align: center; margin-bottom: 30px;'>
+            <span style='font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0284c7;'>MATUR.ai Compliance Framework</span>
+            <h1 style='margin-top: 5px; border-bottom: none;'>CRC COMPLIANCE EVIDENCE TEMPLATE</h1>
+            <span class='badge'>Control ID: ${controlShortId}</span>
+            <h2 style='border-bottom: none; margin-top: 5px;'>${controlTitle}</h2>
+          </div>
+
+          <h2>Evidence Template Overview</h2>
+          <p>Use this template as compliance documentation and audit evidence for <b>${controlShortId}</b>. Review the controls statement and objective on your MATUR.ai project to complete the details below.</p>
+
+          <h2>Document Information</h2>
+          <table>
+            <tr><td style='width: 40%; font-weight: bold;'>Organization Name</td><td>[Enter Organization Name]</td></tr>
+            <tr><td style='font-weight: bold;'>Document Owner</td><td>[Enter Document Owner Name and Title]</td></tr>
+            <tr><td style='font-weight: bold;'>Version</td><td>1.0</td></tr>
+            <tr><td style='font-weight: bold;'>Date Created</td><td>[DD/MM/YYYY]</td></tr>
+            <tr><td style='font-weight: bold;'>Last Reviewed</td><td>[DD/MM/YYYY]</td></tr>
+          </table>
+
+          <h1>Section 1: Implementation Strategy</h1>
+          <p>Describe how your organization satisfies this control. Detail any policies, processes, tools, or automated guardrails that have been deployed.</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 20px; color: #64748b;'>[Enter details here]</div>
+
+          <h1>Section 2: Verification and Testing</h1>
+          <p>Detail how this control is verified and tested. Include testing schedules, validation methods, and the staff responsible for verification.</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 20px; color: #64748b;'>[Enter details here]</div>
+
+          <h1>Section 3: Evidence References</h1>
+          <p>List references, system logs, code paths, or dashboards that act as objective evidence of implementation.</p>
+          <div style='border: 1px dashed #cbd5e1; padding: 20px; color: #64748b;'>[Enter details here]</div>
+        </body>
+        </html>
+      `;
+    }
+
+    res.header("Content-Type", "application/vnd.ms-word");
+    res.attachment(`MATUR-CRC-${controlShortId}-Template.doc`);
+    return res.send(templateHtml);
+  } catch (error) {
+    console.error("Error downloading template:", error);
+    res.status(500).json({ success: false, error: "Failed to download template" });
   }
 });
 

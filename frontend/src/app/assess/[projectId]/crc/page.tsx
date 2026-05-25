@@ -17,6 +17,7 @@ import {
   IconChevronRight,
   IconCheck,
   IconLock,
+  IconDownload,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { SecureTextarea } from "@/components/shared/SecureTextarea";
@@ -25,6 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PREMIUM_STATUS } from "@/lib/constants";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import CommentsPanel from "@/components/shared/CommentsPanel";
+import { apiService } from "@/lib/api";
 
 // --- Interfaces ---
 
@@ -329,6 +331,41 @@ export default function CRCAssessmentPage() {
                     <span dangerouslySetInnerHTML={{ __html: safeRenderHTML(currentControl.control_objective) }} />
                   </div>
                 )}
+              </div>
+
+              {/* Compliance Template Download Block (Feature 6) */}
+              <div className="mt-6 mb-6 p-4 rounded-xl border border-primary/25 bg-primary/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                    📄 Compliance Document Template
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Download the pre-built Word template containing fillable fields, guidelines, and checklists for this control to quickly build your compliance evidence.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      showToast.success("Downloading compliance template...");
+                      const blob = await apiService.downloadCRCTemplate(currentControl.id);
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `MATUR-CRC-${currentControl.control_id || currentControl.id}-Template.doc`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err: any) {
+                      showToast.error("Failed to download compliance template.");
+                    }
+                  }}
+                  className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shrink-0 flex items-center gap-1.5"
+                >
+                  <IconDownload className="w-4 h-4" />
+                  Download Template
+                </button>
               </div>
 
               {/* Expandable Implementation Details */}

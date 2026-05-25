@@ -2,8 +2,13 @@ import pool from "../config/database";
 
 // Mirrors the answer scale enforced by migration 1774362642332:
 // 0 = No, 0.5 = Partially, 1 = Yes, 2 = NA, 3 = Not Sure.
-// NA and "Not Sure" are excluded from averages — they shouldn't penalize the
-// score, but they do count toward "answered" for completion purposes.
+//
+// Readiness formula (from spec):
+//   (total points) / (totalControls - naCount) × 100
+//
+// NA is excluded from the denominator entirely.
+// Not Sure and No both score 0 points but remain in the denominator.
+// Unanswered controls also remain in the denominator (they are applicable gaps).
 const ANSWER_NO = 0;
 const ANSWER_PARTIAL = 0.5;
 const ANSWER_YES = 1;
@@ -18,6 +23,8 @@ export type CrcCategoryResult = {
     totalControls: number;
     answeredControls: number;
     scoredControls: number;
+    naCount: number;
+    applicableControls: number;
     averageScore: number | null;
     percentage: number | null;
 };
@@ -25,8 +32,17 @@ export type CrcCategoryResult = {
 export type CrcFrameworkResult = {
     totalControls: number;
     scoredControls: number;
+    naCount: number;
+    applicableControls: number;
     points: number;
     percentage: number | null;
+};
+
+export type RiskSummary = {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
 };
 
 export type CrcResults = {
@@ -34,6 +50,8 @@ export type CrcResults = {
         totalControls: number;
         answeredControls: number;
         scoredControls: number;
+        naCount: number;
+        applicableControls: number;
         averageScore: number | null;
         percentage: number | null;
     };
@@ -50,6 +68,7 @@ export type CrcResults = {
         nist_ai_rmf: CrcFrameworkResult;
         iso_42001: CrcFrameworkResult;
     };
+    riskSummary: RiskSummary;
 };
 
 type ComplianceMapping = {
@@ -104,19 +123,21 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         answeredControls: number;
         scoreSum: number;
         scoredControls: number;
+        naCount: number;
     }>();
 
     // Per-framework accumulators
     const fw = {
-        eu_ai_act: { totalControls: 0, scoredControls: 0, points: 0 },
-        nist_ai_rmf: { totalControls: 0, scoredControls: 0, points: 0 },
-        iso_42001: { totalControls: 0, scoredControls: 0, points: 0 },
+        eu_ai_act: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
+        nist_ai_rmf: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
+        iso_42001: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
     };
 
     let totalControls = 0;
     let answeredControls = 0;
     let scoredControls = 0;
     let scoreSum = 0;
+    let naCount = 0;
 
     for (const row of rows) {
         totalControls++;
@@ -132,6 +153,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 answeredControls: 0,
                 scoreSum: 0,
                 scoredControls: 0,
+                naCount: 0,
             });
         }
         const bucket = categoryMap.get(key)!;
@@ -162,6 +184,9 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
 
         if (mapping.eu_ai_act && mapping.eu_ai_act.length > 0) {
             fw.eu_ai_act.totalControls++;
+            if (value === ANSWER_NA) {
+                fw.eu_ai_act.naCount++;
+            }
             if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.eu_ai_act.scoredControls++;
                 fw.eu_ai_act.points += pts;
@@ -169,6 +194,9 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         }
         if (mapping.nist_ai_rmf && mapping.nist_ai_rmf.length > 0) {
             fw.nist_ai_rmf.totalControls++;
+            if (value === ANSWER_NA) {
+                fw.nist_ai_rmf.naCount++;
+            }
             if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.nist_ai_rmf.scoredControls++;
                 fw.nist_ai_rmf.points += pts;
@@ -176,6 +204,9 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         }
         if (mapping.iso_42001 && mapping.iso_42001.length > 0) {
             fw.iso_42001.totalControls++;
+            if (value === ANSWER_NA) {
+                fw.iso_42001.naCount++;
+            }
             if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.iso_42001.scoredControls++;
                 fw.iso_42001.points += pts;
@@ -189,7 +220,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         if (value === ANSWER_YES) breakdown.yes++;
         else if (value === ANSWER_PARTIAL) breakdown.partial++;
         else if (value === ANSWER_NO) breakdown.no++;
-        else if (value === ANSWER_NA) breakdown.na++;
+        else if (value === ANSWER_NA) { breakdown.na++; naCount++; bucket.naCount++; }
         else if (value === ANSWER_NOT_SURE) breakdown.notSure++;
 
         bucket.answeredControls++;
@@ -203,34 +234,76 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
     }
 
     const categories: CrcCategoryResult[] = Array.from(categoryMap.values())
-        .map((b) => ({
-            categoryId: b.categoryId,
-            categoryName: b.categoryName,
-            totalControls: b.totalControls,
-            answeredControls: b.answeredControls,
-            scoredControls: b.scoredControls,
-            averageScore: b.scoredControls > 0 ? b.scoreSum / b.scoredControls : null,
-            percentage: b.scoredControls > 0 ? (b.scoreSum / b.scoredControls) * 100 : null,
-        }))
+        .map((b) => {
+            const applicable = b.totalControls - b.naCount;
+            return {
+                categoryId: b.categoryId,
+                categoryName: b.categoryName,
+                totalControls: b.totalControls,
+                answeredControls: b.answeredControls,
+                scoredControls: b.scoredControls,
+                naCount: b.naCount,
+                applicableControls: applicable,
+                averageScore: b.scoredControls > 0 ? b.scoreSum / b.scoredControls : null,
+                percentage: applicable > 0 ? (b.scoreSum / applicable) * 100 : null,
+            };
+        })
         .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
     // Build per-framework results
-    const buildFrameworkResult = (acc: typeof fw.eu_ai_act): CrcFrameworkResult => ({
-        totalControls: acc.totalControls,
-        scoredControls: acc.scoredControls,
-        points: acc.points,
-        percentage: acc.scoredControls > 0
-            ? (acc.points / acc.scoredControls) * 100
-            : null,
-    });
+    // Denominator = totalControls - naCount (applicable controls for this framework)
+    const buildFrameworkResult = (acc: typeof fw.eu_ai_act): CrcFrameworkResult => {
+        const applicable = acc.totalControls - acc.naCount;
+        return {
+            totalControls: acc.totalControls,
+            scoredControls: acc.scoredControls,
+            naCount: acc.naCount,
+            applicableControls: applicable,
+            points: acc.points,
+            percentage: applicable > 0
+                ? (acc.points / applicable) * 100
+                : null,
+        };
+    };
+
+    // Query risk summary from crc_risks table
+    let riskSummary: RiskSummary = { critical: 0, high: 0, medium: 0, low: 0 };
+    try {
+        const riskResult = await pool.query(
+            `SELECT rating, COUNT(*)::int as count
+             FROM crc_risks
+             WHERE project_id = $1 AND status = 'Open'
+             GROUP BY rating`,
+            [projectId]
+        );
+        for (const row of riskResult.rows) {
+            if (!row.rating) continue;
+            const key = (row.rating as string).toLowerCase() as keyof RiskSummary;
+            if (key in riskSummary) {
+                riskSummary[key] = row.count;
+            }
+        }
+    } catch (error: any) {
+        // Table may not exist yet (pre-migration); silently return zeros only for missing table (PG error code '42P01')
+        if (error && error.code === "42P01") {
+            // Silently return zeros
+        } else {
+            console.error("Database error querying crc_risks summary:", error);
+            throw error;
+        }
+    }
+
+    const overallApplicable = totalControls - naCount;
 
     return {
         overall: {
             totalControls,
             answeredControls,
             scoredControls,
+            naCount,
+            applicableControls: overallApplicable,
             averageScore: scoredControls > 0 ? scoreSum / scoredControls : null,
-            percentage: scoredControls > 0 ? (scoreSum / scoredControls) * 100 : null,
+            percentage: overallApplicable > 0 ? (scoreSum / overallApplicable) * 100 : null,
         },
         categories,
         breakdown,
@@ -239,6 +312,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
             nist_ai_rmf: buildFrameworkResult(fw.nist_ai_rmf),
             iso_42001: buildFrameworkResult(fw.iso_42001),
         },
+        riskSummary,
     };
 }
 

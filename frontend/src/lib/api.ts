@@ -191,6 +191,8 @@ export interface CRCCategoryResult {
   totalControls: number;
   answeredControls: number;
   scoredControls: number;
+  naCount: number;
+  applicableControls: number;
   averageScore: number | null;
   percentage: number | null;
 }
@@ -198,8 +200,17 @@ export interface CRCCategoryResult {
 export interface CRCFrameworkResult {
   totalControls: number;
   scoredControls: number;
+  naCount: number;
+  applicableControls: number;
   points: number;
   percentage: number | null;
+}
+
+export interface RiskSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
 }
 
 export interface CRCResults {
@@ -207,6 +218,8 @@ export interface CRCResults {
     totalControls: number;
     answeredControls: number;
     scoredControls: number;
+    naCount: number;
+    applicableControls: number;
     averageScore: number | null;
     percentage: number | null;
   };
@@ -222,6 +235,36 @@ export interface CRCResults {
     eu_ai_act: CRCFrameworkResult;
     nist_ai_rmf: CRCFrameworkResult;
     iso_42001: CRCFrameworkResult;
+  };
+  riskSummary?: RiskSummary;
+}
+
+export interface CRCRisk {
+  id: string;
+  project_id: string;
+  control_id: string | null;
+  risk_code: string;
+  title: string;
+  category: string;
+  rating: 'Critical' | 'High' | 'Medium' | 'Low';
+  status: 'Open' | 'Closed';
+  description: string;
+  mitigation_plan: string;
+  owner: string;
+  target_date: string | null;
+  review_frequency: string;
+  source: 'Automated' | 'Manual';
+  created_at: string;
+  updated_at: string;
+  system_control_id?: string | null;
+  compliance_mapping?: {
+    eu_ai_act?: Array<{ ref: string; context: string }>;
+    nist_ai_rmf?: Array<{ ref: string; context: string }>;
+    iso_42001?: Array<{ ref: string; context: string }>;
+  };
+  implementation?: {
+    requirements?: string[];
+    steps?: string[];
   };
 }
 
@@ -1368,6 +1411,52 @@ class ApiService {
 
   async getCRCResults(projectId: string): Promise<{ success: boolean; results: CRCResults; complete: boolean }> {
     return this.request<{ success: boolean; results: CRCResults; complete: boolean }>(`/crc/results/${projectId}`);
+  }
+
+  // CRC Risks CRUD
+  async getCRCRisks(projectId: string): Promise<{ success: boolean; data: CRCRisk[]; count: number }> {
+    return this.request<{ success: boolean; data: CRCRisk[]; count: number }>(`/crc/risks/${projectId}`);
+  }
+
+  async createCRCRisk(projectId: string, data: Partial<CRCRisk>): Promise<{ success: boolean; data: CRCRisk }> {
+    return this.request<{ success: boolean; data: CRCRisk }>(`/crc/risks/${projectId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCRCRisk(projectId: string, riskId: string, data: Partial<CRCRisk>): Promise<{ success: boolean; data: CRCRisk }> {
+    return this.request<{ success: boolean; data: CRCRisk }>(`/crc/risks/${projectId}/${riskId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCRCRisk(projectId: string, riskId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/crc/risks/${projectId}/${riskId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // CRC Templates
+  downloadCRCTemplateUrl(controlId: string): string {
+    return `${API_BASE_URL}/crc/templates/${controlId}/download`;
+  }
+
+  async downloadCRCTemplate(controlId: string): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/download`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${this.getAuthToken()}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Download failed" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
   }
 
   // ==========================================

@@ -31,6 +31,7 @@ const colors = {
   indigoBg: "#e0e7ff",
   emerald: "#059669",
   emeraldBg: "#d1fae5",
+  orange: "#ea580c",
 };
 
 const styles = StyleSheet.create({
@@ -334,17 +335,15 @@ const formatPercent = (value: number | null): string =>
 
 const getTierInfo = (percent: number | null) => {
   if (percent === null) return { label: "Insufficient Data", color: colors.gray, bg: colors.muted };
-  if (percent >= 90) return { label: "Ready", color: colors.green, bg: colors.greenBg };
-  if (percent >= 75) return { label: "Mostly Ready", color: colors.blue, bg: colors.blueBg };
-  if (percent >= 55) return { label: "Partially Ready", color: colors.amber, bg: colors.amberBg };
+  if (percent >= 60) return { label: "Ready", color: colors.green, bg: colors.greenBg };
+  if (percent >= 30) return { label: "Partially Ready", color: colors.amber, bg: colors.amberBg };
   return { label: "Not Ready", color: colors.red, bg: colors.redBg };
 };
 
 const getCategoryColor = (percent: number | null): string => {
   if (percent === null) return colors.gray;
-  if (percent >= 80) return colors.green;
-  if (percent >= 60) return colors.blue;
-  if (percent >= 40) return colors.amber;
+  if (percent >= 60) return colors.green;
+  if (percent >= 30) return colors.amber;
   return colors.red;
 };
 
@@ -367,7 +366,7 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
   const deadline = new Date("2026-08-02T00:00:00Z");
   const daysRemaining = Math.max(0, Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
 
-  const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, points: 0, percentage: null };
+  const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, naCount: 0, applicableControls: 0, points: 0, percentage: null };
   const fw = frameworks || {
     eu_ai_act: defaultFramework,
     nist_ai_rmf: defaultFramework,
@@ -469,6 +468,22 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
             { count: breakdown.no, label: "No", color: colors.red },
             { count: breakdown.na, label: "N/A", color: colors.gray },
             { count: breakdown.notSure, label: "Not Sure", color: colors.gray },
+          ].map((item) => (
+            <View key={item.label} style={styles.breakdownItem}>
+              <Text style={[styles.breakdownCount, { color: item.color }]}>{item.count}</Text>
+              <Text style={styles.breakdownLabel}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Risk Summary */}
+        <Text style={styles.sectionTitle}>Risk Summary (Open Risks)</Text>
+        <View style={styles.breakdownRow}>
+          {[
+            { count: results.riskSummary?.critical ?? 0, label: "Critical", color: colors.red },
+            { count: results.riskSummary?.high ?? 0, label: "High", color: colors.orange },
+            { count: results.riskSummary?.medium ?? 0, label: "Medium", color: colors.amber },
+            { count: results.riskSummary?.low ?? 0, label: "Low", color: colors.blue },
           ].map((item) => (
             <View key={item.label} style={styles.breakdownItem}>
               <Text style={[styles.breakdownCount, { color: item.color }]}>{item.count}</Text>
