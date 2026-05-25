@@ -58,15 +58,41 @@ async function getCRCControlContext(controlId: string): Promise<string | null> {
     const control = result.rows[0];
 
     // Parse JSON fields safely
-    const implementation = typeof control.implementation === "string"
-      ? JSON.parse(control.implementation)
-      : control.implementation || {};
-    const evidenceRequirements = typeof control.evidence_requirements === "string"
-      ? JSON.parse(control.evidence_requirements)
-      : control.evidence_requirements || [];
-    const complianceMapping = typeof control.compliance_mapping === "string"
-      ? JSON.parse(control.compliance_mapping)
-      : control.compliance_mapping || {};
+    let implementation: any = {};
+    if (typeof control.implementation === "string") {
+      try {
+        implementation = JSON.parse(control.implementation);
+      } catch (e) {
+        console.error(`[ChatService] Failed to parse control.implementation for control ID ${control.id}:`, e);
+        implementation = {};
+      }
+    } else {
+      implementation = control.implementation || {};
+    }
+
+    let evidenceRequirements: any = [];
+    if (typeof control.evidence_requirements === "string") {
+      try {
+        evidenceRequirements = JSON.parse(control.evidence_requirements);
+      } catch (e) {
+        console.error(`[ChatService] Failed to parse control.evidence_requirements for control ID ${control.id}:`, e);
+        evidenceRequirements = [];
+      }
+    } else {
+      evidenceRequirements = control.evidence_requirements || [];
+    }
+
+    let complianceMapping: any = {};
+    if (typeof control.compliance_mapping === "string") {
+      try {
+        complianceMapping = JSON.parse(control.compliance_mapping);
+      } catch (e) {
+        console.error(`[ChatService] Failed to parse control.compliance_mapping for control ID ${control.id}:`, e);
+        complianceMapping = {};
+      }
+    } else {
+      complianceMapping = control.compliance_mapping || {};
+    }
 
     let context = `\n\n## Currently Viewing CRC Control\nThe user is currently on the page for this specific control. Use this information to give targeted, context-aware answers.\n\n`;
     context += `**Control ID**: ${control.control_id}\n`;

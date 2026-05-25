@@ -225,7 +225,7 @@
   border-radius: 16px;
   font-size: 13px;
   line-height: 1.55;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .copilot-msg-user {

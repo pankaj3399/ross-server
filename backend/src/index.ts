@@ -71,7 +71,7 @@ app.use("/admin", adminRouter);
 app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), commentsRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), auditLogsRouter);
-app.use("/chat", authenticateToken, chatRouter);
+app.use("/chat", authenticateToken, checkRouteAccess('/chat'), chatRouter);
 
 // Inngest endpoint
 app.use(

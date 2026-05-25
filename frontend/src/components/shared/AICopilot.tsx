@@ -312,7 +312,13 @@ export default function AICopilot() {
                 ))}
               </div>
             ) : (
-              <div className="copilot-messages" ref={messagesContainerRef}>
+              <div
+                className="copilot-messages"
+                ref={messagesContainerRef}
+                aria-live="polite"
+                aria-atomic="true"
+                role="log"
+              >
                 {messages.map((msg) => (
                   <motion.div
                     key={msg.id}
