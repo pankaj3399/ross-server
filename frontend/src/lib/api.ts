@@ -1586,6 +1586,20 @@ class ApiService {
   public async getTrialSummary(): Promise<{ projectsCreated: number; assessmentsCompleted: number; teamMembersInvited: number; questionsAnswered: number }> {
     return this.request("/subscriptions/trial-summary");
   }
+
+  // ==========================================
+  // AI COPILOT CHAT
+  // ==========================================
+
+  async sendChatMessage(data: {
+    messages: { role: "user" | "assistant"; content: string }[];
+    controlId?: string;
+  }): Promise<{ reply: string }> {
+    return this.request<{ reply: string }>("/chat", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
 }
 
 export const apiService = new ApiService();

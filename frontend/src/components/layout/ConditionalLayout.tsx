@@ -8,11 +8,14 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 import { isSidebarVisible, isLandingRoute } from "../../lib/route-utils";
 import TrialBanner from "../features/trial/TrialBanner";
+import { useAuth } from "../../contexts/AuthContext";
+import AICopilot from "../shared/AICopilot";
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const showSidebar = isSidebarVisible(pathname);
   const isHomePage = isLandingRoute(pathname);
+  const { isAuthenticated } = useAuth();
 
   // Handle pages without sidebar (Home, Auth, Invites)
   // Note: isSidebarVisible already returns false for auth and landing routes
@@ -39,6 +42,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
         <TrialBanner />
         <main className="flex-1 bg-background">{children}</main>
       </SidebarInset>
+      {isAuthenticated && <AICopilot />}
     </SidebarProvider>
   );
 }
