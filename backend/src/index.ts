@@ -14,6 +14,7 @@ import publicRouter from "./routes/public";
 import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
 import commentsRouter from "./routes/comments";
 import auditLogsRouter from "./routes/auditLogs";
+import chatRouter from "./routes/chat";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
@@ -70,6 +71,7 @@ app.use("/admin", adminRouter);
 app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), commentsRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), auditLogsRouter);
+app.use("/chat", authenticateToken, checkRouteAccess('/chat'), chatRouter);
 
 // Inngest endpoint
 app.use(
