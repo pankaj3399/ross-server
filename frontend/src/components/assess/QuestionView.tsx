@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { useAssessmentContext } from "../../contexts/AssessmentContext";
-import { useAssessmentNavigation } from "../../hooks/useAssessmentNavigation"; // Assuming this hook is available and needed or we pass helpers
+import { useAuth } from "../../contexts/AuthContext";
+import { useAssessmentNavigation } from "../../hooks/useAssessmentNavigation";
+import { getReportRoute } from "../../lib/reportRoute";
 import { motion } from "framer-motion";
 import {
     IconArrowLeft,
@@ -117,6 +119,7 @@ const formatAimaDescription = (description: string | null | undefined): string =
 
 export default function QuestionView() {
     const router = useRouter();
+    const { user } = useAuth();
     const [descriptionCache, setDescriptionCache] = useState<{ key: string; html: string } | null>(null);
     const [missingDialogOpen, setMissingDialogOpen] = useState(false);
     const [missingQuestions, setMissingQuestions] = useState<MissingQuestion[]>([]);
@@ -141,8 +144,13 @@ export default function QuestionView() {
         submissionPhase,
         questions,
         loading,
-        isReadOnly
+        isReadOnly,
+        projectStatus,
+        hasChangedAnswers,
     } = useAssessmentContext();
+
+    const isCompleted = projectStatus === 'completed';
+    const reportUrl = getReportRoute(projectId, user?.subscription_status);
 
     const {
         hasNextQuestion,
@@ -301,10 +309,20 @@ export default function QuestionView() {
                                 Saving...
                             </div>
                         )}
+                        {isCompleted && (
+                            <Button
+                                variant="outline"
+                                onClick={() => router.push(reportUrl)}
+                                type="button"
+                                className="flex items-center gap-2 px-4 py-2"
+                            >
+                                View Report
+                            </Button>
+                        )}
                         <Button
                             onClick={handleSubmitClick}
                             type="button"
-                            disabled={submitting || isReadOnly}
+                            disabled={submitting || isReadOnly || (isCompleted && !hasChangedAnswers)}
                             className="flex items-center gap-2 px-4 py-2 bg-primary text-background rounded-lg hover:bg-primary/80 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {submitting ? (
@@ -313,12 +331,12 @@ export default function QuestionView() {
                                     {submissionPhase === 'saving-notes'
                                         ? 'Saving notes...'
                                         : submissionPhase === 'submitting'
-                                            ? 'Submitting assessment...'
+                                            ? 'Resubmitting assessment...'
                                             : 'Processing...'}
                                 </>
                             ) : (
                                 <>
-                                    Submit Project
+                                    {isCompleted ? 'Resubmit Changes' : 'Submit Project'}
                                 </>
                             )}
                         </Button>
@@ -533,10 +551,14 @@ export default function QuestionView() {
                             </button>
                         ) : (
                             <button
-                                onClick={handleSubmitClick}
+                                onClick={isCompleted && !hasChangedAnswers ? () => router.push(reportUrl) : handleSubmitClick}
                                 type="button"
-                                disabled={submitting || isReadOnly}
-                                className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 bg-success hover:bg-success/90 text-background disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={submitting || (isReadOnly && !(isCompleted && !hasChangedAnswers))}
+                                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                                    isCompleted && !hasChangedAnswers
+                                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
+                                        : 'bg-success hover:bg-success/90 text-background'
+                                }`}
                             >
                                 {submitting ? (
                                     <>
@@ -544,12 +566,17 @@ export default function QuestionView() {
                                         {submissionPhase === "saving-notes"
                                             ? "Saving notes..."
                                             : submissionPhase === "submitting"
-                                                ? "Submitting..."
+                                                ? "Resubmitting..."
                                                 : "Processing..."}
+                                    </>
+                                ) : isCompleted && !hasChangedAnswers ? (
+                                    <>
+                                        View Report
+                                        <IconArrowRight className="w-4 h-4" />
                                     </>
                                 ) : (
                                     <>
-                                        Submit Project
+                                        {isCompleted ? 'Resubmit Changes' : 'Submit Project'}
                                         <IconArrowRight className="w-4 h-4" />
                                     </>
                                 )}

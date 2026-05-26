@@ -437,9 +437,10 @@ class ApiService {
     });
   }
 
-  async submitProject(id: string): Promise<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }> {
+  async submitProject(id: string, changedDomainIds?: string[]): Promise<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }> {
     return this.request<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }>(`/projects/${id}/submit`, {
       method: "POST",
+      body: JSON.stringify({ changedDomainIds }),
     });
   }
 
