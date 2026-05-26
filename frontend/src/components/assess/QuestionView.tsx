@@ -331,7 +331,7 @@ export default function QuestionView() {
                                     {submissionPhase === 'saving-notes'
                                         ? 'Saving notes...'
                                         : submissionPhase === 'submitting'
-                                            ? 'Resubmitting assessment...'
+                                            ? (isCompleted ? 'Resubmitting assessment...' : 'Submitting assessment...')
                                             : 'Processing...'}
                                 </>
                             ) : (
@@ -566,7 +566,7 @@ export default function QuestionView() {
                                         {submissionPhase === "saving-notes"
                                             ? "Saving notes..."
                                             : submissionPhase === "submitting"
-                                                ? "Resubmitting..."
+                                                ? (isCompleted ? "Resubmitting..." : "Submitting...")
                                                 : "Processing..."}
                                     </>
                                 ) : isCompleted && !hasChangedAnswers ? (

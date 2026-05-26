@@ -485,6 +485,10 @@ router.post(
     const userId = req.user!.id;
     const { changedDomainIds } = req.body || {};
 
+    if (typeof changedDomainIds !== 'undefined' && !Array.isArray(changedDomainIds)) {
+      return res.status(400).json({ error: 'changedDomainIds must be an array' });
+    }
+
     const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
     const isPremium = isPremiumUser((req.project as any).owner_subscription);
