@@ -47,6 +47,7 @@ export interface Project {
   role?: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
 }
 
 export interface Domain {
@@ -434,6 +435,16 @@ class ApiService {
   async deleteProject(id: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/projects/${id}`, {
       method: "DELETE",
+    });
+  }
+
+  async getDeletedProjects(): Promise<{ projects: Project[] }> {
+    return this.request<{ projects: Project[] }>("/projects/deleted");
+  }
+
+  async restoreProject(id: string): Promise<{ message: string; project: Project }> {
+    return this.request<{ message: string; project: Project }>(`/projects/${id}/restore`, {
+      method: "POST",
     });
   }
 

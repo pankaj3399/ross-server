@@ -69,7 +69,7 @@ router.get("/", authenticateToken, async (req, res) => {
           END as role
        FROM projects p
        LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
-       WHERE p.user_id = $1 OR pm.user_id = $1
+       WHERE (p.user_id = $1 OR pm.user_id = $1) AND p.deleted_at IS NULL
        ORDER BY p.created_at DESC`,
       [req.user!.id],
     );
@@ -78,6 +78,30 @@ router.get("/", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching projects:", error);
     res.status(500).json({ error: "Failed to fetch projects" });
+  }
+});
+
+// Get user's deleted projects
+router.get("/deleted", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+          p.*,
+          CASE 
+            WHEN p.user_id = $1 THEN 'OWNER'
+            ELSE pm.role 
+          END as role
+       FROM projects p
+       LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $1
+       WHERE (p.user_id = $1 OR pm.user_id = $1) AND p.deleted_at IS NOT NULL
+       ORDER BY p.deleted_at DESC`,
+      [req.user!.id],
+    );
+
+    res.json({ projects: result.rows });
+  } catch (error) {
+    console.error("Error fetching deleted projects:", error);
+    res.status(500).json({ error: "Failed to fetch deleted projects" });
   }
 });
 
@@ -265,7 +289,7 @@ router.delete(
       }
 
       const result = await pool.query(
-        "DELETE FROM projects WHERE id = $1 RETURNING id",
+        "UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id",
         [projectId],
       );
 
@@ -277,6 +301,42 @@ router.delete(
     } catch (error) {
       console.error("Error deleting project:", error);
       res.status(500).json({ error: "Failed to delete project" });
+    }
+  },
+);
+
+// Restore deleted project
+router.post(
+  "/:projectId/restore",
+  authenticateToken,
+  loadProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const projectId = req.params.projectId;
+      const actorId = req.user!.id;
+
+      const result = await pool.query(
+        "UPDATE projects SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id",
+        [projectId],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      await recordEvent({
+        projectId,
+        actorId,
+        action: "project.restored",
+        objectType: "PROJECT",
+        objectId: projectId,
+      });
+
+      res.json({ message: "Project restored successfully" });
+    } catch (error) {
+      console.error("Error restoring project:", error);
+      res.status(500).json({ error: "Failed to restore project" });
     }
   },
 );

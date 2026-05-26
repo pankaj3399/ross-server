@@ -594,3 +594,20 @@ export const evaluationAggregator = inngest.createFunction(
     }
   }
 );
+
+export const hardDeleteStaleProjects = inngest.createFunction(
+  { id: "hard-delete-stale-projects", name: "Hard Delete Stale Projects" },
+  { cron: "0 0 * * *" }, // Run daily at midnight
+  async ({ step }) => {
+    await step.run("delete-projects", async () => {
+      // Hard delete projects that have been soft-deleted for more than 30 days
+      const result = await pool.query(`
+        DELETE FROM projects 
+        WHERE deleted_at IS NOT NULL 
+        AND deleted_at < NOW() - INTERVAL '30 days'
+        RETURNING id
+      `);
+      return { deletedCount: result.rowCount };
+    });
+  }
+);
