@@ -1444,10 +1444,11 @@ class ApiService {
   }
 
   async downloadCRCTemplate(controlId: string): Promise<{ blob: Blob; filename: string }> {
+    const token = this.getAuthToken();
     const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/download`, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${this.getAuthToken()}`,
+        ...(token && { "Authorization": `Bearer ${token}` }),
       },
     });
 

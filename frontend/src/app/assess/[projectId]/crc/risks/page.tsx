@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -92,6 +92,7 @@ export default function CRCRiskRegisterPage() {
   const [isCreatingManual, setIsCreatingManual] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [riskToDeleteId, setRiskToDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch Risks
   const fetchRisks = useCallback(async () => {
@@ -201,8 +202,9 @@ export default function CRCRiskRegisterPage() {
   };
 
   const confirmDeleteRisk = async () => {
-    if (!riskToDeleteId) return;
+    if (!riskToDeleteId || isDeleting) return;
 
+    setIsDeleting(true);
     try {
       await apiService.deleteCRCRisk(projectId, riskToDeleteId);
       showToast.success("Risk deleted successfully");
@@ -211,10 +213,61 @@ export default function CRCRiskRegisterPage() {
     } catch (err: any) {
       showToast.error(err?.message || "Failed to delete risk");
     } finally {
+      setIsDeleting(false);
       setShowDeleteConfirm(false);
       setRiskToDeleteId(null);
     }
   };
+
+  // Focus trap and Escape key listener for Delete Confirmation Modal
+  const cancelBtnRef = useRef<HTMLButtonElement>(null);
+  const deleteModalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (showDeleteConfirm) {
+      previousActiveElement.current = document.activeElement as HTMLElement;
+      // Focus the Cancel button initially
+      const timer = setTimeout(() => {
+        cancelBtnRef.current?.focus();
+      }, 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setShowDeleteConfirm(false);
+          setRiskToDeleteId(null);
+        }
+
+        if (e.key === "Tab" && deleteModalRef.current) {
+          const focusableElements = deleteModalRef.current.querySelectorAll(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (focusableElements.length === 0) return;
+          const firstElement = focusableElements[0] as HTMLElement;
+          const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+          if (e.shiftKey) {
+            if (document.activeElement === firstElement) {
+              lastElement.focus();
+              e.preventDefault();
+            }
+          } else {
+            if (document.activeElement === lastElement) {
+              firstElement.focus();
+              e.preventDefault();
+            }
+          }
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("keydown", handleKeyDown);
+        previousActiveElement.current?.focus();
+      };
+    }
+  }, [showDeleteConfirm]);
 
   // KPI Calculations
   const stats = useMemo(() => {
@@ -829,6 +882,10 @@ export default function CRCRiskRegisterPage() {
             />
             
             <motion.div
+              ref={deleteModalRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-risk-title"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -837,21 +894,21 @@ export default function CRCRiskRegisterPage() {
               <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
                 <IconTrash className="w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-foreground">Delete Manual Risk</h3>
+              <h3 id="delete-risk-title" className="text-lg font-bold text-foreground">Delete Manual Risk</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Are you sure you want to delete this manual risk? This action cannot be undone.
               </p>
 
               {/* Buttons */}
               <div className="pt-2 flex justify-center gap-3">
-                <Button type="button" variant="outline" onClick={() => {
+                <Button ref={cancelBtnRef} type="button" variant="outline" onClick={() => {
                   setShowDeleteConfirm(false);
                   setRiskToDeleteId(null);
                 }}>
                   Cancel
                 </Button>
-                <Button type="button" variant="destructive" onClick={confirmDeleteRisk}>
-                  Delete Risk
+                <Button type="button" variant="destructive" onClick={confirmDeleteRisk} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete Risk"}
                 </Button>
               </div>
             </motion.div>

@@ -409,17 +409,22 @@ export default function CRCAdminPage() {
         const file = e.target.files?.[0];
         if (!file || !templateUploadTargetId || !templateUploadTargetShortId) return;
 
-        setTemplateUploading(templateUploadTargetShortId);
+        // Capture global state into local constants to support concurrent/interleaved selections safely
+        const targetId = templateUploadTargetId;
+        const targetShortId = templateUploadTargetShortId;
+
+        setTemplateUploading(targetShortId);
         try {
-            await apiService.uploadCRCTemplate(templateUploadTargetId, file);
-            toast.success(`Template uploaded for ${templateUploadTargetShortId}`);
+            await apiService.uploadCRCTemplate(targetId, file);
+            toast.success(`Template uploaded for ${targetShortId}`);
             fetchTemplateStatuses();
         } catch (error: any) {
             toast.error(error.message || "Failed to upload template");
         } finally {
-            setTemplateUploading(null);
-            setTemplateUploadTargetId(null);
-            setTemplateUploadTargetShortId(null);
+            // Only clear the globals if they still match the specific upload that just completed
+            setTemplateUploading(prev => prev === targetShortId ? null : prev);
+            setTemplateUploadTargetId(prev => prev === targetId ? null : prev);
+            setTemplateUploadTargetShortId(prev => prev === targetShortId ? null : prev);
             // Reset file input so the same file can be re-selected
             if (templateFileInputRef.current) templateFileInputRef.current.value = "";
         }
@@ -452,6 +457,10 @@ export default function CRCAdminPage() {
         fetchTemplateStatuses();
         return () => controller.abort();
     }, []);
+
+    useEffect(() => {
+        fetchTemplateStatuses();
+    }, [controls]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -1447,7 +1456,7 @@ export default function CRCAdminPage() {
                                                         <IconFile className="size-3" />
                                                         Uploaded
                                                     </Badge>
-                                                    <Button variant="ghost" size="icon" className="size-6" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Replace template for ${control.control_id}`} title="Replace template">
+                                                    <Button variant="ghost" size="icon" className="size-6" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Replace template for ${control.control_id}`} title="Replace template" disabled={templateUploading !== null}>
                                                         <IconUpload className="size-3" />
                                                     </Button>
                                                     <Button variant="ghost" size="icon" className="size-6 text-destructive" onClick={() => handleTemplateDelete(control.id, control.control_id)} aria-label={`Delete template for ${control.control_id}`} title="Delete template">
@@ -1455,7 +1464,7 @@ export default function CRCAdminPage() {
                                                     </Button>
                                                 </div>
                                             ) : (
-                                                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Upload template for ${control.control_id}`}>
+                                                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Upload template for ${control.control_id}`} disabled={templateUploading !== null}>
                                                     <IconUpload className="size-3" />
                                                     Upload
                                                 </Button>

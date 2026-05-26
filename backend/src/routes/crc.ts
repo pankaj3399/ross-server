@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { syncRiskFromResponse } from "../services/crcRiskService";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -22,8 +23,9 @@ const templateStorage = multer.diskStorage({
     cb(null, TEMPLATES_DIR);
   },
   filename: (req, _file, cb) => {
-    // Will be renamed after validation; use a temp name
-    cb(null, `upload_${Date.now()}.tmp`);
+    // Will be renamed after validation; use a temp name with crypto to avoid collisions
+    const uuid = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex");
+    cb(null, `upload_${Date.now()}_${uuid}.tmp`);
   },
 });
 
@@ -1443,10 +1445,26 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
       return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
     }
 
-    const staticTemplatePath = path.join(__dirname, "../../static/templates", `${controlShortId}.docx`);
+    let chosenPath = "";
+    let format = "";
+    const docxPath = path.join(__dirname, "../../static/templates", `${controlShortId}.docx`);
+    const docPath = path.join(__dirname, "../../static/templates", `${controlShortId}.doc`);
+    
     try {
-      await fs.promises.access(staticTemplatePath);
-      
+      await fs.promises.access(docxPath);
+      chosenPath = docxPath;
+      format = "docx";
+    } catch {
+      try {
+        await fs.promises.access(docPath);
+        chosenPath = docPath;
+        format = "doc";
+      } catch {
+        // neither exists
+      }
+    }
+
+    if (chosenPath) {
       // Log event
       await recordEvent({
         projectId: null,
@@ -1454,12 +1472,10 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
         action: "DOWNLOAD_CRC_TEMPLATE",
         objectType: "CRC_CONTROL",
         objectId: controlShortId,
-        metadata: { format: "docx" }
+        metadata: { format }
       });
 
-      return res.download(staticTemplatePath, `MATUR-CRC-${controlShortId}-Template.docx`);
-    } catch (err) {
-      // File doesn't exist, fallback to HTML generation
+      return res.download(chosenPath, `MATUR-CRC-${controlShortId}-Template.${format}`);
     }
 
     let templateHtml = "";
@@ -1799,19 +1815,42 @@ router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADM
     }
 
     const { control_id: controlShortId } = controlResult.rows[0];
+
+    // Enforce strict whitelist to block path-traversal or directory escaping
+    const whitelist = /^[A-Za-z0-9_-]+$/;
+    if (!whitelist.test(controlShortId)) {
+      if (tmpFile && fs.existsSync(tmpFile.path)) {
+        try { fs.unlinkSync(tmpFile.path); } catch {}
+      }
+      return res.status(400).json({ success: false, error: "Invalid control ID format" });
+    }
+
     const ext = tmpFile.originalname.endsWith(".doc") ? ".doc" : ".docx";
     const targetPath = path.join(TEMPLATES_DIR, `${controlShortId}${ext}`);
 
-    // Remove any existing template files for this control (both .doc and .docx)
-    for (const existingExt of [".doc", ".docx"]) {
-      const existingPath = path.join(TEMPLATES_DIR, `${controlShortId}${existingExt}`);
-      if (fs.existsSync(existingPath)) {
-        fs.unlinkSync(existingPath);
+    // Atomically move/rename the staged upload into place first
+    try {
+      fs.renameSync(tmpFile.path, targetPath);
+    } catch (renameError) {
+      if (tmpFile && fs.existsSync(tmpFile.path)) {
+        try { fs.unlinkSync(tmpFile.path); } catch {}
       }
+      throw renameError; // will be handled by the outer catch block
     }
 
-    // Rename temp file to final location
-    fs.renameSync(tmpFile.path, targetPath);
+    // Only after a successful rename, remove the superseded variant
+    for (const existingExt of [".doc", ".docx"]) {
+      if (existingExt !== ext) {
+        const supersededPath = path.join(TEMPLATES_DIR, `${controlShortId}${existingExt}`);
+        if (fs.existsSync(supersededPath)) {
+          try {
+            fs.unlinkSync(supersededPath);
+          } catch (unlinkErr) {
+            console.error(`Failed to delete superseded template: ${supersededPath}`, unlinkErr);
+          }
+        }
+      }
+    }
 
     const user = (req as any).user;
     await recordEvent({
