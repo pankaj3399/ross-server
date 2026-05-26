@@ -6,7 +6,7 @@ import { getCurrentVersion } from "../services/getCurrentVersion"; // Assuming t
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { randomUUID } from "crypto";
 import { addMember, updateMember, removeMember } from "../services/projectMembershipService";
-import { loadProject, requireProjectRole } from "../middleware/projectAccess";
+import { loadProject, requireProjectRole, requireActiveProject } from "../middleware/projectAccess";
 import {
   createInvitation,
   listInvitationsForProject,
@@ -205,6 +205,7 @@ router.get(
   "/:projectId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
   async (req, res) => {
     try {
@@ -226,6 +227,7 @@ router.put(
   "/:projectId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER", "EDITOR"]),
   async (req, res) => {
   try {
@@ -269,6 +271,7 @@ router.delete(
   "/:projectId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -317,7 +320,7 @@ router.post(
       const actorId = req.user!.id;
 
       const result = await pool.query(
-        "UPDATE projects SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id",
+        "UPDATE projects SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NOT NULL AND deleted_at > NOW() - INTERVAL '30 days' RETURNING *",
         [projectId],
       );
 
@@ -333,7 +336,7 @@ router.post(
         objectId: projectId,
       });
 
-      res.json({ message: "Project restored successfully" });
+      res.json({ message: "Project restored successfully", project: result.rows[0] });
     } catch (error) {
       console.error("Error restoring project:", error);
       res.status(500).json({ error: "Failed to restore project" });
@@ -538,6 +541,7 @@ router.post(
   "/:projectId/submit",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER", "EDITOR"]),
   async (req, res) => {
   try {
@@ -605,6 +609,7 @@ router.get(
   "/:projectId/results",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER", "EDITOR", "VIEWER"]),
   async (req, res) => {
     try {
@@ -691,6 +696,7 @@ router.post(
   "/:projectId/invitations",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -795,6 +801,7 @@ router.get(
   "/:projectId/invitations",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -823,6 +830,7 @@ router.delete(
   "/:projectId/invitations/:invitationId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -850,7 +858,7 @@ router.delete(
 // ==========================================
 
 // GET /projects/:projectId/members
-router.get("/:projectId/members", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
+router.get("/:projectId/members", authenticateToken, loadProject, requireActiveProject, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
     try {
       const { projectId } = req.params;
       
@@ -879,6 +887,7 @@ router.patch(
   "/:projectId/members/:userId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -930,6 +939,7 @@ router.delete(
   "/:projectId/members/:userId",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER"]),
   async (req, res) => {
     try {
@@ -1313,6 +1323,7 @@ router.post(
   "/:projectId/generate-insights",
   authenticateToken,
   loadProject,
+  requireActiveProject,
   requireProjectRole(["OWNER", "EDITOR"]),
   async (req, res) => {
   try {

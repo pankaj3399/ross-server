@@ -79,23 +79,27 @@ export default function SettingsPage() {
   // Deleted projects state
   const [deletedProjects, setDeletedProjects] = useState<Project[]>([]);
   const [deletedLoading, setDeletedLoading] = useState(false);
-  const [restoringProjectId, setRestoringProjectId] = useState<string | null>(null);
+  const [deletedError, setDeletedError] = useState<string | null>(null);
+  const [restoringProjectIds, setRestoringProjectIds] = useState<Record<string, boolean>>({});
 
   const fetchDeletedProjects = useCallback(async () => {
     try {
       setDeletedLoading(true);
+      setDeletedError(null);
       const res = await apiService.getDeletedProjects();
       setDeletedProjects(res.projects || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch deleted projects:", error);
+      setDeletedError(error?.message || "Failed to load deleted projects");
     } finally {
       setDeletedLoading(false);
     }
   }, []);
 
   const handleRestoreProject = async (projectId: string) => {
+    if (restoringProjectIds[projectId]) return;
     try {
-      setRestoringProjectId(projectId);
+      setRestoringProjectIds((prev) => ({ ...prev, [projectId]: true }));
       await apiService.restoreProject(projectId);
       showToast.success("Project restored successfully!");
       setDeletedProjects((prev) => prev.filter((p) => p.id !== projectId));
@@ -103,7 +107,11 @@ export default function SettingsPage() {
       console.error("Failed to restore project:", error);
       showToast.error("Failed to restore project. Please try again.");
     } finally {
-      setRestoringProjectId(null);
+      setRestoringProjectIds((prev) => {
+        const next = { ...prev };
+        delete next[projectId];
+        return next;
+      });
     }
   };
 
@@ -1029,6 +1037,21 @@ export default function SettingsPage() {
                   <div className="h-10 bg-muted rounded animate-pulse" />
                   <div className="h-10 bg-muted rounded animate-pulse" />
                 </div>
+              ) : deletedError ? (
+                <div className="text-center py-6 border border-dashed rounded-xl bg-destructive/5 border-destructive/20">
+                  <p className="text-sm text-destructive mb-3">
+                    {deletedError}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchDeletedProjects}
+                    className="gap-1.5"
+                  >
+                    <IconRefresh className="w-4 h-4" />
+                    Retry
+                  </Button>
+                </div>
               ) : deletedProjects.length === 0 ? (
                 <div className="text-center py-6 border border-dashed rounded-xl bg-muted/10">
                   <p className="text-sm text-muted-foreground">
@@ -1039,6 +1062,7 @@ export default function SettingsPage() {
                 <div className="divide-y divide-border">
                   {deletedProjects.map((project) => {
                     const daysRemaining = getDaysRemaining(project.deleted_at);
+                    const isRestoring = !!restoringProjectIds[project.id];
                     return (
                       <div
                         key={project.id}
@@ -1057,12 +1081,12 @@ export default function SettingsPage() {
                             </span>
                             <span className="w-1.5 h-1.5 rounded-full bg-border" />
                             <Badge
-                              variant="secondary"
+                              variant="outline"
                               className={cn(
-                                "text-xs font-medium",
+                                "text-xs font-semibold px-2.5 py-0.5 rounded-full",
                                 daysRemaining <= 7
-                                  ? "bg-destructive/15 text-destructive hover:bg-destructive/25"
-                                  : "bg-warning/15 text-warning-foreground hover:bg-warning/25"
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                               )}
                             >
                               {daysRemaining} {daysRemaining === 1 ? "day" : "days"} left
@@ -1073,10 +1097,10 @@ export default function SettingsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleRestoreProject(project.id)}
-                          disabled={restoringProjectId === project.id}
+                          disabled={isRestoring}
                           className="self-start sm:self-center gap-1.5"
                         >
-                          {restoringProjectId === project.id ? (
+                          {isRestoring ? (
                             <>
                               <IconRefresh className="w-4 h-4 animate-spin" />
                               Restoring...

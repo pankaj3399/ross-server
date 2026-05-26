@@ -42,6 +42,17 @@ export const loadProject = async (
   }
 };
 
+export const requireActiveProject = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (req.project && req.project.deleted_at !== null) {
+    return res.status(404).json({ error: "Project not found or has been deleted" });
+  }
+  next();
+};
+
 export const requireProjectRole =
   (roles: ProjectRole[]) =>
   async (req: Request, res: Response, next: NextFunction) => {
