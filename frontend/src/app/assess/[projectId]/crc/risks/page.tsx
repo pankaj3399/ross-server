@@ -90,6 +90,8 @@ export default function CRCRiskRegisterPage() {
   const [manualRating, setManualRating] = useState<"Critical" | "High" | "Medium" | "Low">("Medium");
   const [manualDescription, setManualDescription] = useState("");
   const [isCreatingManual, setIsCreatingManual] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [riskToDeleteId, setRiskToDeleteId] = useState<string | null>(null);
 
   // Fetch Risks
   const fetchRisks = useCallback(async () => {
@@ -193,16 +195,24 @@ export default function CRCRiskRegisterPage() {
   };
 
   // Delete Manual Risk
-  const handleDeleteRisk = async (riskId: string) => {
-    if (!window.confirm("Are you sure you want to delete this manual risk?")) return;
+  const handleDeleteRisk = (riskId: string) => {
+    setRiskToDeleteId(riskId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteRisk = async () => {
+    if (!riskToDeleteId) return;
 
     try {
-      await apiService.deleteCRCRisk(projectId, riskId);
+      await apiService.deleteCRCRisk(projectId, riskToDeleteId);
       showToast.success("Risk deleted successfully");
-      setRisks((prev) => prev.filter((r) => r.id !== riskId));
+      setRisks((prev) => prev.filter((r) => r.id !== riskToDeleteId));
       setDrawerOpen(false);
     } catch (err: any) {
       showToast.error(err?.message || "Failed to delete risk");
+    } finally {
+      setShowDeleteConfirm(false);
+      setRiskToDeleteId(null);
     }
   };
 
@@ -799,6 +809,51 @@ export default function CRCRiskRegisterPage() {
                   </Button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.4 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setRiskToDeleteId(null);
+              }}
+              className="fixed inset-0 bg-black"
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-card border border-border rounded-2xl shadow-2xl p-6 w-full max-w-sm relative z-10 text-center space-y-4"
+            >
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+                <IconTrash className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Delete Manual Risk</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Are you sure you want to delete this manual risk? This action cannot be undone.
+              </p>
+
+              {/* Buttons */}
+              <div className="pt-2 flex justify-center gap-3">
+                <Button type="button" variant="outline" onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setRiskToDeleteId(null);
+                }}>
+                  Cancel
+                </Button>
+                <Button type="button" variant="destructive" onClick={confirmDeleteRisk}>
+                  Delete Risk
+                </Button>
+              </div>
             </motion.div>
           </div>
         )}

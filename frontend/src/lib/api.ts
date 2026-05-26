@@ -1443,7 +1443,7 @@ class ApiService {
     return `${API_BASE_URL}/crc/templates/${controlId}/download`;
   }
 
-  async downloadCRCTemplate(controlId: string): Promise<Blob> {
+  async downloadCRCTemplate(controlId: string): Promise<{ blob: Blob; filename: string }> {
     const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/download`, {
       method: "GET",
       headers: {
@@ -1456,7 +1456,49 @@ class ApiService {
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
-    return response.blob();
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get("Content-Disposition");
+    let filename = `MATUR-CRC-${controlId}-Template.docx`;
+    
+    if (contentDisposition && contentDisposition.includes("filename=")) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+    }
+    
+    return { blob, filename };
+  }
+
+  async uploadCRCTemplate(controlId: string, file: File): Promise<{ success: boolean; message: string; data: { controlId: string; filename: string } }> {
+    const formData = new FormData();
+    formData.append("template", file);
+
+    const token = this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/upload`, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Upload failed" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async deleteCRCTemplate(controlId: string): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/crc/templates/${controlId}/template`, {
+      method: "DELETE",
+    });
+  }
+
+  async getCRCTemplateStatuses(): Promise<{ success: boolean; data: Record<string, { filename: string; size: number; updatedAt: string }> }> {
+    return this.request<{ success: boolean; data: Record<string, { filename: string; size: number; updatedAt: string }> }>("/crc/templates/status");
   }
 
   // ==========================================

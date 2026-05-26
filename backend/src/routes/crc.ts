@@ -5,9 +5,43 @@ import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
 import { recordEvent } from "../services/auditLogService";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 import { syncRiskFromResponse } from "../services/crcRiskService";
 
 const router = Router();
+
+// --- Multer configuration for template uploads ---
+const TEMPLATES_DIR = path.join(__dirname, "../../static/templates");
+
+const templateStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    // Ensure the templates directory exists
+    fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
+    cb(null, TEMPLATES_DIR);
+  },
+  filename: (req, _file, cb) => {
+    // Will be renamed after validation; use a temp name
+    cb(null, `upload_${Date.now()}.tmp`);
+  },
+});
+
+const templateUpload = multer({
+  storage: templateStorage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      "application/msword", // .doc
+    ];
+    if (allowed.includes(file.mimetype) || file.originalname.endsWith(".docx") || file.originalname.endsWith(".doc")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .doc and .docx files are allowed"));
+    }
+  },
+});
 
 // --- Validation Schemas ---
 
@@ -1356,7 +1390,36 @@ router.delete("/risks/:projectId/:riskId", authenticateToken, async (req, res) =
   }
 });
 
-// --- Feature 6: Compliance Template Download Endpoint ---
+// --- Feature 6: Compliance Template Endpoints ---
+
+// GET /crc/templates/status - Get template upload status for all controls (Admin only)
+// NOTE: This must be defined BEFORE the :controlId param routes to avoid matching "status" as a controlId
+router.get("/templates/status", authenticateToken, requireRole(["ADMIN"]), async (_req, res) => {
+  try {
+    fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
+    const files = fs.readdirSync(TEMPLATES_DIR);
+
+    const templateMap: Record<string, { filename: string; size: number; updatedAt: string }> = {};
+
+    for (const file of files) {
+      if (file.endsWith(".docx") || file.endsWith(".doc")) {
+        const controlId = file.replace(/\.(docx|doc)$/, "");
+        const filePath = path.join(TEMPLATES_DIR, file);
+        const stats = fs.statSync(filePath);
+        templateMap[controlId] = {
+          filename: file,
+          size: stats.size,
+          updatedAt: stats.mtime.toISOString(),
+        };
+      }
+    }
+
+    res.json({ success: true, data: templateMap });
+  } catch (error) {
+    console.error("Error fetching template statuses:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch template statuses" });
+  }
+});
 
 // GET /crc/templates/:controlId/download - Download compliance template document
 router.get("/templates/:controlId/download", authenticateToken, async (req, res) => {
@@ -1365,7 +1428,7 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     
     // Fetch control details
     const controlResult = await pool.query(
-      "SELECT control_id, control_title, status FROM crc_controls WHERE id = $1 OR control_id = $1",
+      "SELECT control_id, control_title, status FROM crc_controls WHERE id::text = $1 OR control_id = $1",
       [controlId]
     );
 
@@ -1378,6 +1441,25 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     const user = (req as any).user;
     if (status !== "Published" && user?.role !== "ADMIN") {
       return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
+    }
+
+    const staticTemplatePath = path.join(__dirname, "../../static/templates", `${controlShortId}.docx`);
+    try {
+      await fs.promises.access(staticTemplatePath);
+      
+      // Log event
+      await recordEvent({
+        projectId: null,
+        actorId: user?.id,
+        action: "DOWNLOAD_CRC_TEMPLATE",
+        objectType: "CRC_CONTROL",
+        objectId: controlShortId,
+        metadata: { format: "docx" }
+      });
+
+      return res.download(staticTemplatePath, `MATUR-CRC-${controlShortId}-Template.docx`);
+    } catch (err) {
+      // File doesn't exist, fallback to HTML generation
     }
 
     let templateHtml = "";
@@ -1663,11 +1745,144 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
 
     res.header("Content-Type", "application/vnd.ms-word");
     res.attachment(`MATUR-CRC-${controlShortId}-Template.doc`);
+    
+    // Log event for fallback
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "DOWNLOAD_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+      metadata: { format: "doc_html_fallback" }
+    });
+
     return res.send(templateHtml);
   } catch (error) {
     console.error("Error downloading template:", error);
     res.status(500).json({ success: false, error: "Failed to download template" });
   }
 });
+
+// POST /crc/templates/:controlId/upload - Upload compliance template document (Admin only)
+router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADMIN"]), (req, res, next) => {
+  templateUpload.single("template")(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ success: false, error: "File size exceeds 25MB limit" });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const tmpFile = req.file;
+  try {
+    if (!tmpFile) {
+      return res.status(400).json({ success: false, error: "No file uploaded. Please select a .docx file." });
+    }
+
+    const { controlId } = req.params; // UUID or control short ID
+
+    // Fetch control details
+    const controlResult = await pool.query(
+      "SELECT control_id, control_title FROM crc_controls WHERE id::text = $1 OR control_id = $1",
+      [controlId]
+    );
+
+    if (controlResult.rows.length === 0) {
+      // Clean up tmp file
+      fs.unlinkSync(tmpFile.path);
+      return res.status(404).json({ success: false, error: "Compliance control not found" });
+    }
+
+    const { control_id: controlShortId } = controlResult.rows[0];
+    const ext = tmpFile.originalname.endsWith(".doc") ? ".doc" : ".docx";
+    const targetPath = path.join(TEMPLATES_DIR, `${controlShortId}${ext}`);
+
+    // Remove any existing template files for this control (both .doc and .docx)
+    for (const existingExt of [".doc", ".docx"]) {
+      const existingPath = path.join(TEMPLATES_DIR, `${controlShortId}${existingExt}`);
+      if (fs.existsSync(existingPath)) {
+        fs.unlinkSync(existingPath);
+      }
+    }
+
+    // Rename temp file to final location
+    fs.renameSync(tmpFile.path, targetPath);
+
+    const user = (req as any).user;
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "UPLOAD_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+      metadata: { filename: `${controlShortId}${ext}`, originalName: tmpFile.originalname },
+    });
+
+    res.json({
+      success: true,
+      message: `Template uploaded for ${controlShortId}`,
+      data: { controlId: controlShortId, filename: `${controlShortId}${ext}` },
+    });
+  } catch (error) {
+    // Clean up tmp file on error
+    if (tmpFile && fs.existsSync(tmpFile.path)) {
+      fs.unlinkSync(tmpFile.path);
+    }
+    console.error("Error uploading template:", error);
+    res.status(500).json({ success: false, error: "Failed to upload template" });
+  }
+});
+
+// DELETE /crc/templates/:controlId/template - Delete a compliance template (Admin only)
+router.delete("/templates/:controlId/template", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { controlId } = req.params;
+
+    const controlResult = await pool.query(
+      "SELECT control_id FROM crc_controls WHERE id::text = $1 OR control_id = $1",
+      [controlId]
+    );
+
+    if (controlResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Compliance control not found" });
+    }
+
+    const { control_id: controlShortId } = controlResult.rows[0];
+    let deleted = false;
+
+    for (const ext of [".docx", ".doc"]) {
+      const filePath = path.join(TEMPLATES_DIR, `${controlShortId}${ext}`);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        deleted = true;
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "No template file found for this control" });
+    }
+
+    const user = (req as any).user;
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "DELETE_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+    });
+
+    res.json({ success: true, message: `Template deleted for ${controlShortId}` });
+  } catch (error) {
+    console.error("Error deleting template:", error);
+    res.status(500).json({ success: false, error: "Failed to delete template" });
+  }
+});
+
+
 
 export default router;
