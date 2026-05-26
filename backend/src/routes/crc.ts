@@ -19,6 +19,22 @@ const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
 // --- Multer configuration for template uploads ---
 const TEMPLATES_DIR = path.join(__dirname, "../../static/templates");
 
+/**
+ * Helper to securely resolve a template path against TEMPLATES_DIR
+ * and verify that no path-traversal is possible.
+ */
+function resolveTemplatePath(controlShortId: string, ext: ".docx" | ".doc"): string {
+  const whitelist = /^[A-Za-z0-9_-]+$/;
+  if (!whitelist.test(controlShortId)) {
+    throw new Error("Invalid control ID format");
+  }
+  const resolved = path.resolve(TEMPLATES_DIR, `${controlShortId}${ext}`);
+  if (!resolved.startsWith(TEMPLATES_DIR)) {
+    throw new Error("Directory traversal attempt detected");
+  }
+  return resolved;
+}
+
 const templateStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     // Ensure the templates directory exists
@@ -1476,49 +1492,63 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
 
     if (dbTemplate.rows.length > 0) {
       const templateRecord = dbTemplate.rows[0];
-      
-      // Log event
-      await recordEvent({
-        projectId: null,
-        actorId: user?.id,
-        action: "DOWNLOAD_CRC_TEMPLATE",
-        objectType: "CRC_CONTROL",
-        objectId: controlShortId,
-        metadata: { format: templateRecord.filename.endsWith(".docx") ? "docx" : "doc", source: "uploadthing" }
-      });
+      try {
+        // Fetch the file securely from UploadThing and stream to client
+        const fileResponse = await fetch(templateRecord.url);
+        if (fileResponse.ok) {
+          // Log event
+          await recordEvent({
+            projectId: null,
+            actorId: user?.id,
+            action: "DOWNLOAD_CRC_TEMPLATE",
+            objectType: "CRC_CONTROL",
+            objectId: controlShortId,
+            metadata: { format: templateRecord.filename.endsWith(".docx") ? "docx" : "doc", source: "uploadthing" }
+          });
 
-      // Fetch the file securely from UploadThing and stream to client
-      const fileResponse = await fetch(templateRecord.url);
-      if (!fileResponse.ok) {
-        throw new Error(`Failed to fetch from uploadthing: ${fileResponse.statusText}`);
+          const contentType = fileResponse.headers.get("content-type") || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          const arrayBuffer = await fileResponse.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(templateRecord.filename)}"`);
+          return res.send(buffer);
+        } else {
+          console.error(`Failed to fetch from uploadthing (non-ok response): ${fileResponse.statusText}. Falling back to disk/HTML.`);
+        }
+      } catch (fetchErr) {
+        console.error("Failed to fetch template from UploadThing, falling back to disk/HTML:", fetchErr);
       }
-
-      const contentType = fileResponse.headers.get("content-type") || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      const arrayBuffer = await fileResponse.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(templateRecord.filename)}"`);
-      return res.send(buffer);
     }
 
     // 2. Fall back to legacy local filesystem static files
     let chosenPath = "";
     let format = "";
-    const docxPath = path.join(__dirname, "../../static/templates", `${controlShortId}.docx`);
-    const docPath = path.join(__dirname, "../../static/templates", `${controlShortId}.doc`);
+    let docxPath = "";
+    let docPath = "";
     
     try {
-      await fs.promises.access(docxPath);
-      chosenPath = docxPath;
-      format = "docx";
-    } catch {
+      docxPath = resolveTemplatePath(controlShortId, ".docx");
+      docPath = resolveTemplatePath(controlShortId, ".doc");
+    } catch (err: any) {
+      console.error(`Path validation error for legacy files: ${err.message}. Falling back to HTML fallback.`);
+    }
+
+    if (docxPath) {
       try {
-        await fs.promises.access(docPath);
-        chosenPath = docPath;
-        format = "doc";
+        await fs.promises.access(docxPath);
+        chosenPath = docxPath;
+        format = "docx";
       } catch {
-        // neither exists
+        if (docPath) {
+          try {
+            await fs.promises.access(docPath);
+            chosenPath = docPath;
+            format = "doc";
+          } catch {
+            // neither exists
+          }
+        }
       }
     }
 
@@ -1903,15 +1933,7 @@ router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADM
       "SELECT file_key FROM crc_control_templates WHERE control_id = $1",
       [controlShortId]
     );
-
-    if (existingResult.rows.length > 0) {
-      const oldKey = existingResult.rows[0].file_key;
-      try {
-        await utapi.deleteFiles(oldKey);
-      } catch (deleteErr) {
-        console.error(`Failed to delete superseded template from UploadThing: ${oldKey}`, deleteErr);
-      }
-    }
+    const oldKey = existingResult.rows.length > 0 ? existingResult.rows[0].file_key : null;
 
     // Save or update mapping in database
     await pool.query(
@@ -1921,6 +1943,15 @@ router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADM
        DO UPDATE SET url = $2, file_key = $3, filename = $4, size = $5, updated_at = NOW()`,
       [controlShortId, url, fileKey, tmpFile.originalname, tmpFile.size]
     );
+
+    // Delete superseded file from UploadThing only AFTER database upsert succeeds
+    if (oldKey) {
+      try {
+        await utapi.deleteFiles(oldKey);
+      } catch (deleteErr) {
+        console.error(`Failed to delete superseded template from UploadThing: ${oldKey}`, deleteErr);
+      }
+    }
 
     // Clean up local temp file
     if (tmpFile && fs.existsSync(tmpFile.path)) {
@@ -1987,31 +2018,32 @@ router.delete("/templates/:controlId/template", authenticateToken, requireRole([
       const fileKey = dbRecord.rows[0].file_key;
       try {
         await utapi.deleteFiles(fileKey);
+        await pool.query(
+          "DELETE FROM crc_control_templates WHERE control_id = $1",
+          [controlShortId]
+        );
+        deleted = true;
       } catch (deleteErr) {
         console.error(`Error deleting template from UploadThing: ${fileKey}`, deleteErr);
+        return res.status(500).json({ success: false, error: "Failed to delete template from cloud storage. Database record was preserved." });
       }
-      await pool.query(
-        "DELETE FROM crc_control_templates WHERE control_id = $1",
-        [controlShortId]
-      );
-      deleted = true;
     }
 
     // Check and remove any legacy local files on disk
-    for (const ext of [".docx", ".doc"]) {
-      const filePath = path.join(TEMPLATES_DIR, `${controlShortId}${ext}`);
-      if (fs.existsSync(filePath)) {
-        try {
+    for (const ext of [".docx", ".doc"] as const) {
+      try {
+        const filePath = resolveTemplatePath(controlShortId, ext);
+        if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
           deleted = true;
-        } catch (diskErr) {
-          console.error(`Error deleting legacy local file: ${filePath}`, diskErr);
         }
+      } catch (diskErr) {
+        console.error(`Error validating/deleting legacy local file: ${controlShortId}${ext}`, diskErr);
       }
     }
 
     if (!deleted) {
-      return res.status(404).json({ success: false, error: "No template template found for this control" });
+      return res.status(404).json({ success: false, error: "No template found for this control" });
     }
 
     const user = (req as any).user;

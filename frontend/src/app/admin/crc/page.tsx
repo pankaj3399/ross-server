@@ -341,6 +341,7 @@ export default function CRCAdminPage() {
     const [showTemplateDeleteDialog, setShowTemplateDeleteDialog] = useState(false);
     const [templateToDeleteId, setTemplateToDeleteId] = useState<string | null>(null);
     const [templateToDeleteShortId, setTemplateToDeleteShortId] = useState<string | null>(null);
+    const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
 
     // Category delete dialog state
     const [showCategoryDeleteDialog, setShowCategoryDeleteDialog] = useState(false);
@@ -437,7 +438,8 @@ export default function CRCAdminPage() {
     };
 
     const confirmTemplateDelete = async () => {
-        if (!templateToDeleteId || !templateToDeleteShortId) return;
+        if (!templateToDeleteId || !templateToDeleteShortId || isDeletingTemplate) return;
+        setIsDeletingTemplate(true);
         try {
             await apiService.deleteCRCTemplate(templateToDeleteId);
             toast.success(`Template deleted for ${templateToDeleteShortId}`);
@@ -445,6 +447,7 @@ export default function CRCAdminPage() {
         } catch (error: any) {
             toast.error(error.message || "Failed to delete template");
         } finally {
+            setIsDeletingTemplate(false);
             setShowTemplateDeleteDialog(false);
             setTemplateToDeleteId(null);
             setTemplateToDeleteShortId(null);
@@ -1847,11 +1850,11 @@ export default function CRCAdminPage() {
                             setShowTemplateDeleteDialog(false);
                             setTemplateToDeleteId(null);
                             setTemplateToDeleteShortId(null);
-                        }}>
+                        }} disabled={isDeletingTemplate}>
                             Cancel
                         </Button>
-                        <Button variant="destructive" onClick={confirmTemplateDelete}>
-                            Delete Template
+                        <Button variant="destructive" onClick={confirmTemplateDelete} disabled={isDeletingTemplate}>
+                            {isDeletingTemplate ? "Deleting..." : "Delete Template"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

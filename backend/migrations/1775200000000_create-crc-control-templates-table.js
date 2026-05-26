@@ -13,6 +13,9 @@ exports.up = (pgm) => {
       type: "varchar(20)",
       notNull: true,
       unique: true,
+      references: "crc_controls(control_id)",
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
     },
     url: {
       type: "text",
