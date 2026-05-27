@@ -539,18 +539,38 @@ router.get("/analytics/industries", authenticateToken, requireRole(["ADMIN"]), a
 
 // Chatbot Custom Instructions validation schemas
 const addChatbotInstructionSchema = z.object({
-  title: z.string().trim().min(1, "Title is required and cannot be empty or whitespace"),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Title is required and cannot be empty or whitespace")
+    .max(255, "Title must be 255 characters or fewer"),
   content: z.string().trim().min(1, "Content is required and cannot be empty or whitespace"),
   is_active: z.boolean().optional().default(true),
-  category: z.string().trim().min(1, "Category cannot be empty or whitespace").optional().default("General"),
+  category: z
+    .string()
+    .trim()
+    .min(1, "Category cannot be empty or whitespace")
+    .max(100, "Category must be 100 characters or fewer")
+    .optional()
+    .default("General"),
 });
 
 const updateChatbotInstructionSchema = z
   .object({
-    title: z.string().trim().min(1, "Title cannot be empty or whitespace").optional(),
+    title: z
+      .string()
+      .trim()
+      .min(1, "Title cannot be empty or whitespace")
+      .max(255, "Title must be 255 characters or fewer")
+      .optional(),
     content: z.string().trim().min(1, "Content cannot be empty or whitespace").optional(),
     is_active: z.boolean().optional(),
-    category: z.string().trim().min(1, "Category cannot be empty or whitespace").optional(),
+    category: z
+      .string()
+      .trim()
+      .min(1, "Category cannot be empty or whitespace")
+      .max(100, "Category must be 100 characters or fewer")
+      .optional(),
   })
   .refine(
     (data) =>
