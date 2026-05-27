@@ -75,6 +75,7 @@ interface AssessmentContextType {
     projectNotFound: boolean;
     isPremium: boolean;
     projectName: string;
+    projectStatus: string;
     crcControls: CRCControl[];
     crcCategories: string[];
     crcResponses: Record<string, CRCResponse>;
@@ -99,6 +100,10 @@ interface AssessmentContextType {
 
     userRole: string | null;
     isReadOnly: boolean;
+
+    // Delta tracking for resubmission
+    hasChangedAnswers: boolean;
+    changedDomainIds: string[];
 
     saving: boolean;
     savingNote: boolean;
@@ -193,9 +198,11 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
     const [domains, setDomains] = useState<DomainWithLevels[]>([]);
     const [answers, setAnswers] = useState<Record<string, number>>({});
+    const [savedAnswers, setSavedAnswers] = useState<Record<string, number>>({});
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
+    const [projectStatus, setProjectStatus] = useState<string>('not_started');
 
     // CRC State
     const [crcControls, setCrcControls] = useState<CRCControl[]>([]);
@@ -335,6 +342,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     });
                 }
                 setAnswers(answersMap);
+                setSavedAnswers({ ...answersMap });
 
                 const notesMap: Record<string, string> = {};
                 notesData.forEach((note: NoteResponse) => {
@@ -382,6 +390,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     if (!controller.signal.aborted) {
                         setProjectName(project.name);
                         setUserRole(project.role || null);
+                        setProjectStatus(project.status || 'not_started');
                     }
                 } catch (e) {
                     console.error("Failed to fetch project for name and role:", e);
@@ -648,39 +657,49 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         return true;
     };
 
+    // Compute changed domain IDs by comparing current answers with saved snapshot
+    const changedDomainIds = useMemo(() => {
+        const changed = new Set<string>();
+        const allKeys = Array.from(new Set([...Object.keys(answers), ...Object.keys(savedAnswers)]));
+        for (let i = 0; i < allKeys.length; i++) {
+            const key = allKeys[i];
+            if (answers[key] !== savedAnswers[key]) {
+                // Key format: domainId:practiceId:level:stream:questionIndex
+                const domainId = key.split(':')[0];
+                if (domainId) changed.add(domainId);
+            }
+        }
+        return Array.from(changed);
+    }, [answers, savedAnswers]);
+
+    const hasChangedAnswers = changedDomainIds.length > 0;
+
     const submitProject = async () => {
         if (isReadOnly) return;
         setSubmitting(true);
-        // Reset any previous error state related to submission flow if possible
-        // But keep 'saving-notes' phase indicator clean
 
         try {
             setSubmissionPhase('saving-notes');
-            // We use a flag or just rely on 'true' return.
-            // Even if some notes fail, we might want to warn user but still proceed?
-            // Current saveAllNotes returns false if ANY fail.
             const notesSaved = await saveAllNotes(true);
 
             if (!notesSaved) {
-                // If notes failed to save, stop here. User has been toasted.
                 setSubmitting(false);
                 setSubmissionPhase(null);
                 return;
             }
 
-            // Notes saved successfully.
             setSubmissionPhase('submitting');
 
-            const response = await apiService.submitProject(projectId);
+            // Pass changedDomainIds for delta-aware insight regeneration
+            const response = await apiService.submitProject(projectId, changedDomainIds.length > 0 ? changedDomainIds : undefined);
 
             setProjectResults(projectId, response.project, response.results, response.capabilities);
+            // Update the saved snapshot so future comparisons start fresh
+            setSavedAnswers({ ...answers });
+            setProjectStatus('completed');
             router.push(getReportRoute(projectId, user?.subscription_status));
         } catch (error) {
             console.error("Failed to submit project:", error);
-            // If we are in 'submitting' phase, it means notes were saved.
-            // We can optionally set a flag or just let the user retry.
-            // Since saveAllNotes is idempotent (mostly), retrying is safe.
-            // Ideally we could let the user know "Notes saved, but submission failed."
             showToast.error("Failed to submit assessment. Please try again.");
         } finally {
             setSubmitting(false);
@@ -725,6 +744,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         projectNotFound,
         isPremium,
         projectName,
+        projectStatus,
         currentDomainId,
         currentPracticeId,
         currentQuestionIndex,
@@ -741,6 +761,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         submitCrcProject,
         userRole,
         isReadOnly,
+        hasChangedAnswers,
+        changedDomainIds,
         saving,
         savingNote,
         submitting,

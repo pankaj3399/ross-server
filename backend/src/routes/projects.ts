@@ -547,6 +547,11 @@ router.post(
   try {
     const { projectId } = req.params;
     const userId = req.user!.id;
+    const { changedDomainIds } = req.body || {};
+
+    if (typeof changedDomainIds !== 'undefined' && !Array.isArray(changedDomainIds)) {
+      return res.status(400).json({ error: 'changedDomainIds must be an array' });
+    }
 
     const project = req.project as { id: string; status: string; version_id: string | null };
     const projectVersionId = project.version_id;
@@ -554,11 +559,20 @@ router.post(
 
     const { domains, overall } = await computeProjectResults(projectId, isPremium, projectVersionId);
 
-    // New submission invalidates any previously-cached AI insights.
-    await pool.query(
-      "DELETE FROM project_insights WHERE project_id = $1",
-      [projectId]
-    );
+    // Delta-aware insight invalidation: when resubmitting with specific
+    // changed domains, only clear insights for those domains. First
+    // submission (or no changedDomainIds) clears everything.
+    if (Array.isArray(changedDomainIds) && changedDomainIds.length > 0) {
+      await pool.query(
+        "DELETE FROM project_insights WHERE project_id = $1 AND domain_id = ANY($2::text[])",
+        [projectId, changedDomainIds]
+      );
+    } else {
+      await pool.query(
+        "DELETE FROM project_insights WHERE project_id = $1",
+        [projectId]
+      );
+    }
 
     const result = await pool.query(
       // submitted_at is set on the first submission only; resubmits and later
