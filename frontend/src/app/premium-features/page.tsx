@@ -315,16 +315,6 @@ export default function PremiumFeaturesPage() {
                           <Badge variant="secondary">
                             {project.ai_system_type || "General AI System"}
                           </Badge>
-                          <Badge variant={
-                            project.status === 'completed'
-                              ? 'default'
-                              : project.status === 'in_progress'
-                                ? 'outline'
-                                : 'secondary'
-                          }>
-                            {project.status === 'completed' ? 'Completed' :
-                              project.status === 'in_progress' ? 'In Progress' : 'Not Started'}
-                          </Badge>
                         </div>
                       </div>
                       <IconArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0 ml-4" />
