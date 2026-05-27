@@ -313,7 +313,7 @@ export default function DashboardPage() {
     try {
       await apiService.deleteProject(id);
       setProjects(projects.filter((p) => p.id !== id));
-      showToast.success("Project deleted successfully!");
+      showToast.success("Project moved to trash. You can recover it from Settings for up to 30 days.");
       setDeletingProjectId(null);
     } catch (error) {
       console.error("Failed to delete project:", error);
@@ -762,7 +762,7 @@ export default function DashboardPage() {
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently removed.
+              Are you sure you want to delete this project? It will be moved to the <strong>Deleted Projects</strong> section in Settings, where you can recover it for up to 30 days before it is permanently deleted.
             </p>
           </div>
           <div className="flex justify-end space-x-3">

@@ -22,9 +22,11 @@ import {
   IconMail,
   IconCreditCard,
   IconArrowRight,
+  IconTrash,
+  IconRotate,
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
-import { apiService, SubscriptionDetailsResponse } from "../../lib/api";
+import { apiService, SubscriptionDetailsResponse, Project } from "../../lib/api";
 import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
 import { SimplePageSkeleton } from "../../components/Skeleton";
 import { validatePassword } from "../../lib/passwordValidation";
@@ -73,6 +75,54 @@ export default function SettingsPage() {
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  // Deleted projects state
+  const [deletedProjects, setDeletedProjects] = useState<Project[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+  const [deletedError, setDeletedError] = useState<string | null>(null);
+  const [restoringProjectIds, setRestoringProjectIds] = useState<Record<string, boolean>>({});
+
+  const fetchDeletedProjects = useCallback(async () => {
+    try {
+      setDeletedLoading(true);
+      setDeletedError(null);
+      const res = await apiService.getDeletedProjects();
+      setDeletedProjects(res.projects || []);
+    } catch (error: any) {
+      console.error("Failed to fetch deleted projects:", error);
+      setDeletedError(error?.message || "Failed to load deleted projects");
+    } finally {
+      setDeletedLoading(false);
+    }
+  }, []);
+
+  const handleRestoreProject = async (projectId: string) => {
+    if (restoringProjectIds[projectId]) return;
+    try {
+      setRestoringProjectIds((prev) => ({ ...prev, [projectId]: true }));
+      await apiService.restoreProject(projectId);
+      showToast.success("Project restored successfully!");
+      setDeletedProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (error) {
+      console.error("Failed to restore project:", error);
+      showToast.error("Failed to restore project. Please try again.");
+    } finally {
+      setRestoringProjectIds((prev) => {
+        const next = { ...prev };
+        delete next[projectId];
+        return next;
+      });
+    }
+  };
+
+  const getDaysRemaining = (deletedAt?: string) => {
+    if (!deletedAt) return 30;
+    const deletedDate = new Date(deletedAt);
+    const expiryDate = new Date(deletedDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const diffTime = expiryDate.getTime() - new Date().getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  };
 
   useEffect(() => {
     // Wait for auth to finish loading
@@ -148,11 +198,12 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch subscription details when user is available
+    // Fetch subscription details and deleted projects when user is available
     if (user && isAuthenticated) {
       fetchSubscriptionDetails();
+      fetchDeletedProjects();
     }
-  }, [user, isAuthenticated, fetchSubscriptionDetails]);
+  }, [user, isAuthenticated, fetchSubscriptionDetails, fetchDeletedProjects]);
 
   const handleMFAToggle = async () => {
     if (user?.mfa_enabled) {
@@ -622,7 +673,7 @@ export default function SettingsPage() {
                   {/* Error Message */}
                   {profileError && (
                     <div className="flex items-center space-x-2 text-destructive bg-destructive/10 p-3 rounded-lg">
-                      <IconAlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <IconAlertCircle className="w-5 h-5 shrink-0" />
                       <span className="text-sm">{profileError}</span>
                     </div>
                   )}
@@ -691,7 +742,7 @@ export default function SettingsPage() {
                   {!user?.email_verified && (
                     <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
                       <div className="flex items-start space-x-3">
-                        <IconAlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                        <IconAlertCircle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-warning-foreground mb-1">
                             Email verification required
@@ -961,6 +1012,111 @@ export default function SettingsPage() {
                   )}
                 </AnimatePresence>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Deleted Projects Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
+                  <IconTrash className="w-6 h-6 text-destructive" />
+                </div>
+                <div>
+                  <CardTitle>Deleted Projects</CardTitle>
+                  <CardDescription>
+                    Recover deleted projects within 30 days of deletion.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              {deletedLoading ? (
+                <div className="space-y-3">
+                  <div className="h-10 bg-muted rounded animate-pulse" />
+                  <div className="h-10 bg-muted rounded animate-pulse" />
+                </div>
+              ) : deletedError ? (
+                <div className="text-center py-6 border border-dashed rounded-xl bg-destructive/5 border-destructive/20">
+                  <p className="text-sm text-destructive mb-3">
+                    {deletedError}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchDeletedProjects}
+                    className="gap-1.5"
+                  >
+                    <IconRefresh className="w-4 h-4" />
+                    Retry
+                  </Button>
+                </div>
+              ) : deletedProjects.length === 0 ? (
+                <div className="text-center py-6 border border-dashed rounded-xl bg-muted/10">
+                  <p className="text-sm text-muted-foreground">
+                    No deleted projects. Projects you delete will be kept here for 30 days before permanent deletion.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {deletedProjects.map((project) => {
+                    const daysRemaining = getDaysRemaining(project.deleted_at);
+                    const isRestoring = !!restoringProjectIds[project.id];
+                    return (
+                      <div
+                        key={project.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-4"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-foreground">{project.name}</h4>
+                          {project.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                              {project.description}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-muted-foreground">
+                              Deleted on {new Date(project.deleted_at!).toLocaleDateString()}
+                            </span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                                daysRemaining <= 7
+                                  ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              )}
+                            >
+                              {daysRemaining} {daysRemaining === 1 ? "day" : "days"} left
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRestoreProject(project.id)}
+                          disabled={isRestoring}
+                          className="self-start sm:self-center gap-1.5"
+                        >
+                          {isRestoring ? (
+                            <>
+                              <IconRefresh className="w-4 h-4 animate-spin" />
+                              Restoring...
+                            </>
+                          ) : (
+                            <>
+                              <IconRotate className="w-4 h-4" />
+                              Restore
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
