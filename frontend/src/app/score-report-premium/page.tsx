@@ -1,18 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ReportSkeleton } from "../../components/Skeleton";
 
-/**
- * Legacy premium report route — now redirects to the unified AIMA report.
- *
- * The AIMA report page handles premium-domain visibility itself based on
- * the project's capability flags, so a separate premium report page is no
- * longer needed.  This redirect ensures old bookmarks / shared links still
- * resolve gracefully.
- */
-export default function PremiumReportRedirect() {
+function PremiumRedirectClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const projectId = searchParams.get("projectId");
@@ -24,6 +16,21 @@ export default function PremiumReportRedirect() {
     router.replace(target);
   }, [projectId, router]);
 
-  // Show a skeleton while the redirect is in flight
-  return <ReportSkeleton />;
+  return null;
+}
+
+/**
+ * Legacy premium report route — now redirects to the unified AIMA report.
+ *
+ * The AIMA report page handles premium-domain visibility itself based on
+ * the project's capability flags, so a separate premium report page is no
+ * longer needed.  This redirect ensures old bookmarks / shared links still
+ * resolve gracefully.
+ */
+export default function PremiumReportRedirect() {
+  return (
+    <Suspense fallback={<ReportSkeleton />}>
+      <PremiumRedirectClient />
+    </Suspense>
+  );
 }

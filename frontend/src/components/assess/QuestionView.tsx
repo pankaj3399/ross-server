@@ -150,7 +150,7 @@ export default function QuestionView() {
     } = useAssessmentContext();
 
     const isCompleted = projectStatus === 'completed';
-    const reportUrl = getReportRoute(projectId, user?.subscription_status);
+    const reportUrl = getReportRoute(projectId);
 
     const {
         hasNextQuestion,

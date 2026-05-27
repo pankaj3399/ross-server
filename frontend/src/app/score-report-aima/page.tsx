@@ -229,7 +229,7 @@ export default function ScoreReportPage() {
       isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
-  }, [projectId, results, loading, premiumDomainIds]);
+  }, [projectId, results, loading, premiumDomainIds, premiumDomainError]);
 
   const performance = getMaturityLevel(results?.results?.overall?.overallMaturityScore ?? 0);
 
