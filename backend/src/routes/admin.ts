@@ -537,4 +537,144 @@ router.get("/analytics/industries", authenticateToken, requireRole(["ADMIN"]), a
   }
 });
 
+// Chatbot Custom Instructions validation schemas
+const addChatbotInstructionSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Content is required"),
+  is_active: z.boolean().optional().default(true),
+  category: z.string().optional().default("General"),
+});
+
+const updateChatbotInstructionSchema = z.object({
+  title: z.string().min(1, "Title cannot be empty").optional(),
+  content: z.string().min(1, "Content cannot be empty").optional(),
+  is_active: z.boolean().optional(),
+  category: z.string().min(1, "Category cannot be empty").optional(),
+});
+
+// GET /admin/chatbot-instructions - Fetch all custom chatbot instructions
+router.get("/chatbot-instructions", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, title, content, is_active, category, created_at, updated_at FROM chatbot_instructions ORDER BY created_at ASC"
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error("Error fetching chatbot instructions:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch chatbot instructions",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// POST /admin/chatbot-instructions - Add a new custom chatbot instruction
+router.post("/chatbot-instructions", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { title, content, is_active, category } = addChatbotInstructionSchema.parse(req.body);
+    const result = await pool.query(
+      "INSERT INTO chatbot_instructions (title, content, is_active, category) VALUES ($1, $2, $3, $4) RETURNING *",
+      [title, content, is_active, category]
+    );
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      message: "Chatbot instruction added successfully",
+    });
+  } catch (error) {
+    console.error("Error adding chatbot instruction:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to add chatbot instruction",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// PATCH /admin/chatbot-instructions/:id - Update an existing chatbot instruction
+router.patch("/chatbot-instructions/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { title, content, is_active, category } = updateChatbotInstructionSchema.parse(req.body);
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (title !== undefined) {
+      updates.push(`title = $${updates.length + 1}`);
+      values.push(title);
+    }
+    if (content !== undefined) {
+      updates.push(`content = $${updates.length + 1}`);
+      values.push(content);
+    }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${updates.length + 1}`);
+      values.push(is_active);
+    }
+    if (category !== undefined) {
+      updates.push(`category = $${updates.length + 1}`);
+      values.push(category);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: "No update fields provided" });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(req.params.id);
+
+    const query = `
+      UPDATE chatbot_instructions 
+      SET ${updates.join(", ")} 
+      WHERE id = $${values.length} 
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Chatbot instruction not found" });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: "Chatbot instruction updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating chatbot instruction:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to update chatbot instruction",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+// DELETE /admin/chatbot-instructions/:id - Delete a chatbot instruction
+router.delete("/chatbot-instructions/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM chatbot_instructions WHERE id = $1 RETURNING *",
+      [req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Chatbot instruction not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Chatbot instruction deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting chatbot instruction:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete chatbot instruction",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 export default router;

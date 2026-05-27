@@ -191,6 +191,21 @@ export async function handleChatMessage(
   // Build system prompt
   let systemPrompt = BASE_SYSTEM_PROMPT;
 
+  // Fetch and append custom admin instructions if any are active
+  try {
+    const instructionsResult = await pool.query(
+      "SELECT title, content FROM chatbot_instructions WHERE is_active = true ORDER BY created_at ASC"
+    );
+    if (instructionsResult.rows.length > 0) {
+      systemPrompt += `\n\n## Additional Instructions\nAdhere strictly to the following administrative instructions and context:`;
+      instructionsResult.rows.forEach((row: { title: string; content: string }) => {
+        systemPrompt += `\n\n### ${row.title}\n${row.content}`;
+      });
+    }
+  } catch (error) {
+    console.error("[ChatService] Failed to fetch active chatbot instructions:", error);
+  }
+
   // Inject CRC control context if the user is on a control page
   if (controlId) {
     const controlContext = await getCRCControlContext(controlId);
