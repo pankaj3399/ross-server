@@ -144,14 +144,30 @@ export default function AdminChatbotSettings() {
   const handleModalTab = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Tab" || !modalRef.current) return;
 
-    const focusableElements = modalRef.current.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    
-    if (focusableElements.length === 0) return;
+    const allFocusable = Array.from(
+      modalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ) as HTMLElement[];
 
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+    // Filter out disabled, hidden, non-tabbable, or invisible elements
+    const interactiveElements = allFocusable.filter((el) => {
+      const isDisabled = el.hasAttribute("disabled") || (el as any).disabled === true || el.matches(":disabled");
+      const isAriaHidden = el.getAttribute("aria-hidden") === "true";
+      const isTabindexMinusOne = el.getAttribute("tabindex") === "-1";
+      const isHidden = el.hasAttribute("hidden") || el.style.display === "none" || el.style.visibility === "hidden";
+      const isNotVisible = el.offsetParent === null;
+
+      return !isDisabled && !isAriaHidden && !isTabindexMinusOne && !isHidden && !isNotVisible;
+    });
+
+    if (interactiveElements.length === 0) {
+      e.preventDefault();
+      return;
+    }
+
+    const firstElement = interactiveElements[0];
+    const lastElement = interactiveElements[interactiveElements.length - 1];
 
     if (e.shiftKey) {
       if (document.activeElement === firstElement) {

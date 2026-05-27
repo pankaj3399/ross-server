@@ -539,18 +539,18 @@ router.get("/analytics/industries", authenticateToken, requireRole(["ADMIN"]), a
 
 // Chatbot Custom Instructions validation schemas
 const addChatbotInstructionSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  content: z.string().min(1, "Content is required"),
+  title: z.string().trim().min(1, "Title is required and cannot be empty or whitespace"),
+  content: z.string().trim().min(1, "Content is required and cannot be empty or whitespace"),
   is_active: z.boolean().optional().default(true),
-  category: z.string().optional().default("General"),
+  category: z.string().trim().min(1, "Category cannot be empty or whitespace").optional().default("General"),
 });
 
 const updateChatbotInstructionSchema = z
   .object({
-    title: z.string().min(1, "Title cannot be empty").optional(),
-    content: z.string().min(1, "Content cannot be empty").optional(),
+    title: z.string().trim().min(1, "Title cannot be empty or whitespace").optional(),
+    content: z.string().trim().min(1, "Content cannot be empty or whitespace").optional(),
     is_active: z.boolean().optional(),
-    category: z.string().min(1, "Category cannot be empty").optional(),
+    category: z.string().trim().min(1, "Category cannot be empty or whitespace").optional(),
   })
   .refine(
     (data) =>
