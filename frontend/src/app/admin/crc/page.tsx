@@ -8,7 +8,7 @@ import {
     IconPlus, IconSearch, IconFilter, IconEdit, IconTrash, IconCopy,
     IconDownload, IconChevronDown, IconChevronRight, IconArrowLeft,
     IconCheck, IconX, IconHistory, IconEye, IconArchive, IconSend,
-    IconUpload, IconSettings, IconFolder
+    IconUpload, IconSettings, IconFolder, IconFile, IconFileOff, IconLoader2
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -330,6 +330,24 @@ export default function CRCAdminPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
+    // Template management state
+    const [templateStatuses, setTemplateStatuses] = useState<Record<string, { filename: string; size: number; updatedAt: string }>>({});
+    const [templateUploading, setTemplateUploading] = useState<string | null>(null); // control_id being uploaded
+    const templateFileInputRef = useRef<HTMLInputElement>(null);
+    const [templateUploadTargetId, setTemplateUploadTargetId] = useState<string | null>(null); // UUID of control
+    const [templateUploadTargetShortId, setTemplateUploadTargetShortId] = useState<string | null>(null); // short control_id
+    
+    // Template delete dialog state
+    const [showTemplateDeleteDialog, setShowTemplateDeleteDialog] = useState(false);
+    const [templateToDeleteId, setTemplateToDeleteId] = useState<string | null>(null);
+    const [templateToDeleteShortId, setTemplateToDeleteShortId] = useState<string | null>(null);
+    const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
+
+    // Category delete dialog state
+    const [showCategoryDeleteDialog, setShowCategoryDeleteDialog] = useState(false);
+    const [categoryToDeleteId, setCategoryToDeleteId] = useState<number | null>(null);
+    const [categoryToDeleteName, setCategoryToDeleteName] = useState<string | null>(null);
+
     // fetch controls
     const fetchControls = async (signal?: AbortSignal) => {
         setLoading(true);
@@ -373,11 +391,79 @@ export default function CRCAdminPage() {
         }
     };
 
+    const fetchTemplateStatuses = async () => {
+        try {
+            const res = await apiService.getCRCTemplateStatuses();
+            setTemplateStatuses(res.data);
+        } catch (error) {
+            // Silently fail — non-critical
+        }
+    };
+
+    const handleTemplateUploadClick = (controlUUID: string, controlShortId: string) => {
+        setTemplateUploadTargetId(controlUUID);
+        setTemplateUploadTargetShortId(controlShortId);
+        templateFileInputRef.current?.click();
+    };
+
+    const handleTemplateFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !templateUploadTargetId || !templateUploadTargetShortId) return;
+
+        // Capture global state into local constants to support concurrent/interleaved selections safely
+        const targetId = templateUploadTargetId;
+        const targetShortId = templateUploadTargetShortId;
+
+        setTemplateUploading(targetShortId);
+        try {
+            await apiService.uploadCRCTemplate(targetId, file);
+            toast.success(`Template uploaded for ${targetShortId}`);
+            fetchTemplateStatuses();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to upload template");
+        } finally {
+            // Only clear the globals if they still match the specific upload that just completed
+            setTemplateUploading(prev => prev === targetShortId ? null : prev);
+            setTemplateUploadTargetId(prev => prev === targetId ? null : prev);
+            setTemplateUploadTargetShortId(prev => prev === targetShortId ? null : prev);
+            // Reset file input so the same file can be re-selected
+            if (templateFileInputRef.current) templateFileInputRef.current.value = "";
+        }
+    };
+
+    const handleTemplateDelete = (controlUUID: string, controlShortId: string) => {
+        setTemplateToDeleteId(controlUUID);
+        setTemplateToDeleteShortId(controlShortId);
+        setShowTemplateDeleteDialog(true);
+    };
+
+    const confirmTemplateDelete = async () => {
+        if (!templateToDeleteId || !templateToDeleteShortId || isDeletingTemplate) return;
+        setIsDeletingTemplate(true);
+        try {
+            await apiService.deleteCRCTemplate(templateToDeleteId);
+            toast.success(`Template deleted for ${templateToDeleteShortId}`);
+            fetchTemplateStatuses();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to delete template");
+        } finally {
+            setIsDeletingTemplate(false);
+            setShowTemplateDeleteDialog(false);
+            setTemplateToDeleteId(null);
+            setTemplateToDeleteShortId(null);
+        }
+    };
+
     useEffect(() => {
         const controller = new AbortController();
         fetchCategories(controller.signal);
+        fetchTemplateStatuses();
         return () => controller.abort();
     }, []);
+
+    useEffect(() => {
+        fetchTemplateStatuses();
+    }, [controls]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -839,15 +925,21 @@ export default function CRCAdminPage() {
         }
     };
 
-    const handleDeleteCategory = async (id: number) => {
-        if (!window.confirm("Are you sure you want to delete this category?")) return;
+    const handleDeleteCategory = (id: number, name: string) => {
+        setCategoryToDeleteId(id);
+        setCategoryToDeleteName(name);
+        setShowCategoryDeleteDialog(true);
+    };
+
+    const confirmCategoryDelete = async () => {
+        if (categoryToDeleteId === null) return;
         setCategoryActionLoading(true);
         try {
-            await apiService.deleteCRCCategory(id);
+            await apiService.deleteCRCCategory(categoryToDeleteId);
             toast.success("Category deleted");
             
             // Reset category filter if the deleted category was selected
-            if (categoryFilter === id.toString()) {
+            if (categoryFilter === categoryToDeleteId.toString()) {
                 setCategoryFilter("all");
             }
             
@@ -857,6 +949,9 @@ export default function CRCAdminPage() {
             toast.error(error.message || "Failed to delete category");
         } finally {
             setCategoryActionLoading(false);
+            setShowCategoryDeleteDialog(false);
+            setCategoryToDeleteId(null);
+            setCategoryToDeleteName(null);
         }
     };
 
@@ -1311,14 +1406,15 @@ export default function CRCAdminPage() {
                                 <TableHead>Category</TableHead>
                                 <TableHead>Priority</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Template</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
-                                <TableRow><TableCell colSpan={7} className="h-24 text-center">Loading...</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={8} className="h-24 text-center">Loading...</TableCell></TableRow>
                             ) : controls.length === 0 ? (
-                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No controls found.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={8} className="h-24 text-center">No controls found.</TableCell></TableRow>
                             ) : (
                                 controls.map((control) => (
                                     <TableRow key={control.id}>
@@ -1350,6 +1446,32 @@ export default function CRCAdminPage() {
                                             } className={control.status === "Published" ? "bg-green-600 hover:bg-green-700" : ""}>
                                                 {control.status}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {templateUploading === control.control_id ? (
+                                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <IconLoader2 className="size-4 animate-spin" />
+                                                    Uploading...
+                                                </div>
+                                            ) : templateStatuses[control.control_id] ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800 gap-1 text-xs">
+                                                        <IconFile className="size-3" />
+                                                        Uploaded
+                                                    </Badge>
+                                                    <Button variant="ghost" size="icon" className="size-6" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Replace template for ${control.control_id}`} title="Replace template" disabled={templateUploading !== null}>
+                                                        <IconUpload className="size-3" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="size-6 text-destructive" onClick={() => handleTemplateDelete(control.id, control.control_id)} aria-label={`Delete template for ${control.control_id}`} title="Delete template">
+                                                        <IconTrash className="size-3" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button variant="outline" size="sm" className="text-xs gap-1 h-7" onClick={() => handleTemplateUploadClick(control.id, control.control_id)} aria-label={`Upload template for ${control.control_id}`} disabled={templateUploading !== null}>
+                                                    <IconUpload className="size-3" />
+                                                    Upload
+                                                </Button>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
@@ -1664,7 +1786,7 @@ export default function CRCAdminPage() {
                                                         variant="ghost"
                                                         size="icon"
                                                         className="text-destructive"
-                                                        onClick={() => handleDeleteCategory(cat.id)}
+                                                        onClick={() => handleDeleteCategory(cat.id, cat.name)}
                                                         disabled={categoryActionLoading}
                                                         aria-label={`Delete category ${cat.name}`}
                                                     >
@@ -1686,6 +1808,15 @@ export default function CRCAdminPage() {
                 </DialogContent>
             </Dialog>
 
+            {/* Hidden file input for template upload */}
+            <input
+                ref={templateFileInputRef}
+                type="file"
+                accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+                className="hidden"
+                onChange={handleTemplateFileSelected}
+            />
+
             {/* Bulk Delete Confirmation Dialog */}
             <Dialog open={showBulkDeleteConfirm} onOpenChange={setShowBulkDeleteConfirm}>
                 <DialogContent>
@@ -1701,6 +1832,53 @@ export default function CRCAdminPage() {
                         </Button>
                         <Button variant="destructive" onClick={handleBulkDelete} disabled={loading}>
                             {loading ? "Deleting..." : "Delete Controls"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            {/* Template Delete Confirmation Dialog */}
+            <Dialog open={showTemplateDeleteDialog} onOpenChange={setShowTemplateDeleteDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Compliance Template</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete the compliance template for <strong>{templateToDeleteShortId}</strong>? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setShowTemplateDeleteDialog(false);
+                            setTemplateToDeleteId(null);
+                            setTemplateToDeleteShortId(null);
+                        }} disabled={isDeletingTemplate}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmTemplateDelete} disabled={isDeletingTemplate}>
+                            {isDeletingTemplate ? "Deleting..." : "Delete Template"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Category Delete Confirmation Dialog */}
+            <Dialog open={showCategoryDeleteDialog} onOpenChange={setShowCategoryDeleteDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Delete Category</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete the category <strong>{categoryToDeleteName}</strong>? This action cannot be undone and may affect controls in this category.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setShowCategoryDeleteDialog(false);
+                            setCategoryToDeleteId(null);
+                            setCategoryToDeleteName(null);
+                        }}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={confirmCategoryDelete} disabled={categoryActionLoading}>
+                            {categoryActionLoading ? "Deleting..." : "Delete Category"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

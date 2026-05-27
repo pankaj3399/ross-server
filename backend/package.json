@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^0.98.0",
     "@google/generative-ai": "^0.24.1",
     "@mastra/evals": "^0.14.2",
+    "@types/multer": "^2.1.0",
     "@types/nodemailer": "^7.0.2",
     "@types/qrcode": "^1.5.5",
     "@types/speakeasy": "^2.0.10",
@@ -24,12 +25,14 @@
     "express": "^4.19.2",
     "inngest": "^3.54.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
     "node-pg-migrate": "^8.0.3",
     "nodemailer": "^7.0.9",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",
     "stripe": "^14.21.0",
+    "uploadthing": "^7.7.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {

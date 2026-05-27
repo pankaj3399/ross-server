@@ -5,9 +5,64 @@ import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
 import { recordEvent } from "../services/auditLogService";
+import fs from "fs";
+import path from "path";
+import multer from "multer";
 import { syncRiskFromResponse } from "../services/crcRiskService";
+import crypto from "crypto";
+import { UTApi } from "uploadthing/server";
 
 const router = Router();
+
+const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+
+// --- Multer configuration for template uploads ---
+const TEMPLATES_DIR = path.join(__dirname, "../../static/templates");
+
+/**
+ * Helper to securely resolve a template path against TEMPLATES_DIR
+ * and verify that no path-traversal is possible.
+ */
+function resolveTemplatePath(controlShortId: string, ext: ".docx" | ".doc"): string {
+  const whitelist = /^[A-Za-z0-9_-]+$/;
+  if (!whitelist.test(controlShortId)) {
+    throw new Error("Invalid control ID format");
+  }
+  const resolved = path.resolve(TEMPLATES_DIR, `${controlShortId}${ext}`);
+  if (!resolved.startsWith(TEMPLATES_DIR)) {
+    throw new Error("Directory traversal attempt detected");
+  }
+  return resolved;
+}
+
+const templateStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    // Ensure the templates directory exists
+    fs.mkdirSync(TEMPLATES_DIR, { recursive: true });
+    cb(null, TEMPLATES_DIR);
+  },
+  filename: (req, _file, cb) => {
+    // Will be renamed after validation; use a temp name with crypto to avoid collisions
+    const uuid = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex");
+    cb(null, `upload_${Date.now()}_${uuid}.tmp`);
+  },
+});
+
+const templateUpload = multer({
+  storage: templateStorage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      "application/msword", // .doc
+    ];
+    if (allowed.includes(file.mimetype) || file.originalname.endsWith(".docx") || file.originalname.endsWith(".doc")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .doc and .docx files are allowed"));
+    }
+  },
+});
 
 // --- Validation Schemas ---
 
@@ -1356,7 +1411,56 @@ router.delete("/risks/:projectId/:riskId", authenticateToken, async (req, res) =
   }
 });
 
-// --- Feature 6: Compliance Template Download Endpoint ---
+// --- Feature 6: Compliance Template Endpoints ---
+
+// GET /crc/templates/status - Get template upload status for all controls (Admin only)
+// NOTE: This must be defined BEFORE the :controlId param routes to avoid matching "status" as a controlId
+router.get("/templates/status", authenticateToken, requireRole(["ADMIN"]), async (_req, res) => {
+  try {
+    const templateMap: Record<string, { filename: string; size: number; updatedAt: string; url?: string }> = {};
+
+    // 1. Fetch templates from database (UploadThing storage)
+    const dbTemplates = await pool.query(
+      "SELECT control_id, url, filename, size, updated_at FROM crc_control_templates"
+    );
+    for (const row of dbTemplates.rows) {
+      templateMap[row.control_id] = {
+        filename: row.filename,
+        size: row.size,
+        updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString(),
+        url: row.url,
+      };
+    }
+
+    // 2. Scan and merge legacy static template files from local disk
+    try {
+      if (fs.existsSync(TEMPLATES_DIR)) {
+        const files = fs.readdirSync(TEMPLATES_DIR);
+        for (const file of files) {
+          if (file.endsWith(".docx") || file.endsWith(".doc")) {
+            const controlId = file.replace(/\.(docx|doc)$/, "");
+            if (!templateMap[controlId]) {
+              const filePath = path.join(TEMPLATES_DIR, file);
+              const stats = fs.statSync(filePath);
+              templateMap[controlId] = {
+                filename: file,
+                size: stats.size,
+                updatedAt: stats.mtime.toISOString(),
+              };
+            }
+          }
+        }
+      }
+    } catch (diskErr) {
+      console.error("Error reading legacy templates from disk:", diskErr);
+    }
+
+    res.json({ success: true, data: templateMap });
+  } catch (error) {
+    console.error("Error fetching template statuses:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch template statuses" });
+  }
+});
 
 // GET /crc/templates/:controlId/download - Download compliance template document
 router.get("/templates/:controlId/download", authenticateToken, async (req, res) => {
@@ -1365,7 +1469,7 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     
     // Fetch control details
     const controlResult = await pool.query(
-      "SELECT control_id, control_title, status FROM crc_controls WHERE id = $1 OR control_id = $1",
+      "SELECT control_id, control_title, status FROM crc_controls WHERE id::text = $1 OR control_id = $1",
       [controlId]
     );
 
@@ -1378,6 +1482,88 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     const user = (req as any).user;
     if (status !== "Published" && user?.role !== "ADMIN") {
       return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
+    }
+
+    // 1. Check for template in database (UploadThing storage)
+    const dbTemplate = await pool.query(
+      "SELECT url, filename FROM crc_control_templates WHERE control_id = $1",
+      [controlShortId]
+    );
+
+    if (dbTemplate.rows.length > 0) {
+      const templateRecord = dbTemplate.rows[0];
+      try {
+        // Fetch the file securely from UploadThing and stream to client
+        const fileResponse = await fetch(templateRecord.url);
+        if (fileResponse.ok) {
+          // Log event
+          await recordEvent({
+            projectId: null,
+            actorId: user?.id,
+            action: "DOWNLOAD_CRC_TEMPLATE",
+            objectType: "CRC_CONTROL",
+            objectId: controlShortId,
+            metadata: { format: templateRecord.filename.endsWith(".docx") ? "docx" : "doc", source: "uploadthing" }
+          });
+
+          const contentType = fileResponse.headers.get("content-type") || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          const arrayBuffer = await fileResponse.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          res.setHeader("Content-Type", contentType);
+          res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(templateRecord.filename)}"`);
+          return res.send(buffer);
+        } else {
+          console.error(`Failed to fetch from uploadthing (non-ok response): ${fileResponse.statusText}. Falling back to disk/HTML.`);
+        }
+      } catch (fetchErr) {
+        console.error("Failed to fetch template from UploadThing, falling back to disk/HTML:", fetchErr);
+      }
+    }
+
+    // 2. Fall back to legacy local filesystem static files
+    let chosenPath = "";
+    let format = "";
+    let docxPath = "";
+    let docPath = "";
+    
+    try {
+      docxPath = resolveTemplatePath(controlShortId, ".docx");
+      docPath = resolveTemplatePath(controlShortId, ".doc");
+    } catch (err: any) {
+      console.error(`Path validation error for legacy files: ${err.message}. Falling back to HTML fallback.`);
+    }
+
+    if (docxPath) {
+      try {
+        await fs.promises.access(docxPath);
+        chosenPath = docxPath;
+        format = "docx";
+      } catch {
+        if (docPath) {
+          try {
+            await fs.promises.access(docPath);
+            chosenPath = docPath;
+            format = "doc";
+          } catch {
+            // neither exists
+          }
+        }
+      }
+    }
+
+    if (chosenPath) {
+      // Log event
+      await recordEvent({
+        projectId: null,
+        actorId: user?.id,
+        action: "DOWNLOAD_CRC_TEMPLATE",
+        objectType: "CRC_CONTROL",
+        objectId: controlShortId,
+        metadata: { format, source: "disk" }
+      });
+
+      return res.download(chosenPath, `MATUR-CRC-${controlShortId}-Template.${format}`);
     }
 
     let templateHtml = "";
@@ -1663,11 +1849,219 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
 
     res.header("Content-Type", "application/vnd.ms-word");
     res.attachment(`MATUR-CRC-${controlShortId}-Template.doc`);
+    
+    // Log event for fallback
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "DOWNLOAD_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+      metadata: { format: "doc_html_fallback" }
+    });
+
     return res.send(templateHtml);
   } catch (error) {
     console.error("Error downloading template:", error);
     res.status(500).json({ success: false, error: "Failed to download template" });
   }
 });
+
+// POST /crc/templates/:controlId/upload - Upload compliance template document (Admin only)
+router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADMIN"]), (req, res, next) => {
+  templateUpload.single("template")(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ success: false, error: "File size exceeds 25MB limit" });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const tmpFile = req.file;
+  try {
+    if (!tmpFile) {
+      return res.status(400).json({ success: false, error: "No file uploaded. Please select a .docx file." });
+    }
+
+    const { controlId } = req.params; // UUID or control short ID
+
+    // Fetch control details
+    const controlResult = await pool.query(
+      "SELECT control_id, control_title FROM crc_controls WHERE id::text = $1 OR control_id = $1",
+      [controlId]
+    );
+
+    if (controlResult.rows.length === 0) {
+      // Clean up tmp file
+      fs.unlinkSync(tmpFile.path);
+      return res.status(404).json({ success: false, error: "Compliance control not found" });
+    }
+
+    const { control_id: controlShortId } = controlResult.rows[0];
+
+    // Enforce strict whitelist to block path-traversal or directory escaping
+    const whitelist = /^[A-Za-z0-9_-]+$/;
+    if (!whitelist.test(controlShortId)) {
+      if (tmpFile && fs.existsSync(tmpFile.path)) {
+        try { fs.unlinkSync(tmpFile.path); } catch {}
+      }
+      return res.status(400).json({ success: false, error: "Invalid control ID format" });
+    }
+
+    // Read the multer temp file and convert it into a web-standard File object
+    const fileData = fs.readFileSync(tmpFile.path);
+    const FileConstructor = typeof File !== "undefined" ? File : require("node:buffer").File;
+    const file = new FileConstructor([fileData], tmpFile.originalname, { type: tmpFile.mimetype });
+
+    // Programmatically upload file to UploadThing
+    const uploadResult = await utapi.uploadFiles(file);
+
+    if (!uploadResult || !uploadResult.data) {
+      const errorMsg = (uploadResult as any).error?.message || "Failed to upload file to cloud storage";
+      throw new Error(errorMsg);
+    }
+
+    const { url, key: fileKey } = uploadResult.data;
+
+    // Check for existing database record to clean up superseded files from UploadThing
+    const existingResult = await pool.query(
+      "SELECT file_key FROM crc_control_templates WHERE control_id = $1",
+      [controlShortId]
+    );
+    const oldKey = existingResult.rows.length > 0 ? existingResult.rows[0].file_key : null;
+
+    // Save or update mapping in database
+    await pool.query(
+      `INSERT INTO crc_control_templates (control_id, url, file_key, filename, size, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (control_id)
+       DO UPDATE SET url = $2, file_key = $3, filename = $4, size = $5, updated_at = NOW()`,
+      [controlShortId, url, fileKey, tmpFile.originalname, tmpFile.size]
+    );
+
+    // Delete superseded file from UploadThing only AFTER database upsert succeeds
+    if (oldKey) {
+      try {
+        await utapi.deleteFiles(oldKey);
+      } catch (deleteErr) {
+        console.error(`Failed to delete superseded template from UploadThing: ${oldKey}`, deleteErr);
+      }
+    }
+
+    // Clean up local temp file
+    if (tmpFile && fs.existsSync(tmpFile.path)) {
+      try { fs.unlinkSync(tmpFile.path); } catch {}
+    }
+
+    // Try to remove local legacy files for this control to keep the local filesystem pristine
+    for (const legacyExt of [".docx", ".doc"]) {
+      const legacyPath = path.join(TEMPLATES_DIR, `${controlShortId}${legacyExt}`);
+      if (fs.existsSync(legacyPath)) {
+        try { fs.unlinkSync(legacyPath); } catch {}
+      }
+    }
+
+    const user = (req as any).user;
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "UPLOAD_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+      metadata: { filename: tmpFile.originalname, source: "uploadthing" },
+    });
+
+    res.json({
+      success: true,
+      message: `Template uploaded for ${controlShortId}`,
+      data: { controlId: controlShortId, filename: tmpFile.originalname },
+    });
+  } catch (error) {
+    // Clean up tmp file on error
+    if (tmpFile && fs.existsSync(tmpFile.path)) {
+      try { fs.unlinkSync(tmpFile.path); } catch {}
+    }
+    console.error("Error uploading template:", error);
+    res.status(500).json({ success: false, error: "Failed to upload template" });
+  }
+});
+
+// DELETE /crc/templates/:controlId/template - Delete a compliance template (Admin only)
+router.delete("/templates/:controlId/template", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const { controlId } = req.params;
+
+    const controlResult = await pool.query(
+      "SELECT control_id FROM crc_controls WHERE id::text = $1 OR control_id = $1",
+      [controlId]
+    );
+
+    if (controlResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Compliance control not found" });
+    }
+
+    const { control_id: controlShortId } = controlResult.rows[0];
+    let deleted = false;
+
+    // Check database for cloud-stored template first
+    const dbRecord = await pool.query(
+      "SELECT file_key FROM crc_control_templates WHERE control_id = $1",
+      [controlShortId]
+    );
+
+    if (dbRecord.rows.length > 0) {
+      const fileKey = dbRecord.rows[0].file_key;
+      try {
+        await utapi.deleteFiles(fileKey);
+        await pool.query(
+          "DELETE FROM crc_control_templates WHERE control_id = $1",
+          [controlShortId]
+        );
+        deleted = true;
+      } catch (deleteErr) {
+        console.error(`Error deleting template from UploadThing: ${fileKey}`, deleteErr);
+        return res.status(500).json({ success: false, error: "Failed to delete template from cloud storage. Database record was preserved." });
+      }
+    }
+
+    // Check and remove any legacy local files on disk
+    for (const ext of [".docx", ".doc"] as const) {
+      try {
+        const filePath = resolveTemplatePath(controlShortId, ext);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          deleted = true;
+        }
+      } catch (diskErr) {
+        console.error(`Error validating/deleting legacy local file: ${controlShortId}${ext}`, diskErr);
+      }
+    }
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "No template found for this control" });
+    }
+
+    const user = (req as any).user;
+    await recordEvent({
+      projectId: null,
+      actorId: user?.id,
+      action: "DELETE_CRC_TEMPLATE",
+      objectType: "CRC_CONTROL",
+      objectId: controlShortId,
+    });
+
+    res.json({ success: true, message: `Template deleted for ${controlShortId}` });
+  } catch (error) {
+    console.error("Error deleting template:", error);
+    res.status(500).json({ success: false, error: "Failed to delete template" });
+  }
+});
+
+
 
 export default router;
