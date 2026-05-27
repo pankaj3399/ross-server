@@ -523,21 +523,34 @@ export default function DashboardPage() {
                                   {project.role}
                                 </Badge>
                               )}
-                              <Link
-                                href={
-                                  project.status === 'completed'
-                                    ? getReportRoute(project.id, user?.subscription_status)
-                                    : `/assess/${project.id}`
-                                }
-                                className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-                              >
-                                <span>
-                                  {project.status === 'completed' ? 'View Report' :
-                                    project.status === 'in_progress' ? 'Continue' :
-                                      'Start'}
-                                </span>
-                                <IconArrowRight className="w-3.5 h-3.5" />
-                              </Link>
+                              {project.status === 'completed' ? (
+                                <div className="flex items-center gap-3">
+                                  <Link
+                                    href={getReportRoute(project.id, user?.subscription_status)}
+                                    className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+                                  >
+                                    <span>Report</span>
+                                    <IconArrowRight className="w-3.5 h-3.5" />
+                                  </Link>
+                                  <span className="text-border">|</span>
+                                  <Link
+                                    href={`/assess/${project.id}`}
+                                    className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
+                                  >
+                                    <span>Edit</span>
+                                  </Link>
+                                </div>
+                              ) : (
+                                <Link
+                                  href={`/assess/${project.id}`}
+                                  className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+                                >
+                                  <span>
+                                    {project.status === 'in_progress' ? 'Continue' : 'Start'}
+                                  </span>
+                                  <IconArrowRight className="w-3.5 h-3.5" />
+                                </Link>
+                              )}
                             </div>
                           </div>
                           <DropdownMenu>
