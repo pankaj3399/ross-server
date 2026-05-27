@@ -1,5 +1,3 @@
-import { isPremiumStatus } from "./constants";
-
 export type AssessmentType = "AIMA" | "CRC";
 
 export function getReportRoute(
@@ -10,8 +8,5 @@ export function getReportRoute(
   if (assessmentType === "CRC") {
     return `/score-report-crc?projectId=${projectId}`;
   }
-  const path = isPremiumStatus(subscriptionStatus)
-    ? "/score-report-premium"
-    : "/score-report-aima";
-  return `${path}?projectId=${projectId}`;
+  return `/score-report-aima?projectId=${projectId}`;
 }
