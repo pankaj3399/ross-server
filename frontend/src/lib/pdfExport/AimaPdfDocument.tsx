@@ -347,6 +347,46 @@ const styles = StyleSheet.create({
   recommendationNumber: {
     fontWeight: 'bold',
     color: '#1e40af',
+  },
+  strengthBox: {
+    marginTop: 6,
+    padding: 6,
+    backgroundColor: '#f0fdf4', // light green
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bbf7d0', // green-200
+  },
+  strengthTitle: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: '#166534', // dark green
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  strengthBody: {
+    fontSize: 7,
+    color: '#14532d',
+    lineHeight: 1.4,
+  },
+  improvementBox: {
+    marginTop: 6,
+    padding: 6,
+    backgroundColor: '#fffbeb', // light yellow
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fef08a', // yellow-200
+  },
+  improvementTitle: {
+    fontSize: 7,
+    fontWeight: 'bold',
+    color: '#92400e', // dark orange/brown
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  improvementBody: {
+    fontSize: 7,
+    color: '#78350f',
+    lineHeight: 1.4,
   }
 });
 
@@ -487,23 +527,38 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
                     
                     {(() => {
                       const parsed = parseInsightText(insights[domain.domainId] || domain.insights);
-                      const displayRecommendations = parsed.recommendations.slice(0, 3); // Limit for PDF space
                       return (
                         <View style={styles.insightGrid}>
                           <View style={[styles.insightCol, styles.insightColAnalysis]}>
-                            <Text style={styles.insightTitle}>Strategic Analysis</Text>
-                            <Text style={styles.insightBody}>{parsed.analysis || "No direct analysis available."}</Text>
+                            {parsed.analysis ? (
+                              <View style={{ marginBottom: 6 }}>
+                                <Text style={styles.insightTitle}>Strategic Analysis</Text>
+                                <Text style={styles.insightBody}>{parsed.analysis}</Text>
+                              </View>
+                            ) : null}
+                            {parsed.strengths ? (
+                              <View style={styles.strengthBox}>
+                                <Text style={styles.strengthTitle}>Key Strengths</Text>
+                                <Text style={styles.strengthBody}>{parsed.strengths}</Text>
+                              </View>
+                            ) : null}
+                            {parsed.improvements ? (
+                              <View style={styles.improvementBox}>
+                                <Text style={styles.improvementTitle}>Needs Improvement</Text>
+                                <Text style={styles.improvementBody}>{parsed.improvements}</Text>
+                              </View>
+                            ) : null}
                           </View>
                           <View style={[styles.insightCol, styles.insightColRecommendations]}>
-                            <Text style={styles.insightTitle}>Top Recommendations</Text>
+                            <Text style={styles.insightTitle}>Recommended Actions</Text>
                             <View style={styles.recommendationList}>
-                              {displayRecommendations.map((rec, i) => (
+                              {parsed.recommendations.map((rec, i) => (
                                 <Text key={i} style={[styles.recommendationText, styles.recommendationItemGap]}>
                                   <Text style={styles.recommendationNumber}>{`${i + 1}. `}</Text>
                                   {rec}
                                 </Text>
                               ))}
-                              {displayRecommendations.length === 0 && (
+                              {parsed.recommendations.length === 0 && (
                                 <Text style={styles.recommendationEmptyText}>Increasing assessment coverage for detailed AI plans.</Text>
                               )}
                             </View>
