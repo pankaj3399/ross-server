@@ -194,7 +194,7 @@ export default function SubscriptionModal({
     "Unlimited AI Projects/Systems",
     "AI Vulnerability Assessment",
     "Automated Bias & Fairness Testing (Manual/API/Dataset)",
-    "Compliance Readiness Controls",
+    "Compliance Readiness Controls (CRC)",
     "Enhanced Reporting & Analytics",
     "Advanced Exportable Reports (PDF/Excel)",
     "Teams and Collaboration",
@@ -269,7 +269,7 @@ export default function SubscriptionModal({
                     <span className="text-primary">✨ Try Free for 7 Days</span>
                   </h3>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Unlock all BLOOM features including AI Vulnerability Assessment, Bias & Fairness Testing, and Compliance Readiness Controls. No credit card required.
+                    Unlock all BLOOM features including AI Vulnerability Assessment, Bias & Fairness Testing, and Compliance Readiness Controls (CRC). No credit card required.
                   </p>
                 </div>
                 <Button

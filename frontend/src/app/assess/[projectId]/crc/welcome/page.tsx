@@ -58,7 +58,7 @@ export default function CRCWelcomePage() {
 
         <header className="space-y-3">
           <p className="text-sm font-semibold text-primary">Premium</p>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">About Compliance Readiness Controls</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">About Compliance Readiness Controls (CRC)</h1>
           <p className="text-muted-foreground">
             Read how CRC works in MATUR, then open the guided controls when you are ready. Basic premium lists at{" "}
             {FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.
@@ -69,7 +69,7 @@ export default function CRCWelcomePage() {
           <section className="space-y-3">
             <h2>What it is</h2>
             <p>
-              Compliance Readiness Controls are a custom built library of 137 actionable controls designed to prepare your
+              Compliance Readiness Controls (CRC) are a custom built library of 137 actionable controls designed to prepare your
               organization for AI compliance and regulation. These controls are drawn from the EU AI Act, NIST AI RMF,
               ISO/IEC 42001, and other leading AI governance frameworks, then consolidated into a single, practical set of
               requirements that covers what you need across all of them.

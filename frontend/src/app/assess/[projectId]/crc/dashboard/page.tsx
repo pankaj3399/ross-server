@@ -443,7 +443,7 @@ export default function CRCDashboardPage() {
                 </div>
                 <h2 className="text-xl font-semibold text-foreground">No assessment data yet</h2>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Start answering Compliance Readiness Controls to see your readiness scores across
+                  Start answering Compliance Readiness Controls (CRC) to see your readiness scores across
                   EU AI Act, NIST AI RMF, and ISO 42001.
                 </p>
                 <div className="flex gap-3 justify-center pt-2">
@@ -662,7 +662,7 @@ export default function CRCDashboardPage() {
                 className="text-sm text-primary hover:text-primary/80 font-medium inline-flex items-center gap-1.5 transition-colors"
               >
                 <IconInfoCircle className="w-4 h-4" />
-                About Compliance Readiness Controls
+                About Compliance Readiness Controls (CRC)
               </Link>
             </div>
           </>
