@@ -164,13 +164,18 @@ export default function ScoreReportPage() {
       // Guard: Ensure premium domains are resolved and no error
       if (premiumDomainIds === null || premiumDomainError) return;
 
+      // Premium users see all domains; non-premium users skip premium domains
+      const hasPremiumAccess = results?.capabilities?.premiumInsights ?? false;
+
       // VIEWERs can't trigger generation server-side; default true preserves
       // behavior for cached entries that predate the capability field.
       const canGenerateInsights = results?.capabilities?.canGenerateInsights ?? true;
       if (!canGenerateInsights) return;
 
       // Check if we already have insights for all relevant domains
-      const nonPremiumDomainsToCheck = results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));
+      const nonPremiumDomainsToCheck = hasPremiumAccess
+        ? results.results.domains
+        : results.results.domains.filter((d: any) => !premiumDomainIds?.has(d.domainId));
       const allHaveInsights = nonPremiumDomainsToCheck.every((d: any) => d.insights || existingInsights[d.domainId]);
       
       if (allHaveInsights) return;
@@ -224,17 +229,20 @@ export default function ScoreReportPage() {
       isPolling = false;
       if (safetyTimeout) clearTimeout(safetyTimeout);
     };
-  }, [projectId, results, loading, premiumDomainIds]);
+  }, [projectId, results, loading, premiumDomainIds, premiumDomainError]);
 
   const performance = getMaturityLevel(results?.results?.overall?.overallMaturityScore ?? 0);
 
-  // Filter to show only non-premium domains
+  // Premium users see all domains; non-premium users see only non-premium domains
+  const hasPremiumAccess = results?.capabilities?.premiumInsights ?? false;
   const nonPremiumDomains = results 
     ? ((premiumDomainIds || new Set()).size === 0 && premiumDomainError
         ? [] 
-        : results.results.domains.filter((domain: any) => 
-            premiumDomainIds ? !premiumDomainIds.has(domain.domainId) : false
-          ))
+        : hasPremiumAccess
+          ? results.results.domains
+          : results.results.domains.filter((domain: any) => 
+              premiumDomainIds ? !premiumDomainIds.has(domain.domainId) : false
+            ))
     : [];
 
   const { exportVectorPdf, isExporting } = usePdfReport({

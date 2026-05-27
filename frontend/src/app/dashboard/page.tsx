@@ -526,7 +526,7 @@ export default function DashboardPage() {
                               {project.status === 'completed' ? (
                                 <div className="flex items-center gap-3">
                                   <Link
-                                    href={getReportRoute(project.id, user?.subscription_status)}
+                                    href={getReportRoute(project.id)}
                                     className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
                                   >
                                     <span>Report</span>

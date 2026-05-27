@@ -697,7 +697,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             // Update the saved snapshot so future comparisons start fresh
             setSavedAnswers({ ...answers });
             setProjectStatus('completed');
-            router.push(getReportRoute(projectId, user?.subscription_status));
+            router.push(getReportRoute(projectId));
         } catch (error) {
             console.error("Failed to submit project:", error);
             showToast.error("Failed to submit assessment. Please try again.");
@@ -713,7 +713,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         try {
             setSubmissionPhase('submitting');
             await apiService.submitCRCAssessment(projectId);
-            router.push(getReportRoute(projectId, user?.subscription_status, "CRC"));
+            router.push(getReportRoute(projectId, "CRC"));
         } catch (error: any) {
             console.error("Failed to submit CRC assessment:", error);
             // Branch on the structured fields the API now returns. errorCode is the
