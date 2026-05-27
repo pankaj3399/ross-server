@@ -193,15 +193,54 @@ export async function handleChatMessage(
 
   // Fetch and append custom admin instructions if any are active
   try {
+    const MAX_INSTRUCTIONS_LIMIT = 10;
+    const MAX_ADDITIONAL_PROMPT_CHARS = 4000; // ~1000 tokens limit for custom prompts combined
+    const MAX_SINGLE_INSTRUCTION_CHARS = 1000; // ~250 tokens per single instruction
+
     const instructionsResult = await pool.query(
-      "SELECT title, content FROM chatbot_instructions WHERE is_active = true ORDER BY created_at ASC"
+      `SELECT title, content FROM chatbot_instructions 
+       WHERE is_active = true 
+       ORDER BY created_at ASC 
+       LIMIT $1`,
+      [MAX_INSTRUCTIONS_LIMIT]
     );
+
     if (instructionsResult.rows.length > 0) {
-      systemPrompt += `\n\n## Additional Instructions\nAdhere strictly to the following administrative instructions and context:`;
-      instructionsResult.rows.forEach((row: { title: string; content: string }) => {
-        systemPrompt += `\n\n### ${row.title}\n${row.content}`;
-      });
+      let additionalPrompt = `\n\n## Additional Instructions\nAdhere strictly to the following administrative instructions and context:`;
+      let characterCapReached = false;
+
+      for (const row of instructionsResult.rows) {
+        let content = row.content || "";
+        
+        // Truncate single instruction content if it exceeds the limit
+        if (content.length > MAX_SINGLE_INSTRUCTION_CHARS) {
+          content = content.substring(0, MAX_SINGLE_INSTRUCTION_CHARS) + "... [truncated]";
+          console.warn(`[ChatService] Individual chatbot instruction "${row.title}" content truncated because it exceeded ${MAX_SINGLE_INSTRUCTION_CHARS} characters.`);
+        }
+
+        const block = `\n\n### ${row.title}\n${content}`;
+        
+        // Stop appending if we would exceed the combined character threshold
+        if (additionalPrompt.length + block.length > MAX_ADDITIONAL_PROMPT_CHARS) {
+          characterCapReached = true;
+          console.warn(`[ChatService] Chatbot instructions append capped: adding "${row.title}" would exceed the combined threshold of ${MAX_ADDITIONAL_PROMPT_CHARS} characters.`);
+          break;
+        }
+
+        additionalPrompt += block;
+      }
+
+      if (characterCapReached) {
+        additionalPrompt += `\n\n... [Some administrative instructions truncated due to token size limits]`;
+      }
+
+      systemPrompt += additionalPrompt;
     }
+
+    // Log the resulting system prompt length and token estimate
+    const estimatedTokens = Math.ceil(systemPrompt.length / 4);
+    console.log(`[ChatService] Assembled systemPrompt length: ${systemPrompt.length} chars (Estimated ${estimatedTokens} tokens)`);
+
   } catch (error) {
     console.error("[ChatService] Failed to fetch active chatbot instructions:", error);
   }

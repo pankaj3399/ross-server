@@ -545,12 +545,20 @@ const addChatbotInstructionSchema = z.object({
   category: z.string().optional().default("General"),
 });
 
-const updateChatbotInstructionSchema = z.object({
-  title: z.string().min(1, "Title cannot be empty").optional(),
-  content: z.string().min(1, "Content cannot be empty").optional(),
-  is_active: z.boolean().optional(),
-  category: z.string().min(1, "Category cannot be empty").optional(),
-});
+const updateChatbotInstructionSchema = z
+  .object({
+    title: z.string().min(1, "Title cannot be empty").optional(),
+    content: z.string().min(1, "Content cannot be empty").optional(),
+    is_active: z.boolean().optional(),
+    category: z.string().min(1, "Category cannot be empty").optional(),
+  })
+  .refine(
+    (data) =>
+      Object.values(data).some(
+        (v) => v !== undefined && v !== null && (typeof v !== "string" || v.trim() !== "")
+      ),
+    { message: "At least one field must be provided" }
+  );
 
 // GET /admin/chatbot-instructions - Fetch all custom chatbot instructions
 router.get("/chatbot-instructions", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {

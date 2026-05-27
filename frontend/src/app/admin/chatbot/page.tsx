@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useTheme } from "../../../contexts/ThemeContext";
 import { useRouter } from "next/navigation";
@@ -54,6 +54,14 @@ export default function AdminChatbotSettings() {
   const [instructions, setInstructions] = useState<ChatbotInstruction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Pending toggles for concurrency locking
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
+
+  // Focus tracking refs for accessibility
+  const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const firstInputRef = useRef<HTMLInputElement | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   // Search & Filtering States
   const [searchQuery, setSearchQuery] = useState("");
@@ -91,9 +99,11 @@ export default function AdminChatbotSettings() {
   // Fetch instructions on mount
   const fetchInstructions = async () => {
     try {
+      setError(null);
       setLoading(true);
       const res = await apiService.getChatbotInstructions();
       if (res.success) {
+        setError(null);
         setInstructions(res.data);
       } else {
         throw new Error("Failed to load instructions");
@@ -104,6 +114,55 @@ export default function AdminChatbotSettings() {
       showToast.error(err.message || "Failed to load chatbot instructions");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Accessibility: Focus trap & Escape key handlers for Modal
+  useEffect(() => {
+    if (showModal) {
+      if (typeof document !== "undefined") {
+        lastActiveElementRef.current = document.activeElement as HTMLElement;
+      }
+      setTimeout(() => {
+        firstInputRef.current?.focus();
+      }, 50);
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setShowModal(false);
+        }
+      };
+
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        window.removeEventListener("keydown", handleKeyDown);
+        lastActiveElementRef.current?.focus();
+      };
+    }
+  }, [showModal]);
+
+  const handleModalTab = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !modalRef.current) return;
+
+    const focusableElements = modalRef.current.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length === 0) return;
+
+    const firstElement = focusableElements[0] as HTMLElement;
+    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstElement) {
+        lastElement.focus();
+        e.preventDefault();
+      }
+    } else {
+      if (document.activeElement === lastElement) {
+        firstElement.focus();
+        e.preventDefault();
+      }
     }
   };
 
@@ -220,7 +279,18 @@ export default function AdminChatbotSettings() {
 
   // Handle Instant Switch Toggle
   const handleToggleActive = async (ins: ChatbotInstruction) => {
-    const updatedStatus = !ins.is_active;
+    // Prevent overlapping toggles for the same instruction ID
+    if (pendingToggles.has(ins.id)) return;
+
+    const previousIsActive = ins.is_active;
+    const updatedStatus = !previousIsActive;
+
+    // Add lock
+    setPendingToggles((prev) => {
+      const next = new Set(prev);
+      next.add(ins.id);
+      return next;
+    });
 
     // Optimistically update UI
     setInstructions((prev) =>
@@ -236,14 +306,21 @@ export default function AdminChatbotSettings() {
           `Instruction "${ins.title}" is now ${updatedStatus ? "active" : "inactive"}.`
         );
       } else {
-        throw new Error();
+        throw new Error("Failed to update status");
       }
-    } catch (err) {
-      // Revert status on failure
+    } catch (err: any) {
+      // Revert status on failure using captured previous value
       setInstructions((prev) =>
-        prev.map((i) => (i.id === ins.id ? { ...i, is_active: ins.is_active } : i))
+        prev.map((i) => (i.id === ins.id ? { ...i, is_active: previousIsActive } : i))
       );
-      showToast.error("Failed to update status. Reverting changes.");
+      showToast.error(err.message || "Failed to update status. Reverting changes.");
+    } finally {
+      // Remove lock
+      setPendingToggles((prev) => {
+        const next = new Set(prev);
+        next.delete(ins.id);
+        return next;
+      });
     }
   };
 
@@ -455,6 +532,7 @@ export default function AdminChatbotSettings() {
                       </span>
                       <Switch
                         checked={ins.is_active}
+                        disabled={pendingToggles.has(ins.id)}
                         onCheckedChange={() => handleToggleActive(ins)}
                       />
                     </div>
@@ -512,10 +590,17 @@ export default function AdminChatbotSettings() {
 
       {/* Add / Edit Form Modal Dialog */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-opacity duration-300">
+        <div
+          ref={modalRef}
+          onKeyDown={handleModalTab}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm transition-opacity duration-300"
+        >
           <Card className="w-full max-w-xl border border-border shadow-2xl rounded-2xl overflow-hidden bg-card animate-in fade-in zoom-in-95 duration-200">
             <CardHeader className="bg-muted/30 border-b border-border/60 py-4 px-6">
-              <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <CardTitle id="modal-title" className="text-2xl font-bold flex items-center gap-2">
                 <IconSparkles className="w-5 h-5 text-primary" />
                 {modalMode === "add" ? "Create New Instruction" : "Edit Instruction Settings"}
               </CardTitle>
@@ -530,6 +615,7 @@ export default function AdminChatbotSettings() {
                 <div className="space-y-1.5">
                   <label className="text-sm font-bold text-foreground">Instruction Title</label>
                   <Input
+                    ref={firstInputRef}
                     type="text"
                     required
                     placeholder="e.g. Tone and Formatting Style, Serious Incidents handling"
