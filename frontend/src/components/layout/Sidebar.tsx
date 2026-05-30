@@ -17,6 +17,7 @@ import {
   IconCrown,
   IconShieldCheck,
   IconBell,
+  IconMessageChatbot,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -165,6 +166,15 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         href: "/admin/crc",
         icon: IconShieldCheck,
         activePatterns: ["/admin/crc"],
+      });
+    }
+    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-chatbot")) {
+      allSidebarItemsMap.set("admin-chatbot", {
+        id: "admin-chatbot",
+        label: "Chatbot Settings",
+        href: "/admin/chatbot",
+        icon: IconMessageChatbot,
+        activePatterns: ["/admin/chatbot"],
       });
     }
     return Array.from(allSidebarItemsMap.values());

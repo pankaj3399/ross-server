@@ -186,6 +186,16 @@ export interface CRCControl {
   updated_at: string;
 }
 
+export interface ChatbotInstruction {
+  id: string;
+  title: string;
+  content: string;
+  is_active: boolean;
+  category: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CRCCategoryResult {
   categoryId: number | null;
   categoryName: string;
@@ -1174,6 +1184,72 @@ class ApiService {
         count: number;
       };
     }>("/admin/waitlist-emails");
+  }
+
+  // Admin - Chatbot Custom Instructions
+  async getChatbotInstructions(): Promise<{
+    success: boolean;
+    data: ChatbotInstruction[];
+  }> {
+    return this.request<{
+      success: boolean;
+      data: ChatbotInstruction[];
+    }>("/admin/chatbot-instructions");
+  }
+
+  async createChatbotInstruction(data: {
+    title: string;
+    content: string;
+    is_active?: boolean;
+    category?: string;
+  }): Promise<{
+    success: boolean;
+    data: ChatbotInstruction;
+    message: string;
+  }> {
+    return this.request<{
+      success: boolean;
+      data: ChatbotInstruction;
+      message: string;
+    }>("/admin/chatbot-instructions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateChatbotInstruction(
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      is_active?: boolean;
+      category?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    data: ChatbotInstruction;
+    message: string;
+  }> {
+    return this.request<{
+      success: boolean;
+      data: ChatbotInstruction;
+      message: string;
+    }>(`/admin/chatbot-instructions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteChatbotInstruction(id: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>(`/admin/chatbot-instructions/${id}`, {
+      method: "DELETE",
+    });
   }
 
   // Admin - Industry Analytics
