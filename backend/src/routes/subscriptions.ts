@@ -267,9 +267,11 @@ router.get("/details", authenticateToken, async (req, res) => {
 
           // Clear invalid/deleted subscription ID from database to prevent future failed API calls
           await pool.query(
-            "UPDATE users SET stripe_subscription_id = NULL WHERE id = $1",
+            "UPDATE users SET stripe_subscription_id = NULL, subscription_status = 'free', last_subscription_sync = NOW() WHERE id = $1",
             [user.id]
           );
+          user.subscription_status = "free";
+          baseResponse.subscription_status = "free";
         } else {
           // Rethrow unexpected errors
           throw error;
