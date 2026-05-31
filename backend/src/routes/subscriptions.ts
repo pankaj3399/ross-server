@@ -264,11 +264,29 @@ router.get("/details", authenticateToken, async (req, res) => {
             error
           );
           subscription = null;
+
+          // Clear invalid/deleted subscription ID from database to prevent future failed API calls
+          await pool.query(
+            "UPDATE users SET stripe_subscription_id = NULL WHERE id = $1",
+            [user.id]
+          );
         } else {
           // Rethrow unexpected errors
           throw error;
         }
       }
+    }
+
+    // SELF-HEALING: If subscription is successfully loaded but has a terminal status, perform DB cleanup
+    if (subscription && ['canceled', 'incomplete_expired'].includes(subscription.status)) {
+      console.log(`[Self-Healing] Subscription ${subscription.id} is terminal (${subscription.status}). Clearing stripe_subscription_id in DB...`);
+      await pool.query(
+        "UPDATE users SET stripe_subscription_id = NULL, subscription_status = 'free', last_subscription_sync = NOW() WHERE id = $1",
+        [user.id]
+      );
+      user.subscription_status = 'free';
+      baseResponse.subscription_status = 'free';
+      subscription = null;
     }
 
     // SELF-HEALING: Sync DB status with Stripe status if they mismatch
@@ -375,7 +393,7 @@ router.get("/details", authenticateToken, async (req, res) => {
         }
     }
 
-    const plan = subscription
+    const plan = (subscription && ['active', 'trialing'].includes(subscription.status))
       ? {
           id: subscription.items.data[0]?.price?.id ?? null,
           name: formatPlanName(subscription.items.data[0]?.price?.id),

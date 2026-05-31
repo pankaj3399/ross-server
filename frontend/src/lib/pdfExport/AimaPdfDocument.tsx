@@ -472,7 +472,7 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
           {nonPremiumDomains.map((domain, index) => {
             const domainMaturity = getMaturityLevelForPdf(domain.maturityScore);
             return (
-              <View key={domain.domainId} style={styles.domainCard} wrap={false}>
+              <View key={domain.domainId} style={styles.domainCard}>
                 <View style={styles.domainHeader}>
                   <View>
                     <Text style={styles.domainTitle}>{domain.domainTitle}</Text>
@@ -520,7 +520,7 @@ export const AimaPdfDocument: React.FC<AimaPdfDocumentProps> = ({ results, nonPr
 
                 {/* AI Insights in PDF */}
                 {(insights[domain.domainId] || domain.insights) && (
-                  <View style={styles.insightBox} wrap={false}>
+                  <View style={styles.insightBox}>
                     <View style={styles.insightHeader}>
                       <Text style={styles.insightTitle}>AI Insights & Recommendations</Text>
                     </View>
