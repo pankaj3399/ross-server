@@ -314,6 +314,9 @@ export default function ManageSubscriptionPage() {
   // Use subscription_status directly from backend - do not infer
   const subscription_status = subscriptionStatus?.subscription_status || "free";
   const planDetails = subscriptionDetails?.plan;
+  const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
+  const isCanceling = !!planDetails?.cancel_at_period_end;
+  const isDowngrading = !!planDetails?.is_downgrading;
 
   // Calculate billing cycle from period dates (must be before early returns)
   const billingCycle = useMemo(() => {
@@ -423,6 +426,9 @@ export default function ManageSubscriptionPage() {
 
   // Get next payment amount from backend-provided field, then invoices, then fallback
   const nextPaymentInfo = useMemo(() => {
+    if (!isPremium) {
+      return { amount: null, currency: "USD", isLoading: false };
+    }
     if (loadingInvoices) {
       return { amount: null, currency: "USD", isLoading: true };
     }
@@ -453,7 +459,7 @@ export default function ManageSubscriptionPage() {
       return { amount: FALLBACK_PRICES.basic, currency: "USD", isLoading: false };
     }
     return { amount: null, currency: "USD", isLoading: false };
-  }, [invoices, subscription_status, loadingInvoices, planDetails]);
+  }, [invoices, subscription_status, loadingInvoices, planDetails, isPremium]);
 
   const handleUpgradeClick = () => {
     setShowUpgradeModal(true);
@@ -591,10 +597,6 @@ export default function ManageSubscriptionPage() {
     if (subscription_status === "trial") return "FREE TRIAL";
     return "SEED (Free)";
   };
-
-  const isPremium = subscription_status === "basic_premium" || subscription_status === "pro_premium";
-  const isCanceling = !!planDetails?.cancel_at_period_end;
-  const isDowngrading = !!planDetails?.is_downgrading;
 
   return (
     <div className="min-h-full flex flex-col bg-background">
@@ -793,9 +795,9 @@ export default function ManageSubscriptionPage() {
                     BILLING CYCLE
                   </p>
                   <p className="text-lg font-bold text-foreground mb-1">
-                    {billingCycle.cycle}
+                    {isPremium ? billingCycle.cycle : "—"}
                   </p>
-                  {billingCycle.savings && (
+                  {isPremium && billingCycle.savings && (
                     <p className="text-sm text-muted-foreground">{billingCycle.savings}</p>
                   )}
                 </CardContent>
@@ -811,14 +813,14 @@ export default function ManageSubscriptionPage() {
                   <p className="text-lg font-bold text-foreground mb-1">
                     {nextPaymentInfo.isLoading ? (
                       <IconLoader2 className="w-4 h-4 animate-spin inline" />
-                    ) : nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined ? (
+                    ) : isPremium && nextPaymentInfo.amount !== null && nextPaymentInfo.amount !== undefined ? (
                       formatCurrency(nextPaymentInfo.amount, nextPaymentInfo.currency)
                     ) : (
                       "—"
                     )}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    On {getNextPaymentDateText(planDetails)}
+                    {isPremium ? `On ${getNextPaymentDateText(planDetails)}` : "No upcoming payments"}
                   </p>
                 </CardContent>
               </Card>
@@ -831,12 +833,12 @@ export default function ManageSubscriptionPage() {
                     DAYS REMAINING
                   </p>
                   <p className="text-lg font-bold text-foreground mb-1">
-                    {typeof planDetails?.days_remaining === "number"
+                    {isPremium && typeof planDetails?.days_remaining === "number"
                       ? `${planDetails.days_remaining} day${planDetails.days_remaining === 1 ? "" : "s"}`
                       : "—"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {isCanceling ? "Until cancellation" : "Until renewal"}
+                    {isPremium ? (isCanceling ? "Until cancellation" : "Until renewal") : "No active subscription"}
                   </p>
                 </CardContent>
               </Card>
@@ -849,12 +851,12 @@ export default function ManageSubscriptionPage() {
                     CANCELLATION DATE
                   </p>
                   <p className="text-lg font-bold text-foreground mb-1">
-                    {planDetails?.cancel_effective_date
+                    {isPremium && planDetails?.cancel_effective_date
                       ? formatDate(planDetails.cancel_effective_date)
                       : "—"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {isCanceling ? "Subscription ends" : "Not scheduled"}
+                    {isPremium && isCanceling ? "Subscription ends" : "Not scheduled"}
                   </p>
                 </CardContent>
               </Card>
