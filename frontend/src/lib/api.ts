@@ -50,6 +50,27 @@ export interface Project {
   deleted_at?: string;
 }
 
+export interface InventoryComponent {
+  id: string;
+  projectId: string;
+  componentId: string;
+  componentName: string;
+  componentType: string;
+  provider: string;
+  version?: string | null;
+  roleInSystem: string;
+  dataCategoriesSent: string[];
+  riskTier: "Low" | "Medium" | "High" | "Critical";
+  status: "Active" | "Evaluating" | "Deprecated";
+  modelCardUrl?: string | null;
+  vendorComplianceUrl?: string | null;
+  dpaUrl?: string | null;
+  notes?: string | null;
+  vendorAssessmentStatus: "Not Run" | "In Progress" | "Completed";
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Domain {
   id: string;
   title: string;
@@ -1730,6 +1751,70 @@ class ApiService {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  // ==========================================
+  // AI COMPONENT INVENTORY
+  // ==========================================
+
+  async getComponents(
+    projectId: string,
+    filters?: { type?: string; provider?: string; risk_tier?: string; status?: string }
+  ): Promise<InventoryComponent[]> {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      if (filters.type) queryParams.append("type", filters.type);
+      if (filters.provider) queryParams.append("provider", filters.provider);
+      if (filters.risk_tier) queryParams.append("risk_tier", filters.risk_tier);
+      if (filters.status) queryParams.append("status", filters.status);
+    }
+    const queryString = queryParams.toString();
+    return this.request<InventoryComponent[]>(`/inventory/${projectId}${queryString ? `?${queryString}` : ""}`);
+  }
+
+  async getComponent(projectId: string, id: string): Promise<InventoryComponent> {
+    return this.request<InventoryComponent>(`/inventory/${projectId}/${id}`);
+  }
+
+  async createComponent(projectId: string, data: Partial<InventoryComponent>): Promise<InventoryComponent> {
+    return this.request<InventoryComponent>(`/inventory/${projectId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateComponent(projectId: string, id: string, data: Partial<InventoryComponent>): Promise<InventoryComponent> {
+    return this.request<InventoryComponent>(`/inventory/${projectId}/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteComponent(projectId: string, id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/inventory/${projectId}/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getInventorySummary(projectId: string): Promise<{ totalCount: number; thirdPartyCount: number; highestRiskTier: string }> {
+    return this.request<{ totalCount: number; thirdPartyCount: number; highestRiskTier: string }>(`/inventory/${projectId}/summary`);
+  }
+
+  async exportInventoryCsv(
+    projectId: string,
+    filters?: { type?: string; provider?: string; risk_tier?: string; status?: string }
+  ): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/inventory/${projectId}/export`, {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(filters || {}),
+    });
+
+    if (!response.ok) {
+      throw new Error("Export failed");
+    }
+
+    return response.blob();
   }
 }
 
