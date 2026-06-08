@@ -66,7 +66,7 @@ export interface InventoryComponent {
   vendorComplianceUrl?: string | null;
   dpaUrl?: string | null;
   notes?: string | null;
-  vendorAssessmentStatus: string;
+  vendorAssessmentStatus: "Not Run" | "In Progress" | "Completed";
   createdAt: string;
   updatedAt: string;
 }
@@ -1806,10 +1806,7 @@ class ApiService {
   ): Promise<Blob> {
     const response = await fetch(`${API_BASE_URL}/inventory/${projectId}/export`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.getAuthToken()}`,
-      },
+      headers: this.getHeaders(),
       body: JSON.stringify(filters || {}),
     });
 

@@ -125,8 +125,8 @@ export const VENDOR_CATALOG: Record<string, string[]> = {
 export const PROVIDERS = Object.keys(VENDOR_CATALOG);
 
 export const VENDOR_COMPLIANCE_URLS: Record<string, string> = {
-  "OpenAI": "https://openai.com/security",
-  "Anthropic": "https://www.anthropic.com/trust",
+  "OpenAI": "https://trust.openai.com/",
+  "Anthropic": "https://trust.anthropic.com/",
   "Google": "https://cloud.google.com/security/compliance",
   "AWS Bedrock": "https://aws.amazon.com/compliance",
   "Azure OpenAI": "https://learn.microsoft.com/en-us/azure/compliance/",
@@ -181,6 +181,12 @@ export function suggestRiskTierFrontend(componentType: string, categories: strin
   }
 
   if (["Agent Framework", "Guardrail Tool", "Inference Infrastructure"].includes(componentType)) {
+    if (hasHighlySensitive) {
+      return "High";
+    }
+    if (hasSensitive) {
+      return "Medium";
+    }
     return "Low";
   }
 
@@ -194,66 +200,20 @@ export function suggestRiskTierFrontend(componentType: string, categories: strin
   return "Low";
 }
 
-// Hard-coded linkages from Component Type to CRC Control IDs
-export const CRC_CONTROL_LINKAGES: Record<string, { id: string; title: string }[]> = {
-  "Internal Proprietary Model": [
-    { id: "GOV-3P-02", title: "Third-Party Contingency and Incident Response" },
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" },
-    { id: "RISK-ID-01", title: "Risk Identification Process" },
-    { id: "RISK-IMPACT-01", title: "AI System Impact Assessment Process" }
-  ],
-  "Closed Foundation Model": [
-    { id: "GOV-3P-02", title: "Third-Party Contingency and Incident Response" },
-    { id: "RISK-COST-01", title: "AI Error Cost and Consequence Assessment" },
-    { id: "RISK-IMPACT-02", title: "Individual and Group Impact Assessment" }
-  ],
-  "Open Source Model": [
-    { id: "RISK-ALT-01", title: "Non-AI Alternative Assessment" },
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" },
-    { id: "RISK-IMPACT-01", title: "AI System Impact Assessment Process" }
-  ],
-  "Vector Database": [
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" },
-    { id: "RISK-ID-01", title: "Risk Identification Process" }
-  ],
-  "Embedding Model": [
-    { id: "RISK-ALT-01", title: "Non-AI Alternative Assessment" },
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" }
-  ],
-  "Cloud AI Service": [
-    { id: "GOV-3P-02", title: "Third-Party Contingency and Incident Response" },
-    { id: "RISK-COST-01", title: "AI Error Cost and Consequence Assessment" }
-  ],
-  "Agent Framework": [
-    { id: "RISK-DECIDE-01", title: "Go/No-Go Decision Process" },
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" }
-  ],
-  "Guardrail Tool": [
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" },
-    { id: "RISK-ID-01", title: "Risk Identification Process" }
-  ],
-  "Inference Infrastructure": [
-    { id: "RISK-ALT-01", title: "Non-AI Alternative Assessment" },
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" }
-  ],
-  "Training Dataset": [
-    { id: "RISK-ID-01", title: "Risk Identification Process" },
-    { id: "RISK-IMPACT-02", title: "Individual and Group Impact Assessment" }
-  ],
-  "Validation Dataset": [
-    { id: "RISK-ID-01", title: "Risk Identification Process" },
-    { id: "RISK-IMPACT-02", title: "Individual and Group Impact Assessment" }
-  ],
-  "API Service": [
-    { id: "GOV-3P-02", title: "Third-Party Contingency and Incident Response" },
-    { id: "RISK-ALT-01", title: "Non-AI Alternative Assessment" }
-  ],
-  "AI Application UI": [
-    { id: "RISK-BEN-01", title: "AI System Benefits Assessment and Documentation" },
-    { id: "RISK-DECIDE-01", title: "Go/No-Go Decision Process" }
-  ],
-  "Evaluation / Monitoring Tool": [
-    { id: "RISK-EVAL-01", title: "Risk Analysis and Evaluation" },
-    { id: "RISK-ID-01", title: "Risk Identification Process" }
-  ]
+// Linkages from Component Type to CRC Control IDs
+export const CRC_CONTROL_LINKAGES: Record<string, string[]> = {
+  "Internal Proprietary Model": ["GOV-3P-02", "RISK-EVAL-01", "RISK-ID-01", "RISK-IMPACT-01"],
+  "Closed Foundation Model": ["GOV-3P-02", "RISK-COST-01", "RISK-IMPACT-02"],
+  "Open Source Model": ["RISK-ALT-01", "RISK-EVAL-01", "RISK-IMPACT-01"],
+  "Vector Database": ["RISK-EVAL-01", "RISK-ID-01"],
+  "Embedding Model": ["RISK-ALT-01", "RISK-EVAL-01"],
+  "Cloud AI Service": ["GOV-3P-02", "RISK-COST-01"],
+  "Agent Framework": ["RISK-DECIDE-01", "RISK-EVAL-01"],
+  "Guardrail Tool": ["RISK-EVAL-01", "RISK-ID-01"],
+  "Inference Infrastructure": ["RISK-ALT-01", "RISK-EVAL-01"],
+  "Training Dataset": ["RISK-ID-01", "RISK-IMPACT-02"],
+  "Validation Dataset": ["RISK-ID-01", "RISK-IMPACT-02"],
+  "API Service": ["GOV-3P-02", "RISK-ALT-01"],
+  "AI Application UI": ["RISK-BEN-01", "RISK-DECIDE-01"],
+  "Evaluation / Monitoring Tool": ["RISK-EVAL-01", "RISK-ID-01"]
 };

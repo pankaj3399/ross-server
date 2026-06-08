@@ -3,6 +3,7 @@
 exports.shorthands = undefined;
 
 exports.up = (pgm) => {
+  pgm.sql("CREATE SEQUENCE IF NOT EXISTS component_inventory_seq START WITH 1");
   pgm.createTable("component_inventory", {
     id: {
       type: "uuid",
@@ -136,4 +137,5 @@ exports.down = (pgm) => {
   pgm.sql("DROP TRIGGER IF EXISTS trg_set_updated_at_component_inventory ON component_inventory");
   pgm.sql("DROP FUNCTION IF EXISTS set_component_inventory_updated_at()");
   pgm.dropTable("component_inventory");
+  pgm.sql("DROP SEQUENCE IF EXISTS component_inventory_seq");
 };

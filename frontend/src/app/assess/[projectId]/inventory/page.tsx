@@ -75,7 +75,9 @@ import {
   PROVIDERS,
   CRC_CONTROL_LINKAGES,
   suggestRiskTierFrontend,
-  VENDOR_COMPLIANCE_URLS
+  VENDOR_COMPLIANCE_URLS,
+  type RiskTier,
+  type ComponentStatus
 } from "@/lib/inventoryConstants";
 
 const RISK_BADGES: Record<string, string> = {
@@ -135,19 +137,23 @@ export default function ComponentInventoryPage() {
   
   const [riskOverride, setRiskOverride] = useState(false);
 
+  const [controlsList, setControlsList] = useState<any[]>([]);
+
   // Fetch data
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [comps, summ] = await Promise.all([
+      const [comps, summ, controlsRes] = await Promise.all([
         apiService.getComponents(projectId),
-        apiService.getInventorySummary(projectId)
+        apiService.getInventorySummary(projectId),
+        apiService.getPublishedCRCControls().catch(() => ({ data: [] }))
       ]);
       setComponents(comps);
       setSummary(summ);
+      setControlsList(controlsRes?.data || []);
     } catch (error) {
       console.error("Error loading inventory:", error);
-      showToast.error( "Failed to fetch component inventory");
+      showToast.error("Failed to fetch component inventory");
     } finally {
       setLoading(false);
     }
@@ -249,8 +255,8 @@ export default function ComponentInventoryPage() {
         version: formVersion || null,
         roleInSystem: formRole,
         dataCategoriesSent: formDataCategories,
-        riskTier: formRiskTier as any,
-        status: formStatus as any,
+        riskTier: formRiskTier as RiskTier,
+        status: formStatus as ComponentStatus,
         modelCardUrl: formModelCardUrl || null,
         vendorComplianceUrl: formComplianceUrl || null,
         dpaUrl: formDpaUrl || null,
@@ -319,16 +325,20 @@ export default function ComponentInventoryPage() {
       const blob = await apiService.exportInventoryCsv(projectId, filters);
       
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `AI_Component_Inventory_${projectId}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      showToast.success( "CSV export downloaded successfully");
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `AI_Component_Inventory_${projectId}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast.success("CSV export downloaded successfully");
+      } finally {
+        window.URL.revokeObjectURL(url);
+      }
     } catch (error) {
       console.error("CSV Export failed:", error);
-      showToast.error( "Failed to export CSV");
+      showToast.error("Failed to export CSV");
     }
   };
 
@@ -836,24 +846,28 @@ export default function ComponentInventoryPage() {
                   {(CRC_CONTROL_LINKAGES[selectedComponent.componentType] || []).length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">No linkages mapping defined</span>
                   ) : (
-                    (CRC_CONTROL_LINKAGES[selectedComponent.componentType] || []).map((link) => (
-                      <div
-                        key={link.id}
-                        onClick={() => {
-                          setIsDetailOpen(false);
-                          router.push(`/assess/${projectId}/crc?controlId=${link.id}`);
-                        }}
-                        className="flex items-center justify-between p-2.5 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 rounded-xl text-xs text-foreground/80 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                            {link.id}
-                          </span>
-                          <span className="truncate max-w-[300px]">{link.title}</span>
+                    (CRC_CONTROL_LINKAGES[selectedComponent.componentType] || []).map((controlId) => {
+                      const matched = controlsList.find(c => c.control_id === controlId);
+                      const controlTitle = matched?.control_title || "Compliance Control";
+                      return (
+                        <div
+                          key={controlId}
+                          onClick={() => {
+                            setIsDetailOpen(false);
+                            router.push(`/assess/${projectId}/crc?controlId=${controlId}`);
+                          }}
+                          className="flex items-center justify-between p-2.5 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/10 rounded-xl text-xs text-foreground/80 cursor-pointer transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                              {controlId}
+                            </span>
+                            <span className="truncate max-w-[300px]">{controlTitle}</span>
+                          </div>
+                          <IconChevronRight className="h-3.5 w-3.5 text-emerald-500/60" />
                         </div>
-                        <IconChevronRight className="h-3.5 w-3.5 text-emerald-500/60" />
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

@@ -48,8 +48,8 @@ const ComponentSchema = z.object({
 });
 
 const VENDOR_COMPLIANCE_URLS: Record<string, string> = {
-  openai: "https://openai.com/security",
-  anthropic: "https://www.anthropic.com/trust",
+  openai: "https://trust.openai.com/",
+  anthropic: "https://trust.anthropic.com/",
   google: "https://cloud.google.com/security/compliance",
   aws: "https://aws.amazon.com/compliance",
   "aws bedrock": "https://aws.amazon.com/compliance",
@@ -61,8 +61,33 @@ const VENDOR_COMPLIANCE_URLS: Record<string, string> = {
   weaviate: "https://weaviate.io/security"
 };
 
+async function validateVendorComplianceUrls() {
+  console.log("=== STARTING VENDOR COMPLIANCE URLS STATUS VALIDATOR ===");
+  for (const [vendor, url] of Object.entries(VENDOR_COMPLIANCE_URLS)) {
+    try {
+      const response = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      if (!response.ok) {
+        console.warn(`[WARNING] Compliance URL for vendor "${vendor}" returned non-ok status: ${response.status} (${url})`);
+      } else {
+        console.log(`[OK] Compliance URL for vendor "${vendor}" is valid (${url})`);
+      }
+    } catch (error) {
+      console.error(`[ERROR] Compliance URL check failed for vendor "${vendor}": ${error instanceof Error ? error.message : String(error)} (${url})`);
+    }
+  }
+  console.log("=== VENDOR COMPLIANCE URLS STATUS VALIDATION COMPLETE ===");
+}
+
+// Run validation check 10 seconds after server startup, then every 24 hours
+setTimeout(() => {
+  validateVendorComplianceUrls().catch(err => console.error("Error in validateVendorComplianceUrls startup run:", err));
+}, 10000);
+setInterval(() => {
+  validateVendorComplianceUrls().catch(err => console.error("Error in validateVendorComplianceUrls periodic run:", err));
+}, 24 * 60 * 60 * 1000);
+
 // Risk tier auto-suggestion rules
-function suggestRiskTier(componentType: string, categories: string[]): "Low" | "Medium" | "High" | "Critical" {
+export function suggestRiskTier(componentType: string, categories: string[]): "Low" | "Medium" | "High" | "Critical" {
   if (categories.includes("No Data Processing") || categories.length === 0) {
     return "Low";
   }
@@ -107,6 +132,12 @@ function suggestRiskTier(componentType: string, categories: string[]): "Low" | "
   }
 
   if (["Agent Framework", "Guardrail Tool", "Inference Infrastructure"].includes(componentType)) {
+    if (hasHighlySensitive) {
+      return "High";
+    }
+    if (hasSensitive) {
+      return "Medium";
+    }
     return "Low";
   }
 
@@ -259,56 +290,48 @@ router.get("/:projectId/:id", authenticateToken, async (req, res) => {
 
 // POST /inventory/:projectId - Create component
 router.post("/:projectId", authenticateToken, async (req, res) => {
+  const { projectId } = req.params;
+  const userId = req.user!.id;
+
+  const membership = await getMembership(projectId, userId);
+  if (!membership) {
+    return res.status(403).json({ error: "Project not found or access denied" });
+  }
+  if (!["OWNER", "EDITOR"].includes(membership.role)) {
+    return res.status(403).json({ error: "Insufficient project permissions" });
+  }
+
+  const parsed = ComponentSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const data = parsed.data;
+
+  // Auto-suggest risk tier if not provided
+  const riskTier = data.riskTier || suggestRiskTier(data.componentType, data.dataCategoriesSent);
+
+  // Pre-fill vendor compliance URL if vendor is known and compliance URL not supplied
+  let complianceUrl = data.vendorComplianceUrl;
+  if (!complianceUrl) {
+    const providerKey = data.provider.toLowerCase().trim();
+    if (VENDOR_COMPLIANCE_URLS[providerKey]) {
+      complianceUrl = VENDOR_COMPLIANCE_URLS[providerKey];
+    }
+  }
+
+  const client = await pool.connect();
+  let beganTxn = false;
   try {
-    const { projectId } = req.params;
-    const userId = req.user!.id;
+    await client.query("BEGIN");
+    beganTxn = true;
 
-    const membership = await getMembership(projectId, userId);
-    if (!membership) {
-      return res.status(403).json({ error: "Project not found or access denied" });
-    }
-    if (!["OWNER", "EDITOR"].includes(membership.role)) {
-      return res.status(403).json({ error: "Insufficient project permissions" });
-    }
+    // Generate next sequential component_id (CMP-XXX) atomically using db sequence
+    const seqResult = await client.query("SELECT nextval('component_inventory_seq') as seq");
+    const nextSeq = parseInt(seqResult.rows[0].seq, 10);
+    const componentId = `CMP-${String(nextSeq).padStart(3, "0")}`;
 
-    const parsed = ComponentSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
-
-    const data = parsed.data;
-
-    // Generate next sequential component_id (CMP-XXX) per project
-    const lastComponentResult = await pool.query(
-      `SELECT component_id FROM component_inventory 
-       WHERE project_id = $1 
-       ORDER BY component_id DESC LIMIT 1`,
-      [projectId]
-    );
-
-    let nextNumber = 1;
-    if (lastComponentResult.rows.length > 0) {
-      const lastIdStr = lastComponentResult.rows[0].component_id;
-      const match = lastIdStr.match(/CMP-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-    const componentId = `CMP-${String(nextNumber).padStart(3, "0")}`;
-
-    // Auto-suggest risk tier if not provided
-    const riskTier = data.riskTier || suggestRiskTier(data.componentType, data.dataCategoriesSent);
-
-    // Pre-fill vendor compliance URL if vendor is known and compliance URL not supplied
-    let complianceUrl = data.vendorComplianceUrl;
-    if (!complianceUrl) {
-      const providerKey = data.provider.toLowerCase().trim();
-      if (VENDOR_COMPLIANCE_URLS[providerKey]) {
-        complianceUrl = VENDOR_COMPLIANCE_URLS[providerKey];
-      }
-    }
-
-    const insertResult = await pool.query(
+    const insertResult = await client.query(
       `INSERT INTO component_inventory (
         project_id, component_id, component_name, component_type, provider, version, 
         role_in_system, data_categories_sent, risk_tier, status, model_card_url, 
@@ -336,54 +359,70 @@ router.post("/:projectId", authenticateToken, async (req, res) => {
 
     const created = mapRowToResponse(insertResult.rows[0]);
 
-    // Record audit log event
+    // Record audit log event in the same transaction
     await recordEvent({
       projectId,
       actorId: userId,
       action: "CREATE",
       objectType: "COMPONENT_INVENTORY",
       objectId: created.id,
-      metadata: { componentId, componentName: created.componentName }
+      metadata: { componentId, componentName: created.componentName },
+      client
     });
+
+    await client.query("COMMIT");
+    beganTxn = false;
 
     res.status(201).json(created);
   } catch (error) {
+    if (client && beganTxn) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error creating component:", error);
     res.status(500).json({ error: "Failed to create component" });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // PUT /inventory/:projectId/:id - Update component
 router.put("/:projectId/:id", authenticateToken, async (req, res) => {
+  const { projectId, id } = req.params;
+  const userId = req.user!.id;
+
+  const membership = await getMembership(projectId, userId);
+  if (!membership) {
+    return res.status(403).json({ error: "Project not found or access denied" });
+  }
+  if (!["OWNER", "EDITOR"].includes(membership.role)) {
+    return res.status(403).json({ error: "Insufficient project permissions" });
+  }
+
+  const parsed = ComponentSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+
+  const data = parsed.data;
+
+  // Prefill compliance URL if vendor changed and url is not set
+  let complianceUrl = data.vendorComplianceUrl;
+  if (!complianceUrl) {
+    const providerKey = data.provider.toLowerCase().trim();
+    if (VENDOR_COMPLIANCE_URLS[providerKey]) {
+      complianceUrl = VENDOR_COMPLIANCE_URLS[providerKey];
+    }
+  }
+
+  const client = await pool.connect();
+  let beganTxn = false;
   try {
-    const { projectId, id } = req.params;
-    const userId = req.user!.id;
+    await client.query("BEGIN");
+    beganTxn = true;
 
-    const membership = await getMembership(projectId, userId);
-    if (!membership) {
-      return res.status(403).json({ error: "Project not found or access denied" });
-    }
-    if (!["OWNER", "EDITOR"].includes(membership.role)) {
-      return res.status(403).json({ error: "Insufficient project permissions" });
-    }
-
-    const parsed = ComponentSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ error: parsed.error.flatten() });
-    }
-
-    const data = parsed.data;
-
-    // Prefill compliance URL if vendor changed and url is not set
-    let complianceUrl = data.vendorComplianceUrl;
-    if (!complianceUrl) {
-      const providerKey = data.provider.toLowerCase().trim();
-      if (VENDOR_COMPLIANCE_URLS[providerKey]) {
-        complianceUrl = VENDOR_COMPLIANCE_URLS[providerKey];
-      }
-    }
-
-    const updateResult = await pool.query(
+    const updateResult = await client.query(
       `UPDATE component_inventory SET
         component_name = $3,
         component_type = $4,
@@ -420,72 +459,103 @@ router.put("/:projectId/:id", authenticateToken, async (req, res) => {
     );
 
     if (updateResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      beganTxn = false;
       return res.status(404).json({ error: "Component not found" });
     }
 
     const updated = mapRowToResponse(updateResult.rows[0]);
 
-    // Record audit log event
+    // Record audit log event in the same transaction
     await recordEvent({
       projectId,
       actorId: userId,
       action: "UPDATE",
       objectType: "COMPONENT_INVENTORY",
       objectId: updated.id,
-      metadata: { componentId: updated.componentId, componentName: updated.componentName }
+      metadata: { componentId: updated.componentId, componentName: updated.componentName },
+      client
     });
+
+    await client.query("COMMIT");
+    beganTxn = false;
 
     res.json(updated);
   } catch (error) {
+    if (client && beganTxn) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error updating component:", error);
     res.status(500).json({ error: "Failed to update component" });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
 // DELETE /inventory/:projectId/:id - Delete component
 router.delete("/:projectId/:id", authenticateToken, async (req, res) => {
+  const { projectId, id } = req.params;
+  const userId = req.user!.id;
+
+  const membership = await getMembership(projectId, userId);
+  if (!membership) {
+    return res.status(403).json({ error: "Project not found or access denied" });
+  }
+  if (!["OWNER", "EDITOR"].includes(membership.role)) {
+    return res.status(403).json({ error: "Insufficient project permissions" });
+  }
+
+  const client = await pool.connect();
+  let beganTxn = false;
   try {
-    const { projectId, id } = req.params;
-    const userId = req.user!.id;
+    await client.query("BEGIN");
+    beganTxn = true;
 
-    const membership = await getMembership(projectId, userId);
-    if (!membership) {
-      return res.status(403).json({ error: "Project not found or access denied" });
-    }
-    if (!["OWNER", "EDITOR"].includes(membership.role)) {
-      return res.status(403).json({ error: "Insufficient project permissions" });
-    }
-
-    const fetchResult = await pool.query(
-      `SELECT component_id, component_name FROM component_inventory WHERE id = $1 AND project_id = $2`,
+    const fetchResult = await client.query(
+      `SELECT component_id, component_name FROM component_inventory WHERE id = $1 AND project_id = $2 FOR UPDATE`,
       [id, projectId]
     );
 
     if (fetchResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      beganTxn = false;
       return res.status(404).json({ error: "Component not found" });
     }
 
     const { component_id, component_name } = fetchResult.rows[0];
 
-    await pool.query(
+    await client.query(
       `DELETE FROM component_inventory WHERE id = $1 AND project_id = $2`,
       [id, projectId]
     );
 
-    // Record audit log event
+    // Record audit log event in same transaction
     await recordEvent({
       projectId,
       actorId: userId,
       action: "DELETE",
       objectType: "COMPONENT_INVENTORY",
       objectId: id,
-      metadata: { componentId: component_id, componentName: component_name }
+      metadata: { componentId: component_id, componentName: component_name },
+      client
     });
+
+    await client.query("COMMIT");
+    beganTxn = false;
 
     res.json({ message: "Component deleted successfully" });
   } catch (error) {
+    if (client && beganTxn) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error deleting component:", error);
     res.status(500).json({ error: "Failed to delete component" });
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 });
 
@@ -569,12 +639,17 @@ router.post("/:projectId/export", authenticateToken, async (req, res) => {
         comp.vendor_assessment_status
       ];
 
-      // Escape quotes and wrap in quotes if has comma
+      // Escape quotes and wrap in quotes if has comma, mitigating formula injection
       const escaped = values.map(val => {
-        const str = String(val).replace(/"/g, '""');
-        return str.includes(",") || str.includes("\n") || str.includes('"')
-          ? `"${str}"`
-          : str;
+        let str = String(val ?? "");
+        const trimmed = str.trimStart();
+        if (trimmed.startsWith("=") || trimmed.startsWith("+") || trimmed.startsWith("-") || trimmed.startsWith("@")) {
+          str = `'${str}`;
+        }
+        const escapedVal = str.replace(/"/g, '""');
+        return escapedVal.includes(",") || escapedVal.includes("\n") || escapedVal.includes('"')
+          ? `"${escapedVal}"`
+          : escapedVal;
       });
 
       csvRows.push(escaped.join(","));
