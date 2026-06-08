@@ -18,6 +18,7 @@ const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("crc/dashboard")) return "Compliance Readiness Dashboard";
     if (pathname.includes("crc/welcome")) return "Compliance Readiness Controls (CRC)";
     if (pathname.includes("crc")) return "Compliance Readiness Controls (CRC)";
+    if (pathname.includes("inventory")) return "AI Component Inventory";
     if (pathname.includes("team")) return "Team Management";
     return "AI Maturity Assessment (AIMA)";
 };
