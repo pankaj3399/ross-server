@@ -1,6 +1,14 @@
 import { inngest } from "./client";
 import pool from "../config/database";
 import { evaluateFairnessResponse } from "../services/evaluateFairness";
+import { notificationService } from "../services/notificationService";
+import { emailService } from "../services/emailService";
+import {
+  buildWeeklyDigestEmail,
+  buildCriticalAlertEmail,
+  buildVendorReassessmentEmail,
+} from "../services/notificationTemplates";
+import { computeCrcResults } from "../utils/crcScoring";
 import {
   type EvaluationStatusRow,
   type FairnessApiJobPayload,
@@ -609,5 +617,333 @@ export const hardDeleteStaleProjects = inngest.createFunction(
       `);
       return { deletedCount: result.rowCount };
     });
+  }
+);
+
+export const weeklyDigestCron = inngest.createFunction(
+  { id: "weekly-digest-cron", name: "Weekly Digest Cron" },
+  { cron: "0 * * * *" }, // Run hourly to scan all user timezones
+  async ({ step }) => {
+    const users = await step.run("fetch-eligible-users", async () => {
+      const res = await pool.query(`
+        SELECT u.id, u.email, u.timezone, np.weekly_digest
+        FROM users u
+        LEFT JOIN notification_preferences np ON np.user_id = u.id
+        WHERE np.weekly_digest IS NULL OR np.weekly_digest = true
+      `);
+      return res.rows;
+    });
+
+    const now = new Date();
+    const eligibleUsers = users.filter((u) => {
+      try {
+        const formatter = new Intl.DateTimeFormat("en-US", {
+          timeZone: u.timezone || "UTC",
+          weekday: "long",
+          hour: "numeric",
+          hour12: false,
+        });
+        const parts = formatter.formatToParts(now);
+        const weekday = parts.find((p) => p.type === "weekday")?.value;
+        const hour = parts.find((p) => p.type === "hour")?.value;
+        return weekday === "Monday" && parseInt(hour || "", 10) === 9;
+      } catch (err) {
+        console.warn(`Timezone formatting error for user ${u.id}:`, err);
+        // Fallback to UTC
+        return now.getUTCDay() === 1 && now.getUTCHours() === 9;
+      }
+    });
+
+    for (const user of eligibleUsers) {
+      const projects = await step.run(`fetch-projects-${user.id}`, async () => {
+        const res = await pool.query(
+          "SELECT id, name FROM projects WHERE user_id = $1 AND deleted_at IS NULL",
+          [user.id]
+        );
+        return res.rows;
+      });
+
+      for (const project of projects) {
+        const hasChanges = await step.run(`check-changes-${project.id}`, async () => {
+          const auditLogsRes = await pool.query(
+            "SELECT COUNT(*)::int as count FROM audit_logs WHERE project_id = $1 AND created_at > NOW() - INTERVAL '7 days'",
+            [project.id]
+          );
+          const crcRes = await pool.query(
+            "SELECT COUNT(*)::int as count FROM crc_assessment_responses WHERE project_id = $1 AND updated_at > NOW() - INTERVAL '7 days'",
+            [project.id]
+          );
+          return (auditLogsRes.rows[0].count + crcRes.rows[0].count) > 0;
+        });
+
+        if (!hasChanges) continue;
+
+        const digestData = await step.run(`prepare-digest-${project.id}`, async () => {
+          const results = await computeCrcResults(project.id);
+          
+          const quickWinsRes = await pool.query(
+            `SELECT c.control_id AS "controlCode", c.control_title AS title
+             FROM crc_controls c
+             LEFT JOIN crc_assessment_responses r ON r.control_id = c.id AND r.project_id = $1
+             WHERE c.status = 'Published' AND (r.value IS NULL OR r.value IN (0, 3))
+             LIMIT 3`,
+            [project.id]
+          );
+
+          const changesCountRes = await pool.query(
+            "SELECT COUNT(*)::int as count FROM crc_assessment_responses WHERE project_id = $1 AND updated_at > NOW() - INTERVAL '7 days'",
+            [project.id]
+          );
+
+          return {
+            projectName: project.name,
+            readinessPercentage: results.overall.percentage || 0,
+            changesCount: changesCountRes.rows[0].count,
+            quickWins: quickWinsRes.rows,
+            riskSummary: {
+              Critical: results.riskSummary.critical,
+              High: results.riskSummary.high,
+              Medium: results.riskSummary.medium,
+              Low: results.riskSummary.low,
+            },
+            dashboardUrl: `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${project.id}/crc/dashboard`,
+          };
+        });
+
+        await step.run(`send-digest-${user.id}-${project.id}`, async () => {
+          const shouldSend = await notificationService.shouldSendNotification(user.id, project.id, "weekly_digest");
+          if (!shouldSend) return;
+
+          const { html, text } = buildWeeklyDigestEmail(user.id, digestData);
+
+          const success = await emailService.sendEmail({
+            to: user.email,
+            subject: `Weekly Compliance Digest for ${project.name} - MATUR.ai`,
+            html,
+            text,
+          });
+
+          if (success) {
+            await notificationService.logNotification(
+              user.id,
+              project.id,
+              "weekly_digest",
+              `Weekly Compliance Digest for ${project.name} - MATUR.ai`,
+              "sent",
+              digestData
+            );
+          } else {
+            await notificationService.queueNotification(user.id, project.id, "weekly_digest", {
+              to: user.email,
+              subject: `Weekly Compliance Digest for ${project.name} - MATUR.ai`,
+              html,
+              text,
+            });
+          }
+        });
+      }
+    }
+  }
+);
+
+export const criticalRiskAlertHandler = inngest.createFunction(
+  { id: "critical-risk-alert-handler", name: "Critical Risk Alert Handler" },
+  { event: "notification/critical-risk.triggered" },
+  async ({ event, step }) => {
+    const { projectId, riskId } = event.data;
+
+    const details = await step.run("fetch-details", async () => {
+      const projectRes = await pool.query(
+        `SELECT p.user_id, p.name AS project_name, u.email
+         FROM projects p
+         JOIN users u ON p.user_id = u.id
+         WHERE p.id = $1 AND p.deleted_at IS NULL`,
+        [projectId]
+      );
+      if (projectRes.rows.length === 0) return null;
+
+      const riskRes = await pool.query(
+        `SELECT id, risk_code, title, rating, description, mitigation_plan
+         FROM crc_risks
+         WHERE id = $1 AND project_id = $2`,
+        [riskId, projectId]
+      );
+      if (riskRes.rows.length === 0) return null;
+
+      return {
+        owner: projectRes.rows[0],
+        risk: riskRes.rows[0]
+      };
+    });
+
+    if (!details) return;
+
+    const { owner, risk } = details;
+
+    const shouldSend = await step.run("check-preferences", async () => {
+      return await notificationService.shouldSendNotification(owner.user_id, projectId, "critical_alerts");
+    });
+
+    if (!shouldSend) return;
+
+    await step.run("send-alert", async () => {
+      const projectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${projectId}/crc/risks`;
+      const { html, text } = buildCriticalAlertEmail(owner.user_id, {
+        projectName: owner.project_name,
+        riskCode: risk.risk_code,
+        riskTitle: risk.title,
+        rating: risk.rating,
+        description: risk.description,
+        mitigationPlan: risk.mitigation_plan,
+        projectUrl,
+      });
+
+      const success = await emailService.sendEmail({
+        to: owner.email,
+        subject: `[CRITICAL RISK ALERT] ${risk.risk_code}: ${risk.title} - ${owner.project_name}`,
+        html,
+        text,
+      });
+
+      if (success) {
+        await notificationService.logNotification(
+          owner.user_id,
+          projectId,
+          "critical_alerts",
+          `[CRITICAL RISK ALERT] ${risk.risk_code}: ${risk.title} - ${owner.project_name}`,
+          "sent",
+          { riskId, rating: risk.rating }
+        );
+      } else {
+        await notificationService.queueNotification(owner.user_id, projectId, "critical_alerts", {
+          to: owner.email,
+          subject: `[CRITICAL RISK ALERT] ${risk.risk_code}: ${risk.title} - ${owner.project_name}`,
+          html,
+          text,
+        });
+      }
+    });
+  }
+);
+
+export const vendorReassessmentCron = inngest.createFunction(
+  { id: "vendor-reassessment-cron", name: "Vendor Reassessment Cron" },
+  { cron: "0 6 * * *" }, // Daily at 6 AM UTC
+  async ({ step }) => {
+    const eligibleAssessments = await step.run("fetch-eligible-vendors", async () => {
+      try {
+        const res = await pool.query(`
+          SELECT va.id, va.vendor_name, va.project_id, p.user_id, p.name AS project_name, u.email
+          FROM vendor_assessments va
+          JOIN projects p ON va.project_id = p.id
+          JOIN users u ON p.user_id = u.id
+          WHERE va.status = 'Completed'
+          AND va.completed_at <= NOW() - INTERVAL '12 months'
+          AND p.deleted_at IS NULL
+        `);
+        return res.rows;
+      } catch (err: any) {
+        if (err && err.code === "42P01") {
+          return [];
+        }
+        throw err;
+      }
+    });
+
+    for (const item of eligibleAssessments) {
+      const isSnoozed = await step.run(`check-snooze-${item.id}`, async () => {
+        const res = await pool.query(
+          `SELECT COUNT(*)::int as count FROM notification_log
+           WHERE user_id = $1 AND project_id = $2 AND notification_type = 'vendor_reassessment'
+           AND metadata->>'vendorId' = $3
+           AND created_at > NOW() - INTERVAL '14 days'`,
+          [item.user_id, item.project_id, item.id]
+        );
+        return res.rows[0].count > 0;
+      });
+
+      if (isSnoozed) continue;
+
+      const shouldSend = await step.run(`check-preference-${item.user_id}`, async () => {
+        return await notificationService.shouldSendNotification(item.user_id, item.project_id, "vendor_reassessment");
+      });
+
+      if (!shouldSend) continue;
+
+      await step.run(`send-reminder-${item.id}`, async () => {
+        const assessmentUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${item.project_id}/vendors`;
+        const { html, text } = buildVendorReassessmentEmail(item.user_id, {
+          projectName: item.project_name,
+          vendorName: item.vendor_name,
+          assessmentUrl,
+        });
+
+        const success = await emailService.sendEmail({
+          to: item.email,
+          subject: `Vendor Reassessment Reminder: ${item.vendor_name} - ${item.project_name}`,
+          html,
+          text,
+        });
+
+        if (success) {
+          await notificationService.logNotification(
+            item.user_id,
+            item.project_id,
+            "vendor_reassessment",
+            `Vendor Reassessment Reminder: ${item.vendor_name} - ${item.project_name}`,
+            "sent",
+            { vendorId: item.id }
+          );
+        } else {
+          await notificationService.queueNotification(item.user_id, item.project_id, "vendor_reassessment", {
+            to: item.email,
+            subject: `Vendor Reassessment Reminder: ${item.vendor_name} - ${item.project_name}`,
+            html,
+            text,
+          });
+        }
+      });
+    }
+
+    return { processedCount: eligibleAssessments.length };
+  }
+);
+
+export const notificationQueueProcessor = inngest.createFunction(
+  { id: "notification-queue-processor", name: "Notification Queue Processor" },
+  { cron: "*/15 * * * *" }, // Run every 15 minutes
+  async ({ step }) => {
+    await step.run("process-queue", async () => {
+      await notificationService.processQueue();
+    });
+  }
+);
+
+export const riskTargetDateChecker = inngest.createFunction(
+  { id: "risk-target-date-checker", name: "Risk Target Date Checker" },
+  { cron: "0 7 * * *" }, // Run daily at 7 AM UTC
+  async ({ step }) => {
+    const overdueRisks = await step.run("fetch-overdue-risks", async () => {
+      const res = await pool.query(`
+        SELECT id, project_id FROM crc_risks
+        WHERE target_date < CURRENT_DATE AND status = 'Open'
+      `);
+      return res.rows;
+    });
+
+    const events = overdueRisks.map((risk) => ({
+      name: "notification/critical-risk.triggered",
+      data: {
+        projectId: risk.project_id,
+        riskId: risk.id,
+        reason: "overdue",
+      },
+    }));
+
+    if (events.length > 0) {
+      await step.sendEvent("trigger-overdue-alerts", events);
+    }
+
+    return { triggeredCount: events.length };
   }
 );

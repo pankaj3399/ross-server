@@ -1731,6 +1731,53 @@ class ApiService {
       body: JSON.stringify(data),
     });
   }
+
+  // ==========================================
+  // NOTIFICATIONS
+  // ==========================================
+
+  public async getNotificationPreferences(): Promise<{
+    weekly_digest: boolean;
+    critical_alerts: boolean;
+    vendor_reassessment: boolean;
+    email_undeliverable: boolean;
+    marketing_emails: boolean;
+    timezone: string;
+  }> {
+    return this.request("/notifications/preferences");
+  }
+
+  public async updateNotificationPreferences(prefs: {
+    weekly_digest?: boolean;
+    critical_alerts?: boolean;
+    vendor_reassessment?: boolean;
+    marketing_emails?: boolean;
+    timezone?: string;
+  }): Promise<{
+    weekly_digest: boolean;
+    critical_alerts: boolean;
+    vendor_reassessment: boolean;
+    email_undeliverable: boolean;
+    marketing_emails: boolean;
+    timezone: string;
+  }> {
+    return this.request("/notifications/preferences", {
+      method: "PUT",
+      body: JSON.stringify(prefs),
+    });
+  }
+
+  public async getNotificationHistory(page = 1, limit = 10): Promise<{
+    history: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    return this.request(`/notifications/history?page=${page}&limit=${limit}`);
+  }
 }
 
 export const apiService = new ApiService();

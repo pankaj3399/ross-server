@@ -9,6 +9,7 @@ const COMMON_ROUTES: string[] = [
   '/answers',
   '/notes',
   '/subscriptions',
+  '/notifications',
 ];
 
 export const SUBSCRIPTION_ROUTES: Record<SubscriptionStatus, string[]> = {
