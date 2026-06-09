@@ -62,6 +62,9 @@ export interface DomainWithLevels extends Omit<ApiDomain, "practices"> {
 export interface CRCResponse {
     value: number;
     notes: string;
+    evidenceStatus: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+    evidenceUrl: string | null;
+    auditReady: boolean;
     updatedAt: string;
 }
 
@@ -94,6 +97,12 @@ interface AssessmentContextType {
     handleNoteSave: (questionIndex: number, note: string) => Promise<void>;
     handleCrcAnswerChange: (controlId: string, value: number) => Promise<void>;
     handleCrcNoteSave: (controlId: string, notes: string) => Promise<void>;
+    handleEvidenceStatusChange: (
+        controlId: string, 
+        status: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete', 
+        url?: string | null, 
+        auditReady?: boolean
+    ) => Promise<void>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
     submitCrcProject: () => Promise<void>;
@@ -544,16 +553,33 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (isReadOnly) return;
         const previousResponse = crcResponses[controlId];
         const notes = crcResponses[controlId]?.notes || "";
+        const evidenceStatus = crcResponses[controlId]?.evidenceStatus || "No Evidence";
+        const evidenceUrl = crcResponses[controlId]?.evidenceUrl || null;
+        const auditReady = crcResponses[controlId]?.auditReady || false;
 
         // Optimistic update
         setCrcResponses(prev => ({
             ...prev,
-            [controlId]: { value, notes, updatedAt: new Date().toISOString() },
+            [controlId]: { 
+                value, 
+                notes, 
+                evidenceStatus, 
+                evidenceUrl, 
+                auditReady, 
+                updatedAt: new Date().toISOString() 
+            },
         }));
 
         setSaving(true);
         try {
-            await apiService.saveCRCResponse(projectId, { controlId, value, notes });
+            await apiService.saveCRCResponse(projectId, { 
+                controlId, 
+                value, 
+                notes, 
+                evidenceStatus, 
+                evidenceUrl, 
+                auditReady 
+            });
         } catch (error) {
             console.error("Failed to save CRC answer:", error);
             // Rollback on error
@@ -583,15 +609,22 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         // Optimistic update
         setCrcResponses(prev => ({
             ...prev,
-            [controlId]: { ...prev[controlId], notes: sanitizedNotes, updatedAt: new Date().toISOString() },
+            [controlId]: { 
+                ...prev[controlId], 
+                notes: sanitizedNotes, 
+                updatedAt: new Date().toISOString() 
+            },
         }));
 
         setSaving(true);
         try {
             await apiService.saveCRCResponse(projectId, {
                 controlId,
-                value: currentResponse.value,
+                value: currentResponse?.value ?? 3,
                 notes: sanitizedNotes,
+                evidenceStatus: currentResponse?.evidenceStatus ?? "No Evidence",
+                evidenceUrl: currentResponse?.evidenceUrl ?? null,
+                auditReady: currentResponse?.auditReady ?? false,
             });
         } catch (error) {
             console.error("Failed to save CRC notes:", error);
@@ -601,6 +634,73 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 [controlId]: previousResponse,
             }));
             showToast.error("Failed to save notes");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleEvidenceStatusChange = async (
+        controlId: string, 
+        status: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete', 
+        url?: string | null, 
+        auditReady?: boolean
+    ) => {
+        if (isReadOnly) return;
+        const currentResponse = crcResponses[controlId];
+        const previousResponse = currentResponse ? { ...currentResponse } : null;
+
+        const value = currentResponse ? currentResponse.value : 3;
+        const notes = currentResponse ? currentResponse.notes : "";
+        const finalUrl = url !== undefined ? url : (currentResponse ? currentResponse.evidenceUrl : null);
+        const finalAuditReady = auditReady !== undefined ? auditReady : (currentResponse ? currentResponse.auditReady : false);
+
+        // Optimistic update
+        setCrcResponses(prev => ({
+            ...prev,
+            [controlId]: {
+                value,
+                notes,
+                evidenceStatus: status,
+                evidenceUrl: finalUrl,
+                auditReady: finalAuditReady,
+                updatedAt: new Date().toISOString()
+            }
+        }));
+
+        setSaving(true);
+        try {
+            await apiService.saveCRCResponse(projectId, {
+                controlId,
+                value,
+                notes,
+                evidenceStatus: status,
+                evidenceUrl: finalUrl,
+                auditReady: finalAuditReady
+            });
+        } catch (error: any) {
+            console.error("Failed to save evidence status:", error);
+            // Rollback optimistic update
+            if (previousResponse) {
+                setCrcResponses(prev => ({
+                    ...prev,
+                    [controlId]: previousResponse
+                }));
+            } else {
+                setCrcResponses(prev => {
+                    const copy = { ...prev };
+                    delete copy[controlId];
+                    return copy;
+                });
+            }
+            
+            let errorMsg = "Failed to save evidence status";
+            if (error && typeof error === 'object' && error.error) {
+                errorMsg = typeof error.error === 'string' ? error.error : JSON.stringify(error.error);
+            } else if (error && error.message) {
+                errorMsg = error.message;
+            }
+            showToast.error(errorMsg);
+            throw error;
         } finally {
             setSaving(false);
         }
@@ -756,6 +856,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleNoteSave,
         handleCrcAnswerChange,
         handleCrcNoteSave,
+        handleEvidenceStatusChange,
         saveAllNotes,
         submitProject,
         submitCrcProject,

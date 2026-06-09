@@ -248,6 +248,17 @@ export interface CRCResults {
     iso_42001: CRCFrameworkResult;
   };
   riskSummary?: RiskSummary;
+  evidenceProgress?: {
+    complete: number;
+    total: number;
+    percentage: number;
+    breakdown: {
+      noEvidence: number;
+      templateDownloaded: number;
+      inProgress: number;
+      evidenceComplete: number;
+    };
+  };
 }
 
 export interface CRCRisk {
@@ -1480,15 +1491,45 @@ class ApiService {
   }
 
   // CRC Assessment (user-facing)
-  async saveCRCResponse(projectId: string, data: { controlId: string; value: number; notes?: string }): Promise<{ success: boolean }> {
+  async saveCRCResponse(
+    projectId: string, 
+    data: { 
+      controlId: string; 
+      value: number; 
+      notes?: string;
+      evidenceStatus?: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+      evidenceUrl?: string | null;
+      auditReady?: boolean;
+    }
+  ): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/crc/assess/${projectId}`, {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async getCRCResponses(projectId: string): Promise<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }> {
-    return this.request<{ responses: Record<string, { value: number; notes: string; updatedAt: string }>; count: number }>(`/crc/assess/${projectId}`);
+  async getCRCResponses(projectId: string): Promise<{ 
+    responses: Record<string, { 
+      value: number; 
+      notes: string; 
+      evidenceStatus: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+      evidenceUrl: string | null;
+      auditReady: boolean;
+      updatedAt: string;
+    }>; 
+    count: number;
+  }> {
+    return this.request<{ 
+      responses: Record<string, { 
+        value: number; 
+        notes: string; 
+        evidenceStatus: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+        evidenceUrl: string | null;
+        auditReady: boolean;
+        updatedAt: string;
+      }>; 
+      count: number;
+    }>(`/crc/assess/${projectId}`);
   }
 
   async submitCRCAssessment(projectId: string): Promise<{ success: boolean; results: CRCResults }> {
@@ -1527,13 +1568,14 @@ class ApiService {
   }
 
   // CRC Templates
-  downloadCRCTemplateUrl(controlId: string): string {
-    return `${API_BASE_URL}/crc/templates/${controlId}/download`;
+  downloadCRCTemplateUrl(controlId: string, projectId?: string): string {
+    return `${API_BASE_URL}/crc/templates/${controlId}/download${projectId ? `?projectId=${projectId}` : ''}`;
   }
 
-  async downloadCRCTemplate(controlId: string): Promise<{ blob: Blob; filename: string }> {
+  async downloadCRCTemplate(controlId: string, projectId?: string): Promise<{ blob: Blob; filename: string }> {
     const token = this.getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/crc/templates/${controlId}/download`, {
+    const url = `${API_BASE_URL}/crc/templates/${controlId}/download${projectId ? `?projectId=${projectId}` : ''}`;
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         ...(token && { "Authorization": `Bearer ${token}` }),

@@ -100,6 +100,7 @@ export default function CRCAssessmentPage() {
     crcResponses: responses,
     handleCrcAnswerChange,
     handleCrcNoteSave,
+    handleEvidenceStatusChange,
     isPremium,
     loading: contextLoading,
     saving,
@@ -123,6 +124,15 @@ export default function CRCAssessmentPage() {
     }
     return 0; // Default to first
   }, [controlIdParam, categoryParam, controls]);
+
+  const currentControl = controls[currentIndex];
+  const currentResponse = responses[currentControl?.id];
+
+  const [urlInput, setUrlInput] = useState("");
+
+  useEffect(() => {
+    setUrlInput(currentResponse?.evidenceUrl || "");
+  }, [currentControl?.id, currentResponse?.evidenceUrl]);
 
 
   // Navigation
@@ -191,8 +201,6 @@ export default function CRCAssessmentPage() {
     );
   }
 
-  const currentControl = controls[currentIndex];
-  const currentResponse = responses[currentControl.id];
   const currentAnswer = currentResponse?.value;
   const currentNote = localNotes[currentControl.id] ?? currentResponse?.notes ?? "";
 
@@ -348,7 +356,14 @@ export default function CRCAssessmentPage() {
                   onClick={async () => {
                     try {
                       showToast.success("Downloading compliance template...");
-                      const { blob, filename } = await apiService.downloadCRCTemplate(currentControl.id);
+                      const { blob, filename } = await apiService.downloadCRCTemplate(currentControl.id, projectId);
+                      
+                      // Auto-flip status optimistically on frontend
+                      const currentStatus = currentResponse?.evidenceStatus || "No Evidence";
+                      if (currentStatus === "No Evidence") {
+                        handleEvidenceStatusChange(currentControl.id, "Template Downloaded").catch(() => {});
+                      }
+
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement("a");
                       a.href = url;
@@ -544,6 +559,153 @@ export default function CRCAssessmentPage() {
                     </div>
                   </label>
                 ))}
+              </div>
+
+              {/* Evidence Tracker Section (Feature I) */}
+              <div className="mt-6 pt-6 border-t border-border space-y-4">
+                <h3 className="text-sm font-medium text-foreground flex items-center gap-1.5">
+                  📋 Evidence Status
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Status Dropdown */}
+                  <div>
+                    <label htmlFor="evidence-status-select" className="block text-xs text-muted-foreground mb-1.5">
+                      Select Status
+                    </label>
+                    <select
+                      id="evidence-status-select"
+                      disabled={isReadOnly}
+                      value={currentResponse?.evidenceStatus || "No Evidence"}
+                      onChange={async (e) => {
+                        const newStatus = e.target.value as any;
+                        try {
+                          await handleEvidenceStatusChange(currentControl.id, newStatus);
+                        } catch (err) {
+                          // Handled in context
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="No Evidence">No Evidence</option>
+                      <option value="Template Downloaded">Template Downloaded</option>
+                      <option value="Evidence in Progress">Evidence in Progress</option>
+                      <option value="Evidence Complete">Evidence Complete</option>
+                    </select>
+                  </div>
+
+                  {/* Badge Display */}
+                  <div className="flex items-end pb-1.5">
+                    <span className="text-xs text-muted-foreground mr-2">Current Status:</span>
+                    {(() => {
+                      const status = currentResponse?.evidenceStatus || "No Evidence";
+                      let colorClass = "bg-secondary text-secondary-foreground";
+                      if (status === "Template Downloaded") colorClass = "bg-blue-500/10 text-blue-500 border border-blue-500/20";
+                      else if (status === "Evidence in Progress") colorClass = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
+                      else if (status === "Evidence Complete") colorClass = "bg-green-500/10 text-green-500 border border-green-500/20";
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
+                          {status}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Evidence URL Input */}
+                {(currentResponse?.evidenceStatus === "Evidence in Progress" || currentResponse?.evidenceStatus === "Evidence Complete") && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-3"
+                  >
+                    <div>
+                      <label htmlFor="evidence-url-input" className="block text-xs text-muted-foreground mb-1.5 flex items-center justify-between">
+                        <span>Evidence URL (HTTPS required)</span>
+                        {currentResponse?.evidenceStatus === "Evidence Complete" && (
+                          <span className="text-red-500 text-[10px]">* Required for Evidence Complete</span>
+                        )}
+                      </label>
+                      <input
+                        id="evidence-url-input"
+                        type="text"
+                        disabled={isReadOnly}
+                        value={urlInput}
+                        placeholder="https://docs.google.com/document/d/... or other documentation link"
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        onBlur={async () => {
+                          if (urlInput === (currentResponse?.evidenceUrl || "")) return;
+                          const finalUrl = urlInput.trim() === "" ? null : urlInput.trim();
+                          try {
+                            await handleEvidenceStatusChange(
+                              currentControl.id, 
+                              currentResponse?.evidenceStatus || "No Evidence", 
+                              finalUrl
+                            );
+                            showToast.success("Evidence URL saved");
+                          } catch (err) {
+                            setUrlInput(currentResponse?.evidenceUrl || "");
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    {/* Audit-ready Checkbox */}
+                    {currentResponse?.evidenceUrl && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex items-start pt-1"
+                      >
+                        <div className="flex items-center h-5">
+                          <input
+                            id="audit-ready-checkbox"
+                            type="checkbox"
+                            disabled={isReadOnly}
+                            checked={currentResponse?.auditReady || false}
+                            onChange={async (e) => {
+                              try {
+                                await handleEvidenceStatusChange(
+                                  currentControl.id,
+                                  currentResponse?.evidenceStatus || "No Evidence",
+                                  currentResponse?.evidenceUrl,
+                                  e.target.checked
+                                );
+                                showToast.success(e.target.checked ? "Marked as audit ready" : "Removed audit ready status");
+                              } catch (err) {
+                                // Handled in context
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                        </div>
+                        <div className="ml-3 text-xs">
+                          <label htmlFor="audit-ready-checkbox" className="font-medium text-foreground">
+                            🔒 Audit-ready confirmation
+                          </label>
+                          <p className="text-muted-foreground mt-0.5">
+                            I confirm this evidence link is valid, restricted to internal/external compliance reviewers, and currently meets the control requirements.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* Gentle nudge message */}
+                {((currentAnswer === 1 || currentAnswer === 0.5) && (!currentResponse?.evidenceStatus || currentResponse?.evidenceStatus === "No Evidence")) && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-500"
+                  >
+                    <IconAlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold">Gentle Nudge:</span> You indicated this control is implemented ({currentAnswer === 1 ? "Yes" : "Partially"}), but you haven't uploaded/verified any evidence. Consider downloading the compliance template above to prepare your documentation.
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Notes Section */}
