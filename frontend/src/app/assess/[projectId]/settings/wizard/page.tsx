@@ -72,10 +72,13 @@ export default function ProjectWizardSettingsPage() {
       const components = Array.isArray(res?.outputs?.suggested_components) ? res.outputs.suggested_components : [];
 
       // 2. Commit/apply the changes to the project
-      await apiService.applyWizardProfile(projectId, {
+      const applyRes = await apiService.applyWizardProfile(projectId, {
         acceptedRisks: risks.map((r: any) => r.title),
         acceptedComponents: components.map((c: any) => c.component_name),
       });
+      if (!applyRes?.success) {
+        throw new Error((applyRes as any)?.error || "Failed to apply wizard outputs");
+      }
 
       showToast.success("AI Profile updated and rules engine outputs applied successfully!");
       
