@@ -19,6 +19,7 @@ import {
   IconSettings,
   IconBriefcase,
   IconLayoutDashboard,
+  IconTable,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
@@ -107,7 +108,8 @@ const getRouteFlags = (pathname: string | null) => {
   const isFairnessOptionsPage = !!pathname?.match(/\/fairness-bias\/options($|\/|\?)/);
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
   const isSettingsPage = !!pathname?.match(/\/settings($|\/|\?)/);
-  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !!pathname?.match(/\/assess\/[^/]+$/);
+  const isInventoryPage = !!pathname?.match(/\/inventory($|\/|\?)/);
+  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !isInventoryPage && !!pathname?.match(/\/assess\/[^/]+$/);
   return { 
     isCrcPage, 
     isFairnessPage, 
@@ -118,6 +120,7 @@ const getRouteFlags = (pathname: string | null) => {
     isFairnessOptionsPage,
     isTeamPage, 
     isSettingsPage, 
+    isInventoryPage,
     isAimaPage 
   };
 };
@@ -347,22 +350,26 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
     isFairnessOptionsPage,
     isTeamPage, 
     isSettingsPage, 
+    isInventoryPage,
     isAimaPage 
   } = getRouteFlags(pathname);
 
+  const isSettingsExpandedInitial = !!isTeamPage || !!isSettingsPage;
+  const isPremiumFeaturesExpandedInitial = !!isCrcPage || !!isFairnessPage || !!isVulnerabilityPage || !!isDatasetTestingPage || !!isInventoryPage;
+  
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(activeDomainId ?? null);
   const [expandedPractices, setExpandedPractices] = useState<Record<string, string | null>>(() =>
     activeDomainId && currentPracticeId ? { [activeDomainId]: currentPracticeId } : {}
   );
   const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(!!isAimaPage);
   const [isPremiumDomainsExpanded, setIsPremiumDomainsExpanded] = useState(true);
-  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(!!isCrcPage || !!isFairnessPage || !!isVulnerabilityPage || !!isDatasetTestingPage);
+  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(isPremiumFeaturesExpandedInitial);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!isFairnessPage);
   const [isCrcExpanded, setIsCrcExpanded] = useState(!!isCrcPage);
   const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
     currentCategory ? { [currentCategory]: true } : {}
   );
-  const [isSettingsExpanded, setIsSettingsExpanded] = useState(!!isTeamPage || !!isSettingsPage);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(isSettingsExpandedInitial);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
@@ -371,7 +378,7 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
   useEffect(() => {
     if (!pathname) return;
 
-    const { isCrcPage, isFairnessPage, isTeamPage, isSettingsPage, isAimaPage } = getRouteFlags(pathname);
+    const { isCrcPage, isFairnessPage, isTeamPage, isSettingsPage, isAimaPage, isInventoryPage } = getRouteFlags(pathname);
 
     if (isCrcPage) {
       setIsAssessmentExpanded(false);
@@ -384,6 +391,12 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
       setIsPremiumFeaturesExpanded(true);
       setIsCrcExpanded(false);
       setIsFairnessExpanded(isFairnessPage);
+      setIsSettingsExpanded(false);
+    } else if (isInventoryPage) {
+      setIsAssessmentExpanded(false);
+      setIsPremiumFeaturesExpanded(true);
+      setIsCrcExpanded(false);
+      setIsFairnessExpanded(false);
       setIsSettingsExpanded(false);
     } else if (isAimaPage) {
       setIsAssessmentExpanded(true);
@@ -646,6 +659,17 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                             locked: !premiumStatus,
                             color: "text-emerald-500",
                             active: pathname.includes('/crc')
+                          },
+                          {
+                            id: "inventory",
+                            label: "AI Component Inventory",
+                            icon: IconTable,
+                            onClick: () => premiumStatus 
+                              ? router.push(`/assess/${projectId}/inventory`) 
+                              : openSubscriptionModal("Unlock Premium to Access AI Component Inventory", "Upgrade to premium to unlock this feature and many more advanced capabilities."),
+                            locked: !premiumStatus,
+                            color: "text-blue-500",
+                            active: pathname.includes('/inventory')
                           },
                           {
                             id: "fairness",

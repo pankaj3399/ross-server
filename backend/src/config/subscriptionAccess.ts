@@ -15,9 +15,9 @@ const COMMON_ROUTES: string[] = [
 export const SUBSCRIPTION_ROUTES: Record<SubscriptionStatus, string[]> = {
   free: [],
   // Trial unlocks basic_premium routes
-  trial: ['/fairness', '/crc', '/chat'],
-  basic_premium: ['/fairness', '/crc', '/chat'],
-  pro_premium: ['/fairness', '/crc', '/chat'],
+  trial: ['/fairness', '/crc', '/chat', '/inventory'],
+  basic_premium: ['/fairness', '/crc', '/chat', '/inventory'],
+  pro_premium: ['/fairness', '/crc', '/chat', '/inventory'],
 };
 
 export function getRoutesForSubscription(status: SubscriptionStatus): string[] {
