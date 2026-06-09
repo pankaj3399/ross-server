@@ -45,12 +45,26 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
     }
   }, [engineOutput]);
 
-  if (loading || !engineOutput) {
+  if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-8 space-y-6">
         <div className="h-10 bg-muted animate-pulse rounded w-1/2" />
         <div className="h-24 bg-muted animate-pulse rounded w-full" />
         <div className="h-64 bg-muted animate-pulse rounded w-full" />
+      </div>
+    );
+  }
+
+  if (!engineOutput) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center space-y-4">
+        <h2 className="text-2xl font-bold text-destructive">No Compliance Profile Found</h2>
+        <p className="text-muted-foreground">
+          We couldn't load the compliance profile output for this project. Please complete the setup wizard first.
+        </p>
+        <Button onClick={() => loadSavedAnswers(projectId)} variant="outline">
+          Retry Loading
+        </Button>
       </div>
     );
   }

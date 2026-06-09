@@ -83,7 +83,7 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
 
   // 1.1 Prohibited Practices (Article 5) -> UNACCEPTABLE
   const isEmotionInWorkplace = answers.biometric_use === "emotion_recognition" && 
-    (answers.use_case === "employment_hr" || answers.annex_iii_domains.includes("employment_hr") || answers.annex_iii_domains.includes("education_vocational"));
+    (answers.use_case === "employment_hr" || annex_iii_domains.includes("employment_hr") || annex_iii_domains.includes("education_vocational"));
   
   const isPublicBiometricSpace = answers.biometric_use === "public_spaces_identification";
   const isSocialScoring = answers.use_case === "social_scoring";
@@ -416,9 +416,6 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   // RULE SET 6: Vendor Assessment Auto-Queueing
   // ==========================================
   // Return the list of vendors that should be queued for assessment
-  const vendorsToQueue = suggested_components.map(c => c.provider);
-  // Remove duplicates
-  const uniqueVendorsToQueue = Array.from(new Set(vendorsToQueue));
 
   // ==========================================
   // RULE SET 7: Vulnerability Assessment Scope
@@ -443,7 +440,7 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   // RULE SET 8: Bias Testing Scope
   // ==========================================
   const bias_scope_set = new Set<string>();
-  if (answers.use_case === "employment_hr" || answers.annex_iii_domains.includes("employment_hr")) {
+  if (answers.use_case === "employment_hr" || annex_iii_domains.includes("employment_hr")) {
     bias_scope_set.add("Gender");
     bias_scope_set.add("Age");
     bias_scope_set.add("Race/Ethnicity");

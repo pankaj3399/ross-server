@@ -47,6 +47,10 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
     };
   }, [projectId, isOpen, loadSavedAnswers, resetStore]);
 
+  useEffect(() => {
+    setValidationError(null);
+  }, [answers, currentSection]);
+
   const sectionNames = [
     "Project Setup",
     "Regulatory Role",

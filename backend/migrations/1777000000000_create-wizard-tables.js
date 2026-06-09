@@ -256,6 +256,11 @@ exports.up = (pgm) => {
     },
   });
 
+  // Index on project_id in wizard_audit_log
+  pgm.createIndex("wizard_audit_log", "project_id", {
+    name: "idx_wizard_audit_log_project_id",
+  });
+
   // 4. Alter projects table to add wizard_completed and wizard_profile_id columns
   pgm.addColumn("projects", {
     wizard_completed: {
@@ -318,6 +323,7 @@ exports.down = (pgm) => {
   pgm.dropColumn("projects", "wizard_profile_id");
   pgm.dropColumn("projects", "wizard_completed");
 
+  pgm.dropIndex("wizard_audit_log", [], { name: "idx_wizard_audit_log_project_id" });
   pgm.dropTable("wizard_audit_log");
   pgm.dropTable("wizard_engine_outputs");
   pgm.dropTable("wizard_profiles");

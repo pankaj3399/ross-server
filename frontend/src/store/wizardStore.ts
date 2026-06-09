@@ -136,13 +136,13 @@ export const useWizardStore = create<WizardState>((set, get) => ({
         try {
           const projectRes = await apiService.getProject(projectId);
           if (projectRes) {
-            set((state) => ({
+            set({
               answers: {
-                ...state.answers,
+                ...initialAnswers,
                 name: projectRes.name || "",
                 description: projectRes.description || "",
               },
-            }));
+            });
           }
         } catch (e) {
           console.warn("Failed to prefill project name/description:", e);
@@ -186,6 +186,8 @@ export const useWizardStore = create<WizardState>((set, get) => ({
       if (res && res.success) {
         set({ engineOutput: res.outputs });
         return res.outputs;
+      } else {
+        throw new Error((res as any)?.error || "Failed to complete wizard");
       }
     } catch (error) {
       console.error("Failed to complete wizard:", error);

@@ -64,11 +64,17 @@ export default function ProjectWizardSettingsPage() {
     try {
       // 1. Save answers & re-run rules engine
       const res = await apiService.editWizardAnswers(projectId, answers);
+      if (!res || !res.success) {
+        throw new Error((res as any)?.error || "Failed to update wizard answers");
+      }
       
+      const risks = Array.isArray(res?.outputs?.suggested_risks) ? res.outputs.suggested_risks : [];
+      const components = Array.isArray(res?.outputs?.suggested_components) ? res.outputs.suggested_components : [];
+
       // 2. Commit/apply the changes to the project
       await apiService.applyWizardProfile(projectId, {
-        acceptedRisks: res.outputs.suggested_risks.map((r: any) => r.title),
-        acceptedComponents: res.outputs.suggested_components.map((c: any) => c.component_name),
+        acceptedRisks: risks.map((r: any) => r.title),
+        acceptedComponents: components.map((c: any) => c.component_name),
       });
 
       showToast.success("AI Profile updated and rules engine outputs applied successfully!");

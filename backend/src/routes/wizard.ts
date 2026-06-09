@@ -474,9 +474,10 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
 router.put("/:projectId/answers", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR"]), async (req, res) => {
   const projectId = req.params.projectId;
   const userId = req.user!.id;
-  const body = saveAnswersSchema.parse(req.body);
 
   try {
+    const body = saveAnswersSchema.parse(req.body);
+
     // 1. Fetch current answers to log diff
     const currentResult = await pool.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
@@ -495,7 +496,7 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     let valIdx = 2;
 
     const fields = [
-      "governance_scope", "use_case", "regulatory_role", "scale", 
+      "name", "description", "governance_scope", "use_case", "regulatory_role", "scale", 
       "uses_third_party_models", "automation_level", "biometric_use", 
       "affects_children", "public_url"
     ];

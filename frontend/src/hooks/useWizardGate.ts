@@ -14,6 +14,10 @@ export function useWizardGate(projectId?: string) {
 
   const checkStatus = useCallback(async () => {
     if (!projectId || !user) {
+      setWizardCompleted(false);
+      setWizardInProgress(false);
+      setWizardApplied(false);
+      setCurrentStep(1);
       setLoading(false);
       return;
     }
@@ -46,7 +50,9 @@ export function useWizardGate(projectId?: string) {
       console.error("Failed to check wizard status:", error);
       // Fallback: don't block in case of network errors
       setWizardCompleted(true);
+      setWizardInProgress(false);
       setWizardApplied(true);
+      setCurrentStep(1);
     } finally {
       setLoading(false);
     }
