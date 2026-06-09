@@ -141,18 +141,32 @@ export class NotificationService {
       if (type === "critical_alerts" && !prefs.critical_alerts) return false;
       if (type === "vendor_reassessment" && !prefs.vendor_reassessment) return false;
 
-      // Rate limit check: critical alerts (max 3 per day per project)
-      if (type === "critical_alerts" && projectId) {
-        const rateLimitResult = await pool.query(
-          `SELECT COUNT(*) FROM notification_log
-           WHERE user_id = $1 AND project_id = $2 AND notification_type = $3
-           AND created_at > NOW() - INTERVAL '24 hours'`,
-          [userId, projectId, type]
-        );
-        const sentCount = parseInt(rateLimitResult.rows[0].count, 10);
-        if (sentCount >= 3) {
-          console.warn(`Critical alert suppressed: Rate limit hit (3/day) for user ${userId} on project ${projectId}`);
-          return false;
+      // Rate limit check: critical alerts (max 3 per day per project/user)
+      if (type === "critical_alerts") {
+        if (projectId) {
+          const rateLimitResult = await pool.query(
+            `SELECT COUNT(*) FROM notification_log
+             WHERE user_id = $1 AND project_id = $2 AND notification_type = $3
+             AND created_at > NOW() - INTERVAL '24 hours'`,
+            [userId, projectId, type]
+          );
+          const sentCount = parseInt(rateLimitResult.rows[0].count, 10);
+          if (sentCount >= 3) {
+            console.warn(`Critical alert suppressed: Rate limit hit (3/day) for user ${userId} on project ${projectId}`);
+            return false;
+          }
+        } else {
+          const rateLimitResult = await pool.query(
+            `SELECT COUNT(*) FROM notification_log
+             WHERE user_id = $1 AND project_id IS NULL AND notification_type = $2
+             AND created_at > NOW() - INTERVAL '24 hours'`,
+            [userId, type]
+          );
+          const sentCount = parseInt(rateLimitResult.rows[0].count, 10);
+          if (sentCount >= 3) {
+            console.warn(`Critical alert suppressed: Rate limit hit (3/day) for user ${userId} globally (project-less)`);
+            return false;
+          }
         }
       }
 
@@ -219,12 +233,16 @@ export class NotificationService {
    * Runs in Inngest cron job.
    */
   async processQueue(): Promise<void> {
+    const client = await pool.connect();
     try {
-      const pendingResult = await pool.query(
+      await client.query("BEGIN");
+
+      const pendingResult = await client.query(
         `SELECT id, user_id, project_id, notification_type, payload, attempts
          FROM notification_queue
          WHERE status = 'pending' AND next_attempt_at <= NOW()
-         LIMIT 50`
+         LIMIT 50
+         FOR UPDATE SKIP LOCKED`
       );
 
       for (const row of pendingResult.rows) {
@@ -240,7 +258,7 @@ export class NotificationService {
         });
 
         if (success) {
-          await pool.query(
+          await client.query(
             `UPDATE notification_queue
              SET status = 'sent', attempts = attempts + 1, next_attempt_at = NOW()
              WHERE id = $1`,
@@ -251,7 +269,7 @@ export class NotificationService {
           const nextAttempts = attempts + 1;
           if (nextAttempts >= 5) {
             // Mark failed after 5 retries
-            await pool.query(
+            await client.query(
               `UPDATE notification_queue
                SET status = 'failed', attempts = $2
                WHERE id = $1`,
@@ -261,7 +279,7 @@ export class NotificationService {
           } else {
             // Exponential backoff: 15 min, 30 min, 1 hour, 2 hours
             const delayMinutes = Math.pow(2, nextAttempts) * 15;
-            await pool.query(
+            await client.query(
               `UPDATE notification_queue
                SET attempts = $2, next_attempt_at = NOW() + ($3 || ' minutes')::interval
                WHERE id = $1`,
@@ -270,8 +288,13 @@ export class NotificationService {
           }
         }
       }
+
+      await client.query("COMMIT");
     } catch (error) {
+      await client.query("ROLLBACK");
       console.error("Error in processQueue:", error);
+    } finally {
+      client.release();
     }
   }
 }

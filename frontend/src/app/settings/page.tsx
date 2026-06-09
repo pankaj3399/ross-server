@@ -92,23 +92,39 @@ export default function SettingsPage() {
     timezone: "UTC",
   });
   const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsError, setPrefsError] = useState(false);
+
+  const prefsUpdateInFlightRef = useRef<Promise<any>>(Promise.resolve());
+  const lastUpdateSequenceRef = useRef<number>(0);
 
   const fetchNotificationPreferences = useCallback(async () => {
     try {
       if (isMountedRef.current) {
         setPrefsLoading(true);
+        setPrefsError(false);
       }
       const prefs = await apiService.getNotificationPreferences();
       if (isMountedRef.current) {
-        setNotificationPrefs({
-          weekly_digest: prefs.weekly_digest,
-          critical_alerts: prefs.critical_alerts,
-          vendor_reassessment: prefs.vendor_reassessment,
-          timezone: prefs.timezone || "UTC",
-        });
+        if (
+          prefs &&
+          typeof prefs.weekly_digest === "boolean" &&
+          typeof prefs.critical_alerts === "boolean" &&
+          typeof prefs.vendor_reassessment === "boolean" &&
+          typeof prefs.timezone === "string"
+        ) {
+          setNotificationPrefs({
+            weekly_digest: prefs.weekly_digest,
+            critical_alerts: prefs.critical_alerts,
+            vendor_reassessment: prefs.vendor_reassessment,
+            timezone: prefs.timezone,
+          });
+        }
       }
     } catch (error) {
       console.error("Failed to load notification preferences:", error);
+      if (isMountedRef.current) {
+        setPrefsError(true);
+      }
     } finally {
       if (isMountedRef.current) {
         setPrefsLoading(false);
@@ -117,28 +133,48 @@ export default function SettingsPage() {
   }, []);
 
   const handlePreferenceToggle = async (key: 'weekly_digest' | 'critical_alerts' | 'vendor_reassessment') => {
-    try {
-      const updatedValue = !notificationPrefs[key];
-      setNotificationPrefs(prev => ({ ...prev, [key]: updatedValue }));
-      await apiService.updateNotificationPreferences({ [key]: updatedValue });
-      showToast.success("Notification preferences updated.");
-    } catch (error) {
-      console.error("Failed to update preference:", error);
-      showToast.error("Failed to save preference. Please try again.");
-      fetchNotificationPreferences();
-    }
+    const nextSeq = ++lastUpdateSequenceRef.current;
+    const updatedValue = !notificationPrefs[key];
+    setNotificationPrefs(prev => ({ ...prev, [key]: updatedValue }));
+
+    prefsUpdateInFlightRef.current = prefsUpdateInFlightRef.current.then(async () => {
+      try {
+        await apiService.updateNotificationPreferences({ [key]: updatedValue });
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.success("Notification preferences updated.");
+        }
+      } catch (error) {
+        console.error("Failed to update preference:", error);
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.error("Failed to save preference. Please try again.");
+          fetchNotificationPreferences();
+        }
+      }
+    });
+
+    await prefsUpdateInFlightRef.current;
   };
 
   const handleTimezoneChange = async (tz: string) => {
-    try {
-      setNotificationPrefs(prev => ({ ...prev, timezone: tz }));
-      await apiService.updateNotificationPreferences({ timezone: tz });
-      showToast.success("Timezone updated successfully.");
-    } catch (error) {
-      console.error("Failed to update timezone:", error);
-      showToast.error("Failed to save timezone. Please try again.");
-      fetchNotificationPreferences();
-    }
+    const nextSeq = ++lastUpdateSequenceRef.current;
+    setNotificationPrefs(prev => ({ ...prev, timezone: tz }));
+
+    prefsUpdateInFlightRef.current = prefsUpdateInFlightRef.current.then(async () => {
+      try {
+        await apiService.updateNotificationPreferences({ timezone: tz });
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.success("Timezone updated successfully.");
+        }
+      } catch (error) {
+        console.error("Failed to update timezone:", error);
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.error("Failed to save timezone. Please try again.");
+          fetchNotificationPreferences();
+        }
+      }
+    });
+
+    await prefsUpdateInFlightRef.current;
   };
 
   const fetchDeletedProjects = useCallback(async () => {
@@ -1097,6 +1133,21 @@ export default function SettingsPage() {
                   <div className="h-12 bg-muted rounded-lg animate-pulse" />
                   <div className="h-12 bg-muted rounded-lg animate-pulse" />
                   <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                </div>
+              ) : prefsError ? (
+                <div className="text-center py-6 border border-dashed rounded-xl bg-destructive/5 border-destructive/20">
+                  <p className="text-sm text-destructive mb-3">
+                    Failed to load notification preferences.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchNotificationPreferences}
+                    className="gap-1.5"
+                  >
+                    <IconRefresh className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
                 </div>
               ) : (
                 <>

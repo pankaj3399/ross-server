@@ -49,8 +49,14 @@ router.put("/preferences", authenticateToken, checkRouteAccess('/notifications')
 router.get("/history", authenticateToken, checkRouteAccess('/notifications'), async (req, res) => {
   try {
     const userId = req.user!.id;
-    const page = parseInt(req.query.page as string, 10) || 1;
-    const limit = parseInt(req.query.limit as string, 10) || 10;
+    const MAX_LIMIT = 100;
+    const rawPage = parseInt(req.query.page as string, 10);
+    const rawLimit = parseInt(req.query.limit as string, 10);
+
+    const page = isNaN(rawPage) || rawPage <= 0 ? 1 : rawPage;
+    const defaultLimit = 10;
+    const parsedLimit = isNaN(rawLimit) || rawLimit <= 0 ? defaultLimit : rawLimit;
+    const limit = Math.min(parsedLimit, MAX_LIMIT);
     const offset = (page - 1) * limit;
 
     const result = await pool.query(
@@ -89,8 +95,14 @@ router.get("/unsubscribe/:token", async (req, res) => {
     const { token } = req.params;
     let decoded: any;
 
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("JWT_SECRET environment variable is not defined");
+      return res.status(500).send("Server configuration error.");
+    }
+
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET!);
+      decoded = jwt.verify(token, secret);
     } catch (err) {
       return res.status(400).send(`
         <!DOCTYPE html>

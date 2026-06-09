@@ -620,6 +620,29 @@ export const hardDeleteStaleProjects = inngest.createFunction(
   }
 );
 
+/**
+ * Build a safe frontend URL by normalizing the origin and percent-encoding path segments.
+ */
+function buildSafeFrontendUrl(pathTemplate: string, segments: Record<string, string>): string {
+  const rawFrontend = process.env.FRONTEND_URL || "http://localhost:3000";
+  let origin = "http://localhost:3000";
+  try {
+    const parsed = new URL(rawFrontend);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      origin = parsed.origin;
+    }
+  } catch (e) {
+    // Ignore and use default origin
+  }
+  
+  let path = pathTemplate;
+  for (const [key, value] of Object.entries(segments)) {
+    path = path.replace(`:${key}`, encodeURIComponent(value));
+  }
+  
+  return `${origin}${path}`;
+}
+
 export const weeklyDigestCron = inngest.createFunction(
   { id: "weekly-digest-cron", name: "Weekly Digest Cron" },
   { cron: "0 * * * *" }, // Run hourly to scan all user timezones
@@ -706,7 +729,7 @@ export const weeklyDigestCron = inngest.createFunction(
               Medium: results.riskSummary.medium,
               Low: results.riskSummary.low,
             },
-            dashboardUrl: `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${project.id}/crc/dashboard`,
+            dashboardUrl: buildSafeFrontendUrl("/assess/:projectId/crc/dashboard", { projectId: project.id }),
           };
         });
 
@@ -765,7 +788,7 @@ export const criticalRiskAlertHandler = inngest.createFunction(
       const riskRes = await pool.query(
         `SELECT id, risk_code, title, rating, description, mitigation_plan
          FROM crc_risks
-         WHERE id = $1 AND project_id = $2`,
+         WHERE id = $1 AND project_id = $2 AND status = 'Open' AND rating = 'Critical'`,
         [riskId, projectId]
       );
       if (riskRes.rows.length === 0) return null;
@@ -787,7 +810,7 @@ export const criticalRiskAlertHandler = inngest.createFunction(
     if (!shouldSend) return;
 
     await step.run("send-alert", async () => {
-      const projectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${projectId}/crc/risks`;
+      const projectUrl = buildSafeFrontendUrl("/assess/:projectId/crc/risks", { projectId });
       const { html, text } = buildCriticalAlertEmail(owner.user_id, {
         projectName: owner.project_name,
         riskCode: risk.risk_code,
@@ -864,14 +887,14 @@ export const vendorReassessmentCron = inngest.createFunction(
 
       if (isSnoozed) continue;
 
-      const shouldSend = await step.run(`check-preference-${item.user_id}`, async () => {
+      const shouldSend = await step.run(`check-preference-${item.user_id}-${item.id}`, async () => {
         return await notificationService.shouldSendNotification(item.user_id, item.project_id, "vendor_reassessment");
       });
 
       if (!shouldSend) continue;
 
       await step.run(`send-reminder-${item.id}`, async () => {
-        const assessmentUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/assess/${item.project_id}/vendors`;
+        const assessmentUrl = buildSafeFrontendUrl("/assess/:projectId/vendors", { projectId: item.project_id });
         const { html, text } = buildVendorReassessmentEmail(item.user_id, {
           projectName: item.project_name,
           vendorName: item.vendor_name,
@@ -926,7 +949,7 @@ export const riskTargetDateChecker = inngest.createFunction(
     const overdueRisks = await step.run("fetch-overdue-risks", async () => {
       const res = await pool.query(`
         SELECT id, project_id FROM crc_risks
-        WHERE target_date < CURRENT_DATE AND status = 'Open'
+        WHERE target_date < CURRENT_DATE AND status = 'Open' AND rating = 'Critical'
       `);
       return res.rows;
     });

@@ -1363,7 +1363,7 @@ router.put("/risks/:projectId/:riskId", authenticateToken, async (req, res) => {
 
     // Trigger critical risk alert if transitioning to Critical
     if (updatedRisk.rating === "Critical" && currentRisk.rating !== "Critical") {
-      await inngest.send({
+      void inngest.send({
         name: "notification/critical-risk.triggered",
         data: { projectId, riskId },
       }).catch((err) => {

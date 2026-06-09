@@ -1768,7 +1768,7 @@ class ApiService {
   }
 
   public async getNotificationHistory(page = 1, limit = 10): Promise<{
-    history: any[];
+    history: NotificationHistoryItem[];
     pagination: {
       page: number;
       limit: number;
@@ -1778,6 +1778,17 @@ class ApiService {
   }> {
     return this.request(`/notifications/history?page=${page}&limit=${limit}`);
   }
+}
+
+export interface NotificationHistoryItem {
+  id: string;
+  project_id: string | null;
+  notification_type: "weekly_digest" | "critical_alerts" | "vendor_reassessment";
+  subject: string;
+  status: "sent" | "failed" | "queued" | "bounced";
+  metadata: Record<string, any> | null;
+  sent_at: string | null;
+  created_at: string;
 }
 
 export const apiService = new ApiService();

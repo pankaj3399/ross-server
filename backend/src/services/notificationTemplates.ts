@@ -34,11 +34,30 @@ export interface VendorReassessmentData {
  * Generate a secure, one-click unsubscribe token for a user and notification type
  */
 export function generateUnsubscribeToken(userId: string, notificationType: string): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is missing. Cannot call jwt.sign for unsubscribe token.");
+  }
   return jwt.sign(
     { userId, notificationType },
-    process.env.JWT_SECRET!,
+    secret,
     { expiresIn: "365d" } // long-lived
   );
+}
+
+/**
+ * Safe origin validator and normalizer
+ */
+function getSafeOrigin(urlStr: string, fallback: string): string {
+  try {
+    const parsed = new URL(urlStr);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.origin;
+    }
+  } catch (e) {
+    // Ignore error and use fallback
+  }
+  return fallback;
 }
 
 /**
@@ -46,11 +65,14 @@ export function generateUnsubscribeToken(userId: string, notificationType: strin
  */
 function getFooterUrls(userId: string, type: string) {
   const token = generateUnsubscribeToken(userId, type);
-  const backendUrl = process.env.BACKEND_URL || "http://localhost:4000";
-  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+  const rawBackend = process.env.BACKEND_URL || "http://localhost:4000";
+  const rawFrontend = process.env.FRONTEND_URL || "http://localhost:3000";
+  
+  const backendUrl = getSafeOrigin(rawBackend, "http://localhost:4000");
+  const frontendUrl = getSafeOrigin(rawFrontend, "http://localhost:3000");
   
   return {
-    unsubscribeUrl: `${backendUrl}/notifications/unsubscribe/${token}`,
+    unsubscribeUrl: `${backendUrl}/notifications/unsubscribe/${encodeURIComponent(token)}`,
     preferencesUrl: `${frontendUrl}/settings?tab=notifications`,
     privacyUrl: `${frontendUrl}/privacy`,
   };

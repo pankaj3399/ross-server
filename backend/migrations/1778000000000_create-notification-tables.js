@@ -63,8 +63,6 @@ exports.up = (pgm) => {
     },
   });
 
-  pgm.createIndex("notification_preferences", "user_id");
-
   // Create notification_log table
   pgm.createTable("notification_log", {
     id: {

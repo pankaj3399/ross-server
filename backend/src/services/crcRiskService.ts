@@ -102,7 +102,7 @@ export async function syncRiskFromResponse(
 
         // Fetch existing risk to compare rating transition
         const existingResult = await pool.query(
-            `SELECT id, rating FROM crc_risks
+            `SELECT id, rating, status FROM crc_risks
              WHERE project_id = $1 AND control_id = $2`,
             [projectId, controlId]
         );
@@ -121,7 +121,7 @@ export async function syncRiskFromResponse(
         const riskId = upsertResult.rows[0].id;
 
         // Trigger critical risk alert if transitioning to Critical
-        if (rating === "Critical" && (!oldRisk || oldRisk.rating !== "Critical")) {
+        if (rating === "Critical" && (!oldRisk || oldRisk.rating !== "Critical" || oldRisk.status === "Closed")) {
             await inngest.send({
                 name: "notification/critical-risk.triggered",
                 data: { projectId, riskId },
