@@ -16,6 +16,7 @@ import commentsRouter from "./routes/comments";
 import auditLogsRouter from "./routes/auditLogs";
 import chatRouter from "./routes/chat";
 import inventoryRouter from "./routes/inventory";
+import wizardRouter from "./routes/wizard";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
@@ -74,6 +75,7 @@ app.use("/projects", authenticateToken, checkRouteAccess('/projects'), commentsR
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), auditLogsRouter);
 app.use("/chat", authenticateToken, checkRouteAccess('/chat'), chatRouter);
 app.use("/inventory", authenticateToken, checkRouteAccess('/inventory'), inventoryRouter);
+app.use("/wizard", authenticateToken, checkRouteAccess('/wizard'), wizardRouter);
 
 // Inngest endpoint
 app.use(

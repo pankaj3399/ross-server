@@ -1816,6 +1816,46 @@ class ApiService {
 
     return response.blob();
   }
+
+  // AI System Profile Wizard
+  async getWizardStatus(projectId: string): Promise<{ success: boolean; status: string; step: number; completedAt: string | null; appliedAt: string | null }> {
+    return this.request<{ success: boolean; status: string; step: number; completedAt: string | null; appliedAt: string | null }>(`/wizard/${projectId}/status`);
+  }
+
+  async getWizardAnswers(projectId: string): Promise<{ success: boolean; answers: any }> {
+    return this.request<{ success: boolean; answers: any }>(`/wizard/${projectId}/answers`);
+  }
+
+  async saveWizardAnswers(projectId: string, answers: any): Promise<{ success: boolean; profileId: string }> {
+    return this.request<{ success: boolean; profileId: string }>(`/wizard/${projectId}/save`, {
+      method: "POST",
+      body: JSON.stringify(answers),
+    });
+  }
+
+  async completeWizard(projectId: string): Promise<{ success: boolean; outputs: any }> {
+    return this.request<{ success: boolean; outputs: any }>(`/wizard/${projectId}/complete`, {
+      method: "POST",
+    });
+  }
+
+  async applyWizardProfile(projectId: string, payload?: { acceptedRisks?: string[]; acceptedComponents?: string[] }): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/wizard/${projectId}/apply`, {
+      method: "POST",
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+  }
+
+  async editWizardAnswers(projectId: string, answers: any): Promise<{ success: boolean; outputs: any }> {
+    return this.request<{ success: boolean; outputs: any }>(`/wizard/${projectId}/answers`, {
+      method: "PUT",
+      body: JSON.stringify(answers),
+    });
+  }
+
+  async getWizardEngineOutput(projectId: string): Promise<{ success: boolean; outputs: any }> {
+    return this.request<{ success: boolean; outputs: any }>(`/wizard/${projectId}/engine-output`);
+  }
 }
 
 export const apiService = new ApiService();
