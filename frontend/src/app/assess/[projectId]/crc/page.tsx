@@ -164,7 +164,7 @@ export default function CRCAssessmentPage() {
   const totalControls = controls.length;
   const answeredControls = controls.filter((ctrl) => {
     const r = responses[ctrl.id];
-    return r && typeof r.value === "number";
+    return r && Number.isFinite(r.value);
   }).length;
   const progress = totalControls > 0 ? (answeredControls / totalControls) * 100 : 0;
 

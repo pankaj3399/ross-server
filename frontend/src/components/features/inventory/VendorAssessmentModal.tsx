@@ -269,7 +269,7 @@ export default function VendorAssessmentModal({
       }
     } catch (err: any) {
       console.error("Failed to complete assessment:", err);
-      const msg = err?.error || "Failed to complete risk assessment. Please check that all inputs are filled correctly.";
+      const msg = err?.message || err?.error || "Failed to complete risk assessment. Please check that all inputs are filled correctly.";
       showToast.error(msg);
     } finally {
       setCompleting(false);
@@ -403,14 +403,17 @@ export default function VendorAssessmentModal({
                     </div>
 
                     {/* Option Choices */}
-                    <div className="grid grid-cols-1 gap-2 mb-4">
+                    <div className="grid grid-cols-1 gap-2 mb-4" role="radiogroup" aria-label={`Options for question ${q.id}`}>
                       {q.options.map((opt) => {
                         const isSelected = answer.optionValue === opt.value;
                         return (
-                          <div
+                          <button
                             key={opt.value}
+                            type="button"
                             onClick={() => handleOptionSelect(q.id, opt.value)}
-                            className={`p-3 rounded-xl border text-xs cursor-pointer flex items-center justify-between transition-all select-none ${
+                            role="radio"
+                            aria-checked={isSelected}
+                            className={`p-3 rounded-xl border text-xs text-left w-full cursor-pointer flex items-center justify-between transition-all select-none ${
                               isSelected 
                                 ? "bg-primary/5 border-primary text-foreground font-semibold" 
                                 : "hover:bg-muted/30 border-border/50 text-foreground/80"
@@ -429,7 +432,7 @@ export default function VendorAssessmentModal({
                                 {isSelected && <IconCheck className="h-3 w-3 stroke-[3]" />}
                               </div>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

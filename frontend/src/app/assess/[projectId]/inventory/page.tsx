@@ -692,15 +692,17 @@ export default function ComponentInventoryPage() {
                           {comp.vendorAssessmentStatus === "Completed" ? (
                             <div className="flex flex-col gap-1 items-start">
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                comp.vendorRiskTier === "Low"
-                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                  : comp.vendorRiskTier === "Medium"
-                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                                    : comp.vendorRiskTier === "High"
-                                      ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
-                                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                comp.vendorRiskTier === null || comp.vendorRiskTier === undefined
+                                  ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                                  : comp.vendorRiskTier === "Low"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    : comp.vendorRiskTier === "Medium"
+                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                      : comp.vendorRiskTier === "High"
+                                        ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                                        : "bg-rose-500/10 text-rose-400 border-rose-500/20"
                               }`}>
-                                Vendor Risk: {comp.vendorRiskTier}
+                                Vendor Risk: {comp.vendorRiskTier === null || comp.vendorRiskTier === undefined ? "N/A" : comp.vendorRiskTier}
                               </span>
                               {comp.vendorAssessmentCompletedAt && (
                                 <span className="text-[10px] text-muted-foreground">
