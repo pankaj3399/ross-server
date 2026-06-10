@@ -352,7 +352,7 @@ export default function CRCDashboardPage() {
     );
   }
 
-  const { overall, categories = [], breakdown, frameworks } = results;
+  const { overall, categories = [], breakdown, frameworks, evidenceProgress } = results;
   const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, naCount: 0, applicableControls: 0, points: 0, percentage: null };
   const fw = frameworks || {
     eu_ai_act: defaultFramework,
@@ -361,6 +361,17 @@ export default function CRCDashboardPage() {
   };
   const tier = getReadinessTier(overall ? overall.percentage : null);
   const hasResponses = overall ? overall.answeredControls > 0 : false;
+
+  const getEvidenceColor = (percent: number) => {
+    if (percent < 30) return "bg-red-500 text-red-500";
+    if (percent < 60) return "bg-amber-500 text-amber-500";
+    return "bg-green-500 text-green-500";
+  };
+  const getEvidenceColorBorder = (percent: number) => {
+    if (percent < 30) return "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400";
+    if (percent < 60) return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+    return "border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400";
+  };
 
   return (
     <div className="flex-1 bg-background">
@@ -571,6 +582,86 @@ export default function CRCDashboardPage() {
                 ))}
               </div>
             </div>
+
+            {/* Evidence Progress Section (Feature I) */}
+            {evidenceProgress && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-foreground">Evidence Progress</h2>
+                  <p className="text-sm text-muted-foreground">Audit readiness & evidence metrics</p>
+                </div>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            Overall Evidence Completion
+                          </span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs font-semibold px-2 py-0.5 border ${getEvidenceColorBorder(evidenceProgress.percentage)}`}
+                          >
+                            {evidenceProgress.percentage}% Documented
+                          </Badge>
+                        </div>
+                        
+                        {/* Custom Animated Progress Bar */}
+                        <div className="w-full bg-muted rounded-full h-3 overflow-hidden relative">
+                          <motion.div
+                            className={`h-full ${getEvidenceColor(evidenceProgress.percentage).split(" ")[0]} rounded-full`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${evidenceProgress.percentage}%` }}
+                            transition={{ duration: 1, ease: "easeOut" }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Evidence complete for {evidenceProgress.complete} of {evidenceProgress.total} controls.
+                        </p>
+                      </div>
+
+                      {/* Large Circular percentage or big number for visual impact */}
+                      <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6 shrink-0">
+                        <div className="text-center">
+                          <span className="text-4xl font-extrabold text-foreground tabular-nums">
+                            {evidenceProgress.complete}
+                          </span>
+                          <span className="text-muted-foreground text-sm block">Complete Controls</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Breakdown section */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border">
+                      <div className="p-3 bg-muted/20 border border-border/50 rounded-xl space-y-1">
+                        <span className="text-xs text-muted-foreground block font-medium">No Evidence</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">
+                          {evidenceProgress.breakdown.noEvidence}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl space-y-1">
+                        <span className="text-xs text-blue-500 block font-medium">Downloaded</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">
+                          {evidenceProgress.breakdown.templateDownloaded}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-1">
+                        <span className="text-xs text-amber-500 block font-medium">In Progress</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">
+                          {evidenceProgress.breakdown.inProgress}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-green-500/5 border border-green-500/10 rounded-xl space-y-1">
+                        <span className="text-xs text-green-500 block font-medium">Complete</span>
+                        <span className="text-lg font-bold text-foreground tabular-nums">
+                          {evidenceProgress.breakdown.evidenceComplete}
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {/* Framework Readiness Cards */}
             <div>

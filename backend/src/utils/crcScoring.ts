@@ -69,6 +69,17 @@ export type CrcResults = {
         iso_42001: CrcFrameworkResult;
     };
     riskSummary: RiskSummary;
+    evidenceProgress?: {
+        complete: number;
+        total: number;
+        percentage: number;
+        breakdown: {
+            noEvidence: number;
+            templateDownloaded: number;
+            inProgress: number;
+            evidenceComplete: number;
+        };
+    };
 };
 
 type ComplianceMapping = {
@@ -83,6 +94,9 @@ type ControlRow = {
     category_name: string | null;
     response_value: number | null;
     compliance_mapping: ComplianceMapping | null;
+    evidence_status?: string | null;
+    evidence_url?: string | null;
+    audit_ready?: boolean | null;
 };
 
 /**
@@ -105,6 +119,9 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 c.category_id,
                 cat.name AS category_name,
                 r.value AS response_value,
+                r.evidence_status,
+                r.evidence_url,
+                r.audit_ready,
                 c.compliance_mapping
          FROM crc_controls c
          LEFT JOIN crc_categories cat ON cat.id = c.category_id
@@ -116,6 +133,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
 
     const rows = result.rows;
     const breakdown = { yes: 0, partial: 0, no: 0, na: 0, notSure: 0 };
+    const evidenceBreakdown = { noEvidence: 0, templateDownloaded: 0, inProgress: 0, evidenceComplete: 0 };
     const categoryMap = new Map<string, {
         categoryId: number | null;
         categoryName: string;
@@ -202,6 +220,19 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 fw.nist_ai_rmf.points += pts;
             }
         }
+
+        // --- Evidence Tracking Accumulation ---
+        const status = row.evidence_status ?? 'No Evidence';
+        if (status === 'No Evidence') {
+            evidenceBreakdown.noEvidence++;
+        } else if (status === 'Template Downloaded') {
+            evidenceBreakdown.templateDownloaded++;
+        } else if (status === 'Evidence in Progress') {
+            evidenceBreakdown.inProgress++;
+        } else if (status === 'Evidence Complete') {
+            evidenceBreakdown.evidenceComplete++;
+        }
+
         if (mapping.iso_42001 && mapping.iso_42001.length > 0) {
             fw.iso_42001.totalControls++;
             if (value === ANSWER_NA) {
@@ -313,6 +344,12 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
             iso_42001: buildFrameworkResult(fw.iso_42001),
         },
         riskSummary,
+        evidenceProgress: {
+            complete: evidenceBreakdown.evidenceComplete,
+            total: totalControls,
+            percentage: totalControls > 0 ? Math.round((evidenceBreakdown.evidenceComplete / totalControls) * 100) : 0,
+            breakdown: evidenceBreakdown
+        }
     };
 }
 

@@ -964,10 +964,41 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
 
 // --- User CRC Assessment Endpoints ---
 
+const BLOCKED_DOMAINS = [
+  'google.com', 'example.com', 'example.org', 'example.net',
+  'localhost', '127.0.0.1', '0.0.0.0', 'test.com', 'foo.com', 'bar.com'
+];
+
+export function validateEvidenceUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, error: 'Evidence URL must use HTTPS' };
+    }
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Whitelist specific allowed Google subdomains before applying the blocked-domain check
+    const allowedGoogleSubdomains = ['docs.google.com', 'drive.google.com'];
+    if (allowedGoogleSubdomains.includes(hostname)) {
+      return { valid: true };
+    }
+
+    if (BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+      return { valid: false, error: 'This URL does not appear to be a real evidence document. Evidence Status will not be updated to "Evidence Complete" until a valid evidence URL is provided.' };
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+}
+
 const crcResponseSchema = z.object({
   controlId: z.string().uuid(),
   value: z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
   notes: z.string().max(5000).optional().default(""),
+  evidenceStatus: z.enum(["No Evidence", "Template Downloaded", "Evidence in Progress", "Evidence Complete"]).optional(),
+  evidenceUrl: z.string().max(2048).optional().nullable(),
+  auditReady: z.boolean().optional(),
 });
 
 // POST /crc/assess/:projectId - Save CRC assessment response
@@ -990,31 +1021,109 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         .json({ success: false, error: "Insufficient project role" });
     }
 
-    // Verify control exists and is published
-    const controlCheck = await pool.query(
-      "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
-      [data.controlId]
-    );
-    if (controlCheck.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Control not found or not published" });
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Verify control exists and is published
+      const controlCheck = await client.query(
+        "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
+        [data.controlId]
+      );
+      if (controlCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Control not found or not published" });
+      }
+
+      // Fetch existing response to handle partial updates or merge fields
+      const currentResponseQuery = await client.query(
+        `SELECT evidence_status, evidence_url, audit_ready 
+         FROM crc_assessment_responses 
+         WHERE project_id = $1 AND control_id = $2
+         FOR UPDATE`,
+        [projectId, data.controlId]
+      );
+      const existing = currentResponseQuery.rows[0];
+
+      const currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
+      
+      let inputUrl = data.evidenceUrl;
+      if (inputUrl === "") {
+        inputUrl = null;
+      }
+      const currentUrl = inputUrl !== undefined ? inputUrl : (existing ? existing.evidence_url : null);
+      const currentAuditReady = data.auditReady !== undefined ? data.auditReady : (existing ? existing.audit_ready : false);
+
+      // Validate evidence fields
+      if (currentStatus === 'Evidence Complete') {
+        if (!currentUrl) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ 
+            success: false, 
+            error: "A valid evidence URL is required to set Evidence Status to 'Evidence Complete'." 
+          });
+        }
+        const validation = validateEvidenceUrl(currentUrl);
+        if (!validation.valid) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+      } else if (currentUrl) {
+        const validation = validateEvidenceUrl(currentUrl);
+        if (!validation.valid) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+      }
+
+      if (currentAuditReady && !currentUrl) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          success: false,
+          error: "Evidence URL is required when marking as audit ready"
+        });
+      }
+
+      // Upsert response
+      const result = await client.query(
+        `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (project_id, control_id)
+         DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [projectId, data.controlId, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
+      );
+
+      await client.query("COMMIT");
+
+      // Sync risk row for this control (fire-and-forget; non-blocking)
+      syncRiskFromResponse(projectId, data.controlId).catch((err) =>
+        console.error("Risk sync failed for control", data.controlId, err)
+      );
+
+      const saved = result.rows[0];
+      res.json({ 
+        success: true, 
+        data: {
+          id: saved.id,
+          projectId: saved.project_id,
+          controlId: saved.control_id,
+          userId: saved.user_id,
+          value: parseFloat(saved.value),
+          notes: saved.notes || "",
+          evidenceStatus: saved.evidence_status,
+          evidenceUrl: saved.evidence_url,
+          auditReady: saved.audit_ready,
+          createdAt: saved.created_at,
+          updatedAt: saved.updated_at
+        }
+      });
+    } catch (txError) {
+      await client.query("ROLLBACK");
+      throw txError;
+    } finally {
+      client.release();
     }
-
-    // Upsert response
-    const result = await pool.query(
-      `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (project_id, control_id)
-       DO UPDATE SET value = $4, notes = $5, user_id = $3, updated_at = CURRENT_TIMESTAMP
-       RETURNING *`,
-      [projectId, data.controlId, userId, data.value, data.notes]
-    );
-
-    // Sync risk row for this control (fire-and-forget; non-blocking)
-    syncRiskFromResponse(projectId, data.controlId).catch((err) =>
-      console.error("Risk sync failed for control", data.controlId, err)
-    );
-
-    res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error("Error saving CRC response:", error);
     if (error instanceof z.ZodError) {
@@ -1039,18 +1148,28 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT control_id, value, notes, updated_at
+      `SELECT control_id, value, notes, evidence_status, evidence_url, audit_ready, updated_at
        FROM crc_assessment_responses
        WHERE project_id = $1`,
       [projectId]
     );
 
-    // Build a map: controlId -> { value, notes }
-    const responses: Record<string, { value: number; notes: string; updatedAt: string }> = {};
+    // Build a map: controlId -> { value, notes, evidenceStatus, evidenceUrl, auditReady, updatedAt }
+    const responses: Record<string, { 
+      value: number; 
+      notes: string; 
+      evidenceStatus: string; 
+      evidenceUrl: string | null; 
+      auditReady: boolean; 
+      updatedAt: string 
+    }> = {};
     result.rows.forEach((row: any) => {
       responses[row.control_id] = {
         value: parseFloat(row.value),
         notes: row.notes || "",
+        evidenceStatus: row.evidence_status,
+        evidenceUrl: row.evidence_url,
+        auditReady: row.audit_ready,
         updatedAt: row.updated_at,
       };
     });
@@ -1475,6 +1594,38 @@ router.get("/templates/status", authenticateToken, requireRole(["ADMIN"]), async
   }
 });
 
+export async function handleTemplateDownloadAutoflip(projectId: string, controlShortId: string, userId: string) {
+  try {
+    // 1. Find the control UUID using controlShortId (it could be control_id like 'OPS-INC-01')
+    const controlResult = await pool.query(
+      "SELECT id FROM crc_controls WHERE control_id = $1",
+      [controlShortId]
+    );
+    if (controlResult.rows.length === 0) return;
+    const controlUuid = controlResult.rows[0].id;
+
+    // 2. Fetch existing response
+    const existingResult = await pool.query(
+      "SELECT id, evidence_status FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2",
+      [projectId, controlUuid]
+    );
+
+    if (existingResult.rows.length > 0) {
+      const existing = existingResult.rows[0];
+      if (existing.evidence_status === 'No Evidence') {
+        await pool.query(
+          `UPDATE crc_assessment_responses 
+           SET evidence_status = 'Template Downloaded', updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $1`,
+          [existing.id]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Error auto-flipping template download evidence status:", err);
+  }
+}
+
 // GET /crc/templates/:controlId/download - Download compliance template document
 router.get("/templates/:controlId/download", authenticateToken, async (req, res) => {
   try {
@@ -1495,6 +1646,14 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
     const user = (req as any).user;
     if (status !== "Published" && user?.role !== "ADMIN") {
       return res.status(403).json({ success: false, error: "Access denied: Compliance control template is not published" });
+    }
+
+    // Call autoflip if projectId query parameter is provided
+    const { projectId } = req.query;
+    if (projectId && typeof projectId === "string" && user?.id) {
+      handleTemplateDownloadAutoflip(projectId, controlShortId, user.id).catch((err) =>
+        console.error("Failed to auto-flip evidence status on download:", err)
+      );
     }
 
     // 1. Check for template in database (UploadThing storage)
