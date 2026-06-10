@@ -180,6 +180,10 @@ export default function ComponentInventoryPage() {
           if (comp.provider.toLowerCase() !== "internal" && comp.provider.toLowerCase() !== "proprietary") {
             setAssessedComponent(comp);
           }
+          // Remove openAssessment parameter from URL so it doesn't auto-reopen on reloads
+          const url = new URL(window.location.href);
+          url.searchParams.delete("openAssessment");
+          window.history.replaceState({}, "", url.pathname + url.search);
         }
       }
     }

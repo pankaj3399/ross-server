@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiService, VendorAssessment, VendorAssessmentAnswer } from "@/lib/api";
 import { showToast } from "@/lib/toast";
+import { normalizeProviderKey } from "@/lib/vendorUtils";
 
 interface VendorAssessmentModalProps {
   isOpen: boolean;
@@ -57,210 +58,7 @@ const SECTIONS = [
   { id: "operational", label: "Operational Risk", icon: IconShieldCheck }
 ] as const;
 
-const VENDOR_QUESTIONS: Question[] = [
-  // Section 1: Vendor Profile
-  {
-    id: "VP-1",
-    section: "profile",
-    text: "Vendor Corporate Standing & Certifications",
-    options: [
-      { value: "0", score: 0, label: "ISO 27001 + SOC 2 Type II certified by reputable third-party auditors" },
-      { value: "1", score: 1, label: "SOC 2 Type II or ISO 27001 only (lacks one of the two)" },
-      { value: "2", score: 2, label: "SOC 2 Type I or self-assessment compliance questionnaire only" },
-      { value: "3", score: 3, label: "No independent third-party security audits or certifications" }
-    ]
-  },
-  {
-    id: "VP-2",
-    section: "profile",
-    text: "Liability & Indemnification for AI Outputs",
-    options: [
-      { value: "0", score: 0, label: "Full intellectual property and copyright indemnification for generated outputs" },
-      { value: "1", score: 1, label: "Limited liability or cap on IP/output indemnification" },
-      { value: "2", score: 2, label: "Standard commercial liability with explicit disclaimers for AI outputs" },
-      { value: "3", score: 3, label: "Total disclaimer of liability, placing all output risks on the customer" }
-    ]
-  },
-  {
-    id: "VP-3",
-    section: "profile",
-    text: "Regulatory Alignment & Compliance (GDPR, EU AI Act, HIPAA)",
-    options: [
-      { value: "0", score: 0, label: "Documented compliance program aligned with GDPR, EU AI Act, and HIPAA (if applicable)" },
-      { value: "1", score: 1, label: "Partial alignment (GDPR compliant, EU AI Act readiness program in progress)" },
-      { value: "2", score: 2, label: "General compliance statement with no specific AI regulatory frameworks addressed" },
-      { value: "3", score: 3, label: "No stated commitments or alignment with AI or major data protection regulations" }
-    ]
-  },
-  {
-    id: "VP-4",
-    section: "profile",
-    text: "Subprocessor Risk & Downstream Auditing",
-    options: [
-      { value: "0", score: 0, label: "Zero third-party subprocessors used for core AI hosting or model execution" },
-      { value: "1", score: 1, label: "Subprocessors used but subject to strict DPAs, security reviews, and audits" },
-      { value: "2", score: 2, label: "Subprocessors used with minimal oversight or ad-hoc security reviews" },
-      { value: "3", score: 3, label: "Subprocessors list is not disclosed, audited, or bound by strict DPAs" }
-    ]
-  },
-  {
-    id: "VP-5",
-    section: "profile",
-    text: "Financial Stability & Operational Track Record",
-    options: [
-      { value: "0", score: 0, label: "Established enterprise or public company with low default risk" },
-      { value: "1", score: 1, label: "Growth-stage startup with major venture backing (e.g. Series C+)" },
-      { value: "2", score: 2, label: "Early-stage startup with limited cash runway or funding disclosures" },
-      { value: "3", score: 3, label: "Bootstrap entity or financially distressed vendor with high churn/discontinuation risk" }
-    ]
-  },
-  // Section 2: Data Processing
-  {
-    id: "DP-1",
-    section: "data",
-    text: "Customer Data Usage for Model Training",
-    options: [
-      { value: "0", score: 0, label: "Default zero-usage policy: customer input data is never used to train models" },
-      { value: "1", score: 1, label: "Opt-out available by default via API, but requires opt-out request for UI/Console" },
-      { value: "2", score: 2, label: "Opt-out only available on custom enterprise plans or high-tier licensing" },
-      { value: "3", score: 3, label: "Data is actively used for model training and improvement with no opt-out" }
-    ]
-  },
-  {
-    id: "DP-2",
-    section: "data",
-    text: "Data Encryption & Key Management",
-    options: [
-      { value: "0", score: 0, label: "Encryption in transit (TLS 1.3) & at rest (AES-256) with Customer-Managed Keys (BYOK)" },
-      { value: "1", score: 1, label: "Encryption in transit & at rest using vendor-managed keys" },
-      { value: "2", score: 2, label: "Encryption in transit only; at rest encryption is basic or unspecified" },
-      { value: "3", score: 3, label: "No transit encryption standards or at-rest encryption enforced" }
-    ]
-  },
-  {
-    id: "DP-3",
-    section: "data",
-    text: "Data Retention & Zero Data Retention (ZDR)",
-    options: [
-      { value: "0", score: 0, label: "Zero Data Retention (ZDR) policy supported: inputs processed strictly in memory" },
-      { value: "1", score: 1, label: "Short-term logging (<30 days) strictly for abuse detection and security reviews" },
-      { value: "2", score: 2, label: "Retention of data up to 90 days before automated purge" },
-      { value: "3", score: 3, label: "Indefinite data caching and logging with no clear automated purge policy" }
-    ]
-  },
-  {
-    id: "DP-4",
-    section: "data",
-    text: "Data Residency & Geographic Hosting Control",
-    options: [
-      { value: "0", score: 0, label: "Customer can fully pin data processing and storage to specific geo-regions (e.g. EU-only)" },
-      { value: "1", score: 1, label: "Primary processing in selected region; backup or metadata stored globally" },
-      { value: "2", score: 2, label: "Multi-region routing with Standard Contractual Clauses (SCCs) in place" },
-      { value: "3", score: 3, label: "Undisclosed routing; data processed globally with no residency guarantees" }
-    ]
-  },
-  // Section 3: AI-Specific Governance
-  {
-    id: "AG-1",
-    section: "governance",
-    text: "Model Robustness & Adversarial Testing",
-    options: [
-      { value: "0", score: 0, label: "Regular independent red-teaming, jailbreak resistance logs, and vulnerability disclosures published" },
-      { value: "1", score: 1, label: "Internal red-teaming performed, reports/summaries available under NDA" },
-      { value: "2", score: 2, label: "Ad-hoc internal testing only; no public security evaluations" },
-      { value: "3", score: 3, label: "No adversarial testing or vulnerability metrics available" }
-    ]
-  },
-  {
-    id: "AG-2",
-    section: "governance",
-    text: "Bias, Fairness & Discrimination Mitigations",
-    options: [
-      { value: "0", score: 0, label: "Published model cards, bias evaluation datasets, and quantitative fairness logs" },
-      { value: "1", score: 1, label: "Model cards published but lacking quantitative bias evaluation details" },
-      { value: "2", score: 2, label: "Policy statements against bias with no empirical test reports or disclosures" },
-      { value: "3", score: 3, label: "No bias evaluations or documentation provided" }
-    ]
-  },
-  {
-    id: "AG-3",
-    section: "governance",
-    text: "Model Explainability & Transparency",
-    options: [
-      { value: "0", score: 0, label: "Disclosures on model architecture, training datasources, and system limits published" },
-      { value: "1", score: 1, label: "General system limits and prompt guidelines documented; internals fully blackboxed" },
-      { value: "2", score: 2, label: "Minimal API documentation only; no model limitation logs" },
-      { value: "3", score: 3, label: "Fully proprietary black-box system with zero training data or limitation disclosures" }
-    ]
-  },
-  {
-    id: "AG-4",
-    section: "governance",
-    text: "IP Infringement Filters & Training Provenance",
-    options: [
-      { value: "0", score: 0, label: "Automated copyright filters, licensed training data, and full IP infringement protection" },
-      { value: "1", score: 1, label: "Copyright filters active on models, but limited IP legal protections" },
-      { value: "2", score: 2, label: "General policies regarding training data compliance; no runtime IP filters" },
-      { value: "3", score: 3, label: "Training data provenance and IP protection policies undisclosed" }
-    ]
-  },
-  {
-    id: "AG-5",
-    section: "governance",
-    text: "Content Moderation & Safety Guardrails",
-    options: [
-      { value: "0", score: 0, label: "Real-time safety moderation APIs, input/output content filters, and policy enforcement" },
-      { value: "1", score: 1, label: "Opt-in safety filtering tools available on request" },
-      { value: "2", score: 2, label: "Basic keyword blocking or system instructions only" },
-      { value: "3", score: 3, label: "No moderation or content safety guardrails provided" }
-    ]
-  },
-  // Section 4: Operational Risk
-  {
-    id: "OR-1",
-    section: "operational",
-    text: "Service Availability & SLA Commitments",
-    options: [
-      { value: "0", score: 0, label: "Contractual SLA committing to >=99.9% uptime with financial credits" },
-      { value: "1", score: 1, label: "SLA committing to 99.0% - 99.9% uptime with no financial credits" },
-      { value: "2", score: 2, label: "Best-effort uptime with a public status page" },
-      { value: "3", score: 3, label: "No uptime SLA or status tracking page provided" }
-    ]
-  },
-  {
-    id: "OR-2",
-    section: "operational",
-    text: "Disaster Recovery & Business Continuity (BC/DR)",
-    options: [
-      { value: "0", score: 0, label: "Annual BC/DR testing, RTO < 4 hrs, RPO < 1 hr, and multi-region failover" },
-      { value: "1", score: 1, label: "Documented BC/DR plan with RTO < 24 hrs and daily backups" },
-      { value: "2", score: 2, label: "Daily backups performed, but no documented recovery test metrics" },
-      { value: "3", score: 3, label: "No BC/DR policies or backup verification logs" }
-    ]
-  },
-  {
-    id: "OR-3",
-    section: "operational",
-    text: "Model Lifecycle & Deprecation Guarantees",
-    options: [
-      { value: "0", score: 0, label: "Minimum 12-month deprecation notice for model APIs with migration guides" },
-      { value: "1", score: 1, label: "6-month deprecation notice policy" },
-      { value: "2", score: 2, label: "Ad-hoc model updates and retirement notices (<60 days notice)" },
-      { value: "3", score: 3, label: "Models retired or updated silently with zero customer notice" }
-    ]
-  },
-  {
-    id: "OR-4",
-    section: "operational",
-    text: "Incident Response & Data Breach Reporting SLA",
-    options: [
-      { value: "0", score: 0, label: "Contractual breach notification within 72 hours, backed by dedicated security team" },
-      { value: "1", score: 1, label: "Breach notification within 72 hours under general terms" },
-      { value: "2", score: 2, label: "Best-effort breach notification with no SLA commitments" },
-      { value: "3", score: 3, label: "No commitments on breach notification timelines" }
-    ]
-  }
-];
+
 
 export default function VendorAssessmentModal({
   isOpen,
@@ -280,12 +78,11 @@ export default function VendorAssessmentModal({
   const [answers, setAnswers] = useState<Record<string, VendorAssessmentAnswer>>({});
   const [confirmedQuestions, setConfirmedQuestions] = useState<Set<string>>(new Set());
 
+  const [vendorQuestions, setVendorQuestions] = useState<Question[]>([]);
+
   // Determine if vendor has prefilled answers in the template
   const isPrefillVendor = useMemo(() => {
-    const providerKey = vendorName.toLowerCase().trim();
-    return [
-      "openai", "anthropic", "google", "aws bedrock", "azure openai", "microsoft", "cohere"
-    ].some(v => providerKey.includes(v));
+    return normalizeProviderKey(vendorName) !== null;
   }, [vendorName]);
 
   // Load assessment data
@@ -293,17 +90,25 @@ export default function VendorAssessmentModal({
     if (!isOpen) return;
 
     setLoading(true);
-    apiService.getVendorAssessment(projectId, componentId)
-      .then(res => {
-        if (res.success && res.data) {
-          setAssessment(res.data);
-          const initialAnswers = res.data.answers || {};
+    Promise.all([
+      apiService.getVendorAssessmentSchema(),
+      apiService.getVendorAssessment(projectId, componentId)
+    ])
+      .then(([schemaRes, assessRes]) => {
+        let currentQuestions: Question[] = [];
+        if (schemaRes.success && schemaRes.questions) {
+          setVendorQuestions(schemaRes.questions);
+          currentQuestions = schemaRes.questions;
+        }
+        if (assessRes.success && assessRes.data) {
+          setAssessment(assessRes.data);
+          const initialAnswers = assessRes.data.answers || {};
           setAnswers(initialAnswers);
 
           // If the assessment was completed, mark all as confirmed
-          if (res.data.status === "Completed") {
-            setConfirmedQuestions(new Set(VENDOR_QUESTIONS.map(q => q.id)));
-          } else if (res.data.id !== null) {
+          if (assessRes.data.status === "Completed") {
+            setConfirmedQuestions(new Set(currentQuestions.map(q => q.id)));
+          } else if (assessRes.data.id !== null) {
             // If it's saved in DB as In Progress, any question with an answer value is confirmed
             const confirmed = new Set<string>();
             Object.keys(initialAnswers).forEach(qId => {
@@ -328,11 +133,13 @@ export default function VendorAssessmentModal({
   }, [isOpen, projectId, componentId, vendorName]);
 
   // Calculate live score and tier based on current answers state
+  // WARNING: This local calculation duplicates calculateAssessmentScore on the backend
+  // and must be kept in sync whenever backend thresholds or scoring change.
   const liveScorecard = useMemo(() => {
     let score = 0;
     let answeredCount = 0;
 
-    VENDOR_QUESTIONS.forEach(q => {
+    vendorQuestions.forEach(q => {
       const ans = answers[q.id];
       if (ans) {
         const opt = q.options.find(o => o.value === ans.optionValue);
@@ -348,14 +155,19 @@ export default function VendorAssessmentModal({
     else if (score >= 26) riskTier = "High";
     else if (score >= 11) riskTier = "Medium";
 
+    // Use backend-provided score if it matches the current answers to avoid visual lag when editing
+    const isUnchanged = assessment && JSON.stringify(answers) === JSON.stringify(assessment.answers);
+    const displayScore = isUnchanged ? assessment.score : score;
+    const displayRiskTier = isUnchanged ? assessment.riskTier : riskTier;
+
     return {
-      score,
-      riskTier,
+      score: displayScore,
+      riskTier: displayRiskTier,
       answeredCount,
       confirmedCount: confirmedQuestions.size,
-      percentComplete: Math.round((confirmedQuestions.size / VENDOR_QUESTIONS.length) * 100)
+      percentComplete: vendorQuestions.length > 0 ? Math.round((confirmedQuestions.size / vendorQuestions.length) * 100) : 0
     };
-  }, [answers, confirmedQuestions]);
+  }, [answers, confirmedQuestions, vendorQuestions, assessment]);
 
   const handleOptionSelect = (questionId: string, optionValue: string) => {
     setAnswers(prev => {
@@ -426,7 +238,8 @@ export default function VendorAssessmentModal({
     setSaving(true);
     try {
       const res = await apiService.saveVendorAssessment(projectId, componentId, answers);
-      if (res.success) {
+      if (res.success && res.data) {
+        setAssessment(res.data);
         showToast.success("Assessment progress saved successfully as draft.");
         onCompleted(); // Refresh inventory list statuses
       }
@@ -440,15 +253,16 @@ export default function VendorAssessmentModal({
 
   const handleCompleteAssessment = async () => {
     // Double check that all 18 are answered and confirmed
-    if (confirmedQuestions.size < VENDOR_QUESTIONS.length) {
-      showToast.error(`You have only confirmed ${confirmedQuestions.size} out of ${VENDOR_QUESTIONS.length} questions. Please review and confirm all questions.`);
+    if (confirmedQuestions.size < vendorQuestions.length) {
+      showToast.error(`You have only confirmed ${confirmedQuestions.size} out of ${vendorQuestions.length} questions. Please review and confirm all questions.`);
       return;
     }
 
     setCompleting(true);
     try {
       const res = await apiService.completeVendorAssessment(projectId, componentId, answers);
-      if (res.success) {
+      if (res.success && res.data) {
+        setAssessment(res.data);
         showToast.success("Vendor Risk Assessment completed! CRC controls GOV-3P-01/02/03 are now flipped to 'Evidence Complete'.");
         onCompleted();
         onClose();
@@ -464,8 +278,8 @@ export default function VendorAssessmentModal({
 
   // Filter questions for active tab
   const activeQuestions = useMemo(() => {
-    return VENDOR_QUESTIONS.filter(q => q.section === activeSection);
-  }, [activeSection]);
+    return vendorQuestions.filter(q => q.section === activeSection);
+  }, [activeSection, vendorQuestions]);
 
   if (!isOpen) return null;
 
@@ -509,7 +323,7 @@ export default function VendorAssessmentModal({
               </div>
               {SECTIONS.map((sec) => {
                 const SecIcon = sec.icon;
-                const sectionQuestions = VENDOR_QUESTIONS.filter(q => q.section === sec.id);
+                const sectionQuestions = vendorQuestions.filter(q => q.section === sec.id);
                 const confirmedInSection = sectionQuestions.filter(q => confirmedQuestions.has(q.id)).length;
                 const isCurrent = activeSection === sec.id;
 
@@ -693,7 +507,7 @@ export default function VendorAssessmentModal({
                     {liveScorecard.confirmedCount}
                   </span>
                   <span className="text-xs text-muted-foreground font-semibold">
-                    / {VENDOR_QUESTIONS.length} Confirmed
+                    / {vendorQuestions.length} Confirmed
                   </span>
                 </div>
                 <Progress value={liveScorecard.percentComplete} className="h-2" />
@@ -800,7 +614,7 @@ export default function VendorAssessmentModal({
             </Button>
             <Button
               type="button"
-              disabled={loading || saving || completing || confirmedQuestions.size < VENDOR_QUESTIONS.length}
+              disabled={loading || saving || completing || confirmedQuestions.size < vendorQuestions.length}
               onClick={handleCompleteAssessment}
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shadow border-none px-6 gap-1.5"
             >

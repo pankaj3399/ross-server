@@ -38,12 +38,12 @@ exports.up = (pgm) => {
     risk_tier: {
       type: "varchar(20)",
       notNull: true,
-      default: "Low",
+      default: "'Low'",
     },
     status: {
       type: "varchar(20)",
       notNull: true,
-      default: "In Progress",
+      default: "'In Progress'",
     },
     completed_at: {
       type: "timestamp with time zone",

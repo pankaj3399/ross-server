@@ -7,7 +7,8 @@ import { recordEvent } from "../services/auditLogService";
 import { 
   VENDOR_QUESTIONS, 
   VENDOR_PREFILLS, 
-  calculateAssessmentScore 
+  calculateAssessmentScore,
+  normalizeProviderKey
 } from "../data/vendorPrefills";
 
 const router = Router();
@@ -18,6 +19,19 @@ const saveAnswersSchema = z.object({
     evidence: z.string().optional().default(""),
     url: z.string().optional().default("")
   }))
+});
+
+// GET /api/vendor-assessments/schema
+router.get("/schema", async (req, res) => {
+  try {
+    return res.json({
+      success: true,
+      questions: VENDOR_QUESTIONS
+    });
+  } catch (error) {
+    console.error("Error fetching vendor assessment schema:", error);
+    res.status(500).json({ error: "Failed to fetch schema" });
+  }
 });
 
 // GET /api/vendor-assessments/:projectId/component/:componentId
@@ -67,23 +81,7 @@ router.get("/:projectId/component/:componentId", authenticateToken, async (req, 
       });
     }
 
-    // No assessment exists. Provide template. If matching 7 major vendors, prefill answers.
-    let providerKey = component.provider.toLowerCase().trim();
-    if (providerKey.includes("openai") && !providerKey.includes("azure")) {
-      providerKey = "openai";
-    } else if (providerKey.includes("anthropic")) {
-      providerKey = "anthropic";
-    } else if (providerKey.includes("google") || providerKey.includes("gemini")) {
-      providerKey = "google";
-    } else if (providerKey.includes("aws") || providerKey.includes("bedrock")) {
-      providerKey = "aws bedrock";
-    } else if (providerKey.includes("azure") || (providerKey.includes("microsoft") && providerKey.includes("openai"))) {
-      providerKey = "azure openai";
-    } else if (providerKey.includes("microsoft")) {
-      providerKey = "microsoft";
-    } else if (providerKey.includes("cohere")) {
-      providerKey = "cohere";
-    }
+    const providerKey = normalizeProviderKey(component.provider) || component.provider.toLowerCase().trim();
 
     let initialAnswers: Record<string, any> = {};
     let defaultRiskTier: "Low" | "Medium" | "High" | "Critical" = "Low";
@@ -145,34 +143,19 @@ router.post("/:projectId/component/:componentId/save", authenticateToken, async 
     // Calculate score & risk tier
     const { score, riskTier } = calculateAssessmentScore(answers);
 
-    const checkResult = await pool.query(
-      "SELECT id FROM vendor_assessments WHERE component_id = $1 AND project_id = $2",
-      [componentId, projectId]
+    const upsertResult = await pool.query(
+      `INSERT INTO vendor_assessments (
+        project_id, component_id, vendor_name, answers, score, risk_tier, status
+      ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, 'In Progress')
+      ON CONFLICT (component_id) DO UPDATE SET
+        answers = EXCLUDED.answers,
+        score = EXCLUDED.score,
+        risk_tier = EXCLUDED.risk_tier,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *`,
+      [projectId, componentId, component.provider, JSON.stringify(answers), score, riskTier]
     );
-
-    let dbRow;
-    if (checkResult.rows.length === 0) {
-      const insertResult = await pool.query(
-        `INSERT INTO vendor_assessments (
-          project_id, component_id, vendor_name, answers, score, risk_tier, status
-        ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, 'In Progress')
-        RETURNING *`,
-        [projectId, componentId, component.provider, JSON.stringify(answers), score, riskTier]
-      );
-      dbRow = insertResult.rows[0];
-    } else {
-      const updateResult = await pool.query(
-        `UPDATE vendor_assessments SET
-          answers = $1::jsonb,
-          score = $2,
-          risk_tier = $3,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE component_id = $4 AND project_id = $5
-        RETURNING *`,
-        [JSON.stringify(answers), score, riskTier, componentId, projectId]
-      );
-      dbRow = updateResult.rows[0];
-    }
+    const dbRow = upsertResult.rows[0];
 
     // Also update component inventory status to show 'In Progress' if not already done
     await pool.query(
@@ -289,12 +272,17 @@ router.post("/:projectId/component/:componentId/complete", authenticateToken, as
       [componentId]
     );
 
-    // 2. Flip CRC controls to "Evidence Complete"
     const targetControls = ['GOV-3P-01', 'GOV-3P-02', 'GOV-3P-03'];
     const controlsRes = await client.query(
       "SELECT id, control_id FROM crc_controls WHERE control_id = ANY($1) AND status = 'Published'",
       [targetControls]
     );
+
+    const foundControlIds = controlsRes.rows.map((r) => r.control_id);
+    const missingControlIds = targetControls.filter((id) => !foundControlIds.includes(id));
+    if (missingControlIds.length > 0) {
+      console.warn(`Missing or non-Published CRC controls: ${missingControlIds.join(", ")}`);
+    }
 
     const evidenceUrl = `/assess/${projectId}/inventory?openAssessment=${componentId}`;
 

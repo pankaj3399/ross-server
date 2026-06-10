@@ -1979,6 +1979,10 @@ class ApiService {
   // VENDOR RISK ASSESSMENT (FEATURE C)
   // ==========================================
 
+  async getVendorAssessmentSchema(): Promise<{ success: boolean; questions: any[] }> {
+    return this.request<{ success: boolean; questions: any[] }>("/vendor-assessments/schema");
+  }
+
   async getVendorAssessment(projectId: string, componentId: string): Promise<{ success: boolean; data: VendorAssessment }> {
     return this.request<{ success: boolean; data: VendorAssessment }>(`/vendor-assessments/${projectId}/component/${componentId}`);
   }
