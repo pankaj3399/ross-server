@@ -15,13 +15,26 @@ import subscriptionsWebhookHandler from "./routes/subscriptionsWebhook";
 import commentsRouter from "./routes/comments";
 import auditLogsRouter from "./routes/auditLogs";
 import chatRouter from "./routes/chat";
+import notificationsRouter from "./routes/notifications";
 import inventoryRouter from "./routes/inventory";
 import wizardRouter from "./routes/wizard";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
 import { inngest } from "./inngest/client";
-import { evaluationJobProcessor, evaluateSingleResponse, evaluationAggregator, callUserApiForPrompt, userApiCallAggregator, hardDeleteStaleProjects } from "./inngest/functions";
+import {
+  evaluationJobProcessor,
+  evaluateSingleResponse,
+  evaluationAggregator,
+  callUserApiForPrompt,
+  userApiCallAggregator,
+  hardDeleteStaleProjects,
+  weeklyDigestCron,
+  criticalRiskAlertHandler,
+  vendorReassessmentCron,
+  notificationQueueProcessor,
+  riskTargetDateChecker,
+} from "./inngest/functions";
 
 dotenv.config();
 
@@ -74,6 +87,7 @@ app.use("/crc", authenticateToken, checkRouteAccess('/crc'), crcRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), commentsRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), auditLogsRouter);
 app.use("/chat", authenticateToken, checkRouteAccess('/chat'), chatRouter);
+app.use("/notifications", notificationsRouter);
 app.use("/inventory", authenticateToken, checkRouteAccess('/inventory'), inventoryRouter);
 app.use("/wizard", authenticateToken, checkRouteAccess('/wizard'), wizardRouter);
 
@@ -82,7 +96,19 @@ app.use(
   "/api/inngest",
   serve({
     client: inngest,
-    functions: [evaluationJobProcessor, evaluateSingleResponse, evaluationAggregator, callUserApiForPrompt, userApiCallAggregator, hardDeleteStaleProjects],
+    functions: [
+      evaluationJobProcessor,
+      evaluateSingleResponse,
+      evaluationAggregator,
+      callUserApiForPrompt,
+      userApiCallAggregator,
+      hardDeleteStaleProjects,
+      weeklyDigestCron,
+      criticalRiskAlertHandler,
+      vendorReassessmentCron,
+      notificationQueueProcessor,
+      riskTargetDateChecker,
+    ],
     signingKey: process.env.INNGEST_SIGNING_KEY,
   })
 );
