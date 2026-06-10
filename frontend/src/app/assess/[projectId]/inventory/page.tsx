@@ -27,6 +27,7 @@ import { apiService, InventoryComponent } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import VendorAssessmentModal from "@/components/features/inventory/VendorAssessmentModal";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import { showToast } from "@/lib/toast";
 
@@ -120,6 +121,7 @@ export default function ComponentInventoryPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [formMode, setFormMode] = useState<"add" | "edit">("add");
   const [isFeatureCWarningOpen, setIsFeatureCWarningOpen] = useState(false);
+  const [assessedComponent, setAssessedComponent] = useState<InventoryComponent | null>(null);
 
   // Form State
   const [formName, setFormName] = useState("");
@@ -164,6 +166,24 @@ export default function ComponentInventoryPage() {
       fetchData();
     }
   }, [projectId, isPremium]);
+
+  // Handle opening assessment modal from query parameters
+  useEffect(() => {
+    if (components && components.length > 0) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const openAssessmentId = searchParams.get("openAssessment");
+      if (openAssessmentId) {
+        const comp = components.find(c => c.id === openAssessmentId || c.componentId === openAssessmentId);
+        if (comp) {
+          setSelectedComponent(comp);
+          setIsDetailOpen(true);
+          if (comp.provider.toLowerCase() !== "internal" && comp.provider.toLowerCase() !== "proprietary") {
+            setAssessedComponent(comp);
+          }
+        }
+      }
+    }
+  }, [components]);
 
   // Compute autosuggested risk tier in real-time
   const computedRiskTier = useMemo(() => {
@@ -664,26 +684,63 @@ export default function ComponentInventoryPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                          <span className="text-xs text-muted-foreground">{comp.vendorAssessmentStatus}</span>
-                          {comp.provider.toLowerCase() !== "internal" && comp.provider.toLowerCase() !== "proprietary" && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => setIsFeatureCWarningOpen(true)}
-                                    className="h-7 text-[10px] px-2 text-primary hover:bg-primary/10 hover:text-primary/90 rounded-md shrink-0 border border-primary/15"
-                                  >
-                                    Assess
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Run vendor risk assessment questionnaire (Feature C)</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                        <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                          {comp.vendorAssessmentStatus === "Completed" ? (
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                comp.vendorRiskTier === "Low"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                  : comp.vendorRiskTier === "Medium"
+                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                    : comp.vendorRiskTier === "High"
+                                      ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
+                                      : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                              }`}>
+                                Vendor Risk: {comp.vendorRiskTier}
+                              </span>
+                              {comp.vendorAssessmentCompletedAt && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {new Date(comp.vendorAssessmentCompletedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              )}
+                              {comp.provider.toLowerCase() !== "internal" && comp.provider.toLowerCase() !== "proprietary" && (
+                                <button
+                                  onClick={() => setAssessedComponent(comp)}
+                                  className="text-[10px] text-primary hover:underline font-semibold"
+                                >
+                                  Re-assess
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-xs ${
+                                comp.vendorAssessmentStatus === "In Progress"
+                                  ? "text-amber-400 font-medium"
+                                  : "text-muted-foreground"
+                              }`}>
+                                {comp.vendorAssessmentStatus}
+                              </span>
+                              {comp.provider.toLowerCase() !== "internal" && comp.provider.toLowerCase() !== "proprietary" && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => setAssessedComponent(comp)}
+                                        className="h-7 text-[10px] px-2 text-primary hover:bg-primary/10 hover:text-primary/90 rounded-md shrink-0 border border-primary/15"
+                                      >
+                                        {comp.vendorAssessmentStatus === "In Progress" ? "Resume" : "Assess"}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Run vendor risk assessment questionnaire (Feature C)</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
                           )}
                         </div>
                       </TableCell>
@@ -888,7 +945,7 @@ export default function ComponentInventoryPage() {
                     </span>
                     <Button
                       size="sm"
-                      onClick={() => setIsFeatureCWarningOpen(true)}
+                      onClick={() => setAssessedComponent(selectedComponent)}
                       className="bg-primary hover:bg-primary/90 text-white rounded-lg text-xs h-8"
                     >
                       Run Vendor Assessment
@@ -1227,32 +1284,18 @@ export default function ComponentInventoryPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Feature C Warning Dialog (Stub Alert) */}
-      <Dialog open={isFeatureCWarningOpen} onOpenChange={setIsFeatureCWarningOpen}>
-        <DialogContent className="sm:max-w-md bg-card border border-primary/20 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <IconInfoCircle className="h-5 w-5 text-primary" />
-              Vendor Assessment (Feature C)
-            </DialogTitle>
-            <DialogDescription className="pt-2 text-sm text-foreground/80 leading-relaxed">
-              You clicked <strong>"Run Vendor Assessment"</strong>. 
-              <br /><br />
-              This questionnaire comprises 18 questions to evaluate security standards, hosting parameters, and compliance details for your third-party vendor. 
-              <br /><br />
-              <span className="text-primary font-semibold">Note: Feature C is currently in development and will be released in the next update!</span>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4">
-            <Button
-              onClick={() => setIsFeatureCWarningOpen(false)}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl border-none"
-            >
-              Understood
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Vendor AI Risk Assessment Modal (Feature C) */}
+      {assessedComponent && (
+        <VendorAssessmentModal
+          isOpen={assessedComponent !== null}
+          onClose={() => setAssessedComponent(null)}
+          projectId={projectId as string}
+          componentId={assessedComponent.id}
+          vendorName={assessedComponent.provider}
+          componentName={assessedComponent.componentName}
+          onCompleted={fetchData}
+        />
+      )}
     </div>
   );
 }
