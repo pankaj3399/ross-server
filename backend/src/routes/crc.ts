@@ -976,6 +976,13 @@ export function validateEvidenceUrl(url: string): { valid: boolean; error?: stri
       return { valid: false, error: 'Evidence URL must use HTTPS' };
     }
     const hostname = parsed.hostname.toLowerCase();
+
+    // Whitelist specific allowed Google subdomains before applying the blocked-domain check
+    const allowedGoogleSubdomains = ['docs.google.com', 'drive.google.com'];
+    if (allowedGoogleSubdomains.includes(hostname)) {
+      return { valid: true };
+    }
+
     if (BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
       return { valid: false, error: 'This URL does not appear to be a real evidence document. Evidence Status will not be updated to "Evidence Complete" until a valid evidence URL is provided.' };
     }
@@ -1014,91 +1021,109 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         .json({ success: false, error: "Insufficient project role" });
     }
 
-    // Verify control exists and is published
-    const controlCheck = await pool.query(
-      "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
-      [data.controlId]
-    );
-    if (controlCheck.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "Control not found or not published" });
-    }
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    // Fetch existing response to handle partial updates or merge fields
-    const currentResponseQuery = await pool.query(
-      `SELECT evidence_status, evidence_url, audit_ready 
-       FROM crc_assessment_responses 
-       WHERE project_id = $1 AND control_id = $2`,
-      [projectId, data.controlId]
-    );
-    const existing = currentResponseQuery.rows[0];
+      // Verify control exists and is published
+      const controlCheck = await client.query(
+        "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
+        [data.controlId]
+      );
+      if (controlCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ success: false, error: "Control not found or not published" });
+      }
 
-    const currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
-    
-    let inputUrl = data.evidenceUrl;
-    if (inputUrl === "") {
-      inputUrl = null;
-    }
-    const currentUrl = inputUrl !== undefined ? inputUrl : (existing ? existing.evidence_url : null);
-    const currentAuditReady = data.auditReady !== undefined ? data.auditReady : (existing ? existing.audit_ready : false);
+      // Fetch existing response to handle partial updates or merge fields
+      const currentResponseQuery = await client.query(
+        `SELECT evidence_status, evidence_url, audit_ready 
+         FROM crc_assessment_responses 
+         WHERE project_id = $1 AND control_id = $2
+         FOR UPDATE`,
+        [projectId, data.controlId]
+      );
+      const existing = currentResponseQuery.rows[0];
 
-    // Validate evidence fields
-    if (currentStatus === 'Evidence Complete') {
-      if (!currentUrl) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "A valid evidence URL is required to set Evidence Status to 'Evidence Complete'." 
+      const currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
+      
+      let inputUrl = data.evidenceUrl;
+      if (inputUrl === "") {
+        inputUrl = null;
+      }
+      const currentUrl = inputUrl !== undefined ? inputUrl : (existing ? existing.evidence_url : null);
+      const currentAuditReady = data.auditReady !== undefined ? data.auditReady : (existing ? existing.audit_ready : false);
+
+      // Validate evidence fields
+      if (currentStatus === 'Evidence Complete') {
+        if (!currentUrl) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ 
+            success: false, 
+            error: "A valid evidence URL is required to set Evidence Status to 'Evidence Complete'." 
+          });
+        }
+        const validation = validateEvidenceUrl(currentUrl);
+        if (!validation.valid) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+      } else if (currentUrl) {
+        const validation = validateEvidenceUrl(currentUrl);
+        if (!validation.valid) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: validation.error });
+        }
+      }
+
+      if (currentAuditReady && !currentUrl) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          success: false,
+          error: "Evidence URL is required when marking as audit ready"
         });
       }
-      const validation = validateEvidenceUrl(currentUrl);
-      if (!validation.valid) {
-        return res.status(400).json({ success: false, error: validation.error });
-      }
-    } else if (currentUrl) {
-      const validation = validateEvidenceUrl(currentUrl);
-      if (!validation.valid) {
-        return res.status(400).json({ success: false, error: validation.error });
-      }
-    }
 
-    if (currentAuditReady && !currentUrl) {
-      return res.status(400).json({
-        success: false,
-        error: "Evidence URL is required when marking as audit ready"
+      // Upsert response
+      const result = await client.query(
+        `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (project_id, control_id)
+         DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [projectId, data.controlId, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
+      );
+
+      await client.query("COMMIT");
+
+      // Sync risk row for this control (fire-and-forget; non-blocking)
+      syncRiskFromResponse(projectId, data.controlId).catch((err) =>
+        console.error("Risk sync failed for control", data.controlId, err)
+      );
+
+      const saved = result.rows[0];
+      res.json({ 
+        success: true, 
+        data: {
+          id: saved.id,
+          projectId: saved.project_id,
+          controlId: saved.control_id,
+          userId: saved.user_id,
+          value: parseFloat(saved.value),
+          notes: saved.notes || "",
+          evidenceStatus: saved.evidence_status,
+          evidenceUrl: saved.evidence_url,
+          auditReady: saved.audit_ready,
+          createdAt: saved.created_at,
+          updatedAt: saved.updated_at
+        }
       });
+    } catch (txError) {
+      await client.query("ROLLBACK");
+      throw txError;
+    } finally {
+      client.release();
     }
-
-    // Upsert response
-    const result = await pool.query(
-      `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       ON CONFLICT (project_id, control_id)
-       DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
-       RETURNING *`,
-      [projectId, data.controlId, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
-    );
-
-    // Sync risk row for this control (fire-and-forget; non-blocking)
-    syncRiskFromResponse(projectId, data.controlId).catch((err) =>
-      console.error("Risk sync failed for control", data.controlId, err)
-    );
-
-    const saved = result.rows[0];
-    res.json({ 
-      success: true, 
-      data: {
-        id: saved.id,
-        projectId: saved.project_id,
-        controlId: saved.control_id,
-        userId: saved.user_id,
-        value: parseFloat(saved.value),
-        notes: saved.notes || "",
-        evidenceStatus: saved.evidence_status,
-        evidenceUrl: saved.evidence_url,
-        auditReady: saved.audit_ready,
-        createdAt: saved.created_at,
-        updatedAt: saved.updated_at
-      }
-    });
   } catch (error) {
     console.error("Error saving CRC response:", error);
     if (error instanceof z.ZodError) {
@@ -1595,13 +1620,6 @@ export async function handleTemplateDownloadAutoflip(projectId: string, controlS
           [existing.id]
         );
       }
-    } else {
-      // Insert new response with default value = 3 (Not Sure)
-      await pool.query(
-        `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status)
-         VALUES ($1, $2, $3, 3, '', 'Template Downloaded')`,
-        [projectId, controlUuid, userId]
-      );
     }
   } catch (err) {
     console.error("Error auto-flipping template download evidence status:", err);

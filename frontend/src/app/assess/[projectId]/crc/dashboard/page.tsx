@@ -364,12 +364,12 @@ export default function CRCDashboardPage() {
 
   const getEvidenceColor = (percent: number) => {
     if (percent < 30) return "bg-red-500 text-red-500";
-    if (percent <= 60) return "bg-amber-500 text-amber-500";
+    if (percent < 60) return "bg-amber-500 text-amber-500";
     return "bg-green-500 text-green-500";
   };
   const getEvidenceColorBorder = (percent: number) => {
     if (percent < 30) return "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400";
-    if (percent <= 60) return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+    if (percent < 60) return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400";
     return "border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400";
   };
 

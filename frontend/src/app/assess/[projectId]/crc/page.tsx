@@ -356,13 +356,9 @@ export default function CRCAssessmentPage() {
                   onClick={async () => {
                     try {
                       showToast.success("Downloading compliance template...");
-                      const { blob, filename } = await apiService.downloadCRCTemplate(currentControl.id, projectId);
-                      
-                      // Auto-flip status optimistically on frontend
-                      const currentStatus = currentResponse?.evidenceStatus || "No Evidence";
-                      if (currentStatus === "No Evidence") {
-                        handleEvidenceStatusChange(currentControl.id, "Template Downloaded").catch(() => {});
-                      }
+                      const { blob, filename } = isReadOnly
+                        ? await apiService.downloadCRCTemplate(currentControl.id)
+                        : await apiService.downloadCRCTemplate(currentControl.id, projectId);
 
                       const url = window.URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -575,9 +571,13 @@ export default function CRCAssessmentPage() {
                     </label>
                     <select
                       id="evidence-status-select"
-                      disabled={isReadOnly}
+                      disabled={isReadOnly || currentAnswer === undefined || currentAnswer === null}
                       value={currentResponse?.evidenceStatus || "No Evidence"}
                       onChange={async (e) => {
+                        if (currentAnswer === undefined || currentAnswer === null) {
+                          showToast.error("Please answer the control question before managing evidence");
+                          return;
+                        }
                         const newStatus = e.target.value as any;
                         try {
                           await handleEvidenceStatusChange(currentControl.id, newStatus);

@@ -168,6 +168,7 @@ export interface Thresholds {
 }
 
 export type CRCControlStatus = "Draft" | "In Review" | "Published" | "Archived";
+export type CRCEvidenceStatus = 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
 
 export interface CRCCategory {
   id: number;
@@ -1607,7 +1608,7 @@ class ApiService {
       controlId: string; 
       value: number; 
       notes?: string;
-      evidenceStatus?: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+      evidenceStatus?: CRCEvidenceStatus;
       evidenceUrl?: string | null;
       auditReady?: boolean;
     }
@@ -1622,7 +1623,7 @@ class ApiService {
     responses: Record<string, { 
       value: number; 
       notes: string; 
-      evidenceStatus: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+      evidenceStatus: CRCEvidenceStatus;
       evidenceUrl: string | null;
       auditReady: boolean;
       updatedAt: string;
@@ -1633,7 +1634,7 @@ class ApiService {
       responses: Record<string, { 
         value: number; 
         notes: string; 
-        evidenceStatus: 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
+        evidenceStatus: CRCEvidenceStatus;
         evidenceUrl: string | null;
         auditReady: boolean;
         updatedAt: string;
