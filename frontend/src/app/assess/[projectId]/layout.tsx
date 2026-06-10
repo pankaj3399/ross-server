@@ -6,6 +6,7 @@ import AssessmentTreeNavigation from "../../../components/shared/AssessmentTreeN
 import { useRouter, usePathname } from "next/navigation";
 import { useAssessmentNavigation } from "../../../hooks/useAssessmentNavigation";
 import { Breadcrumb } from "../../../components/shared/Breadcrumb";
+import { WizardGateProvider } from "../../../components/features/wizard/WizardGateProvider";
 
 const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("premium-features")) return "Premium Features";
@@ -98,6 +99,15 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         router.push(`/assess/${projectId}`);
     };
 
+    const isPremiumRoute = 
+        (pathname.includes("/crc") ||
+         pathname.includes("/inventory") ||
+         pathname.includes("/fairness-bias") ||
+         pathname.includes("/vulnerability-assessment") ||
+         pathname.includes("/premium-domains") ||
+         pathname.includes("/premium-features")) &&
+        !pathname.includes("/settings");
+
     return (
         <div className="h-screen flex flex-row-reverse overflow-hidden">
             {/* Tree Navigation Sidebar - Persistent */}
@@ -127,7 +137,13 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                         ]}
                     />
                     <div className="mt-2 flex-1">
-                        {children}
+                        {isPremiumRoute ? (
+                            <WizardGateProvider projectId={projectId} featureName={getBreadcrumbLabel(pathname)}>
+                                {children}
+                            </WizardGateProvider>
+                        ) : (
+                            children
+                        )}
                     </div>
                 </div>
             </div>

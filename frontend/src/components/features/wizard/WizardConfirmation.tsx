@@ -1,0 +1,467 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  ShieldAlert, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp, 
+  Layers, AlertTriangle, Cpu, Check, Play, Settings2, Trash2
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../ui/card";
+import { Button } from "../../ui/button";
+import { Badge } from "../../ui/badge";
+import { Checkbox } from "../../ui/checkbox";
+import { Label } from "../../ui/label";
+import { toast } from "sonner";
+import { useWizardStore } from "../../../store/wizardStore";
+
+interface WizardConfirmationProps {
+  projectId: string;
+  onApplyComplete: () => void;
+  onAdjustAnswers: () => void;
+}
+
+export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers }: WizardConfirmationProps) {
+  const { engineOutput, loadSavedAnswers, applyProfile, saving, loading } = useWizardStore();
+  const [acknowledgedUnacceptable, setAcknowledgedUnacceptable] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>("risks");
+  
+  // Selective confirm states
+  const [selectedRisks, setSelectedRisks] = useState<string[]>([]);
+  const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
+
+  useEffect(() => {
+    loadSavedAnswers(projectId);
+  }, [projectId, loadSavedAnswers]);
+
+  // Pre-populate selections when engine outputs are loaded
+  useEffect(() => {
+    if (engineOutput) {
+      if (engineOutput.suggested_risks) {
+        setSelectedRisks(engineOutput.suggested_risks.map((r: any) => r.title));
+      }
+      if (engineOutput.suggested_components) {
+        setSelectedComponents(engineOutput.suggested_components.map((c: any) => c.component_name));
+      }
+    }
+  }, [engineOutput]);
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 space-y-6">
+        <div className="h-10 bg-muted animate-pulse rounded w-1/2" />
+        <div className="h-24 bg-muted animate-pulse rounded w-full" />
+        <div className="h-64 bg-muted animate-pulse rounded w-full" />
+      </div>
+    );
+  }
+
+  if (!engineOutput) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center space-y-4">
+        <h2 className="text-2xl font-bold text-destructive">No Compliance Profile Found</h2>
+        <p className="text-muted-foreground">
+          We couldn't load the compliance profile output for this project. Please complete the setup wizard first.
+        </p>
+        <Button onClick={() => loadSavedAnswers(projectId)} variant="outline">
+          Retry Loading
+        </Button>
+      </div>
+    );
+  }
+
+  const {
+    eu_risk_tier,
+    internal_risk_tier,
+    eu_risk_reason,
+    applicable_frameworks = [],
+    control_flags = {},
+    suggested_risks = [],
+    suggested_components = [],
+    vulnerability_scope = [],
+    bias_scope = [],
+    article5_warning = false,
+    article50_note = false,
+    gpai_warning = false,
+    informational_notes = [],
+  } = engineOutput;
+
+  // Count control statuses
+  const controlsList = Object.values(control_flags) as any[];
+  const mandatoryCount = controlsList.filter(c => c.flag === "MANDATORY").length;
+  const recommendedCount = controlsList.filter(c => c.flag === "RECOMMENDED").length;
+  const optionalCount = controlsList.filter(c => c.flag === "OPTIONAL").length;
+
+  const toggleRisk = (title: string) => {
+    setSelectedRisks(prev => 
+      prev.includes(title) ? prev.filter(t => t !== title) : [...prev, title]
+    );
+  };
+
+  const toggleComponent = (name: string) => {
+    setSelectedComponents(prev => 
+      prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+    );
+  };
+
+  const handleApply = async () => {
+    if (eu_risk_tier === "UNACCEPTABLE" && !acknowledgedUnacceptable) {
+      toast.error("You must acknowledge the Prohibited AI Practice warning before applying this profile.");
+      return;
+    }
+
+    try {
+      await applyProfile(projectId, {
+        acceptedRisks: selectedRisks,
+        acceptedComponents: selectedComponents,
+      });
+      toast.success("Compliance profile applied successfully!");
+      onApplyComplete();
+    } catch (err) {
+      toast.error("Failed to apply profile outputs.");
+    }
+  };
+
+  const getRiskColor = (tier: string) => {
+    switch (tier) {
+      case "UNACCEPTABLE": return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "HIGH": return "bg-orange-500/10 text-orange-400 border-orange-500/20";
+      case "LIMITED": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+      case "MINIMAL": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+      default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+    }
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSection(prev => prev === section ? null : section);
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto p-4 sm:p-8 space-y-8 pb-24">
+      {/* Title */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Step 7: Outputs Confirmation</span>
+          <h1 className="text-3xl font-extrabold text-foreground mt-1">
+            Your AI System Compliance Profile is Ready
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review the determined risk categories, frameworks, and auto-generated seeding actions.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onAdjustAnswers} className="text-xs">
+            <Settings2 className="h-4 w-4 mr-1.5" /> Adjust Answers
+          </Button>
+        </div>
+      </div>
+
+      {/* Warnings & Notices */}
+      {article5_warning && (
+        <Card className="border-red-500/30 bg-red-500/5 shadow-md">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3 text-red-400">
+              <ShieldAlert className="h-6 w-6 flex-shrink-0" />
+              <CardTitle className="text-lg font-bold">WARNING: Prohibited AI Practice Detected</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-red-300/90 leading-relaxed">
+              This system appears to engage in a <strong>Prohibited AI Practice</strong> under Article 5 of the EU AI Act ({eu_risk_reason}). Placing these systems on the market or putting them into service within the EU is prohibited and carries severe legal penalties (up to €35M or 7% of global annual turnover).
+            </p>
+            <div className="flex items-start gap-3 p-3 rounded bg-red-500/10 border border-red-500/20">
+              <Checkbox 
+                id="ack-unacceptable" 
+                checked={acknowledgedUnacceptable} 
+                onCheckedChange={(checked) => setAcknowledgedUnacceptable(!!checked)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="ack-unacceptable" className="text-xs text-red-200 font-medium cursor-pointer leading-normal">
+                I acknowledge that this system is flagged as a Prohibited AI Practice under EU AI Act Article 5 and understand the severe legal/compliance implications of proceeding.
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Grid: Risk Tier & Frameworks */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Risk Classification */}
+        <Card className="md:col-span-2 border border-border/50 bg-background/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold text-muted-foreground uppercase tracking-wider">Risk Classification</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge className={`px-3 py-1.5 text-xs font-extrabold border ${getRiskColor(eu_risk_tier)}`}>
+                EU TIER: {eu_risk_tier}
+              </Badge>
+              <Badge className={`px-3 py-1.5 text-xs font-extrabold border ${getRiskColor(internal_risk_tier === "CRITICAL" ? "UNACCEPTABLE" : internal_risk_tier)}`}>
+                INTERNAL: {internal_risk_tier}
+              </Badge>
+            </div>
+            <p className="text-sm font-medium text-foreground/90 leading-relaxed bg-muted/30 p-3 rounded-lg border border-border/40">
+              {eu_risk_reason}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Frameworks & Controls */}
+        <Card className="border border-border/50 bg-background/40">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-bold text-muted-foreground uppercase tracking-wider">Applicable Frameworks</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-2">
+              {applicable_frameworks.map((f: string) => (
+                <div key={f} className="flex items-center gap-2 text-sm text-foreground/90 font-semibold bg-muted/20 p-2 rounded border border-border/20">
+                  <CheckCircle2 className="h-4 w-4 text-indigo-400" />
+                  {f}
+                </div>
+              ))}
+            </div>
+            <div className="pt-2 border-t border-border/30 space-y-1">
+              <span className="text-xs text-muted-foreground uppercase font-bold block">CRC Control Summary</span>
+              <div className="flex justify-between text-xs">
+                <span className="text-red-400 font-semibold">{mandatoryCount} Mandatory</span>
+                <span className="text-amber-400 font-semibold">{recommendedCount} Recommended</span>
+                <span className="text-slate-400">{optionalCount} Optional</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Informational Notes */}
+      {informational_notes.length > 0 && (
+        <div className="space-y-2">
+          {informational_notes.map((note: string, i: number) => (
+            <div key={i} className="p-3.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-xs text-indigo-300/95 flex items-start gap-2.5">
+              <Info className="h-4 w-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+              <span>{note}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Accordion Sections */}
+      <div className="space-y-4">
+        {/* Risks Seeding */}
+        <Card className="border border-border/50 overflow-hidden">
+          <button
+            onClick={() => toggleSection("risks")}
+            className="w-full flex justify-between items-center p-4 bg-muted/20 hover:bg-muted/30 transition-colors border-b border-border/40"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <span className="font-bold text-foreground">1. Risk Register Starter Entries ({selectedRisks.length}/{suggested_risks.length} Selected)</span>
+            </div>
+            {expandedSection === "risks" ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </button>
+          
+          <AnimatePresence>
+            {expandedSection === "risks" && (
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: "auto" }}
+                exit={{ height: 0 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="p-4 space-y-4 bg-background/20 max-h-[400px] overflow-y-auto">
+                  {suggested_risks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No starter risks suggested for this profile.</p>
+                  ) : (
+                    suggested_risks.map((risk: any, idx: number) => (
+                      <div 
+                        key={idx} 
+                        className={`p-4 rounded-xl border transition-all ${
+                          selectedRisks.includes(risk.title) 
+                            ? "border-indigo-500/30 bg-indigo-500/5" 
+                            : "border-border/40 bg-muted/10 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex gap-3 items-start">
+                            <Checkbox 
+                              id={`risk-${idx}`}
+                              checked={selectedRisks.includes(risk.title)}
+                              onCheckedChange={() => toggleRisk(risk.title)}
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Label htmlFor={`risk-${idx}`} className="font-bold text-sm sm:text-base text-foreground/90 cursor-pointer">
+                                  {risk.title}
+                                </Label>
+                                <Badge variant="outline" className="text-[10px] uppercase font-bold py-0 bg-background">
+                                  {risk.category}
+                                </Badge>
+                                <Badge className={`text-[10px] uppercase font-extrabold py-0 bg-background ${
+                                  risk.rating === "Critical" || risk.rating === "High" ? "text-red-400 border-red-500/20" : "text-amber-400 border-amber-500/20"
+                                }`}>
+                                  {risk.rating} Rating
+                                </Badge>
+                              </div>
+                              <p className="text-xs sm:text-sm text-muted-foreground mt-2">{risk.description}</p>
+                              <div className="mt-3 text-xs bg-background/50 border border-border/30 p-2.5 rounded-lg">
+                                <span className="font-bold text-foreground block mb-0.5">Proposed Mitigation:</span>
+                                {risk.mitigation_plan}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+
+        {/* Components Seeding */}
+        <Card className="border border-border/50 overflow-hidden">
+          <button
+            onClick={() => toggleSection("components")}
+            className="w-full flex justify-between items-center p-4 bg-muted/20 hover:bg-muted/30 transition-colors border-b border-border/40"
+          >
+            <div className="flex items-center gap-2">
+              <Cpu className="h-5 w-5 text-indigo-400" />
+              <span className="font-bold text-foreground">2. Component Inventory Starter Rows ({selectedComponents.length}/{suggested_components.length} Selected)</span>
+            </div>
+            {expandedSection === "components" ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </button>
+          
+          <AnimatePresence>
+            {expandedSection === "components" && (
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: "auto" }}
+                exit={{ height: 0 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="p-4 space-y-4 bg-background/20 max-h-[400px] overflow-y-auto">
+                  {suggested_components.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No starter components suggested for this profile.</p>
+                  ) : (
+                    suggested_components.map((comp: any, idx: number) => (
+                      <div 
+                        key={idx} 
+                        className={`p-4 rounded-xl border transition-all ${
+                          selectedComponents.includes(comp.component_name) 
+                            ? "border-indigo-500/30 bg-indigo-500/5" 
+                            : "border-border/40 bg-muted/10 opacity-70"
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox 
+                            id={`comp-${idx}`}
+                            checked={selectedComponents.includes(comp.component_name)}
+                            onCheckedChange={() => toggleComponent(comp.component_name)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label htmlFor={`comp-${idx}`} className="font-bold text-sm sm:text-base text-foreground/90 cursor-pointer">
+                                {comp.component_name}
+                              </Label>
+                              <Badge variant="outline" className="text-[10px] bg-background">
+                                {comp.component_type}
+                              </Badge>
+                              <Badge className="text-[10px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 py-0">
+                                Provider: {comp.provider}
+                              </Badge>
+                            </div>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-2">{comp.role_in_system}</p>
+                            <div className="mt-3 flex gap-2 text-xs">
+                              <span className="text-muted-foreground">Status: <span className="font-semibold text-emerald-400">{comp.status}</span></span>
+                              <span className="text-muted-foreground">| Risk Tier: <span className="font-semibold text-red-400">{comp.risk_tier}</span></span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+
+        {/* Downstream Configurations Summary */}
+        <Card className="border border-border/50 overflow-hidden">
+          <button
+            onClick={() => toggleSection("downstream")}
+            className="w-full flex justify-between items-center p-4 bg-muted/20 hover:bg-muted/30 transition-colors border-b border-border/40"
+          >
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5 text-purple-400" />
+              <span className="font-bold text-foreground">3. Automation & Scope Settings (DPIA / Vulnerability / Bias)</span>
+            </div>
+            {expandedSection === "downstream" ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          </button>
+          
+          <AnimatePresence>
+            {expandedSection === "downstream" && (
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: "auto" }}
+                exit={{ height: 0 }}
+                className="overflow-hidden"
+              >
+                <CardContent className="p-4 space-y-6 bg-background/20">
+                  {/* Vuln Scope */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Vulnerability Assessment Scope (OWASP LLM Pre-selections)
+                    </h4>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {vulnerability_scope.map((v: string) => (
+                        <span key={v} className="text-xs px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-medium">
+                          {v}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bias Scope */}
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      Bias & Ethical Testing Scope (Protected Attributes)
+                    </h4>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {bias_scope.map((b: string) => (
+                        <span key={b} className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+      </div>
+
+      {/* Apply Actions */}
+      <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border/40 justify-end items-center">
+        <Button 
+          onClick={onAdjustAnswers} 
+          variant="outline" 
+          disabled={saving}
+          className="w-full sm:w-auto"
+        >
+          Adjust Answers
+        </Button>
+        <Button
+          onClick={handleApply}
+          disabled={saving || (eu_risk_tier === "UNACCEPTABLE" && !acknowledgedUnacceptable)}
+          className="w-full sm:w-auto px-8 py-6 bg-indigo-600 text-white hover:bg-indigo-500 font-bold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+        >
+          {saving ? "Applying Profile..." : "Apply Profile & Open Platform"}
+          <Play className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}

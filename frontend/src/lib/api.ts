@@ -207,6 +207,95 @@ export interface CRCControl {
   updated_at: string;
 }
 
+export interface WizardAnswers {
+  name: string;
+  description: string;
+  governance_scope?: "system" | "organization";
+  use_case?: string;
+  regulatory_role?: "provider" | "deployer" | "both";
+  data_categories: string[];
+  geographic_scope: string[];
+  scale?: string;
+  uses_third_party_models?: "yes" | "no" | "not_sure";
+  third_party_providers: string[];
+  automation_level?: string;
+  existing_certifications: string[];
+  annex_iii_domains: string[];
+  biometric_use?: string;
+  affects_children?: "yes" | "no" | "not_sure";
+  public_url: string;
+  wizard_step?: number;
+}
+
+export interface WizardOutputs {
+  id?: string;
+  project_id?: string;
+  eu_risk_tier: string;
+  internal_risk_tier: string;
+  eu_risk_reason: string;
+  applicable_frameworks: string[];
+  control_flags: Record<string, { flag: string; reason: string }>;
+  suggested_risks: Array<{
+    title: string;
+    description: string;
+    risk_category: string;
+    potential_impact: string;
+    likelihood: string;
+    impact_level: string;
+    mitigation_strategy: string;
+  }>;
+  suggested_components: Array<{
+    component_name: string;
+    component_type: string;
+    provider: string;
+    role_in_system: string;
+    data_categories_sent: string[];
+    risk_tier: string;
+    status: string;
+  }>;
+  vulnerability_scope: string[];
+  bias_scope: string[];
+  template_variables: Record<string, string>;
+  copilot_context: string;
+  article5_warning: boolean;
+  article50_note: boolean;
+  gpai_warning: boolean;
+  informational_notes: string[];
+}
+
+export interface WizardApplyPayload {
+  acceptedRisks?: string[];
+  acceptedComponents?: string[];
+}
+
+export interface WizardAnswersResponse {
+  success: boolean;
+  answers: WizardAnswers;
+}
+
+export interface WizardOutputsResponse {
+  success: boolean;
+  outputs: WizardOutputs | null;
+}
+
+export interface WizardStatusResponse {
+  success: boolean;
+  status: string;
+  step: number;
+  completedAt: string | null;
+  appliedAt: string | null;
+}
+
+export interface WizardSaveResponse {
+  success: boolean;
+  profileId: string;
+}
+
+export interface WizardApplyResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface ChatbotInstruction {
   id: string;
   title: string;
@@ -1815,6 +1904,46 @@ class ApiService {
     }
 
     return response.blob();
+  }
+
+  // AI System Profile Wizard
+  async getWizardStatus(projectId: string): Promise<WizardStatusResponse> {
+    return this.request<WizardStatusResponse>(`/wizard/${projectId}/status`);
+  }
+
+  async getWizardAnswers(projectId: string): Promise<WizardAnswersResponse> {
+    return this.request<WizardAnswersResponse>(`/wizard/${projectId}/answers`);
+  }
+
+  async saveWizardAnswers(projectId: string, answers: Partial<WizardAnswers>): Promise<WizardSaveResponse> {
+    return this.request<WizardSaveResponse>(`/wizard/${projectId}/save`, {
+      method: "POST",
+      body: JSON.stringify(answers),
+    });
+  }
+
+  async completeWizard(projectId: string): Promise<WizardOutputsResponse> {
+    return this.request<WizardOutputsResponse>(`/wizard/${projectId}/complete`, {
+      method: "POST",
+    });
+  }
+
+  async applyWizardProfile(projectId: string, payload?: WizardApplyPayload): Promise<WizardApplyResponse> {
+    return this.request<WizardApplyResponse>(`/wizard/${projectId}/apply`, {
+      method: "POST",
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+  }
+
+  async editWizardAnswers(projectId: string, answers: Partial<WizardAnswers>): Promise<WizardOutputsResponse> {
+    return this.request<WizardOutputsResponse>(`/wizard/${projectId}/answers`, {
+      method: "PUT",
+      body: JSON.stringify(answers),
+    });
+  }
+
+  async getWizardEngineOutput(projectId: string): Promise<WizardOutputsResponse> {
+    return this.request<WizardOutputsResponse>(`/wizard/${projectId}/engine-output`);
   }
 }
 
