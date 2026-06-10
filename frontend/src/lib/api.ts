@@ -67,8 +67,30 @@ export interface InventoryComponent {
   dpaUrl?: string | null;
   notes?: string | null;
   vendorAssessmentStatus: "Not Run" | "In Progress" | "Completed";
+  vendorRiskTier?: "Low" | "Medium" | "High" | "Critical" | null;
+  vendorAssessmentCompletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface VendorAssessmentAnswer {
+  optionValue: string;
+  evidence?: string;
+  url?: string;
+}
+
+export interface VendorAssessment {
+  id: string | null;
+  projectId: string;
+  componentId: string;
+  vendorName: string;
+  answers: Record<string, VendorAssessmentAnswer>;
+  score: number;
+  riskTier: "Low" | "Medium" | "High" | "Critical";
+  status: "In Progress" | "Completed";
+  completedAt: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Domain {
@@ -1994,6 +2016,40 @@ class ApiService {
     }
 
     return response.blob();
+  }
+
+  // ==========================================
+  // VENDOR RISK ASSESSMENT (FEATURE C)
+  // ==========================================
+
+  async getVendorAssessmentSchema(): Promise<{ success: boolean; questions: any[] }> {
+    return this.request<{ success: boolean; questions: any[] }>("/vendor-assessments/schema");
+  }
+
+  async getVendorAssessment(projectId: string, componentId: string): Promise<{ success: boolean; data: VendorAssessment }> {
+    return this.request<{ success: boolean; data: VendorAssessment }>(`/vendor-assessments/${projectId}/component/${componentId}`);
+  }
+
+  async saveVendorAssessment(
+    projectId: string,
+    componentId: string,
+    answers: Record<string, VendorAssessmentAnswer>
+  ): Promise<{ success: boolean; data: VendorAssessment }> {
+    return this.request<{ success: boolean; data: VendorAssessment }>(`/vendor-assessments/${projectId}/component/${componentId}/save`, {
+      method: "POST",
+      body: JSON.stringify({ answers }),
+    });
+  }
+
+  async completeVendorAssessment(
+    projectId: string,
+    componentId: string,
+    answers: Record<string, VendorAssessmentAnswer>
+  ): Promise<{ success: boolean; data: VendorAssessment }> {
+    return this.request<{ success: boolean; data: VendorAssessment }>(`/vendor-assessments/${projectId}/component/${componentId}/complete`, {
+      method: "POST",
+      body: JSON.stringify({ answers }),
+    });
   }
 
   // AI System Profile Wizard

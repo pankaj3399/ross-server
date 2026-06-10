@@ -18,6 +18,7 @@ import chatRouter from "./routes/chat";
 import notificationsRouter from "./routes/notifications";
 import inventoryRouter from "./routes/inventory";
 import wizardRouter from "./routes/wizard";
+import vendorAssessmentRouter from "./routes/vendorAssessment";
 import pool from "./config/database";
 import { authenticateToken, checkRouteAccess } from "./middleware/auth";
 import { serve } from "inngest/express";
@@ -90,6 +91,7 @@ app.use("/chat", authenticateToken, checkRouteAccess('/chat'), chatRouter);
 app.use("/notifications", notificationsRouter);
 app.use("/inventory", authenticateToken, checkRouteAccess('/inventory'), inventoryRouter);
 app.use("/wizard", authenticateToken, checkRouteAccess('/wizard'), wizardRouter);
+app.use("/vendor-assessments", authenticateToken, checkRouteAccess('/inventory'), vendorAssessmentRouter);
 
 // Inngest endpoint
 app.use(

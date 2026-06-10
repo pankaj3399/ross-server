@@ -170,6 +170,8 @@ function mapRowToResponse(row: any) {
     dpaUrl: row.dpa_url,
     notes: row.notes,
     vendorAssessmentStatus: row.vendor_assessment_status,
+    vendorRiskTier: row.vendor_risk_tier || null,
+    vendorAssessmentCompletedAt: row.vendor_assessment_completed_at || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -188,27 +190,32 @@ router.get("/:projectId", authenticateToken, async (req, res) => {
 
     const { type, provider, risk_tier, status } = req.query;
 
-    let queryText = `SELECT * FROM component_inventory WHERE project_id = $1`;
+    let queryText = `
+      SELECT ci.*, va.risk_tier AS vendor_risk_tier, va.completed_at AS vendor_assessment_completed_at
+      FROM component_inventory ci
+      LEFT JOIN vendor_assessments va ON ci.id = va.component_id
+      WHERE ci.project_id = $1
+    `;
     const queryParams: any[] = [projectId];
 
     if (type) {
       queryParams.push(type);
-      queryText += ` AND component_type = $${queryParams.length}`;
+      queryText += ` AND ci.component_type = $${queryParams.length}`;
     }
     if (provider) {
       queryParams.push(`%${provider}%`);
-      queryText += ` AND provider ILIKE $${queryParams.length}`;
+      queryText += ` AND ci.provider ILIKE $${queryParams.length}`;
     }
     if (risk_tier) {
       queryParams.push(risk_tier);
-      queryText += ` AND risk_tier = $${queryParams.length}`;
+      queryText += ` AND ci.risk_tier = $${queryParams.length}`;
     }
     if (status) {
       queryParams.push(status);
-      queryText += ` AND status = $${queryParams.length}`;
+      queryText += ` AND ci.status = $${queryParams.length}`;
     }
 
-    queryText += ` ORDER BY component_id ASC`;
+    queryText += ` ORDER BY ci.component_id ASC`;
 
     const result = await pool.query(queryText, queryParams);
     res.json(result.rows.map(mapRowToResponse));
@@ -572,27 +579,32 @@ router.post("/:projectId/export", authenticateToken, async (req, res) => {
 
     const { type, provider, risk_tier, status } = req.body || {};
 
-    let queryText = `SELECT * FROM component_inventory WHERE project_id = $1`;
+    let queryText = `
+      SELECT ci.*, va.risk_tier AS vendor_risk_tier, va.completed_at AS vendor_assessment_completed_at
+      FROM component_inventory ci
+      LEFT JOIN vendor_assessments va ON ci.id = va.component_id
+      WHERE ci.project_id = $1
+    `;
     const queryParams: any[] = [projectId];
 
     if (type) {
       queryParams.push(type);
-      queryText += ` AND component_type = $${queryParams.length}`;
+      queryText += ` AND ci.component_type = $${queryParams.length}`;
     }
     if (provider) {
       queryParams.push(`%${provider}%`);
-      queryText += ` AND provider ILIKE $${queryParams.length}`;
+      queryText += ` AND ci.provider ILIKE $${queryParams.length}`;
     }
     if (risk_tier) {
       queryParams.push(risk_tier);
-      queryText += ` AND risk_tier = $${queryParams.length}`;
+      queryText += ` AND ci.risk_tier = $${queryParams.length}`;
     }
     if (status) {
       queryParams.push(status);
-      queryText += ` AND status = $${queryParams.length}`;
+      queryText += ` AND ci.status = $${queryParams.length}`;
     }
 
-    queryText += ` ORDER BY component_id ASC`;
+    queryText += ` ORDER BY ci.component_id ASC`;
 
     const result = await pool.query(queryText, queryParams);
     const components = result.rows;

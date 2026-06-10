@@ -172,7 +172,10 @@ export default function CRCAssessmentPage() {
 
   // Progress
   const totalControls = controls.length;
-  const answeredControls = Object.keys(responses).length;
+  const answeredControls = controls.filter((ctrl) => {
+    const r = responses[ctrl.id];
+    return r && Number.isFinite(r.value);
+  }).length;
   const progress = totalControls > 0 ? (answeredControls / totalControls) * 100 : 0;
 
   if (authLoading || contextLoading) {
