@@ -1,4 +1,5 @@
 import pool from "../config/database";
+import { inngest } from "../inngest/client";
 
 /**
  * Risk Rating Matrix (from spec):
@@ -99,14 +100,34 @@ export async function syncRiskFromResponse(
             }
         }
 
-        await pool.query(
+        // Fetch existing risk to compare rating transition
+        const existingResult = await pool.query(
+            `SELECT id, rating, status FROM crc_risks
+             WHERE project_id = $1 AND control_id = $2`,
+            [projectId, controlId]
+        );
+        const oldRisk = existingResult.rows[0];
+
+        const upsertResult = await pool.query(
             `INSERT INTO crc_risks (project_id, control_id, title, category, rating, status, description, source)
              VALUES ($1, $2, $3, $4, $5, 'Open', $6, 'Automated')
              ON CONFLICT (project_id, control_id)
              DO UPDATE SET rating = $5, status = 'Open',
                            title = $3, category = $4, description = $6,
-                           updated_at = CURRENT_TIMESTAMP`,
+                           updated_at = CURRENT_TIMESTAMP
+             RETURNING id`,
             [projectId, controlId, title, categoryName, rating, description]
         );
+        const riskId = upsertResult.rows[0].id;
+
+        // Trigger critical risk alert if transitioning to Critical
+        if (rating === "Critical" && (!oldRisk || oldRisk.rating !== "Critical" || oldRisk.status === "Closed")) {
+            await inngest.send({
+                name: "notification/critical-risk.triggered",
+                data: { projectId, riskId },
+            }).catch((err) => {
+                console.error("Failed to emit Inngest critical risk event:", err);
+            });
+        }
     }
 }

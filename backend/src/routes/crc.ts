@@ -10,6 +10,7 @@ import path from "path";
 import multer from "multer";
 import { syncRiskFromResponse } from "../services/crcRiskService";
 import crypto from "crypto";
+import { inngest } from "../inngest/client";
 import { UTApi } from "uploadthing/server";
 
 const router = Router();
@@ -1452,7 +1453,19 @@ router.put("/risks/:projectId/:riskId", authenticateToken, async (req, res) => {
       ]
     );
 
-    res.json({ success: true, data: result.rows[0] });
+    const updatedRisk = result.rows[0];
+
+    // Trigger critical risk alert if transitioning to Critical
+    if (updatedRisk.rating === "Critical" && currentRisk.rating !== "Critical") {
+      void inngest.send({
+        name: "notification/critical-risk.triggered",
+        data: { projectId, riskId },
+      }).catch((err) => {
+        console.error("Failed to emit Inngest critical risk event on PUT:", err);
+      });
+    }
+
+    res.json({ success: true, data: updatedRisk });
   } catch (error) {
     console.error("Error updating risk:", error);
     if (error instanceof z.ZodError) {

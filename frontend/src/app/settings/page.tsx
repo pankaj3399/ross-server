@@ -24,6 +24,7 @@ import {
   IconArrowRight,
   IconTrash,
   IconRotate,
+  IconBell,
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse, Project } from "../../lib/api";
@@ -34,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -81,6 +83,99 @@ export default function SettingsPage() {
   const [deletedLoading, setDeletedLoading] = useState(false);
   const [deletedError, setDeletedError] = useState<string | null>(null);
   const [restoringProjectIds, setRestoringProjectIds] = useState<Record<string, boolean>>({});
+
+  // Notifications state
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    weekly_digest: true,
+    critical_alerts: true,
+    vendor_reassessment: true,
+    timezone: "UTC",
+  });
+  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [prefsError, setPrefsError] = useState(false);
+
+  const prefsUpdateInFlightRef = useRef<Promise<any>>(Promise.resolve());
+  const lastUpdateSequenceRef = useRef<number>(0);
+
+  const fetchNotificationPreferences = useCallback(async () => {
+    try {
+      if (isMountedRef.current) {
+        setPrefsLoading(true);
+        setPrefsError(false);
+      }
+      const prefs = await apiService.getNotificationPreferences();
+      if (isMountedRef.current) {
+        if (
+          prefs &&
+          typeof prefs.weekly_digest === "boolean" &&
+          typeof prefs.critical_alerts === "boolean" &&
+          typeof prefs.vendor_reassessment === "boolean" &&
+          typeof prefs.timezone === "string"
+        ) {
+          setNotificationPrefs({
+            weekly_digest: prefs.weekly_digest,
+            critical_alerts: prefs.critical_alerts,
+            vendor_reassessment: prefs.vendor_reassessment,
+            timezone: prefs.timezone,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load notification preferences:", error);
+      if (isMountedRef.current) {
+        setPrefsError(true);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setPrefsLoading(false);
+      }
+    }
+  }, []);
+
+  const handlePreferenceToggle = async (key: 'weekly_digest' | 'critical_alerts' | 'vendor_reassessment') => {
+    const nextSeq = ++lastUpdateSequenceRef.current;
+    const updatedValue = !notificationPrefs[key];
+    setNotificationPrefs(prev => ({ ...prev, [key]: updatedValue }));
+
+    prefsUpdateInFlightRef.current = prefsUpdateInFlightRef.current.then(async () => {
+      try {
+        await apiService.updateNotificationPreferences({ [key]: updatedValue });
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.success("Notification preferences updated.");
+        }
+      } catch (error) {
+        console.error("Failed to update preference:", error);
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.error("Failed to save preference. Please try again.");
+          fetchNotificationPreferences();
+        }
+      }
+    });
+
+    await prefsUpdateInFlightRef.current;
+  };
+
+  const handleTimezoneChange = async (tz: string) => {
+    const nextSeq = ++lastUpdateSequenceRef.current;
+    setNotificationPrefs(prev => ({ ...prev, timezone: tz }));
+
+    prefsUpdateInFlightRef.current = prefsUpdateInFlightRef.current.then(async () => {
+      try {
+        await apiService.updateNotificationPreferences({ timezone: tz });
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.success("Timezone updated successfully.");
+        }
+      } catch (error) {
+        console.error("Failed to update timezone:", error);
+        if (isMountedRef.current && nextSeq === lastUpdateSequenceRef.current) {
+          showToast.error("Failed to save timezone. Please try again.");
+          fetchNotificationPreferences();
+        }
+      }
+    });
+
+    await prefsUpdateInFlightRef.current;
+  };
 
   const fetchDeletedProjects = useCallback(async () => {
     try {
@@ -198,12 +293,13 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    // Fetch subscription details and deleted projects when user is available
+    // Fetch subscription details, deleted projects and notification preferences when user is available
     if (user && isAuthenticated) {
       fetchSubscriptionDetails();
       fetchDeletedProjects();
+      fetchNotificationPreferences();
     }
-  }, [user, isAuthenticated, fetchSubscriptionDetails, fetchDeletedProjects]);
+  }, [user, isAuthenticated, fetchSubscriptionDetails, fetchDeletedProjects, fetchNotificationPreferences]);
 
   const handleMFAToggle = async () => {
     if (user?.mfa_enabled) {
@@ -1012,6 +1108,137 @@ export default function SettingsPage() {
                   )}
                 </AnimatePresence>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Notifications Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <IconBell className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Notifications</CardTitle>
+                  <CardDescription>
+                    Manage how and when you receive email updates.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {prefsLoading ? (
+                <div className="space-y-4 py-4">
+                  <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                  <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                  <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                </div>
+              ) : prefsError ? (
+                <div className="text-center py-6 border border-dashed rounded-xl bg-destructive/5 border-destructive/20">
+                  <p className="text-sm text-destructive mb-3">
+                    Failed to load notification preferences.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchNotificationPreferences}
+                    className="gap-1.5"
+                  >
+                    <IconRefresh className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Weekly Digest */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="weekly_digest" className="text-base font-semibold text-foreground">
+                        Weekly Digest
+                      </Label>
+                      <p className="text-sm text-muted-foreground max-w-md">
+                        Receive a weekly summary of your project activity, readiness score changes, and quick wins every Monday morning.
+                      </p>
+                    </div>
+                    <Switch
+                      id="weekly_digest"
+                      checked={notificationPrefs.weekly_digest}
+                      onCheckedChange={() => handlePreferenceToggle("weekly_digest")}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Critical Risk Alerts */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="critical_alerts" className="text-base font-semibold text-foreground">
+                        Critical Risk Alerts
+                      </Label>
+                      <p className="text-sm text-muted-foreground max-w-md">
+                        Get immediate email alerts when risks reach Critical severity or pass their target dates. Max 3 alerts/day.
+                      </p>
+                    </div>
+                    <Switch
+                      id="critical_alerts"
+                      checked={notificationPrefs.critical_alerts}
+                      onCheckedChange={() => handlePreferenceToggle("critical_alerts")}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Vendor Reassessment Reminders */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="vendor_reassessment" className="text-base font-semibold text-foreground">
+                        Vendor Reassessment Reminders
+                      </Label>
+                      <p className="text-sm text-muted-foreground max-w-md">
+                        Receive reminders when a vendor risk assessment completed 12 months ago requires annual review.
+                      </p>
+                    </div>
+                    <Switch
+                      id="vendor_reassessment"
+                      checked={notificationPrefs.vendor_reassessment}
+                      onCheckedChange={() => handlePreferenceToggle("vendor_reassessment")}
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Timezone Selector */}
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone-selector" className="text-base font-semibold text-foreground">
+                      Local Timezone
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Determine your Monday morning digest time based on your local timezone.
+                    </p>
+                    <div className="max-w-xs">
+                      <select
+                        id="timezone-selector"
+                        value={notificationPrefs.timezone}
+                        onChange={(e) => handleTimezoneChange(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="UTC">UTC (GMT+0)</option>
+                        <option value="America/New_York">US Eastern Time (EST/EDT)</option>
+                        <option value="America/Chicago">US Central Time (CST/CDT)</option>
+                        <option value="America/Denver">US Mountain Time (MST/MDT)</option>
+                        <option value="America/Los_Angeles">US Pacific Time (PST/PDT)</option>
+                        <option value="Europe/London">London (GMT/BST)</option>
+                        <option value="Europe/Paris">Paris (CET/CEST)</option>
+                        <option value="Asia/Tokyo">Tokyo (JST)</option>
+                        <option value="Asia/Kolkata">Kolkata (IST)</option>
+                        <option value="Asia/Singapore">Singapore (SGT)</option>
+                        <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
