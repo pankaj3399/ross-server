@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import { QuickWinsWidget } from "@/components/features/governance/QuickWinsWidget";
 
 // --- Helpers ---
 
@@ -440,6 +441,9 @@ export default function CRCDashboardPage() {
             </div>
           </motion.div>
         )}
+
+        {/* Quick Wins Widget */}
+        <QuickWinsWidget projectId={projectId} />
 
         {/* Empty State */}
         {!hasResponses && (
