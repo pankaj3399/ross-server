@@ -32,7 +32,7 @@ function extractNumbersFromData(data: any): Set<number> {
                 numbers.add(Math.ceil(parsed));
             }
             // Check if there are numbers embedded in the string
-            const matches = val.match(/\b\d+(?:\.\d+)?\b/g);
+            const matches = val.match(/\d+(?:\.\d+)?/g);
             if (matches) {
                 matches.forEach(m => {
                     const p = parseFloat(m);
@@ -143,7 +143,25 @@ export function validateNarrative(
     });
 
     const projectWords = projectName.toLowerCase().split(/\s+/).map(w => w.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")).filter(Boolean);
-    const ignoredNouns = new Set(["matur", "maturai", "ai", "dashboard", "pdf", "crc", "v1", "system", "eu", "us", ...projectWords]);
+    const ignoredNouns = new Set([
+        "matur", "maturai", "ai", "dashboard", "pdf", "crc", "v1", "system", "eu", "us",
+        "act", "rmf", "nist", "iso", "iec", "framework", "standard", "readiness",
+        "governance", "compliance", "report", "executive", "section", "data", "profile",
+        "metrics", "overall", "project", "machine", "learning", "ml", "deep", "neural",
+        "network", "networks", "model", "models", "critical", "high", "medium", "low",
+        "unacceptable", "limited", "minimal", "risk", "risks", "mitigation", "mitigations",
+        "register", "assessment", "assessments", "component", "components", "inventory",
+        "vendor", "vendors", "provider", "providers", "bias", "toxicity", "fairness",
+        "relevancy", "faithfulness", "security", "privacy", "protection", "gdpr", "ccpa",
+        "eea", "infrastructure", "deployment", "scale", "automation", "autonomous",
+        "european", "american", "global", "national", "severity", "category", "categories",
+        "control", "controls", "yes", "no", "partial", "partially", "not", "sure", "na",
+        "i", "we", "our", "you", "they", "he", "she", "it", "the", "this", "that", "these",
+        "those", "ill", "ive", "weve", "theyve", "should", "would", "could", "shall", "will",
+        "january", "february", "march", "april", "may", "june", "july", "august",
+        "september", "october", "november", "december", "monday", "tuesday", "wednesday",
+        "thursday", "friday", "saturday", "sunday", ...projectWords
+    ]);
 
     for (const noun of properNouns) {
         const lowerNoun = noun.toLowerCase();

@@ -50,6 +50,31 @@ const getCategoryColor = (percent: number | null): string => {
   return "text-red-600 dark:text-red-400";
 };
 
+// Locale codes commonly associated with regions that use A4 paper sizing by default.
+// This drives formatting/styling only (A4 vs. Letter size) and does not represent
+// a formal EU membership or regulatory determination.
+const pdfSizeLocaleCodes = [
+  "be", "bg", "cz", "dk", "de", "ee", "ie", "el", "es", "fr", "hr", "it", "cy",
+  "lv", "lt", "lu", "hu", "mt", "nl", "at", "pl", "pt", "ro", "si", "sk", "fi",
+  "se", "no", "is", "ch", "uk", "gb"
+];
+
+/**
+ * Heuristic to detect whether to apply A4 formatting to the PDF.
+ * Returns true if the client timezone is in Europe or language matches pdfSizeLocaleCodes.
+ * This is a layout-only sizing determination, not an EU regulatory or legal categorization.
+ */
+function detectIsEU(): boolean {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz && tz.startsWith("Europe")) return true;
+    const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
+    return pdfSizeLocaleCodes.some(code => lang.endsWith(`-${code}`) || lang === code);
+  } catch (e) {
+    return false;
+  }
+}
+
 // EU AI Act deadline: August 2, 2026 (prohibition provisions fully apply)
 const EU_AI_ACT_DEADLINE = new Date("2026-08-02T00:00:00Z");
 
@@ -306,17 +331,8 @@ export default function CRCDashboardPage() {
       const { pdf } = await import("@react-pdf/renderer");
       const { CrcFullPdfDocument } = await import("@/lib/pdfExport/CrcFullPdfDocument");
 
-      const isEU = (() => {
-        try {
-          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          if (tz && tz.startsWith("Europe")) return true;
-          const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
-          const euCountries = ["be", "bg", "cz", "dk", "de", "ee", "ie", "el", "es", "fr", "hr", "it", "cy", "lv", "lt", "lu", "hu", "mt", "nl", "at", "pl", "pt", "ro", "si", "sk", "fi", "se", "no", "is", "ch", "uk", "gb"];
-          return euCountries.some(code => lang.endsWith(`-${code}`) || lang === code);
-        } catch (e) {
-          return false;
-        }
-      })();
+      // Heuristic to set PDF page size: A4 vs Letter. This is a layout choice only, not a formal EU regulatory determination.
+      const isEU = detectIsEU();
 
       const doc = React.createElement(CrcFullPdfDocument, {
         data: response.payload,
@@ -336,7 +352,7 @@ export default function CRCDashboardPage() {
       console.error("Full PDF export failed:", err);
       if (err?.status === 409) {
         setIsLocked(true);
-        showToast.error("Preparing your dashboard data...");
+        showToast.info("Assessment updates are currently in progress. Export is temporarily locked. Please try again shortly.");
         setTimeout(() => setIsLocked(false), 5000);
       } else {
         showToast.error(err?.message || "Failed to generate Full PDF. Please try again.");
@@ -364,17 +380,8 @@ export default function CRCDashboardPage() {
       const { pdf } = await import("@react-pdf/renderer");
       const { CrcSummaryPdfDocument } = await import("@/lib/pdfExport/CrcSummaryPdfDocument");
 
-      const isEU = (() => {
-        try {
-          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          if (tz && tz.startsWith("Europe")) return true;
-          const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
-          const euCountries = ["be", "bg", "cz", "dk", "de", "ee", "ie", "el", "es", "fr", "hr", "it", "cy", "lv", "lt", "lu", "hu", "mt", "nl", "at", "pl", "pt", "ro", "si", "sk", "fi", "se", "no", "is", "ch", "uk", "gb"];
-          return euCountries.some(code => lang.endsWith(`-${code}`) || lang === code);
-        } catch (e) {
-          return false;
-        }
-      })();
+      // Heuristic to set PDF page size: A4 vs Letter. This is a layout choice only, not a formal EU regulatory determination.
+      const isEU = detectIsEU();
 
       const doc = React.createElement(CrcSummaryPdfDocument, {
         data: response.payload,
@@ -394,7 +401,7 @@ export default function CRCDashboardPage() {
       console.error("Summary PDF export failed:", err);
       if (err?.status === 409) {
         setIsLocked(true);
-        showToast.error("Preparing your dashboard data...");
+        showToast.info("Assessment updates are currently in progress. Export is temporarily locked. Please try again shortly.");
         setTimeout(() => setIsLocked(false), 5000);
       } else {
         showToast.error(err?.message || "Failed to generate Summary PDF. Please try again.");
