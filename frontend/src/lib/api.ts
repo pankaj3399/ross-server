@@ -1,4 +1,5 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+import { FullPdfData, SummaryPdfData } from "./pdfExport/pdfExportTypes";
 
 export interface User {
   id: string;
@@ -1673,6 +1674,18 @@ class ApiService {
 
   async getCRCResults(projectId: string): Promise<{ success: boolean; results: CRCResults; complete: boolean }> {
     return this.request<{ success: boolean; results: CRCResults; complete: boolean }>(`/crc/results/${projectId}`);
+  }
+
+  async getFullPdfData(projectId: string): Promise<{ success: boolean; anyFailed: boolean; payload: FullPdfData }> {
+    return this.request<{ success: boolean; anyFailed: boolean; payload: FullPdfData }>(`/crc/pdf-data/${projectId}/full`, {
+      method: "POST"
+    });
+  }
+
+  async getSummaryPdfData(projectId: string): Promise<{ success: boolean; anyFailed: boolean; payload: SummaryPdfData }> {
+    return this.request<{ success: boolean; anyFailed: boolean; payload: SummaryPdfData }>(`/crc/pdf-data/${projectId}/summary`, {
+      method: "POST"
+    });
   }
 
   // CRC Risks CRUD

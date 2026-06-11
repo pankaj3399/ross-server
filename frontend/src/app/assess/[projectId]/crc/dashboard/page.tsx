@@ -28,6 +28,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { showToast } from "@/lib/toast";
 
 // --- Helpers ---
 
@@ -249,7 +251,9 @@ export default function CRCDashboardPage() {
   const [complete, setComplete] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingFull, setIsExportingFull] = useState(false);
+  const [isExportingSummary, setIsExportingSummary] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     if (requireAuthLoading || contextLoading) return;
@@ -284,33 +288,121 @@ export default function CRCDashboardPage() {
     return () => { cancelled = true; };
   }, [requireAuthLoading, contextLoading, projectId, isPremium]);
 
-  const handleExportPdf = useCallback(async () => {
-    if (!results || isExporting) return;
-    setIsExporting(true);
+  const handleExportFullPdf = useCallback(async () => {
+    if (isExportingFull || isExportingSummary) return;
+    setIsExportingFull(true);
+    setIsLocked(false);
     try {
+      const response = await apiService.getFullPdfData(projectId);
+      if (!response.success) {
+        throw new Error("Failed to load PDF data");
+      }
+
+      if (response.anyFailed) {
+        showToast.error("One or more narrative sections could not be generated. The PDF was produced with raw data in those sections.");
+      }
+
       const React = await import("react");
       const { pdf } = await import("@react-pdf/renderer");
-      const { CrcDashboardPdfDocument } = await import("@/lib/pdfExport/CrcDashboardPdfDocument");
+      const { CrcFullPdfDocument } = await import("@/lib/pdfExport/CrcFullPdfDocument");
 
-      const doc = React.createElement(CrcDashboardPdfDocument, {
-        results,
-        projectName: projectName || "Untitled Project",
-        complete,
+      const isEU = (() => {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (tz && tz.startsWith("Europe")) return true;
+          const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
+          const euCountries = ["be", "bg", "cz", "dk", "de", "ee", "ie", "el", "es", "fr", "hr", "it", "cy", "lv", "lt", "lu", "hu", "mt", "nl", "at", "pl", "pt", "ro", "si", "sk", "fi", "se", "no", "is", "ch", "uk", "gb"];
+          return euCountries.some(code => lang.endsWith(`-${code}`) || lang === code);
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      const doc = React.createElement(CrcFullPdfDocument, {
+        data: response.payload,
+        isEU,
       }) as any;
 
       const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `CRC-Dashboard-${projectName || "Report"}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const sanitizedProjectName = (projectName || "Report").replace(/[^a-z0-9]/gi, "-");
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      link.download = `CRC-Full-Report-${sanitizedProjectName}-${formattedDate}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("PDF export failed:", err);
+    } catch (err: any) {
+      console.error("Full PDF export failed:", err);
+      if (err?.status === 409) {
+        setIsLocked(true);
+        showToast.error("Preparing your dashboard data...");
+        setTimeout(() => setIsLocked(false), 5000);
+      } else {
+        showToast.error(err?.message || "Failed to generate Full PDF. Please try again.");
+      }
     } finally {
-      setIsExporting(false);
+      setIsExportingFull(false);
     }
-  }, [results, projectName, complete, isExporting]);
+  }, [projectName, isExportingFull, isExportingSummary, projectId]);
+
+  const handleExportSummaryPdf = useCallback(async () => {
+    if (isExportingFull || isExportingSummary) return;
+    setIsExportingSummary(true);
+    setIsLocked(false);
+    try {
+      const response = await apiService.getSummaryPdfData(projectId);
+      if (!response.success) {
+        throw new Error("Failed to load PDF data");
+      }
+
+      if (response.anyFailed) {
+        showToast.error("One or more narrative sections could not be generated. The PDF was produced with raw data in those sections.");
+      }
+
+      const React = await import("react");
+      const { pdf } = await import("@react-pdf/renderer");
+      const { CrcSummaryPdfDocument } = await import("@/lib/pdfExport/CrcSummaryPdfDocument");
+
+      const isEU = (() => {
+        try {
+          const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (tz && tz.startsWith("Europe")) return true;
+          const lang = typeof navigator !== "undefined" ? navigator.language.toLowerCase() : "";
+          const euCountries = ["be", "bg", "cz", "dk", "de", "ee", "ie", "el", "es", "fr", "hr", "it", "cy", "lv", "lt", "lu", "hu", "mt", "nl", "at", "pl", "pt", "ro", "si", "sk", "fi", "se", "no", "is", "ch", "uk", "gb"];
+          return euCountries.some(code => lang.endsWith(`-${code}`) || lang === code);
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      const doc = React.createElement(CrcSummaryPdfDocument, {
+        data: response.payload,
+        isEU,
+      }) as any;
+
+      const blob = await pdf(doc).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const sanitizedProjectName = (projectName || "Report").replace(/[^a-z0-9]/gi, "-");
+      const formattedDate = new Date().toISOString().slice(0, 10);
+      link.download = `CRC-Summary-${sanitizedProjectName}-${formattedDate}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error("Summary PDF export failed:", err);
+      if (err?.status === 409) {
+        setIsLocked(true);
+        showToast.error("Preparing your dashboard data...");
+        setTimeout(() => setIsLocked(false), 5000);
+      } else {
+        showToast.error(err?.message || "Failed to generate Summary PDF. Please try again.");
+      }
+    } finally {
+      setIsExportingSummary(false);
+    }
+  }, [projectName, isExportingFull, isExportingSummary, projectId]);
 
   // --- Premium Gate ---
   if (!authLoading && !contextLoading && user && !isPremium) {
@@ -397,20 +489,74 @@ export default function CRCDashboardPage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <CountdownTimer />
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportPdf}
-                disabled={isExporting || !hasResponses}
-                className="gap-2"
-              >
-                {isExporting ? (
-                  <IconLoader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <IconDownload className="w-4 h-4" />
-                )}
-                {isExporting ? "Exporting..." : "Export PDF"}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportFullPdf}
+                        disabled={isExportingFull || isExportingSummary || isLocked || !hasResponses}
+                        className="gap-2"
+                      >
+                        {isExportingFull ? (
+                          <IconLoader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <IconDownload className="w-4 h-4" />
+                        )}
+                        {isLocked
+                          ? "Preparing..."
+                          : isExportingFull
+                          ? "Exporting..."
+                          : "Download Full PDF"}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-xs">
+                      {isLocked
+                        ? "Preparing your dashboard data..."
+                        : "Complete dashboard export with all categories, controls, and section narratives. Use for internal record-keeping or detailed audits. Typically 8 to 20 pages depending on project progress."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportSummaryPdf}
+                        disabled={isExportingFull || isExportingSummary || isLocked || !hasResponses}
+                        className="gap-2"
+                      >
+                        {isExportingSummary ? (
+                          <IconLoader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <IconDownload className="w-4 h-4" />
+                        )}
+                        {isLocked
+                          ? "Preparing..."
+                          : isExportingSummary
+                          ? "Exporting..."
+                          : "Download Summary PDF"}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs text-xs">
+                      {isLocked
+                        ? "Preparing your dashboard data..."
+                        : "Two-page executive summary for board meetings, customer assurance, and high-level reviews. Use when you need a short, branded artifact."}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <Button size="sm" asChild className="gap-2">
                 <Link href={`/assess/${projectId}/crc`}>
                   {hasResponses ? "Continue" : "Start"} Assessment
