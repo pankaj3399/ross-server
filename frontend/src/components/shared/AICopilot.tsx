@@ -23,11 +23,18 @@ interface ChatMessage {
 
 // ─── Starter Prompts ────────────────────────────────────────────────────────
 
-const STARTER_PROMPTS = [
+const GENERIC_STARTER_PROMPTS = [
   "What does this control mean for my company?",
   "We have SOC 2 — what do I still need?",
   "Help me write my implementation notes",
   "How do I run a vulnerability scan?",
+];
+
+const PROJECT_STARTER_PROMPTS = [
+  "What is my current CRC readiness?",
+  "What are my open critical and high risks?",
+  "What components do I have in my inventory?",
+  "We have SOC 2 — what do I still need?",
 ];
 
 // ─── Simple Markdown Renderer ───────────────────────────────────────────────
@@ -100,6 +107,16 @@ export default function AICopilot() {
     return { controlId };
   }, [pathname, searchParams]);
 
+  const projectContext = useMemo(() => {
+    // Extract project UUID from URL path if present (e.g. /assess/[projectId]/...)
+    const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
+    return match ? { projectId: match[1] } : null;
+  }, [pathname]);
+
+  const starterPrompts = useMemo(() => {
+    return projectContext ? PROJECT_STARTER_PROMPTS : GENERIC_STARTER_PROMPTS;
+  }, [projectContext]);
+
   // ─── Auto-scroll ────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -162,6 +179,7 @@ export default function AICopilot() {
         const response = await apiService.sendChatMessage({
           messages: apiMessages,
           controlId: crcContext?.controlId || undefined,
+          projectId: projectContext?.projectId || undefined,
         });
 
         const assistantMessage: ChatMessage = {
@@ -190,7 +208,7 @@ export default function AICopilot() {
         setIsLoading(false);
       }
     },
-    [messages, isLoading, crcContext, isOpen]
+    [messages, isLoading, crcContext, projectContext, isOpen]
   );
 
   // ─── Handle Submit ────────────────────────────────────────────────────
@@ -239,7 +257,7 @@ export default function AICopilot() {
         type="button"
         onClick={togglePanel}
         className={`copilot-trigger ${showIntroPulse ? "intro-pulse" : ""}`}
-        aria-label={isOpen ? "Close AI Copilot" : "Open AI Copilot"}
+        aria-label={isOpen ? "Close Mira" : "Open Mira"}
         id="ai-copilot-trigger"
       >
         {isOpen ? (
@@ -268,14 +286,24 @@ export default function AICopilot() {
                   <IconRobot size={18} strokeWidth={2} />
                 </div>
                 <div>
-                  <div className="copilot-header-title">AI Copilot</div>
+                  <div className="copilot-header-title">Mira</div>
                   <div className="copilot-header-subtitle">
                     {crcContext ? (
                       <span className="copilot-context-badge">
                         📍 Control context active
                       </span>
+                    ) : projectContext ? (
+                      <span
+                        className="copilot-context-badge"
+                        style={{
+                          backgroundColor: "rgba(99, 102, 241, 0.15)",
+                          color: "#818cf8",
+                        }}
+                      >
+                        📍 Project context active
+                      </span>
                     ) : (
-                      "AI governance expert"
+                      "AI governance assistant"
                     )}
                   </div>
                 </div>
@@ -284,7 +312,7 @@ export default function AICopilot() {
                 type="button"
                 className="copilot-close-btn"
                 onClick={togglePanel}
-                aria-label="Close AI Copilot"
+                aria-label="Close Mira"
               >
                 <IconX size={16} />
               </button>
@@ -297,10 +325,11 @@ export default function AICopilot() {
                   👋 How can I help?
                 </div>
                 <div className="copilot-starters-sub">
-                  Ask me about AI compliance, CRC controls, or the MATUR.ai
-                  platform.
+                  {projectContext
+                    ? "Ask me about AI compliance, your CRC progress, your Risk Register, and more."
+                    : "Ask me about AI compliance, CRC controls, or the MATUR.ai platform."}
                 </div>
-                {STARTER_PROMPTS.map((prompt) => (
+                {starterPrompts.map((prompt) => (
                   <button
                     key={prompt}
                     type="button"
@@ -366,7 +395,7 @@ export default function AICopilot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about AI compliance..."
+                placeholder="Ask Mira about AI compliance..."
                 rows={1}
                 maxLength={2000}
                 disabled={isLoading}

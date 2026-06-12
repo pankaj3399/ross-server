@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { z } from "zod";
 import { handleChatMessage, ChatMessage } from "../services/chatService";
 import { isAnthropicConfigured } from "../services/anthropicClient";
+import { getMembership } from "../services/projectMembershipService";
 
 const router = Router();
 
@@ -15,6 +16,7 @@ const chatMessageSchema = z.object({
 const chatRequestSchema = z.object({
   messages: z.array(chatMessageSchema).min(1).max(40),
   controlId: z.string().uuid().optional(),
+  projectId: z.string().uuid().optional(),
 });
 
 // ─── Rate Limiting ──────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
-    const { messages, controlId } = parsed.data;
+    const { messages, controlId, projectId } = parsed.data;
 
     // Ensure the last message is from the user
     const lastMessage = messages[messages.length - 1];
@@ -93,10 +95,22 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
+    // Verify project access if projectId is provided
+    let verifiedProjectId: string | undefined = undefined;
+    if (projectId) {
+      const membership = await getMembership(projectId, user.id);
+      if (membership) {
+        verifiedProjectId = projectId;
+      } else {
+        console.warn(`[Chat] User ${user.id} requested chat with projectId ${projectId} but is not a member.`);
+      }
+    }
+
     // Call the chat service
     const reply = await handleChatMessage(
       messages as ChatMessage[],
-      controlId
+      controlId,
+      verifiedProjectId
     );
 
     res.json({ reply });

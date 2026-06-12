@@ -1922,6 +1922,7 @@ class ApiService {
   async sendChatMessage(data: {
     messages: { role: "user" | "assistant"; content: string }[];
     controlId?: string;
+    projectId?: string;
   }): Promise<{ reply: string }> {
     return this.request<{ reply: string }>("/chat", {
       method: "POST",
