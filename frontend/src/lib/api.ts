@@ -434,6 +434,24 @@ export interface CRCControlVersion {
   created_at: string;
 }
 
+export interface QuickWinItem {
+  controlId: string;
+  controlShortId: string;
+  controlTitle: string;
+  effortBadge: string;
+  effortTier: 'Low' | 'Medium' | 'High';
+  whyItMatters: string;
+  flag: 'MANDATORY' | 'RECOMMENDED';
+  isDocumentationQuickWin: boolean;
+  categoryName: string;
+}
+
+export interface QuickWinsResponse {
+  success: boolean;
+  wizardRequired: boolean;
+  items: QuickWinItem[];
+}
+
 export type InsightsJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 class ApiService {
@@ -1686,6 +1704,10 @@ class ApiService {
     return this.request<{ success: boolean; anyFailed: boolean; payload: SummaryPdfData }>(`/crc/pdf-data/${projectId}/summary`, {
       method: "POST"
     });
+  }
+
+  async getQuickWins(projectId: string): Promise<QuickWinsResponse> {
+    return this.request<QuickWinsResponse>(`/crc/quick-wins/${projectId}`);
   }
 
   // CRC Risks CRUD

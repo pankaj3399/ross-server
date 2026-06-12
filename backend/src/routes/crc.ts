@@ -2337,6 +2337,198 @@ router.delete("/templates/:controlId/template", authenticateToken, requireRole([
   }
 });
 
+// GET /crc/quick-wins/:projectId - Recommends 3-5 specific controls to complete this week
+router.get("/quick-wins/:projectId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
 
+    // Verify user is a member of the project
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res
+        .status(403)
+        .json({ success: false, error: "Project not found or access denied" });
+    }
+
+    // Check if wizard is applied
+    const wizardRes = await pool.query(
+      `SELECT control_flags, applied_at 
+       FROM wizard_engine_outputs 
+       WHERE project_id = $1`,
+      [projectId]
+    );
+
+    if (wizardRes.rows.length === 0 || !wizardRes.rows[0].applied_at) {
+      return res.json({ success: true, wizardRequired: true, items: [] });
+    }
+
+    const controlFlags = wizardRes.rows[0].control_flags || {};
+
+    // Get all published controls, categories and responses
+    const controlsRes = await pool.query(
+      `SELECT c.id AS control_uuid,
+              c.control_id AS control_short_id,
+              c.control_title,
+              c.control_objective,
+              c.expected_timeline,
+              c.compliance_mapping,
+              c.category_id,
+              cat.name AS category_name,
+              r.value AS response_value,
+              r.evidence_status
+       FROM crc_controls c
+       LEFT JOIN crc_categories cat ON cat.id = c.category_id
+       LEFT JOIN crc_assessment_responses r
+              ON r.control_id = c.id AND r.project_id = $1
+       WHERE c.status = 'Published'`,
+      [projectId]
+    );
+
+    // Get overall CRC results to get category readiness scores
+    const crcResults = await computeCrcResults(projectId);
+    const categoryReadiness = new Map<number | null, number>();
+    for (const cat of crcResults.categories) {
+      categoryReadiness.set(cat.categoryId, cat.percentage ?? 0);
+    }
+
+    // Helper to parse effort
+    const parseEffort = (expectedTimeline: string | null): { tier: "Low" | "Medium" | "High"; minutes: number } => {
+      if (!expectedTimeline) {
+        return { tier: "Medium", minutes: 60 };
+      }
+      const clean = expectedTimeline.toLowerCase().trim();
+      const minMatch = clean.match(/^(\d+(?:\.\d+)?)\s*m/);
+      const hrMatch = clean.match(/^(\d+(?:\.\d+)?)\s*h/);
+      const dayMatch = clean.match(/^(\d+(?:\.\d+)?)\s*d/);
+
+      let minutes = 60;
+      if (minMatch) {
+        minutes = parseFloat(minMatch[1]);
+      } else if (hrMatch) {
+        minutes = parseFloat(hrMatch[1]) * 60;
+      } else if (dayMatch) {
+        minutes = parseFloat(dayMatch[1]) * 24 * 60;
+      } else {
+        const numMatch = clean.match(/^(\d+(?:\.\d+)?)$/);
+        if (numMatch) {
+          minutes = parseFloat(numMatch[1]);
+        }
+      }
+
+      let tier: "Low" | "Medium" | "High" = "Medium";
+      if (minutes <= 30) {
+        tier = "Low";
+      } else if (minutes > 120) {
+        tier = "High";
+      }
+      return { tier, minutes };
+    };
+
+    const items: any[] = [];
+
+    for (const row of controlsRes.rows) {
+      const shortId = row.control_short_id;
+      const flagInfo = controlFlags[shortId];
+      if (!flagInfo || (flagInfo.flag !== "MANDATORY" && flagInfo.flag !== "RECOMMENDED")) {
+        continue;
+      }
+
+      const val = row.response_value === null ? null : parseFloat(row.response_value);
+      const isDocQuickWin = val === 1 && row.evidence_status === "No Evidence";
+      const isIncomplete = val === null || val === 0 || val === 3;
+
+      if (!isIncomplete && !isDocQuickWin) {
+        continue;
+      }
+
+      // Parse effort
+      const effort = parseEffort(row.expected_timeline);
+
+      // Parse compliance mapping to count frameworks
+      let mapping: any = {};
+      if (row.compliance_mapping) {
+        try {
+          mapping = typeof row.compliance_mapping === "string" ? JSON.parse(row.compliance_mapping) : row.compliance_mapping;
+        } catch (e) {
+          mapping = {};
+        }
+      }
+      let impactCount = 0;
+      if (mapping.eu_ai_act && Array.isArray(mapping.eu_ai_act) && mapping.eu_ai_act.length > 0) impactCount++;
+      if (mapping.nist_ai_rmf && Array.isArray(mapping.nist_ai_rmf) && mapping.nist_ai_rmf.length > 0) impactCount++;
+      if (mapping.iso_42001 && Array.isArray(mapping.iso_42001) && mapping.iso_42001.length > 0) impactCount++;
+
+      // Category readiness
+      const readiness = categoryReadiness.get(row.category_id) ?? 0;
+
+      items.push({
+        controlId: row.control_uuid,
+        controlShortId: shortId,
+        controlTitle: row.control_title,
+        effortBadge: row.expected_timeline || "Medium effort",
+        effortTier: effort.tier,
+        whyItMatters: row.control_objective || "",
+        flag: flagInfo.flag,
+        isDocumentationQuickWin: isDocQuickWin,
+        categoryName: row.category_name || "Uncategorized",
+        // Helper sort keys
+        impactCount,
+        categoryReadiness: readiness,
+      });
+    }
+
+    // Sort items
+    const tierOrder = { Low: 1, Medium: 2, High: 3 };
+    items.sort((a, b) => {
+      // 1. Effort tier (Low < Medium < High)
+      const effortA = tierOrder[a.effortTier as keyof typeof tierOrder];
+      const effortB = tierOrder[b.effortTier as keyof typeof tierOrder];
+      if (effortA !== effortB) {
+        return effortA - effortB;
+      }
+
+      // 2. Doc quick win boost (true comes first)
+      if (a.isDocumentationQuickWin !== b.isDocumentationQuickWin) {
+        return a.isDocumentationQuickWin ? -1 : 1;
+      }
+
+      // 3. Framework impact count (higher impactCount first)
+      if (a.impactCount !== b.impactCount) {
+        return b.impactCount - a.impactCount;
+      }
+
+      // 4. Category readiness (lower readiness first)
+      if (a.categoryReadiness !== b.categoryReadiness) {
+        return a.categoryReadiness - b.categoryReadiness;
+      }
+
+      // 5. Fallback deterministic sort by short ID
+      return a.controlShortId.localeCompare(b.controlShortId);
+    });
+
+    // Remove sorting helpers and take top 5
+    const top5 = items.slice(0, 5).map(item => ({
+      controlId: item.controlId,
+      controlShortId: item.controlShortId,
+      controlTitle: item.controlTitle,
+      effortBadge: item.effortBadge,
+      effortTier: item.effortTier,
+      whyItMatters: item.whyItMatters,
+      flag: item.flag,
+      isDocumentationQuickWin: item.isDocumentationQuickWin,
+      categoryName: item.categoryName,
+    }));
+
+    res.json({
+      success: true,
+      wizardRequired: false,
+      items: top5,
+    });
+  } catch (error) {
+    console.error("Error fetching CRC quick wins:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch quick wins" });
+  }
+});
 
 export default router;

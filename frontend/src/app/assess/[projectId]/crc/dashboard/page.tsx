@@ -30,6 +30,7 @@ import { AssessmentSkeleton } from "@/components/Skeleton";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { showToast } from "@/lib/toast";
+import { QuickWinsWidget } from "@/components/features/governance/QuickWinsWidget";
 
 // --- Helpers ---
 
@@ -593,6 +594,9 @@ export default function CRCDashboardPage() {
             </div>
           </motion.div>
         )}
+
+        {/* Quick Wins Widget */}
+        <QuickWinsWidget projectId={projectId} />
 
         {/* Empty State */}
         {!hasResponses && (
