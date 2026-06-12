@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
+import { generateFullPdfData, generateSummaryPdfData } from "../services/pdfExportService";
 import { recordEvent } from "../services/auditLogService";
 import fs from "fs";
 import path from "path";
@@ -1249,6 +1250,108 @@ router.get("/results/:projectId", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching CRC results:", error);
     res.status(500).json({ success: false, error: "Failed to fetch CRC results" });
+  }
+});
+
+// POST /crc/pdf-data/:projectId/full - Aggregate data + narratives for Full PDF
+router.post("/pdf-data/:projectId/full", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify project membership
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    // Check for in-flight wizard transactions using advisory lock check
+    const client = await pool.connect();
+    let locked = false;
+    try {
+      await client.query("BEGIN");
+      const lockCheck = await client.query(
+        "SELECT pg_try_advisory_xact_lock(hashtext($1)) as locked",
+        [projectId]
+      );
+      locked = !lockCheck.rows[0]?.locked;
+      await client.query("COMMIT");
+    } catch (lockError) {
+      await client.query("ROLLBACK");
+      console.error("Lock check error:", lockError);
+    } finally {
+      client.release();
+    }
+
+    if (locked) {
+      return res.status(409).json({
+        success: false,
+        error: "LOCKED",
+        message: "Preparing your dashboard data..."
+      });
+    }
+
+    const { success, anyFailed, payload } = await generateFullPdfData(projectId);
+    
+    res.json({
+      success,
+      anyFailed,
+      payload
+    });
+  } catch (error) {
+    console.error("Error generating Full PDF data:", error);
+    res.status(500).json({ success: false, error: "Failed to generate Full PDF data" });
+  }
+});
+
+// POST /crc/pdf-data/:projectId/summary - Aggregate data + narratives for Summary PDF
+router.post("/pdf-data/:projectId/summary", authenticateToken, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = (req as any).user.id;
+
+    // Verify project membership
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
+      return res.status(403).json({ success: false, error: "Project not found or access denied" });
+    }
+
+    // Check for in-flight wizard transactions using advisory lock check
+    const client = await pool.connect();
+    let locked = false;
+    try {
+      await client.query("BEGIN");
+      const lockCheck = await client.query(
+        "SELECT pg_try_advisory_xact_lock(hashtext($1)) as locked",
+        [projectId]
+      );
+      locked = !lockCheck.rows[0]?.locked;
+      await client.query("COMMIT");
+    } catch (lockError) {
+      await client.query("ROLLBACK");
+      console.error("Lock check error:", lockError);
+    } finally {
+      client.release();
+    }
+
+    if (locked) {
+      return res.status(409).json({
+        success: false,
+        error: "LOCKED",
+        message: "Preparing your dashboard data..."
+      });
+    }
+
+    const { success, anyFailed, payload } = await generateSummaryPdfData(projectId);
+    
+    res.json({
+      success,
+      anyFailed,
+      payload
+    });
+  } catch (error) {
+    console.error("Error generating Summary PDF data:", error);
+    res.status(500).json({ success: false, error: "Failed to generate Summary PDF data" });
   }
 });
 
