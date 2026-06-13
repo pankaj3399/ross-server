@@ -10,7 +10,6 @@ import {
   IconLoader2,
   IconArrowRight,
   IconDownload,
-  IconClock,
   IconCheck,
   IconX,
   IconQuestionMark,
@@ -76,74 +75,7 @@ function detectIsEU(): boolean {
   }
 }
 
-// EU AI Act deadline: August 2, 2026 (prohibition provisions fully apply)
-const EU_AI_ACT_DEADLINE = new Date("2026-08-02T00:00:00Z");
-
-function useCountdown(target: Date) {
-  const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const diff = Math.max(0, target.getTime() - now.getTime());
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  const seconds = Math.floor((diff / 1000) % 60);
-  const isPast = diff === 0;
-
-  return { days, hours, minutes, seconds, isPast };
-}
-
 // --- Sub-Components ---
-
-function CountdownTimer() {
-  const { days, hours, minutes, seconds, isPast } = useCountdown(EU_AI_ACT_DEADLINE);
-
-  if (isPast) {
-    return (
-      <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
-        <IconAlertCircle className="w-4 h-4 text-red-500" />
-        <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-          EU AI Act deadline has passed
-        </span>
-      </div>
-    );
-  }
-
-  const units = [
-    { value: days, label: "Days" },
-    { value: hours, label: "Hrs" },
-    { value: minutes, label: "Min" },
-    { value: seconds, label: "Sec" },
-  ];
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <IconClock className="w-4 h-4" />
-        <span className="text-xs font-medium uppercase tracking-wider">EU AI Act</span>
-      </div>
-      <div className="flex gap-1.5">
-        {units.map((u) => (
-          <div
-            key={u.label}
-            className="flex flex-col items-center min-w-[42px] px-2 py-1.5 rounded-lg bg-primary/5 border border-primary/10"
-          >
-            <span className="text-base font-bold tabular-nums text-foreground leading-none">
-              {String(u.value).padStart(2, "0")}
-            </span>
-            <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">
-              {u.label}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const getProgressColor = (percent: number | null): string => {
   if (percent === null) return "#94a3b8"; // slate-400
@@ -495,7 +427,6 @@ export default function CRCDashboardPage() {
             )}
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <CountdownTimer />
             <div className="flex gap-2">
               <TooltipProvider>
                 <Tooltip>
