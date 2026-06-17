@@ -157,7 +157,7 @@ export default function PathSelectionModal({
           </div>
 
           {/* Two-Column Comparison */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-0 px-6 pb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 px-6 pb-6">
             {/* Left Column — AIMA Free (narrower, 2/5) */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
