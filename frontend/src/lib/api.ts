@@ -1928,6 +1928,13 @@ class ApiService {
     return this.request("/subscriptions/trial-summary");
   }
 
+  public async recordPathChoice(choice: "aima" | "premium"): Promise<{ success: boolean }> {
+    return this.request("/subscriptions/record-path-choice", {
+      method: "POST",
+      body: JSON.stringify({ choice }),
+    });
+  }
+
   // ==========================================
   // AI COPILOT CHAT
   // ==========================================

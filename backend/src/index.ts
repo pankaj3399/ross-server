@@ -35,6 +35,7 @@ import {
   vendorReassessmentCron,
   notificationQueueProcessor,
   riskTargetDateChecker,
+  premiumFollowUpEmail,
 } from "./inngest/functions";
 
 dotenv.config();
@@ -110,6 +111,7 @@ app.use(
       vendorReassessmentCron,
       notificationQueueProcessor,
       riskTargetDateChecker,
+      premiumFollowUpEmail,
     ],
     signingKey: process.env.INNGEST_SIGNING_KEY,
   })

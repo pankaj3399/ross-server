@@ -970,3 +970,53 @@ export const riskTargetDateChecker = inngest.createFunction(
     return { triggeredCount: events.length };
   }
 );
+
+export const premiumFollowUpEmail = inngest.createFunction(
+  { id: "premium-follow-up-email", name: "Premium Follow-Up Email" },
+  { event: "app/user.chose-free-path" },
+  async ({ event, step }) => {
+    const { userId, email, name } = event.data;
+
+    // Wait 2 days before sending follow-up
+    await step.sleep("wait-2-days", "2d");
+
+    // Check if user is still eligible (still on free plan, hasn't started trial)
+    const isEligible = await step.run("check-eligibility", async () => {
+      const result = await pool.query(
+        `SELECT subscription_status, trial_used, premium_followup_email_sent 
+         FROM users WHERE id = $1`,
+        [userId]
+      );
+
+      if (result.rows.length === 0) return false;
+
+      const user = result.rows[0];
+      return (
+        user.subscription_status === "free" &&
+        !user.trial_used &&
+        !user.premium_followup_email_sent
+      );
+    });
+
+    if (!isEligible) {
+      return { skipped: true, reason: "User no longer eligible" };
+    }
+
+    // Send the follow-up email
+    const emailSent = await step.run("send-follow-up-email", async () => {
+      const success = await emailService.sendPremiumFollowUpEmail(email, name);
+
+      if (success) {
+        // Mark email as sent to avoid duplicates
+        await pool.query(
+          `UPDATE users SET premium_followup_email_sent = true, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+          [userId]
+        );
+      }
+
+      return success;
+    });
+
+    return { emailSent };
+  }
+);
