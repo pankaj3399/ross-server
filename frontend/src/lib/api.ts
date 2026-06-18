@@ -15,6 +15,7 @@ export interface User {
   trial_started_at?: string | null;
   trial_ends_at?: string | null;
   trial_used?: boolean;
+  free_path_chosen_at?: string | null;
 }
 
 export interface PreviewData {

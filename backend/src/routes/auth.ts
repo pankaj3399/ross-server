@@ -164,7 +164,7 @@ router.post("/register", async (req, res) => {
 
     // Create user
     const result = await pool.query(
-      "INSERT INTO users (email, password_hash, name, last_name, organization, email_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used",
+      "INSERT INTO users (email, password_hash, name, last_name, organization, email_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at",
       [email, passwordHash, name, lastName, organization || null, false],
     );
 
@@ -194,6 +194,7 @@ router.post("/register", async (req, res) => {
         trial_started_at: user.trial_started_at,
         trial_ends_at: user.trial_ends_at,
         trial_used: user.trial_used,
+        free_path_chosen_at: user.free_path_chosen_at,
       },
       message:
         "Registration successful. Please check your email for the verification code.",
@@ -226,7 +227,7 @@ router.post("/verify-email", async (req, res) => {
 
     // Get updated user info
     const userResult = await pool.query(
-      "SELECT id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
       [result.userId],
     );
 
@@ -255,6 +256,7 @@ router.post("/verify-email", async (req, res) => {
         trial_started_at: user.trial_started_at,
         trial_ends_at: user.trial_ends_at,
         trial_used: user.trial_used,
+        free_path_chosen_at: user.free_path_chosen_at,
       },
       token,
       message: "Email verified successfully",
@@ -343,7 +345,7 @@ router.post("/login", async (req, res) => {
 
     // Get user
     const result = await pool.query(
-      "SELECT id, email, password_hash, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used FROM users WHERE email = $1",
+      "SELECT id, email, password_hash, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE email = $1",
       [email],
     );
 
@@ -412,6 +414,7 @@ router.post("/login", async (req, res) => {
         trial_started_at: user.trial_started_at,
         trial_ends_at: user.trial_ends_at,
         trial_used: user.trial_used,
+        free_path_chosen_at: user.free_path_chosen_at,
       },
       token,
     });
@@ -581,7 +584,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
 
     // Get current user data (widen SELECT to include all fields needed for response)
     const currentUserResult = await pool.query(
-      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
       [userId],
     );
 
@@ -649,7 +652,7 @@ router.put("/update-profile", authenticateToken, async (req, res) => {
 
     // Execute update
     values.push(userId);
-    const updateQuery = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used`;
+    const updateQuery = `UPDATE users SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at`;
 
     const result = await pool.query(updateQuery, values);
 
@@ -849,7 +852,7 @@ router.get("/me", authenticateToken, async (req, res) => {
 
     // Get updated user info
     const result = await pool.query(
-      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, updated_at, trial_started_at, trial_ends_at, trial_used FROM users WHERE id = $1",
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, updated_at, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
       [userId],
     );
 
@@ -1122,7 +1125,7 @@ router.post("/invitations/:token/signup", async (req, res) => {
 
       // Create user with default free subscription
       const result = await client.query(
-        "INSERT INTO users (email, password_hash, name, last_name, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used",
+        "INSERT INTO users (email, password_hash, name, last_name, email_verified) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, last_name, role, subscription_status, email_verified, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at",
         [email, passwordHash, name, lastName, true],
       );
 
@@ -1181,6 +1184,7 @@ router.post("/invitations/:token/signup", async (req, res) => {
           trial_started_at: user.trial_started_at,
           trial_ends_at: user.trial_ends_at,
           trial_used: user.trial_used,
+          free_path_chosen_at: user.free_path_chosen_at,
         },
         token: jwtToken,
         projectId: membership.project_id,

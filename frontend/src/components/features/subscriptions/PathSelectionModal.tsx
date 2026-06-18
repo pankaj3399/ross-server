@@ -85,13 +85,12 @@ export default function PathSelectionModal({
   const handleSelectAima = async () => {
     setIsSelectingAima(true);
     try {
-      // Record the path choice (fire-and-forget for the Inngest event)
+      // Record the path choice
       await apiService.recordPathChoice("aima");
       onSelectAima();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to record path choice:", error);
-      // Still navigate even if recording fails
-      onSelectAima();
+      showToast.error(error.message || "Failed to record path choice. Please try again.");
     } finally {
       setIsSelectingAima(false);
     }

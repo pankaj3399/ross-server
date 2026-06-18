@@ -975,36 +975,51 @@ export const premiumFollowUpEmail = inngest.createFunction(
   { id: "premium-follow-up-email", name: "Premium Follow-Up Email" },
   { event: "app/user.chose-free-path" },
   async ({ event, step }) => {
-    const { userId, email, name } = event.data;
+    const { userId } = event.data;
 
     // Wait 2 days before sending follow-up
     await step.sleep("wait-2-days", "2d");
 
-    // Check if user is still eligible (still on free plan, hasn't started trial)
-    const isEligible = await step.run("check-eligibility", async () => {
+    // Check if user is still eligible and fetch fresh data
+    const eligibility = await step.run("check-eligibility", async () => {
       const result = await pool.query(
-        `SELECT subscription_status, trial_used, premium_followup_email_sent 
-         FROM users WHERE id = $1`,
+        `SELECT u.subscription_status, u.trial_used, u.premium_followup_email_sent, u.email, u.name,
+                COALESCE(np.marketing_emails, true) AS marketing_emails
+         FROM users u
+         LEFT JOIN notification_preferences np ON np.user_id = u.id
+         WHERE u.id = $1`,
         [userId]
       );
 
-      if (result.rows.length === 0) return false;
+      if (result.rows.length === 0) return null;
 
       const user = result.rows[0];
-      return (
+      const isEligible = (
         user.subscription_status === "free" &&
         !user.trial_used &&
         !user.premium_followup_email_sent
       );
+
+      return {
+        isEligible,
+        email: user.email,
+        name: user.name,
+        marketingEmails: user.marketing_emails,
+      };
     });
 
-    if (!isEligible) {
-      return { skipped: true, reason: "User no longer eligible" };
+    if (!eligibility || !eligibility.isEligible) {
+      return { skipped: true, reason: !eligibility ? "User not found" : "User no longer eligible" };
     }
 
     // Send the follow-up email
     const emailSent = await step.run("send-follow-up-email", async () => {
-      const success = await emailService.sendPremiumFollowUpEmail(email, name);
+      // Check for marketing email consent
+      if (eligibility.marketingEmails !== true) {
+        return { skipped: true, reason: "Marketing email consent disabled" };
+      }
+
+      const success = await emailService.sendPremiumFollowUpEmail(eligibility.email, eligibility.name);
 
       if (success) {
         // Mark email as sent to avoid duplicates
@@ -1014,7 +1029,7 @@ export const premiumFollowUpEmail = inngest.createFunction(
         );
       }
 
-      return success;
+      return { success };
     });
 
     return { emailSent };

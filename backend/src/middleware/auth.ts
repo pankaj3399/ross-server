@@ -15,6 +15,7 @@ declare module "express-serve-static-core" {
       trial_started_at?: Date | null;
       trial_ends_at?: Date | null;
       trial_used?: boolean;
+      free_path_chosen_at?: Date | null;
     };
   }
 }
@@ -35,7 +36,7 @@ export const authenticateToken = async (
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
     const result = await pool.query(
-      "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id, trial_started_at, trial_ends_at, trial_used FROM users WHERE id = $1",
+      "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
       [decoded.userId],
     );
 

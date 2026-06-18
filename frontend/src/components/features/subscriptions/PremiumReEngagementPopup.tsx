@@ -67,11 +67,8 @@ export default function PremiumReEngagementPopup() {
     const sessionKey = DISMISS_SESSION_KEY(user.id);
     if (localStorage.getItem(sessionKey) === "true") return;
 
-    // Check if user has previously chosen the AIMA path (at least one project started)
-    // We use the presence of path_choice keys in localStorage as a signal
-    const hasChosenAimaPath = Object.keys(localStorage).some(
-      (key) => key.startsWith(`path_choice_${user.id}_`) && localStorage.getItem(key) === "aima"
-    );
+    // Check if user has previously chosen the AIMA path using server-side state
+    const hasChosenAimaPath = !!user.free_path_chosen_at;
 
     if (!hasChosenAimaPath) return;
 
