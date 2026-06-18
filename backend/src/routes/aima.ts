@@ -91,37 +91,37 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
   try {
     const { project_id } = req.query;
 
-    if(!project_id) {
-      return res.status(400).json({ error: "Project ID is required" });
-    }
-
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (typeof project_id !== 'string' || !uuidRegex.test(project_id)) {
-      return res.status(400).json({ error: "Invalid project ID format" });
-    }
-
     const user = req.user;
     const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
-    const projectResult = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1",
-      [project_id]
-    );
-
-    if (projectResult.rows.length === 0) {
-      return res.status(404).json({ error: "Project not found" });
-    }
-    
     let projectVersionCreatedAt: Date | null = null;
-    const projectVersionId = projectResult.rows[0].version_id;
+    let projectVersionId = null;
     
-    if (projectVersionId) {
-      const versionResult = await pool.query(
-        "SELECT created_at FROM versions WHERE id = $1",
-        [projectVersionId]
+    if (project_id) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (typeof project_id !== 'string' || !uuidRegex.test(project_id)) {
+        return res.status(400).json({ error: "Invalid project ID format" });
+      }
+
+      const projectResult = await pool.query(
+        "SELECT id, version_id FROM projects WHERE id = $1",
+        [project_id]
       );
-      if (versionResult.rows.length > 0) {
-        projectVersionCreatedAt = versionResult.rows[0].created_at;
+
+      if (projectResult.rows.length === 0) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      projectVersionId = projectResult.rows[0].version_id;
+      
+      if (projectVersionId) {
+        const versionResult = await pool.query(
+          "SELECT created_at FROM versions WHERE id = $1",
+          [projectVersionId]
+        );
+        if (versionResult.rows.length > 0) {
+          projectVersionCreatedAt = versionResult.rows[0].created_at;
+        }
       }
     }
     
