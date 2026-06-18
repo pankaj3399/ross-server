@@ -94,7 +94,6 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
     const user = req.user;
     const isPremium = user?.subscription_status === "basic_premium" || user?.subscription_status === "pro_premium";
     
-    let projectVersionCreatedAt: Date | null = null;
     let projectVersionId = null;
     
     if (project_id) {
@@ -113,16 +112,6 @@ router.get("/domains-full", authenticateToken, async (req, res) => {
       }
       
       projectVersionId = projectResult.rows[0].version_id;
-      
-      if (projectVersionId) {
-        const versionResult = await pool.query(
-          "SELECT created_at FROM versions WHERE id = $1",
-          [projectVersionId]
-        );
-        if (versionResult.rows.length > 0) {
-          projectVersionCreatedAt = versionResult.rows[0].created_at;
-        }
-      }
     }
     
     // Single optimized query with LEFT JOINs for domains, practices, and questions

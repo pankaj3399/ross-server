@@ -108,6 +108,29 @@ const DOMAIN_PRIORITY = [
 
 const normalize = (value?: string) => value?.trim().toLowerCase() || "";
 
+const sortDomainsByPriority = (domainsList: any[]) => {
+  const originalOrderMap = new Map<string, number>();
+  domainsList.forEach((domain: any, index: number) => {
+    originalOrderMap.set(domain.id, index);
+  });
+
+  const getPriority = (domain: any) => {
+    const normalizedId = normalize(domain.id);
+    const normalizedTitle = normalize(domain.title);
+    const idMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.id) === normalizedId);
+    if (idMatch !== -1) return idMatch;
+    const titleMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.title) === normalizedTitle);
+    if (titleMatch !== -1) return titleMatch;
+    return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
+  };
+
+  return [...domainsList].sort((a: any, b: any) => {
+    const priorityA = getPriority(a);
+    const priorityB = getPriority(b);
+    return priorityA !== priorityB ? priorityA - priorityB : (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
+  });
+};
+
 // ─── Route Flag Helpers ───────────────────────────────────────────────────────
 
 const getProjectIdFromPath = (pathname: string | null): string | null => {
@@ -411,26 +434,7 @@ function SidebarContentComponent() {
   // ─── Domain ordering ────────────────────────────────────────────────────────
 
   const orderedDomains = useMemo(() => {
-    const originalOrderMap = new Map<string, number>();
-    domains.forEach((domain: any, index: number) => {
-      originalOrderMap.set(domain.id, index);
-    });
-
-    const getPriority = (domain: any) => {
-      const normalizedId = normalize(domain.id);
-      const normalizedTitle = normalize(domain.title);
-      const idMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.id) === normalizedId);
-      if (idMatch !== -1) return idMatch;
-      const titleMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.title) === normalizedTitle);
-      if (titleMatch !== -1) return titleMatch;
-      return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
-    };
-
-    return [...domains].sort((a: any, b: any) => {
-      const priorityA = getPriority(a);
-      const priorityB = getPriority(b);
-      return priorityA !== priorityB ? priorityA - priorityB : (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
-    });
+    return sortDomainsByPriority(domains);
   }, [domains]);
 
   const standardDomains = useMemo(() => orderedDomains.filter((d: any) => !d.is_premium), [orderedDomains]);
@@ -514,27 +518,7 @@ function SidebarContentComponent() {
   const transformedStaticDomains = useMemo(() => {
     if (!staticDomains.length) return [];
 
-    // Sort domains by priority
-    const originalOrderMap = new Map<string, number>();
-    staticDomains.forEach((domain: any, index: number) => {
-      originalOrderMap.set(domain.id, index);
-    });
-
-    const getPriority = (domain: any) => {
-      const normalizedId = normalize(domain.id);
-      const normalizedTitle = normalize(domain.title);
-      const idMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.id) === normalizedId);
-      if (idMatch !== -1) return idMatch;
-      const titleMatch = DOMAIN_PRIORITY.findIndex((entry) => normalize(entry.title) === normalizedTitle);
-      if (titleMatch !== -1) return titleMatch;
-      return DOMAIN_PRIORITY.length + (originalOrderMap.get(domain.id) ?? 0);
-    };
-
-    const sortedDomains = [...staticDomains].sort((a: any, b: any) => {
-      const priorityA = getPriority(a);
-      const priorityB = getPriority(b);
-      return priorityA !== priorityB ? priorityA - priorityB : (originalOrderMap.get(a.id) ?? 0) - (originalOrderMap.get(b.id) ?? 0);
-    });
+    const sortedDomains = sortDomainsByPriority(staticDomains);
 
     return sortedDomains.map((domain: any) => {
       const practices = Object.entries(domain.practices || {}).map(([practiceId, practice]: [string, any]) => {
@@ -652,16 +636,12 @@ function SidebarContentComponent() {
   useEffect(() => {
     if (!isResizing) return;
 
-    console.log("AppSidebar drag listener active. Hooking up mousemove and mouseup.");
-
     const handleMouseMove = (e: MouseEvent) => {
       const newWidth = Math.max(MIN_WIDTH, Math.min(e.clientX, window.innerWidth * MAX_WIDTH_RATIO));
-      console.log(`Dragging... clientX: ${e.clientX}, proposed width: ${newWidth}`);
       setSidebarWidth(newWidth);
     };
 
     const handleMouseUp = () => {
-      console.log("Drag ended.");
       setIsResizing(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
@@ -673,7 +653,6 @@ function SidebarContentComponent() {
     document.body.style.userSelect = "none";
 
     return () => {
-      console.log("Cleaning up drag listeners.");
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
@@ -772,7 +751,7 @@ function SidebarContentComponent() {
       }
     }
     router.push(`/assess/${projectId}`);
-  }, [assessmentContext, projectId, domains, setCurrentDomainId, setCurrentPracticeId, setCurrentQuestionIndex, router]);
+  }, [assessmentContext, projectId, domains, setCurrentDomainId, setCurrentPracticeId, setCurrentQuestionIndex, router, handleProjectAction]);
 
   const handlePracticeClick = useCallback((domainId: string, practiceId: string) => {
     if (!assessmentContext || !projectId) return;
@@ -827,8 +806,6 @@ function SidebarContentComponent() {
   }, [pathname]);
 
   if (!isAuthenticated) return null;
-
-  console.log(`[AppSidebar] Rendering. state = ${state}, user = ${user?.name}, role = ${user?.role}`);
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -1517,7 +1494,6 @@ function SidebarContentComponent() {
             onMouseDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              console.log("Resize handle mouse down - starting resize");
               setIsResizing(true);
             }}
             onKeyDown={(e) => {

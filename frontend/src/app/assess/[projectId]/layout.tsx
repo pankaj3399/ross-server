@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AssessmentProvider, useAssessmentContext } from "../../../contexts/AssessmentContext";
+import { useAssessmentContext } from "../../../contexts/AssessmentContext";
 import { usePathname } from "next/navigation";
 import { Breadcrumb } from "../../../components/shared/Breadcrumb";
 import { WizardGateProvider } from "../../../components/features/wizard/WizardGateProvider";

@@ -620,7 +620,6 @@ button:enabled,
 /* Disable transitions during sidebar drag resize for smooth performance */
 .sidebar-resizing,
 .sidebar-resizing * {
-  transition-duration: 0s !important;
   transition: none !important;
 }
 

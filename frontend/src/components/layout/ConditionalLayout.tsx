@@ -50,8 +50,6 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   const projectId = getProjectIdFromPath(pathname);
 
-  console.log(`[ConditionalLayout] Rendering with sidebarWidth = ${sidebarWidth}px, isResizing = ${isResizing}`);
-
   const sidebarContent = (
     <SidebarProvider
       defaultOpen={true}
