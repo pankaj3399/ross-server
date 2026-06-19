@@ -1045,4 +1045,49 @@ router.get("/trial-summary", authenticateToken, async (req, res) => {
 });
 
 
+// Record user's path choice (AIMA free vs premium)
+router.post("/record-path-choice", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const { choice } = req.body;
+
+    if (!choice || !["aima", "premium"].includes(choice)) {
+      return res.status(400).json({ error: "Invalid choice. Must be 'aima' or 'premium'." });
+    }
+
+    if (choice === "aima") {
+      // Record when the user chose the free AIMA path (only if they haven't already)
+      const result = await pool.query(
+        `UPDATE users SET free_path_chosen_at = NOW(), updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $1 AND subscription_status = 'free' AND free_path_chosen_at IS NULL
+         RETURNING id, email, name, free_path_chosen_at`,
+        [userId]
+      );
+
+      if (result.rowCount && result.rowCount > 0) {
+        // Fire Inngest event for delayed follow-up email
+        try {
+          const { inngest } = await import("../inngest/client");
+          await inngest.send({
+            name: "app/user.chose-free-path",
+            data: {
+              userId: result.rows[0].id,
+              email: result.rows[0].email,
+              name: result.rows[0].name,
+            },
+          });
+        } catch (inngestError) {
+          // Don't fail the request if Inngest event fails
+          console.error("Failed to send Inngest event for free path choice:", inngestError);
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error recording path choice:", error);
+    res.status(500).json({ error: "Failed to record path choice" });
+  }
+});
+
 export default router;

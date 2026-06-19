@@ -524,6 +524,116 @@ class EmailService {
       "declined",
     );
   }
+  /**
+   * Send premium follow-up email to free users who chose AIMA path
+   */
+  async sendPremiumFollowUpEmail(
+    email: string,
+    userName: string,
+  ): Promise<boolean> {
+    const dashboardUrl = `${process.env.FRONTEND_URL}/dashboard`;
+    const safeName = escapeHtml(userName || "there");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Unlock the Full Potential of MATUR.ai</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">MATUR.ai</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">AI Governance Platform</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Hi ${safeName}, you're only seeing part of the picture 👀</h2>
+            <p>You started your AI Maturity Assessment (AIMA), which is a great first step! But MATUR.ai offers much more than just assessment questions.</p>
+            
+            <p style="font-weight: bold; color: #333; margin-top: 20px;">Here's what you're missing:</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #667eea;">
+              <h3 style="margin-top: 0; color: #667eea;">🛡️ Compliance Readiness Controls (CRC)</h3>
+              <p style="margin-bottom: 0; font-size: 14px;">Track your compliance across EU AI Act, NIST AI RMF, and ISO 42001 with actionable controls, evidence management, and a real-time readiness dashboard.</p>
+            </div>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #764ba2;">
+              <h3 style="margin-top: 0; color: #764ba2;">🔍 AI Vulnerability Assessment</h3>
+              <p style="margin-bottom: 0; font-size: 14px;">Automated security scanning for your AI models — identify risks before they become problems.</p>
+            </div>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #667eea;">
+              <h3 style="margin-top: 0; color: #667eea;">⚖️ Automated Bias & Fairness Testing</h3>
+              <p style="margin-bottom: 0; font-size: 14px;">Test your AI systems for bias using manual prompts, API endpoints, or dataset uploads — with detailed reports and scoring.</p>
+            </div>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #764ba2;">
+              <h3 style="margin-top: 0; color: #764ba2;">📊 Enhanced Reporting & Team Collaboration</h3>
+              <p style="margin-bottom: 0; font-size: 14px;">Export detailed PDF/Excel reports, invite team members, and manage unlimited projects.</p>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 16px; font-weight: bold; color: #333;">Try everything free for 7 days — no credit card required.</p>
+              <a href="${dashboardUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 40px; 
+                        text-decoration: none; 
+                        border-radius: 8px; 
+                        font-weight: bold; 
+                        font-size: 16px;
+                        display: inline-block;">
+                Start Your 7-Day Free Trial
+              </a>
+            </div>
+            
+            <p style="font-size: 13px; color: #888; text-align: center;">
+              AIMA is just the beginning. See what a complete AI governance platform can do for you.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+            <p>© 2024 MATUR.ai. All rights reserved.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const text = `
+      Hi ${userName || "there"},
+
+      You started your AI Maturity Assessment (AIMA) on MATUR.ai — great first step!
+
+      But AIMA is just the beginning. Here's what you're missing:
+
+      🛡️ Compliance Readiness Controls (CRC)
+      Track compliance across EU AI Act, NIST AI RMF, and ISO 42001.
+
+      🔍 AI Vulnerability Assessment  
+      Automated security scanning for your AI models.
+
+      ⚖️ Automated Bias & Fairness Testing
+      Test for bias using prompts, API endpoints, or datasets.
+
+      📊 Enhanced Reporting & Team Collaboration
+      Export reports, invite team members, manage unlimited projects.
+
+      Try everything free for 7 days — no credit card required.
+
+      Start your trial: ${dashboardUrl}
+
+      © 2024 MATUR.ai. All rights reserved.
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: "You're only seeing part of MATUR.ai — unlock the full platform",
+      html,
+      text,
+    });
+  }
 }
 
 export const emailService = new EmailService();

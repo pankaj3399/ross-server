@@ -25,6 +25,8 @@ import {
 } from "@tabler/icons-react";
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
+import PathSelectionModal from "../../components/features/subscriptions/PathSelectionModal";
+import PremiumReEngagementPopup from "../../components/features/subscriptions/PremiumReEngagementPopup";
 import TrialExpiredBanner from "../../components/features/trial/TrialExpiredBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +85,8 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const [isProjectLimitReached, setIsProjectLimitReached] = useState(false);
+  const [showPathSelection, setShowPathSelection] = useState(false);
+  const [pathSelectionProjectId, setPathSelectionProjectId] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decliningTokensRef = useRef<Set<string>>(new Set());
 
@@ -541,15 +545,28 @@ export default function DashboardPage() {
                                   </Link>
                                 </div>
                               ) : (
-                                <Link
-                                  href={`/assess/${project.id}`}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // Show path selection for free users who haven't used trial on a new project
+                                    if (
+                                      user?.subscription_status === "free" &&
+                                      !user?.trial_used &&
+                                      project.status === "not_started"
+                                    ) {
+                                      setPathSelectionProjectId(project.id);
+                                      setShowPathSelection(true);
+                                    } else {
+                                      router.push(`/assess/${project.id}`);
+                                    }
+                                  }}
                                   className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
                                 >
                                   <span>
                                     {project.status === 'in_progress' ? 'Continue' : 'Start'}
                                   </span>
                                   <IconArrowRight className="w-3.5 h-3.5" />
-                                </Link>
+                                </button>
                               )}
                             </div>
                           </div>
@@ -619,6 +636,29 @@ export default function DashboardPage() {
         title="Unlock Premium to Access Multiple Projects"
         description="Upgrade to premium to create unlimited projects and unlock many more advanced capabilities."
       />
+
+      {/* Path Selection Modal — shown when free user clicks Start on a new project */}
+      {pathSelectionProjectId && (
+        <PathSelectionModal
+          isOpen={showPathSelection}
+          projectId={pathSelectionProjectId}
+          onSelectAima={() => {
+            // Store choice in localStorage for re-engagement popup tracking
+            if (user?.id && pathSelectionProjectId) {
+              localStorage.setItem(`path_choice_${user.id}_${pathSelectionProjectId}`, "aima");
+            }
+            setShowPathSelection(false);
+            router.push(`/assess/${pathSelectionProjectId}`);
+          }}
+          onSelectPremium={() => {
+            setShowPathSelection(false);
+            router.push(`/assess/${pathSelectionProjectId}`);
+          }}
+        />
+      )}
+
+      {/* Re-engagement popup for returning free users */}
+      <PremiumReEngagementPopup />
 
       {/* Create Project Modal */}
       <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>

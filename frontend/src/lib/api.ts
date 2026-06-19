@@ -15,6 +15,7 @@ export interface User {
   trial_started_at?: string | null;
   trial_ends_at?: string | null;
   trial_used?: boolean;
+  free_path_chosen_at?: string | null;
 }
 
 export interface PreviewData {
@@ -1926,6 +1927,13 @@ class ApiService {
 
   public async getTrialSummary(): Promise<{ projectsCreated: number; assessmentsCompleted: number; teamMembersInvited: number; questionsAnswered: number }> {
     return this.request("/subscriptions/trial-summary");
+  }
+
+  public async recordPathChoice(choice: "aima" | "premium"): Promise<{ success: boolean }> {
+    return this.request("/subscriptions/record-path-choice", {
+      method: "POST",
+      body: JSON.stringify({ choice }),
+    });
   }
 
   // ==========================================
