@@ -430,7 +430,7 @@ router.post("/login", async (req, res) => {
 });
 
 // Request password reset
-router.post("/forgot-password", authenticateToken, async (req, res) => {
+router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = passwordResetRequestSchema.parse(req.body);
 
@@ -445,6 +445,7 @@ router.post("/forgot-password", authenticateToken, async (req, res) => {
       return res.json({
         message:
           "If an account with that email exists, a password reset link has been sent.",
+        emailSent: true,
       });
     }
 
@@ -454,12 +455,12 @@ router.post("/forgot-password", authenticateToken, async (req, res) => {
     const resetToken = await tokenService.createPasswordResetToken(user.id);
 
     // Send password reset email
-    const emailSent = await emailService.sendPasswordReset(email, resetToken);
+    await emailService.sendPasswordReset(email, resetToken);
 
     res.json({
       message:
         "If an account with that email exists, a password reset link has been sent.",
-      emailSent,
+      emailSent: true,
     });
   } catch (error) {
     console.error("Password reset request error:", error);
@@ -473,7 +474,7 @@ router.post("/forgot-password", authenticateToken, async (req, res) => {
 });
 
 // Reset password
-router.post("/reset-password", authenticateToken, async (req, res) => {
+router.post("/reset-password", async (req, res) => {
   try {
     const { token, password } = passwordResetSchema.parse(req.body);
 
