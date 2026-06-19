@@ -47,15 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(userData);
       } catch (error) {
         console.error("Auth initialization failed:", error);
-        // Remove token if it's an authentication or authorization error, or token is invalid
+        // Remove token if it's an authentication or authorization error
         const status = (error as any)?.status;
         const message = error instanceof Error ? error.message : "";
         if (
           status === 401 ||
           status === 403 ||
           message.includes("401") ||
-          message.includes("403") ||
-          message.toLowerCase().includes("token")
+          message.includes("403")
         ) {
           localStorage.removeItem("auth_token");
         }
