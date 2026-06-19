@@ -644,10 +644,7 @@ class ApiService {
       practices: Record<string, Practice>;
     }>;
   }> {
-    if (!projectId) {
-      throw new Error("Project ID is required");
-    }
-    const url = `/aima/domains-full?project_id=${projectId}`;
+    const url = projectId ? `/aima/domains-full?project_id=${projectId}` : `/aima/domains-full`;
     return this.request<{
       domains: Array<{
         id: string;

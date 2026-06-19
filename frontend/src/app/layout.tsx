@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/matur-logo-slogan.png" type="image/png" media="(prefers-color-scheme: light)" />
         <link rel="icon" href="/matur-dark.png" type="image/png" media="(prefers-color-scheme: dark)" />

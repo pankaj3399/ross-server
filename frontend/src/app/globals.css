@@ -100,7 +100,7 @@ button:enabled,
     @apply px-6 py-2.5 rounded-full font-medium inline-flex items-center justify-center tracking-normal transition-all duration-200;
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
   }
-  
+
   .btn-primary {
     @apply bg-primary text-primary-foreground hover:shadow-md active:shadow-sm;
     @apply hover:brightness-95;
@@ -231,14 +231,14 @@ button:enabled,
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   /* Chart Colors - Brand palette */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  
+
   /* Status Colors */
   --color-difficulty-easy: var(--difficulty-easy);
   --color-difficulty-medium: var(--difficulty-medium);
@@ -248,7 +248,7 @@ button:enabled,
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive-foreground: var(--destructive-foreground);
-  
+
   /* Custom Color Palette Overrides (Hex instead of OKLCH for PDF support) */
   --color-slate-50: #f8fafc;
   --color-slate-100: #f1f5f9;
@@ -523,14 +523,14 @@ button:enabled,
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  
+
   /* Overlay */
   --color-overlay: #000000;
 
   /* Animations */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
-  
+
   @keyframes accordion-down {
     from { height: 0; }
     to { height: var(--radix-accordion-content-height); }
@@ -552,7 +552,7 @@ button:enabled,
   /* Surfaces - Clean whites with subtle warmth */
   --background: #fafbfc;
   --foreground: #1a1f2e;
-  
+
   /* Cards & Popovers */
   --card: #ffffff;
   --card-foreground: #1a1f2e;
@@ -564,16 +564,16 @@ button:enabled,
   --primary-foreground: #ffffff;
   --primary-dark: #2b5cad;
   --primary-light: #7aabf7;
-  
+
   /* Secondary - Light blue tint */
   --secondary: #eef3fc;
   --secondary-foreground: #3b5998;
   --secondary-hover: #dfe8f7;
-  
+
   /* Muted - Neutral grays */
   --muted: #f1f3f5;
   --muted-foreground: #6b7280;
-  
+
   /* Accent - Subtle blue highlight */
   --accent: #e8eef8;
   --accent-foreground: #2c4a7c;
@@ -585,7 +585,7 @@ button:enabled,
   --success-foreground: #ffffff;       /* White text on green */
   --warning: #fbbc04;           /* Google Yellow */
   --warning-foreground: #3d2e00; /* Dark text on yellow */
-  
+
   /* Difficulty Indicators */
   --difficulty-easy: #34a853;
   --difficulty-medium: #fbbc04;
@@ -613,6 +613,14 @@ button:enabled,
   --sidebar-accent-foreground: #2c4a7c;
   --sidebar-border: #e8ebef;
   --sidebar-ring: #4285f4;
+  --sidebar-width: 20rem;
+  --sidebar-width-icon: 3rem;
+}
+
+/* Disable transitions during sidebar drag resize for smooth performance */
+.sidebar-resizing,
+.sidebar-resizing * {
+  transition: none !important;
 }
 
 /* ======================
@@ -623,7 +631,7 @@ button:enabled,
   /* Surfaces - Dark grays with subtle blue tint */
   --background: #1a1d24;
   --foreground: #ebeef2;
-  
+
   /* Cards & Popovers */
   --card: #242830;
   --card-foreground: #ebeef2;
@@ -635,16 +643,16 @@ button:enabled,
   --primary-foreground: #ffffff;
   --primary-dark: #4285f4;
   --primary-light: #8bb8f8;
-  
+
   /* Secondary */
   --secondary: #2d323c;
   --secondary-foreground: #d8dce4;
   --secondary-hover: #363c48;
-  
+
   /* Muted */
   --muted: #2a2e36;
   --muted-foreground: #9ca3af;
-  
+
   /* Accent */
   --accent: #2d3340;
   --accent-foreground: #d8dce4;
@@ -656,7 +664,7 @@ button:enabled,
   --success-foreground: #14532d;
   --warning: #fcd34d;
   --warning-foreground: #422006;
-  
+
   /* Difficulty Indicators */
   --difficulty-easy: #4ade80;
   --difficulty-medium: #fcd34d;
