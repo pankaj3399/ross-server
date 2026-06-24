@@ -1770,7 +1770,9 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
       const templateRecord = dbTemplate.rows[0];
       if (templateRecord.content) {
         // Serve embedded template directly from database!
-        const contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        const contentType = templateRecord.filename?.toLowerCase().endsWith(".doc")
+          ? "application/msword"
+          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
         res.setHeader("Content-Type", contentType);
         res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(templateRecord.filename)}"`);
         
