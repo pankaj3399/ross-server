@@ -18,6 +18,7 @@ import {
   IconCheck,
   IconLock,
   IconDownload,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { SecureTextarea } from "@/components/shared/SecureTextarea";
@@ -58,6 +59,7 @@ interface Control {
     area: string;
     maturity_enhancement: string;
   };
+  existing_certification_relevance?: string;
   created_at: string;
   updated_at: string;
 }
@@ -511,6 +513,19 @@ export default function CRCAssessmentPage() {
                         </div>
                       );
                     })()
+                  )}
+
+                  {/* Existing Certification Relevance */}
+                  {currentControl.existing_certification_relevance && (
+                    <div className="mt-4 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10">
+                      <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5 mb-1.5">
+                        <IconInfoCircle className="w-4 h-4 shrink-0" />
+                        Existing Certification Relevance
+                      </h4>
+                      <p className="text-xs text-blue-900/80 dark:text-blue-200/80 leading-relaxed whitespace-pre-wrap">
+                        {currentControl.existing_certification_relevance}
+                      </p>
+                    </div>
                   )}
                 </motion.div>
               )}

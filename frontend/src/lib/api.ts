@@ -228,6 +228,7 @@ export interface CRCControl {
     area: string;
     maturity_enhancement: string;
   };
+  existing_certification_relevance?: string;
   created_at: string;
   updated_at: string;
 }
