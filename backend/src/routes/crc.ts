@@ -1760,32 +1760,14 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
       );
     }
 
-    // 1. Check for template in database (UploadThing storage or embedded blob)
+    // 1. Check for template in database (UploadThing storage)
     const dbTemplate = await pool.query(
-      "SELECT url, filename, content FROM crc_control_templates WHERE control_id = $1",
+      "SELECT url, filename FROM crc_control_templates WHERE control_id = $1",
       [controlShortId]
     );
 
     if (dbTemplate.rows.length > 0) {
       const templateRecord = dbTemplate.rows[0];
-      if (templateRecord.content) {
-        // Serve embedded template directly from database!
-        const contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-        res.setHeader("Content-Type", contentType);
-        res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(templateRecord.filename)}"`);
-        
-        // Log event
-        await recordEvent({
-          projectId: null,
-          actorId: user?.id,
-          action: "DOWNLOAD_CRC_TEMPLATE",
-          objectType: "CRC_CONTROL",
-          objectId: controlShortId,
-          metadata: { format: templateRecord.filename.endsWith(".docx") ? "docx" : "doc", source: "database" }
-        });
-
-        return res.send(templateRecord.content);
-      }
       try {
         // Fetch the file securely from UploadThing and stream to client
         const fileResponse = await fetch(templateRecord.url);
