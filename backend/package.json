@@ -7,7 +7,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "seed": "ts-node src/scripts/seeds/index.ts",
-    "migrate": "npx node-pg-migrate up --check-order false && npm run upload-templates-ut",
+    "migrate": "npx node-pg-migrate up --check-order false",
     "upload-controls": "npx ts-node -r dotenv/config src/scripts/uploadControls.ts",
     "upload-templates-ut": "npx ts-node -r dotenv/config src/scripts/uploadTemplatesToUT.ts",
     "db:init": "npx ts-node -r dotenv/config src/utils/database.ts && npm run migrate && npm run seed"

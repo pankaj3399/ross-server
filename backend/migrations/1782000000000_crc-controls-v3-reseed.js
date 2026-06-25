@@ -9554,7 +9554,7 @@ exports.up = async function(pgm) {
   // 4. Seed categories
   for (var ci = 0; ci < CATEGORIES.length; ci++) {
     await pgm.db.query(
-      "INSERT INTO crc_categories (name) VALUES (" + "\x241" + ") ON CONFLICT (name) DO NOTHING",
+      "INSERT INTO crc_categories (name) VALUES (" + "\x241" + ") ON CONFLICT ((LOWER(TRIM(name)))) DO NOTHING",
       [CATEGORIES[ci]]
     );
   }
