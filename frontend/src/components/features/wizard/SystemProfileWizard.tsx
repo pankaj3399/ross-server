@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../../ui/dialog";
 import { Progress } from "../../ui/progress";
 import { Button } from "../../ui/button";
@@ -11,7 +11,8 @@ import { WizardSection3 } from "./sections/WizardSection3";
 import { WizardSection4 } from "./sections/WizardSection4";
 import { WizardSection5 } from "./sections/WizardSection5";
 import { WizardSection6 } from "./sections/WizardSection6";
-import { ArrowLeft, ArrowRight, Save, CheckCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, CheckCircle, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 interface SystemProfileWizardProps {
@@ -36,6 +37,38 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
   } = useWizardStore();
 
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showIndicator, setShowIndicator] = useState(false);
+
+  const checkScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const isScrollable = el.scrollHeight > el.clientHeight;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+    setShowIndicator(isScrollable && !isAtBottom);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 200);
+
+    const el = scrollRef.current;
+    if (el) {
+      const resizeObserver = new ResizeObserver(() => {
+        checkScroll();
+      });
+      resizeObserver.observe(el);
+      return () => {
+        clearTimeout(timer);
+        resizeObserver.disconnect();
+      };
+    }
+    return () => clearTimeout(timer);
+  }, [currentSection, loading, isOpen, answers, validationError]);
+
+  const handleScroll = () => {
+    checkScroll();
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -216,22 +249,50 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
         </DialogHeader>
 
         {/* Form Body */}
-        <div className="flex-1 overflow-y-auto py-6 my-2">
-          {loading ? (
-            <div className="space-y-4 py-8">
-              <div className="h-8 bg-muted animate-pulse rounded w-1/3" />
-              <div className="h-24 bg-muted animate-pulse rounded w-full" />
-              <div className="h-12 bg-muted animate-pulse rounded w-full" />
-            </div>
-          ) : (
-            renderSection()
-          )}
+        <div className="relative flex-1 min-h-0 flex flex-col">
+          <div 
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto py-6 my-2 pr-1"
+          >
+            {loading ? (
+              <div className="space-y-4 py-8">
+                <div className="h-8 bg-muted animate-pulse rounded w-1/3" />
+                <div className="h-24 bg-muted animate-pulse rounded w-full" />
+                <div className="h-12 bg-muted animate-pulse rounded w-full" />
+              </div>
+            ) : (
+              renderSection()
+            )}
 
-          {validationError && (
-            <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-semibold">
-              ⚠️ {validationError}
-            </div>
-          )}
+            {validationError && (
+              <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400 font-semibold">
+                ⚠️ {validationError}
+              </div>
+            )}
+          </div>
+
+          <AnimatePresence>
+            {showIndicator && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none bg-gradient-to-t from-background via-background/75 to-transparent flex flex-col items-center justify-end pb-2 z-10"
+              >
+                <button
+                  type="button"
+                  aria-label="Scroll down to view more options"
+                  className="p-1.5 rounded-full bg-card/95 border border-border/40 shadow-lg backdrop-blur-sm pointer-events-auto cursor-pointer text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center"
+                  onClick={() => {
+                    scrollRef.current?.scrollBy({ top: 150, behavior: "smooth" });
+                  }}
+                >
+                  <ChevronDown className="h-5 w-5" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Footer Actions */}

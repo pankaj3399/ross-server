@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ShieldAlert, CheckCircle2, XCircle, Info, ChevronDown, ChevronUp, 
@@ -13,6 +13,80 @@ import { Checkbox } from "../../ui/checkbox";
 import { Label } from "../../ui/label";
 import { toast } from "sonner";
 import { useWizardStore } from "../../../store/wizardStore";
+
+interface ScrollIndicatorWrapperProps {
+  children: React.ReactNode;
+  maxHeightClass?: string;
+}
+
+function ScrollIndicatorWrapper({ children, maxHeightClass = "max-h-[400px]" }: ScrollIndicatorWrapperProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showIndicator, setShowIndicator] = useState(false);
+
+  const checkScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    const isScrollable = el.scrollHeight > el.clientHeight;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+    setShowIndicator(isScrollable && !isAtBottom);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Check on mount / expansion
+    const timer = setTimeout(checkScroll, 150);
+
+    const resizeObserver = new ResizeObserver(() => {
+      checkScroll();
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [children]);
+
+  const handleScroll = () => {
+    checkScroll();
+  };
+
+  return (
+    <div className="relative w-full">
+      <CardContent
+        ref={containerRef}
+        onScroll={handleScroll}
+        className={`p-4 space-y-4 bg-background/20 overflow-y-auto ${maxHeightClass}`}
+      >
+        {children}
+      </CardContent>
+      
+      <AnimatePresence>
+        {showIndicator && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none bg-gradient-to-t from-card via-card/75 to-transparent flex flex-col items-center justify-end pb-2 z-10"
+          >
+            <button
+              type="button"
+              aria-label="Scroll down to view more options"
+              className="p-1.5 rounded-full bg-card/95 border border-border/40 shadow-lg backdrop-blur-sm pointer-events-auto cursor-pointer text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center"
+              onClick={() => {
+                containerRef.current?.scrollBy({ top: 150, behavior: "smooth" });
+              }}
+            >
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 interface WizardConfirmationProps {
   projectId: string;
@@ -149,7 +223,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onAdjustAnswers} className="text-xs">
+          <Button variant="outline" size="sm" onClick={onAdjustAnswers} disabled={saving} className="text-xs">
             <Settings2 className="h-4 w-4 mr-1.5" /> Adjust Answers
           </Button>
         </div>
@@ -266,7 +340,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
                 exit={{ height: 0 }}
                 className="overflow-hidden"
               >
-                <CardContent className="p-4 space-y-4 bg-background/20 max-h-[400px] overflow-y-auto">
+                <ScrollIndicatorWrapper maxHeightClass="max-h-[400px]">
                   {suggested_risks.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No starter risks suggested for this profile.</p>
                   ) : (
@@ -312,7 +386,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
                       </div>
                     ))
                   )}
-                </CardContent>
+                </ScrollIndicatorWrapper>
               </motion.div>
             )}
           </AnimatePresence>
@@ -339,7 +413,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
                 exit={{ height: 0 }}
                 className="overflow-hidden"
               >
-                <CardContent className="p-4 space-y-4 bg-background/20 max-h-[400px] overflow-y-auto">
+                <ScrollIndicatorWrapper maxHeightClass="max-h-[400px]">
                   {suggested_components.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">No starter components suggested for this profile.</p>
                   ) : (
@@ -381,7 +455,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
                       </div>
                     ))
                   )}
-                </CardContent>
+                </ScrollIndicatorWrapper>
               </motion.div>
             )}
           </AnimatePresence>
@@ -443,13 +517,38 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
         </Card>
       </div>
 
+      {/* Prohibited practice acknowledgment banner if unacceptable */}
+      {eu_risk_tier === "UNACCEPTABLE" && (
+        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 shadow-lg flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mt-6">
+          <div className="flex gap-3 items-start md:items-center">
+            <ShieldAlert className="h-5 w-5 text-red-400 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-red-200">Prohibited AI Practice detected</p>
+              <p className="text-xs text-red-300/80 leading-relaxed mt-0.5">
+                This system engages in a practice prohibited under Article 5. Proceeding requires acknowledging these compliance risks.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 w-full md:w-auto">
+            <Checkbox 
+              id="ack-unacceptable-bottom" 
+              checked={acknowledgedUnacceptable} 
+              onCheckedChange={(checked) => setAcknowledgedUnacceptable(!!checked)}
+            />
+            <Label htmlFor="ack-unacceptable-bottom" className="text-xs text-red-200 font-semibold cursor-pointer select-none">
+              Acknowledge compliance risks
+            </Label>
+          </div>
+        </div>
+      )}
+
       {/* Apply Actions */}
       <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border/40 justify-end items-center">
         <Button 
           onClick={onAdjustAnswers} 
           variant="outline" 
           disabled={saving}
-          className="w-full sm:w-auto"
+          className="w-full sm:w-auto px-8 py-6 font-bold"
         >
           Adjust Answers
         </Button>
