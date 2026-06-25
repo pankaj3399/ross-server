@@ -943,6 +943,7 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
              c.priority, c.status, c.version, c.expected_timeline,
              c.applicable_to, c.control_statement, c.control_objective, c.risk_description,
              c.implementation, c.evidence_requirements, c.compliance_mapping, c.aima_mapping,
+             c.existing_certification_relevance,
              c.created_at, c.updated_at
       FROM crc_controls c
       LEFT JOIN crc_categories cat ON c.category_id = cat.id
@@ -1767,6 +1768,7 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
 
     if (dbTemplate.rows.length > 0) {
       const templateRecord = dbTemplate.rows[0];
+
       try {
         // Fetch the file securely from UploadThing and stream to client
         const fileResponse = await fetch(templateRecord.url);
