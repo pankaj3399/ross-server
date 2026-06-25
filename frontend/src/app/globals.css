@@ -200,6 +200,10 @@ button:enabled,
   background-color: rgba(156, 163, 175, 0.25);
 }
 
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary);
+}
+
 ::-webkit-scrollbar-button {
   display: none;
 }

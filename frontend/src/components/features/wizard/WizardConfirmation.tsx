@@ -71,14 +71,16 @@ function ScrollIndicatorWrapper({ children, maxHeightClass = "max-h-[400px]" }: 
             exit={{ opacity: 0 }}
             className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none bg-gradient-to-t from-card via-card/75 to-transparent flex flex-col items-center justify-end pb-2 z-10"
           >
-            <div 
+            <button
+              type="button"
+              aria-label="Scroll down to view more options"
               className="p-1.5 rounded-full bg-card/95 border border-border/40 shadow-lg backdrop-blur-sm pointer-events-auto cursor-pointer text-indigo-400 hover:text-indigo-300 transition-colors flex items-center justify-center"
               onClick={() => {
                 containerRef.current?.scrollBy({ top: 150, behavior: "smooth" });
               }}
             >
               <ChevronDown className="h-5 w-5" />
-            </div>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -221,7 +223,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onAdjustAnswers} className="text-xs">
+          <Button variant="outline" size="sm" onClick={onAdjustAnswers} disabled={saving} className="text-xs">
             <Settings2 className="h-4 w-4 mr-1.5" /> Adjust Answers
           </Button>
         </div>
