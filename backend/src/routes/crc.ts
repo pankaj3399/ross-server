@@ -590,6 +590,39 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
         // Preserve existing status to respect single update flow status transition restrictions
         const status = existing.status;
 
+        let implementation = existing.implementation;
+        if (Object.prototype.hasOwnProperty.call(rawItem, 'implementation') && rawItem.implementation && typeof rawItem.implementation === 'object') {
+          const merged = { ...existing.implementation };
+          for (const key of Object.keys(rawItem.implementation)) {
+            if (data.implementation && Object.prototype.hasOwnProperty.call(data.implementation, key)) {
+              merged[key] = (data.implementation as any)[key];
+            }
+          }
+          implementation = merged;
+        }
+
+        let compliance_mapping = existing.compliance_mapping;
+        if (Object.prototype.hasOwnProperty.call(rawItem, 'compliance_mapping') && rawItem.compliance_mapping && typeof rawItem.compliance_mapping === 'object') {
+          const merged = { ...existing.compliance_mapping };
+          for (const key of Object.keys(rawItem.compliance_mapping)) {
+            if (data.compliance_mapping && Object.prototype.hasOwnProperty.call(data.compliance_mapping, key)) {
+              merged[key] = (data.compliance_mapping as any)[key];
+            }
+          }
+          compliance_mapping = merged;
+        }
+
+        let aima_mapping = existing.aima_mapping;
+        if (Object.prototype.hasOwnProperty.call(rawItem, 'aima_mapping') && rawItem.aima_mapping && typeof rawItem.aima_mapping === 'object') {
+          const merged = { ...existing.aima_mapping };
+          for (const key of Object.keys(rawItem.aima_mapping)) {
+            if (data.aima_mapping && Object.prototype.hasOwnProperty.call(data.aima_mapping, key)) {
+              merged[key] = (data.aima_mapping as any)[key];
+            }
+          }
+          aima_mapping = merged;
+        }
+
         // Fall back to existing values for fields the UI/payload did not send (matching single PUT behavior)
         const updatedData = {
           control_title: Object.prototype.hasOwnProperty.call(rawItem, 'control_title') ? data.control_title : existing.control_title,
@@ -600,16 +633,10 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
           control_statement: Object.prototype.hasOwnProperty.call(rawItem, 'control_statement') ? data.control_statement : existing.control_statement,
           control_objective: Object.prototype.hasOwnProperty.call(rawItem, 'control_objective') ? data.control_objective : existing.control_objective,
           risk_description: Object.prototype.hasOwnProperty.call(rawItem, 'risk_description') ? data.risk_description : existing.risk_description,
-          implementation: Object.prototype.hasOwnProperty.call(rawItem, 'implementation')
-            ? { ...existing.implementation, ...data.implementation }
-            : existing.implementation,
+          implementation,
           evidence_requirements: Object.prototype.hasOwnProperty.call(rawItem, 'evidence_requirements') ? data.evidence_requirements : existing.evidence_requirements,
-          compliance_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'compliance_mapping')
-            ? { ...existing.compliance_mapping, ...data.compliance_mapping }
-            : existing.compliance_mapping,
-          aima_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'aima_mapping')
-            ? { ...existing.aima_mapping, ...data.aima_mapping }
-            : existing.aima_mapping,
+          compliance_mapping,
+          aima_mapping,
         };
 
         const updateQuery = `
