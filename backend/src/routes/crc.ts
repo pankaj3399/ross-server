@@ -1869,6 +1869,10 @@ router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]),
     // E.g., match "GOV-3P-010" before "GOV-3P-01"
     validControlIds.sort((a, b) => b.length - a.length);
 
+    // Cumulative safety counters across all ZIPs in the request
+    let totalExtractedFileCount = 0;
+    let totalExtractedBytes = 0;
+
     // 2. Classify and process each uploaded file
     for (const file of uploadedFiles) {
       const isZip = file.mimetype === "application/zip" || 
@@ -1885,25 +1889,22 @@ router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]),
         const zip = new AdmZip(zipPath);
         const entries = zip.getEntries();
         
-        // Safety limits to prevent ZIP bombs or excessive uncompressed extraction
+        // Safety limits to prevent ZIP bombs or excessive uncompressed extraction (cumulative)
         const MAX_ZIP_ENTRIES = 150;
         const MAX_ZIP_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
         
-        let totalUncompressedSize = 0;
-        let fileEntryCount = 0;
-        
         for (const entry of entries) {
           if (!entry.isDirectory) {
-            fileEntryCount++;
-            totalUncompressedSize += entry.header.size;
+            totalExtractedFileCount++;
+            totalExtractedBytes += entry.header.size;
           }
         }
         
-        if (fileEntryCount > MAX_ZIP_ENTRIES) {
-          throw new Error(`ZIP archive contains too many files (max: ${MAX_ZIP_ENTRIES})`);
+        if (totalExtractedFileCount > MAX_ZIP_ENTRIES) {
+          throw new Error(`Total files across all ZIP archives exceeds limit (max: ${MAX_ZIP_ENTRIES})`);
         }
-        if (totalUncompressedSize > MAX_ZIP_UNCOMPRESSED_SIZE) {
-          throw new Error(`ZIP archive uncompressed size exceeds limit (max: 100MB)`);
+        if (totalExtractedBytes > MAX_ZIP_UNCOMPRESSED_SIZE) {
+          throw new Error(`Total uncompressed size across all ZIP archives exceeds limit (max: 100MB)`);
         }
 
         // Pre-scan, filter and extract only allowed .doc/.docx template files
