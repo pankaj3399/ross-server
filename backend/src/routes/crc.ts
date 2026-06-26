@@ -69,7 +69,10 @@ const templateUpload = multer({
 
 const bulkTemplateUpload = multer({
   storage: templateStorage,
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
+  limits: {
+    fileSize: 25 * 1024 * 1024, // 25MB max per file
+    files: 160, // Max 160 files per request
+  },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
@@ -1834,10 +1837,10 @@ router.get("/templates/status", authenticateToken, requireRole(["ADMIN"]), async
 
 // POST /crc/templates/bulk-upload - Bulk upload compliance template documents (Admin only)
 router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]), (req, res, next) => {
-  bulkTemplateUpload.array("files", 150)(req, res, (err: any) => {
+  bulkTemplateUpload.array("files", 140)(req, res, (err: any) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(400).json({ success: false, error: "File size exceeds 100MB limit" });
+        return res.status(400).json({ success: false, error: "File size exceeds 25MB limit" });
       }
       return res.status(400).json({ success: false, error: err.message });
     }
@@ -1880,21 +1883,55 @@ router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]),
         tempFolders.push(extractDir);
 
         const zip = new AdmZip(zipPath);
-        zip.extractAllTo(extractDir, true);
+        const entries = zip.getEntries();
+        
+        // Safety limits to prevent ZIP bombs or excessive uncompressed extraction
+        const MAX_ZIP_ENTRIES = 150;
+        const MAX_ZIP_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
+        
+        let totalUncompressedSize = 0;
+        let fileEntryCount = 0;
+        
+        for (const entry of entries) {
+          if (!entry.isDirectory) {
+            fileEntryCount++;
+            totalUncompressedSize += entry.header.size;
+          }
+        }
+        
+        if (fileEntryCount > MAX_ZIP_ENTRIES) {
+          throw new Error(`ZIP archive contains too many files (max: ${MAX_ZIP_ENTRIES})`);
+        }
+        if (totalUncompressedSize > MAX_ZIP_UNCOMPRESSED_SIZE) {
+          throw new Error(`ZIP archive uncompressed size exceeds limit (max: 100MB)`);
+        }
+
+        // Pre-scan, filter and extract only allowed .doc/.docx template files
+        for (const entry of entries) {
+          if (entry.isDirectory) continue;
+          
+          const nameLower = entry.name.toLowerCase();
+          const isAllowedTemplate = nameLower.endsWith(".docx") || nameLower.endsWith(".doc");
+          
+          if (isAllowedTemplate) {
+            zip.extractEntryTo(entry, extractDir, true, true);
+          }
+        }
 
         // Recursively read extracted files
         const readFilesRecursively = (dir: string) => {
-          const entries = fs.readdirSync(dir, { withFileTypes: true });
-          for (const entry of entries) {
+          const entriesInDir = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entriesInDir) {
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
               readFilesRecursively(fullPath);
             } else if (entry.isFile() && (entry.name.toLowerCase().endsWith(".docx") || entry.name.toLowerCase().endsWith(".doc"))) {
               const stats = fs.statSync(fullPath);
+              const isDoc = entry.name.toLowerCase().endsWith(".doc");
               templatesToProcess.push({
                 filePath: fullPath,
                 originalname: entry.name,
-                mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                mimetype: isDoc ? "application/msword" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 size: stats.size,
                 isTemp: true, // We need to delete this file later because it was extracted
               });
@@ -1918,22 +1955,55 @@ router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]),
       return res.status(400).json({ success: false, error: "No valid .doc or .docx template files found in the upload." });
     }
 
-    // 3. Process each template file
+    // 3. Precompute and validate template-to-control ID matches
+    // Require bounded token-style matches and reject any ambiguous or duplicate template-to-control assignments
+    const templateMappings = new Map<string, { filename: string; templateIdx: number }>();
+    const validationErrors: string[] = [];
+    const matchedControlIdsForTemplates = new Map<number, string>(); // index in templatesToProcess -> control_id
+
+    for (let i = 0; i < templatesToProcess.length; i++) {
+      const template = templatesToProcess[i];
+      const matchedControls: string[] = [];
+
+      for (const controlId of validControlIds) {
+        // Bounded token-style match to prevent matching partial substrings (e.g. matching GOV-3P-01 inside GOV-3P-010)
+        const escaped = controlId.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        const regex = new RegExp(`(?:^|[^A-Z0-9])${escaped}(?:$|[^A-Z0-9])`, 'i');
+        if (regex.test(template.originalname)) {
+          matchedControls.push(controlId);
+        }
+      }
+
+      if (matchedControls.length > 1) {
+        validationErrors.push(`Ambiguous match: File "${template.originalname}" matches multiple control IDs (${matchedControls.join(", ")})`);
+      } else if (matchedControls.length === 1) {
+        const matchedId = matchedControls[0];
+        const existing = templateMappings.get(matchedId);
+        if (existing) {
+          validationErrors.push(`Duplicate template assignment: Both "${existing.filename}" and "${template.originalname}" map to control ID "${matchedId}"`);
+        } else {
+          templateMappings.set(matchedId, { filename: template.originalname, templateIdx: i });
+          matchedControlIdsForTemplates.set(i, matchedId);
+        }
+      }
+      // If matchedControls.length === 0, it is unmatched, which we report as unmatched in the response details list
+    }
+
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Validation failed: " + validationErrors.join("; ")
+      });
+    }
+
+    // 4. Process each template file after passing pre-validation
     const results: { filename: string; status: "success" | "unmatched" | "failed"; controlId?: string; error?: string }[] = [];
     const FileConstructor = typeof File !== "undefined" ? File : require("node:buffer").File;
     const user = (req as any).user;
 
-    for (const template of templatesToProcess) {
-      const filenameUpper = template.originalname.toUpperCase();
-      let matchedControlId: string | null = null;
-
-      // Find the first (longest) control_id that appears in the filename
-      for (const controlId of validControlIds) {
-        if (filenameUpper.includes(controlId.toUpperCase())) {
-          matchedControlId = controlId;
-          break;
-        }
-      }
+    for (let i = 0; i < templatesToProcess.length; i++) {
+      const template = templatesToProcess[i];
+      const matchedControlId = matchedControlIdsForTemplates.get(i);
 
       if (!matchedControlId) {
         results.push({
@@ -1984,22 +2054,30 @@ router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]),
         }
 
         // Try to remove local legacy files for this control to keep the local filesystem pristine
-        for (const legacyExt of [".docx", ".doc"]) {
-          const legacyPath = path.join(TEMPLATES_DIR, `${matchedControlId}${legacyExt}`);
-          if (fs.existsSync(legacyPath)) {
-            try { fs.unlinkSync(legacyPath); } catch {}
+        for (const legacyExt of [".docx", ".doc"] as const) {
+          try {
+            const legacyPath = resolveTemplatePath(matchedControlId, legacyExt);
+            if (fs.existsSync(legacyPath)) {
+              fs.unlinkSync(legacyPath);
+            }
+          } catch (resolveErr) {
+            console.error(`Skipping legacy file cleanup for ${matchedControlId} with extension ${legacyExt}:`, resolveErr);
           }
         }
 
-        // Log audit log event
-        await recordEvent({
-          projectId: null,
-          actorId: user?.id,
-          action: "UPLOAD_CRC_TEMPLATE",
-          objectType: "CRC_CONTROL",
-          objectId: matchedControlId,
-          metadata: { filename: template.originalname, source: "bulk-uploadthing" },
-        });
+        // Log audit log event separately wrapped in its own try/catch to not block the request outcome
+        try {
+          await recordEvent({
+            projectId: null,
+            actorId: user?.id,
+            action: "UPLOAD_CRC_TEMPLATE",
+            objectType: "CRC_CONTROL",
+            objectId: matchedControlId,
+            metadata: { filename: template.originalname, source: "bulk-uploadthing" },
+          });
+        } catch (auditErr) {
+          console.error(`Failed to log audit event for template upload of control ${matchedControlId}:`, auditErr);
+        }
 
         results.push({
           filename: template.originalname,
@@ -2595,22 +2673,30 @@ router.post("/templates/:controlId/upload", authenticateToken, requireRole(["ADM
     }
 
     // Try to remove local legacy files for this control to keep the local filesystem pristine
-    for (const legacyExt of [".docx", ".doc"]) {
-      const legacyPath = path.join(TEMPLATES_DIR, `${controlShortId}${legacyExt}`);
-      if (fs.existsSync(legacyPath)) {
-        try { fs.unlinkSync(legacyPath); } catch {}
+    for (const legacyExt of [".docx", ".doc"] as const) {
+      try {
+        const legacyPath = resolveTemplatePath(controlShortId, legacyExt);
+        if (fs.existsSync(legacyPath)) {
+          fs.unlinkSync(legacyPath);
+        }
+      } catch (resolveErr) {
+        console.error(`Skipping legacy file cleanup for ${controlShortId} with extension ${legacyExt}:`, resolveErr);
       }
     }
 
     const user = (req as any).user;
-    await recordEvent({
-      projectId: null,
-      actorId: user?.id,
-      action: "UPLOAD_CRC_TEMPLATE",
-      objectType: "CRC_CONTROL",
-      objectId: controlShortId,
-      metadata: { filename: tmpFile.originalname, source: "uploadthing" },
-    });
+    try {
+      await recordEvent({
+        projectId: null,
+        actorId: user?.id,
+        action: "UPLOAD_CRC_TEMPLATE",
+        objectType: "CRC_CONTROL",
+        objectId: controlShortId,
+        metadata: { filename: tmpFile.originalname, source: "uploadthing" },
+      });
+    } catch (auditErr) {
+      console.error(`Failed to log audit event for template upload of control ${controlShortId}:`, auditErr);
+    }
 
     res.json({
       success: true,

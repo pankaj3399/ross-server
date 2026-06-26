@@ -469,6 +469,7 @@ export default function CRCAdminPage() {
         if (e.target.files) {
             const files = Array.from(e.target.files);
             setTemplateBulkFiles(prev => [...prev, ...files]);
+            e.target.value = ""; // Clear file input value to allow re-selecting the same file
         }
     };
 
@@ -1417,7 +1418,7 @@ export default function CRCAdminPage() {
                         <IconFolder className="mr-2 size-5" /> Manage Categories
                     </Button>
                     <Button variant="outline" onClick={openBulkDialog} size="lg">
-                        <IconUpload className="mr-2 size-5" /> Bulk upload
+                        <IconUpload className="mr-2 size-5" /> Bulk controls
                     </Button>
                     <Button variant="outline" onClick={() => setShowTemplateBulkDialog(true)} size="lg">
                         <IconUpload className="mr-2 size-5" /> Bulk templates
