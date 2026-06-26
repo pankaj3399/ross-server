@@ -441,7 +441,7 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
     }
 
     const errors: { index: number; control_id?: string; message: string }[] = [];
-    const parsedWithIndex: { data: z.infer<typeof controlSchema>; originalIndex: number }[] = [];
+    const parsedWithIndex: { data: z.infer<typeof controlSchema>; rawItem: any; originalIndex: number }[] = [];
 
     for (let i = 0; i < raw.controls.length; i++) {
       const item = raw.controls[i];
@@ -458,7 +458,7 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
         errors.push({ index: i, control_id: item?.control_id, message: first?.message || "Validation failed" });
         continue;
       }
-      parsedWithIndex.push({ data: result.data, originalIndex: i });
+      parsedWithIndex.push({ data: result.data, rawItem: item, originalIndex: i });
     }
 
     const idToIndices = new Map<string, number[]>();
@@ -499,10 +499,10 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
 
     const controlIds = parsedWithIndex.map((p) => p.data.control_id);
     const existingIds = await client.query(
-      "SELECT id, control_id, version, status FROM crc_controls WHERE control_id = ANY($1)",
+      "SELECT * FROM crc_controls WHERE control_id = ANY($1) FOR UPDATE",
       [controlIds]
     );
-    const existingMap = new Map<string, { id: string; control_id: string; version: number; status: string }>(
+    const existingMap = new Map<string, any>(
       existingIds.rows.map((r: any) => [r.control_id, r])
     );
 
@@ -583,12 +583,34 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
 
     // 2. Process updates (overwrites)
     if (toUpdate.length > 0) {
-      for (const { data } of toUpdate) {
+      for (const { data, rawItem } of toUpdate) {
         const existing = existingMap.get(data.control_id)!;
         const newVersion = existing.version + 1;
         
         // Preserve existing status to respect single update flow status transition restrictions
         const status = existing.status;
+
+        // Fall back to existing values for fields the UI/payload did not send (matching single PUT behavior)
+        const updatedData = {
+          control_title: Object.prototype.hasOwnProperty.call(rawItem, 'control_title') ? data.control_title : existing.control_title,
+          category_id: Object.prototype.hasOwnProperty.call(rawItem, 'category_id') ? data.category_id : existing.category_id,
+          expected_timeline: Object.prototype.hasOwnProperty.call(rawItem, 'expected_timeline') ? data.expected_timeline : existing.expected_timeline,
+          priority: Object.prototype.hasOwnProperty.call(rawItem, 'priority') ? data.priority : existing.priority,
+          applicable_to: Object.prototype.hasOwnProperty.call(rawItem, 'applicable_to') ? data.applicable_to : existing.applicable_to,
+          control_statement: Object.prototype.hasOwnProperty.call(rawItem, 'control_statement') ? data.control_statement : existing.control_statement,
+          control_objective: Object.prototype.hasOwnProperty.call(rawItem, 'control_objective') ? data.control_objective : existing.control_objective,
+          risk_description: Object.prototype.hasOwnProperty.call(rawItem, 'risk_description') ? data.risk_description : existing.risk_description,
+          implementation: Object.prototype.hasOwnProperty.call(rawItem, 'implementation')
+            ? { ...existing.implementation, ...rawItem.implementation }
+            : existing.implementation,
+          evidence_requirements: Object.prototype.hasOwnProperty.call(rawItem, 'evidence_requirements') ? data.evidence_requirements : existing.evidence_requirements,
+          compliance_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'compliance_mapping')
+            ? { ...existing.compliance_mapping, ...rawItem.compliance_mapping }
+            : existing.compliance_mapping,
+          aima_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'aima_mapping')
+            ? { ...existing.aima_mapping, ...rawItem.aima_mapping }
+            : existing.aima_mapping,
+        };
 
         const updateQuery = `
           UPDATE crc_controls SET
@@ -600,10 +622,10 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
           RETURNING *
         `;
         const values = [
-          data.control_title, data.category_id, data.expected_timeline, data.priority, status, data.applicable_to,
-          data.control_statement, data.control_objective, data.risk_description,
-          JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
-          JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
+          updatedData.control_title, updatedData.category_id, updatedData.expected_timeline, updatedData.priority, status, updatedData.applicable_to,
+          updatedData.control_statement, updatedData.control_objective, updatedData.risk_description,
+          JSON.stringify(updatedData.implementation), JSON.stringify(updatedData.evidence_requirements),
+          JSON.stringify(updatedData.compliance_mapping), JSON.stringify(updatedData.aima_mapping),
           newVersion, existing.id
         ];
         const result = await client.query(updateQuery, values);
