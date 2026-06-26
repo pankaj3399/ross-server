@@ -9,6 +9,7 @@ import { recordEvent } from "../services/auditLogService";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import AdmZip from "adm-zip";
 import { syncRiskFromResponse } from "../services/crcRiskService";
 import crypto from "crypto";
 import { inngest } from "../inngest/client";
@@ -62,6 +63,29 @@ const templateUpload = multer({
       cb(null, true);
     } else {
       cb(new Error("Only .doc and .docx files are allowed"));
+    }
+  },
+});
+
+const bulkTemplateUpload = multer({
+  storage: templateStorage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+      "application/msword", // .doc
+      "application/zip", // .zip
+      "application/x-zip-compressed", // .zip (Windows/some systems)
+    ];
+    if (
+      allowed.includes(file.mimetype) ||
+      file.originalname.endsWith(".docx") ||
+      file.originalname.endsWith(".doc") ||
+      file.originalname.endsWith(".zip")
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .doc, .docx, and .zip files are allowed"));
     }
   },
 });
@@ -1805,6 +1829,231 @@ router.get("/templates/status", authenticateToken, requireRole(["ADMIN"]), async
   } catch (error) {
     console.error("Error fetching template statuses:", error);
     res.status(500).json({ success: false, error: "Failed to fetch template statuses" });
+  }
+});
+
+// POST /crc/templates/bulk-upload - Bulk upload compliance template documents (Admin only)
+router.post("/templates/bulk-upload", authenticateToken, requireRole(["ADMIN"]), (req, res, next) => {
+  bulkTemplateUpload.array("files", 150)(req, res, (err: any) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({ success: false, error: "File size exceeds 100MB limit" });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (err) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  const uploadedFiles = req.files as Express.Multer.File[] | undefined;
+  if (!uploadedFiles || uploadedFiles.length === 0) {
+    return res.status(400).json({ success: false, error: "No files uploaded." });
+  }
+
+  // Temporary folders created for extracting ZIP files
+  const tempFolders: string[] = [];
+  // All template files to process (either direct uploads or extracted from ZIPs)
+  const templatesToProcess: { filePath: string; originalname: string; mimetype: string; size: number; isTemp: boolean }[] = [];
+
+  try {
+    // 1. Fetch all valid control IDs from database to match against filenames
+    const controlsResult = await pool.query("SELECT control_id FROM crc_controls");
+    const validControlIds = controlsResult.rows.map((r: { control_id: string }) => r.control_id);
+    
+    // Sort control IDs by length in descending order to match the longest (most specific) first
+    // E.g., match "GOV-3P-010" before "GOV-3P-01"
+    validControlIds.sort((a, b) => b.length - a.length);
+
+    // 2. Classify and process each uploaded file
+    for (const file of uploadedFiles) {
+      const isZip = file.mimetype === "application/zip" || 
+                    file.mimetype === "application/x-zip-compressed" || 
+                    file.originalname.toLowerCase().endsWith(".zip");
+
+      if (isZip) {
+        // Extract ZIP contents
+        const zipPath = file.path;
+        const extractDir = path.join(TEMPLATES_DIR, `bulk_extract_${Date.now()}_${crypto.randomUUID()}`);
+        fs.mkdirSync(extractDir, { recursive: true });
+        tempFolders.push(extractDir);
+
+        const zip = new AdmZip(zipPath);
+        zip.extractAllTo(extractDir, true);
+
+        // Recursively read extracted files
+        const readFilesRecursively = (dir: string) => {
+          const entries = fs.readdirSync(dir, { withFileTypes: true });
+          for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+              readFilesRecursively(fullPath);
+            } else if (entry.isFile() && (entry.name.toLowerCase().endsWith(".docx") || entry.name.toLowerCase().endsWith(".doc"))) {
+              const stats = fs.statSync(fullPath);
+              templatesToProcess.push({
+                filePath: fullPath,
+                originalname: entry.name,
+                mimetype: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                size: stats.size,
+                isTemp: true, // We need to delete this file later because it was extracted
+              });
+            }
+          }
+        };
+        readFilesRecursively(extractDir);
+      } else {
+        // Direct .docx / .doc file
+        templatesToProcess.push({
+          filePath: file.path,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+          isTemp: false, // Will be deleted at the end as part of standard multer file cleanups
+        });
+      }
+    }
+
+    if (templatesToProcess.length === 0) {
+      return res.status(400).json({ success: false, error: "No valid .doc or .docx template files found in the upload." });
+    }
+
+    // 3. Process each template file
+    const results: { filename: string; status: "success" | "unmatched" | "failed"; controlId?: string; error?: string }[] = [];
+    const FileConstructor = typeof File !== "undefined" ? File : require("node:buffer").File;
+    const user = (req as any).user;
+
+    for (const template of templatesToProcess) {
+      const filenameUpper = template.originalname.toUpperCase();
+      let matchedControlId: string | null = null;
+
+      // Find the first (longest) control_id that appears in the filename
+      for (const controlId of validControlIds) {
+        if (filenameUpper.includes(controlId.toUpperCase())) {
+          matchedControlId = controlId;
+          break;
+        }
+      }
+
+      if (!matchedControlId) {
+        results.push({
+          filename: template.originalname,
+          status: "unmatched",
+          error: "Filename does not match any valid control ID in the database.",
+        });
+        continue;
+      }
+
+      try {
+        const fileData = fs.readFileSync(template.filePath);
+        const webFile = new FileConstructor([fileData], template.originalname, { type: template.mimetype });
+
+        // Upload to UploadThing
+        const uploadResult = await utapi.uploadFiles(webFile);
+
+        if (!uploadResult || !uploadResult.data) {
+          const errorMsg = (uploadResult as any).error?.message || "Failed to upload file to cloud storage";
+          throw new Error(errorMsg);
+        }
+
+        const { url, key: fileKey } = uploadResult.data;
+
+        // Check for existing database record to clean up superseded files from UploadThing
+        const existingResult = await pool.query(
+          "SELECT file_key FROM crc_control_templates WHERE control_id = $1",
+          [matchedControlId]
+        );
+        const oldKey = existingResult.rows.length > 0 ? existingResult.rows[0].file_key : null;
+
+        // Save or update mapping in database
+        await pool.query(
+          `INSERT INTO crc_control_templates (control_id, url, file_key, filename, size, updated_at)
+           VALUES ($1, $2, $3, $4, $5, NOW())
+           ON CONFLICT (control_id)
+           DO UPDATE SET url = $2, file_key = $3, filename = $4, size = $5, updated_at = NOW()`,
+          [matchedControlId, url, fileKey, template.originalname, template.size]
+        );
+
+        // Delete superseded file from UploadThing only AFTER database upsert succeeds
+        if (oldKey) {
+          try {
+            await utapi.deleteFiles(oldKey);
+          } catch (deleteErr) {
+            console.error(`Failed to delete superseded template from UploadThing: ${oldKey}`, deleteErr);
+          }
+        }
+
+        // Try to remove local legacy files for this control to keep the local filesystem pristine
+        for (const legacyExt of [".docx", ".doc"]) {
+          const legacyPath = path.join(TEMPLATES_DIR, `${matchedControlId}${legacyExt}`);
+          if (fs.existsSync(legacyPath)) {
+            try { fs.unlinkSync(legacyPath); } catch {}
+          }
+        }
+
+        // Log audit log event
+        await recordEvent({
+          projectId: null,
+          actorId: user?.id,
+          action: "UPLOAD_CRC_TEMPLATE",
+          objectType: "CRC_CONTROL",
+          objectId: matchedControlId,
+          metadata: { filename: template.originalname, source: "bulk-uploadthing" },
+        });
+
+        results.push({
+          filename: template.originalname,
+          status: "success",
+          controlId: matchedControlId,
+        });
+
+      } catch (uploadErr: any) {
+        console.error(`Error processing template ${template.originalname} for control ${matchedControlId}:`, uploadErr);
+        results.push({
+          filename: template.originalname,
+          status: "failed",
+          controlId: matchedControlId,
+          error: uploadErr.message || "Failed during upload or database save",
+        });
+      }
+    }
+
+    const summary = {
+      total: templatesToProcess.length,
+      success: results.filter(r => r.status === "success").length,
+      unmatched: results.filter(r => r.status === "unmatched").length,
+      failed: results.filter(r => r.status === "failed").length,
+    };
+
+    res.json({
+      success: true,
+      message: `Bulk template upload finished. Success: ${summary.success}, Unmatched: ${summary.unmatched}, Failed: ${summary.failed}`,
+      summary,
+      details: results,
+    });
+
+  } catch (error) {
+    console.error("Fatal error in bulk template upload:", error);
+    res.status(500).json({ success: false, error: "Fatal error processing bulk templates" });
+  } finally {
+    // 4. Cleanup all temporary files and extracted directories
+    if (uploadedFiles) {
+      for (const file of uploadedFiles) {
+        if (fs.existsSync(file.path)) {
+          try { fs.unlinkSync(file.path); } catch {}
+        }
+      }
+    }
+
+    for (const folder of tempFolders) {
+      if (fs.existsSync(folder)) {
+        try {
+          fs.rmSync(folder, { recursive: true, force: true });
+        } catch (rmErr) {
+          console.error(`Failed to clean up temporary folder: ${folder}`, rmErr);
+        }
+      }
+    }
   }
 });
 

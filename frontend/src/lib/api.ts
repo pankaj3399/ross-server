@@ -1789,6 +1789,34 @@ class ApiService {
     return response.json();
   }
 
+  async uploadCRCTemplatesBulk(files: File[]): Promise<{
+    success: boolean;
+    message: string;
+    summary: { total: number; success: number; unmatched: number; failed: number };
+    details: Array<{ filename: string; status: 'success' | 'unmatched' | 'failed'; controlId?: string; error?: string }>;
+  }> {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const token = this.getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/crc/templates/bulk-upload`, {
+      method: "POST",
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Bulk upload failed" }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   async deleteCRCTemplate(controlId: string): Promise<{ success: boolean; message: string }> {
     return this.request<{ success: boolean; message: string }>(`/crc/templates/${controlId}/template`, {
       method: "DELETE",

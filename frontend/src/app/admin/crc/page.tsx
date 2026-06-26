@@ -339,6 +339,15 @@ export default function CRCAdminPage() {
     const [templateUploadTargetId, setTemplateUploadTargetId] = useState<string | null>(null); // UUID of control
     const [templateUploadTargetShortId, setTemplateUploadTargetShortId] = useState<string | null>(null); // short control_id
     
+    // Template bulk upload state
+    const [showTemplateBulkDialog, setShowTemplateBulkDialog] = useState(false);
+    const [templateBulkFiles, setTemplateBulkFiles] = useState<File[]>([]);
+    const [templateBulkUploading, setTemplateBulkUploading] = useState(false);
+    const [templateBulkResult, setTemplateBulkResult] = useState<{
+        summary: { total: number; success: number; unmatched: number; failed: number };
+        details: Array<{ filename: string; status: 'success' | 'unmatched' | 'failed'; controlId?: string; error?: string }>;
+    } | null>(null);
+
     // Template delete dialog state
     const [showTemplateDeleteDialog, setShowTemplateDeleteDialog] = useState(false);
     const [templateToDeleteId, setTemplateToDeleteId] = useState<string | null>(null);
@@ -454,6 +463,40 @@ export default function CRCAdminPage() {
             setTemplateToDeleteId(null);
             setTemplateToDeleteShortId(null);
         }
+    };
+
+    const handleTemplateBulkFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            setTemplateBulkFiles(prev => [...prev, ...files]);
+        }
+    };
+
+    const handleTemplateBulkRemoveFile = (index: number) => {
+        setTemplateBulkFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleTemplateBulkUpload = async () => {
+        if (templateBulkFiles.length === 0 || templateBulkUploading) return;
+        setTemplateBulkUploading(true);
+        setTemplateBulkResult(null);
+        try {
+            const res = await apiService.uploadCRCTemplatesBulk(templateBulkFiles);
+            setTemplateBulkResult(res);
+            toast.success("Bulk template upload complete");
+            fetchTemplateStatuses();
+        } catch (error: any) {
+            toast.error(error.message || "Failed to bulk upload templates");
+        } finally {
+            setTemplateBulkUploading(false);
+        }
+    };
+
+    const closeTemplateBulkDialog = () => {
+        setShowTemplateBulkDialog(false);
+        setTemplateBulkFiles([]);
+        setTemplateBulkResult(null);
+        setTemplateBulkUploading(false);
     };
 
     useEffect(() => {
@@ -1376,6 +1419,9 @@ export default function CRCAdminPage() {
                     <Button variant="outline" onClick={openBulkDialog} size="lg">
                         <IconUpload className="mr-2 size-5" /> Bulk upload
                     </Button>
+                    <Button variant="outline" onClick={() => setShowTemplateBulkDialog(true)} size="lg">
+                        <IconUpload className="mr-2 size-5" /> Bulk templates
+                    </Button>
                     <Button onClick={handleCreate} size="lg">
                         <IconPlus className="mr-2 size-5" /> Create Control
                     </Button>
@@ -1954,6 +2000,145 @@ export default function CRCAdminPage() {
                             {categoryActionLoading ? "Deleting..." : "Delete Category"}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Template Bulk Upload Dialog */}
+            <Dialog open={showTemplateBulkDialog} onOpenChange={(open) => { if (!open) closeTemplateBulkDialog(); else setShowTemplateBulkDialog(true); }}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Bulk Upload Templates</DialogTitle>
+                        <DialogDescription>
+                            Upload multiple template files (.docx/.doc) or a single ZIP file containing templates. They will be automatically matched to their respective controls based on control IDs in the filenames.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {!templateBulkResult ? (
+                        <div className="space-y-6 py-4">
+                            {/* Drag and Drop Zone / File Input */}
+                            <div className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-8 bg-card hover:bg-accent/30 transition-colors relative">
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept=".docx,.doc,.zip,application/zip,application/x-zip-compressed"
+                                    onChange={handleTemplateBulkFileChange}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    disabled={templateBulkUploading}
+                                />
+                                <IconUpload className="size-10 text-muted-foreground mb-4" />
+                                <p className="text-sm font-medium">Click or drag files here to upload</p>
+                                <p className="text-xs text-muted-foreground mt-1">Supports multiple .docx / .doc files or a single .zip file</p>
+                            </div>
+
+                            {/* Selected Files List */}
+                            {templateBulkFiles.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold">Selected Files ({templateBulkFiles.length})</h3>
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive hover:bg-destructive/10" onClick={() => setTemplateBulkFiles([])} disabled={templateBulkUploading}>
+                                            Clear all
+                                        </Button>
+                                    </div>
+                                    <div className="border rounded-md divide-y max-h-48 overflow-y-auto bg-card">
+                                        {templateBulkFiles.map((file, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-2.5 text-sm">
+                                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                    <IconFile className="size-4 shrink-0 text-muted-foreground" />
+                                                    <span className="truncate font-medium">{file.name}</span>
+                                                    <span className="text-xs text-muted-foreground shrink-0">({(file.size / 1024).toFixed(1)} KB)</span>
+                                                </div>
+                                                <Button variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-foreground" onClick={() => handleTemplateBulkRemoveFile(idx)} disabled={templateBulkUploading}>
+                                                    <IconX className="size-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <DialogFooter>
+                                <Button variant="outline" onClick={closeTemplateBulkDialog} disabled={templateBulkUploading}>
+                                    Cancel
+                                </Button>
+                                <Button onClick={handleTemplateBulkUpload} disabled={templateBulkFiles.length === 0 || templateBulkUploading}>
+                                    {templateBulkUploading ? (
+                                        <>
+                                            <IconLoader2 className="mr-2 size-4 animate-spin" />
+                                            Uploading & Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconUpload className="mr-2 size-4" />
+                                            Upload Templates
+                                        </>
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    ) : (
+                        <div className="space-y-6 py-4">
+                            {/* Summary Card */}
+                            <div className="grid grid-cols-4 gap-4 p-4 rounded-lg bg-accent/40 border text-center">
+                                <div>
+                                    <div className="text-2xl font-bold">{templateBulkResult.summary.total}</div>
+                                    <div className="text-xs text-muted-foreground mt-1">Processed</div>
+                                </div>
+                                <div className="text-green-600 dark:text-green-400">
+                                    <div className="text-2xl font-bold">{templateBulkResult.summary.success}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 font-medium">Successful</div>
+                                </div>
+                                <div className="text-amber-600 dark:text-amber-400">
+                                    <div className="text-2xl font-bold">{templateBulkResult.summary.unmatched}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 font-medium">Unmatched</div>
+                                </div>
+                                <div className="text-destructive">
+                                    <div className="text-2xl font-bold">{templateBulkResult.summary.failed}</div>
+                                    <div className="text-xs text-muted-foreground mt-1 font-medium">Failed</div>
+                                </div>
+                            </div>
+
+                            {/* Details List */}
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-semibold">Upload Details</h3>
+                                <div className="border rounded-md divide-y max-h-60 overflow-y-auto bg-card text-sm">
+                                    {templateBulkResult.details.map((detail, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-2.5">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                {detail.status === "success" ? (
+                                                    <IconCheck className="size-4 shrink-0 text-green-500" />
+                                                ) : detail.status === "unmatched" ? (
+                                                    <IconFileOff className="size-4 shrink-0 text-amber-500" />
+                                                ) : (
+                                                    <IconX className="size-4 shrink-0 text-destructive" />
+                                                )}
+                                                <span className="truncate font-medium">{detail.filename}</span>
+                                                {detail.controlId && (
+                                                    <Badge variant="outline" className="text-xs font-mono shrink-0">
+                                                        {detail.controlId}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <div className="text-xs shrink-0 pl-4 font-medium">
+                                                {detail.status === "success" ? (
+                                                    <span className="text-green-600 dark:text-green-400">Success</span>
+                                                ) : detail.status === "unmatched" ? (
+                                                    <span className="text-amber-600 dark:text-amber-400" title={detail.error}>Unmatched</span>
+                                                ) : (
+                                                    <span className="text-destructive font-semibold" title={detail.error}>Failed</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <DialogFooter>
+                                <Button onClick={closeTemplateBulkDialog}>
+                                    Close
+                                </Button>
+                            </DialogFooter>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
