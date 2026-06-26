@@ -601,14 +601,14 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
           control_objective: Object.prototype.hasOwnProperty.call(rawItem, 'control_objective') ? data.control_objective : existing.control_objective,
           risk_description: Object.prototype.hasOwnProperty.call(rawItem, 'risk_description') ? data.risk_description : existing.risk_description,
           implementation: Object.prototype.hasOwnProperty.call(rawItem, 'implementation')
-            ? { ...existing.implementation, ...rawItem.implementation }
+            ? { ...existing.implementation, ...data.implementation }
             : existing.implementation,
           evidence_requirements: Object.prototype.hasOwnProperty.call(rawItem, 'evidence_requirements') ? data.evidence_requirements : existing.evidence_requirements,
           compliance_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'compliance_mapping')
-            ? { ...existing.compliance_mapping, ...rawItem.compliance_mapping }
+            ? { ...existing.compliance_mapping, ...data.compliance_mapping }
             : existing.compliance_mapping,
           aima_mapping: Object.prototype.hasOwnProperty.call(rawItem, 'aima_mapping')
-            ? { ...existing.aima_mapping, ...rawItem.aima_mapping }
+            ? { ...existing.aima_mapping, ...data.aima_mapping }
             : existing.aima_mapping,
         };
 
