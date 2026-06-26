@@ -319,6 +319,8 @@ export default function CRCAdminPage() {
     const [bulkEditIndex, setBulkEditIndex] = useState<number | null>(null);
     const [bulkEditFormData, setBulkEditFormData] = useState<Partial<Control>>(defaultControlState);
     const [bulkImporting, setBulkImporting] = useState(false);
+    const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+    const [pendingPayloads, setPendingPayloads] = useState<any[]>([]);
     
     // Category management state
     const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -596,6 +598,8 @@ export default function CRCAdminPage() {
         setBulkPreviewRows([]);
         setBulkErrors([]);
         setBulkEditIndex(null);
+        setShowOverwriteConfirm(false);
+        setPendingPayloads([]);
     };
 
     const parseBulkFromPaste = (): Partial<Control>[] => {
@@ -877,9 +881,55 @@ export default function CRCAdminPage() {
                 };
             });
 
-            const { data } = await apiService.createCRCBulk(payloads);
-            toast.success(`Created ${data.length} controls. You can edit or delete any control from the list.`);
+            const { data } = await apiService.createCRCBulk(payloads, false);
+            toast.success(`Successfully imported ${data.length} controls.`);
             setShowBulkDialog(false);
+            fetchControls();
+        } catch (err: any) {
+            if (err?.errors?.length) {
+                const hasDuplicateError = err.errors.some((e: any) => e.message === "Control ID already exists");
+                if (hasDuplicateError) {
+                    const payloads = bulkPreviewRows.map((r) => {
+                        const catId = r.category_id !== undefined ? r.category_id : categories[0]?.id;
+                        return {
+                            control_id: r.control_id as string,
+                            control_title: r.control_title as string,
+                            category_id: catId,
+                            priority: r.priority && PRIORITIES.includes(r.priority) ? r.priority : "Medium",
+                            status: r.status || "Draft",
+                            applicable_to: r.applicable_to ?? [],
+                            expected_timeline: r.expected_timeline ?? "",
+                            control_statement: r.control_statement ?? "",
+                            control_objective: r.control_objective ?? "",
+                            risk_description: r.risk_description ?? "",
+                            implementation: r.implementation ?? { requirements: [], steps: [] },
+                            evidence_requirements: r.evidence_requirements ?? [],
+                            compliance_mapping: r.compliance_mapping ?? { eu_ai_act: [], nist_ai_rmf: [], iso_42001: [] },
+                        };
+                    });
+                    setPendingPayloads(payloads);
+                    setShowOverwriteConfirm(true);
+                } else {
+                    setBulkErrors(err.errors);
+                    toast.error(`Import failed: ${err.errors.length} row(s) have errors. Fix or remove them and try again.`);
+                }
+            } else {
+                toast.error(err?.message || "Bulk import failed");
+            }
+        } finally {
+            setBulkImporting(false);
+        }
+    };
+
+    const confirmOverwriteImport = async () => {
+        if (pendingPayloads.length === 0) return;
+        setBulkImporting(true);
+        try {
+            const { data } = await apiService.createCRCBulk(pendingPayloads, true);
+            toast.success(`Successfully imported ${data.length} controls.`);
+            setShowOverwriteConfirm(false);
+            setShowBulkDialog(false);
+            setPendingPayloads([]);
             fetchControls();
         } catch (err: any) {
             if (err?.errors?.length) {
@@ -888,6 +938,7 @@ export default function CRCAdminPage() {
             } else {
                 toast.error(err?.message || "Bulk import failed");
             }
+            setShowOverwriteConfirm(false);
         } finally {
             setBulkImporting(false);
         }
@@ -1592,7 +1643,7 @@ export default function CRCAdminPage() {
                                     )}
                                 </TabsContent>
                             </Tabs>
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-2 pt-2 border-t">
                                 <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
                                 <Button onClick={handleBulkParse}>Parse and preview</Button>
                             </div>
@@ -1641,14 +1692,36 @@ export default function CRCAdminPage() {
                                     </TableBody>
                                 </Table>
                             </div>
-                            <DialogFooter>
+                            <div className="flex justify-end gap-2 pt-4 border-t">
                                 <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
                                 <Button onClick={handleBulkImport} disabled={bulkPreviewRows.length === 0 || bulkImporting}>
                                     {bulkImporting ? "Importing..." : `Import ${bulkPreviewRows.length} control(s)`}
                                 </Button>
-                            </DialogFooter>
+                            </div>
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showOverwriteConfirm} onOpenChange={setShowOverwriteConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Overwrite Existing Controls?</DialogTitle>
+                        <DialogDescription>
+                            Some of the controls you are importing already exist in the database. Do you want to overwrite their details and increment their versions?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => {
+                            setShowOverwriteConfirm(false);
+                            setPendingPayloads([]);
+                        }}>
+                            No, Cancel
+                        </Button>
+                        <Button onClick={confirmOverwriteImport} disabled={bulkImporting}>
+                            {bulkImporting ? "Importing..." : "Yes, Overwrite"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

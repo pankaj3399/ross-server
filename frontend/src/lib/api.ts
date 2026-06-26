@@ -1559,13 +1559,13 @@ class ApiService {
   }
 
   /** Bulk create CRC controls. On 400, throws an error with .status and .errors: { index, control_id?, message }[] */
-  async createCRCBulk(controls: Partial<CRCControl>[]): Promise<{ data: CRCControl[] }> {
+  async createCRCBulk(controls: Partial<CRCControl>[], overwrite?: boolean): Promise<{ data: CRCControl[] }> {
     let response: Response;
     try {
       response = await fetch(`${API_BASE_URL}/crc/controls/bulk`, {
         method: "POST",
         headers: this.getHeaders(),
-        body: JSON.stringify({ controls }),
+        body: JSON.stringify({ controls, overwrite }),
       });
     } catch (networkError) {
       const err = new Error("Network error") as Error & { status?: number; errors?: Array<{ index: number; control_id?: string; message: string }> };
