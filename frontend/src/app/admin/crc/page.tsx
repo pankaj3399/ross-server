@@ -319,6 +319,7 @@ export default function CRCAdminPage() {
     const [bulkEditIndex, setBulkEditIndex] = useState<number | null>(null);
     const [bulkEditFormData, setBulkEditFormData] = useState<Partial<Control>>(defaultControlState);
     const [bulkImporting, setBulkImporting] = useState(false);
+    const [bulkOverwrite, setBulkOverwrite] = useState(false);
     
     // Category management state
     const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -596,6 +597,7 @@ export default function CRCAdminPage() {
         setBulkPreviewRows([]);
         setBulkErrors([]);
         setBulkEditIndex(null);
+        setBulkOverwrite(false);
     };
 
     const parseBulkFromPaste = (): Partial<Control>[] => {
@@ -877,8 +879,8 @@ export default function CRCAdminPage() {
                 };
             });
 
-            const { data } = await apiService.createCRCBulk(payloads);
-            toast.success(`Created ${data.length} controls. You can edit or delete any control from the list.`);
+            const { data } = await apiService.createCRCBulk(payloads, bulkOverwrite);
+            toast.success(`Successfully imported ${data.length} controls.`);
             setShowBulkDialog(false);
             fetchControls();
         } catch (err: any) {
@@ -1592,9 +1594,24 @@ export default function CRCAdminPage() {
                                     )}
                                 </TabsContent>
                             </Tabs>
-                            <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
-                                <Button onClick={handleBulkParse}>Parse and preview</Button>
+                            <div className="flex items-center justify-between pt-2 border-t">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="bulk-overwrite-input"
+                                        checked={bulkOverwrite}
+                                        onCheckedChange={(checked) => setBulkOverwrite(!!checked)}
+                                    />
+                                    <label
+                                        htmlFor="bulk-overwrite-input"
+                                        className="text-sm font-medium leading-none cursor-pointer select-none"
+                                    >
+                                        Overwrite duplicate Control IDs (update existing controls instead of failing)
+                                    </label>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
+                                    <Button onClick={handleBulkParse}>Parse and preview</Button>
+                                </div>
                             </div>
                         </div>
                     ) : (
@@ -1641,12 +1658,27 @@ export default function CRCAdminPage() {
                                     </TableBody>
                                 </Table>
                             </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
-                                <Button onClick={handleBulkImport} disabled={bulkPreviewRows.length === 0 || bulkImporting}>
-                                    {bulkImporting ? "Importing..." : `Import ${bulkPreviewRows.length} control(s)`}
-                                </Button>
-                            </DialogFooter>
+                            <div className="flex items-center justify-between pt-4 border-t">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="bulk-overwrite-preview"
+                                        checked={bulkOverwrite}
+                                        onCheckedChange={(checked) => setBulkOverwrite(!!checked)}
+                                    />
+                                    <label
+                                        htmlFor="bulk-overwrite-preview"
+                                        className="text-sm font-medium leading-none cursor-pointer select-none"
+                                    >
+                                        Overwrite duplicate Control IDs (update existing controls instead of failing)
+                                    </label>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button variant="outline" onClick={() => setShowBulkDialog(false)}>Cancel</Button>
+                                    <Button onClick={handleBulkImport} disabled={bulkPreviewRows.length === 0 || bulkImporting}>
+                                        {bulkImporting ? "Importing..." : `Import ${bulkPreviewRows.length} control(s)`}
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </DialogContent>

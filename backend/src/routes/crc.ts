@@ -422,11 +422,13 @@ router.post("/controls", authenticateToken, requireRole(["ADMIN"]), async (req, 
   }
 });
 
-// POST /crc/controls/bulk - Bulk create controls (all-or-nothing)
+// POST /crc/controls/bulk - Bulk create controls (all-or-nothing / upsert compatible)
 router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   const client = await pool.connect();
   try {
     const raw = req.body;
+    const overwrite = raw.overwrite === true;
+
     if (!Array.isArray(raw.controls)) {
       return res.status(400).json({ success: false, errors: [{ index: -1, message: "Request body must include a 'controls' array" }] });
     }
@@ -477,26 +479,6 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
       return res.status(400).json({ success: false, errors });
     }
 
-    await client.query("BEGIN");
-    const user = (req as any).user;
-
-    const controlIds = parsedWithIndex.map((p) => p.data.control_id);
-    const existingIds = await client.query(
-      "SELECT control_id FROM crc_controls WHERE control_id = ANY($1)",
-      [controlIds]
-    );
-    const existingSet = new Set(existingIds.rows.map((r: { control_id: string }) => r.control_id));
-    for (const { data, originalIndex } of parsedWithIndex) {
-      if (existingSet.has(data.control_id)) {
-        errors.push({ index: originalIndex, control_id: data.control_id, message: "Control ID already exists" });
-      }
-    }
-
-    if (errors.length > 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, errors });
-    }
-
     // Check all unique category_ids in the batch
     const uniqueCategoryIds = Array.from(new Set(parsedWithIndex.map(p => p.data.category_id)));
     const catCheck = await client.query("SELECT id FROM crc_categories WHERE id = ANY($1)", [uniqueCategoryIds]);
@@ -509,57 +491,136 @@ router.post("/controls/bulk", authenticateToken, requireRole(["ADMIN"]), async (
     }
 
     if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+
+    await client.query("BEGIN");
+    const user = (req as any).user;
+
+    const controlIds = parsedWithIndex.map((p) => p.data.control_id);
+    const existingIds = await client.query(
+      "SELECT id, control_id, version, status FROM crc_controls WHERE control_id = ANY($1)",
+      [controlIds]
+    );
+    const existingMap = new Map<string, { id: string; control_id: string; version: number; status: string }>(
+      existingIds.rows.map((r: any) => [r.control_id, r])
+    );
+
+    if (!overwrite) {
+      for (const { data, originalIndex } of parsedWithIndex) {
+        if (existingMap.has(data.control_id)) {
+          errors.push({ index: originalIndex, control_id: data.control_id, message: "Control ID already exists" });
+        }
+      }
+    }
+
+    if (errors.length > 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, errors });
     }
 
-    const cols = 15;
-    const placeholders = parsedWithIndex.map((_, rowIdx) => {
-      const start = rowIdx * cols + 1;
-      return `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6}, $${start + 7}, $${start + 8}, $${start + 9}, $${start + 10}::jsonb, $${start + 11}::jsonb, $${start + 12}::jsonb, $${start + 13}::jsonb, $${start + 14}, 1)`;
-    }).join(", ");
-    const batchInsertQuery = `
-      INSERT INTO crc_controls (
-        control_id, control_title, category_id, expected_timeline, priority, status, applicable_to,
-        control_statement, control_objective, risk_description,
-        implementation, evidence_requirements, compliance_mapping, aima_mapping,
-        created_by, version
-      )
-      VALUES ${placeholders}
-      RETURNING *
-    `;
-    const values: any[] = [];
-    for (const { data } of parsedWithIndex) {
-      values.push(
-        data.control_id, data.control_title, data.category_id, data.expected_timeline, data.priority, data.status, data.applicable_to,
-        data.control_statement, data.control_objective, data.risk_description,
-        JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
-        JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
-        user.id
-      );
-    }
-    const result = await client.query(batchInsertQuery, values);
-    const created = result.rows;
+    const toInsert: typeof parsedWithIndex = [];
+    const toUpdate: typeof parsedWithIndex = [];
 
-    if (created.length > 0) {
-      const snapshotCols = 7;
-      const snapshotPlaceholders = created.map((_: any, i: number) => {
-        const base = i * snapshotCols + 1;
-        return `($${base}, $${base + 1}, $${base + 2}::jsonb, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
-      }).join(", ");
-      const snapshotValues: any[] = [];
-      for (const ctrl of created) {
-        snapshotValues.push(ctrl.id, ctrl.version, JSON.stringify(ctrl), null, ctrl.status, user.id, "Initial creation");
+    for (const item of parsedWithIndex) {
+      if (existingMap.has(item.data.control_id)) {
+        toUpdate.push(item);
+      } else {
+        toInsert.push(item);
       }
-      await client.query(
-        `INSERT INTO crc_control_versions (control_id, version, snapshot, status_from, status_to, changed_by, change_note)
-         VALUES ${snapshotPlaceholders}`,
-        snapshotValues
-      );
+    }
+
+    const processed: any[] = [];
+
+    // 1. Process inserts
+    if (toInsert.length > 0) {
+      const cols = 15;
+      const placeholders = toInsert.map((_, rowIdx) => {
+        const start = rowIdx * cols + 1;
+        return `($${start}, $${start + 1}, $${start + 2}, $${start + 3}, $${start + 4}, $${start + 5}, $${start + 6}, $${start + 7}, $${start + 8}, $${start + 9}, $${start + 10}::jsonb, $${start + 11}::jsonb, $${start + 12}::jsonb, $${start + 13}::jsonb, $${start + 14}, 1)`;
+      }).join(", ");
+      const batchInsertQuery = `
+        INSERT INTO crc_controls (
+          control_id, control_title, category_id, expected_timeline, priority, status, applicable_to,
+          control_statement, control_objective, risk_description,
+          implementation, evidence_requirements, compliance_mapping, aima_mapping,
+          created_by, version
+        )
+        VALUES ${placeholders}
+        RETURNING *
+      `;
+      const values: any[] = [];
+      for (const { data } of toInsert) {
+        values.push(
+          data.control_id, data.control_title, data.category_id, data.expected_timeline, data.priority, data.status, data.applicable_to,
+          data.control_statement, data.control_objective, data.risk_description,
+          JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
+          JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
+          user.id
+        );
+      }
+      const result = await client.query(batchInsertQuery, values);
+      const createdRows = result.rows;
+      processed.push(...createdRows);
+
+      if (createdRows.length > 0) {
+        const snapshotCols = 7;
+        const snapshotPlaceholders = createdRows.map((_: any, i: number) => {
+          const base = i * snapshotCols + 1;
+          return `($${base}, $${base + 1}, $${base + 2}::jsonb, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6})`;
+        }).join(", ");
+        const snapshotValues: any[] = [];
+        for (const ctrl of createdRows) {
+          snapshotValues.push(ctrl.id, ctrl.version, JSON.stringify(ctrl), null, ctrl.status, user.id, "Initial creation");
+        }
+        await client.query(
+          `INSERT INTO crc_control_versions (control_id, version, snapshot, status_from, status_to, changed_by, change_note)
+           VALUES ${snapshotPlaceholders}`,
+          snapshotValues
+        );
+      }
+    }
+
+    // 2. Process updates (overwrites)
+    if (toUpdate.length > 0) {
+      for (const { data } of toUpdate) {
+        const existing = existingMap.get(data.control_id)!;
+        const newVersion = existing.version + 1;
+        
+        // Preserve existing status to respect single update flow status transition restrictions
+        const status = existing.status;
+
+        const updateQuery = `
+          UPDATE crc_controls SET
+            control_title = $1, category_id = $2, expected_timeline = $3, priority = $4, status = $5, applicable_to = $6,
+            control_statement = $7, control_objective = $8, risk_description = $9,
+            implementation = $10::jsonb, evidence_requirements = $11::jsonb, compliance_mapping = $12::jsonb, aima_mapping = $13::jsonb,
+            updated_at = CURRENT_TIMESTAMP, version = $14
+          WHERE id = $15
+          RETURNING *
+        `;
+        const values = [
+          data.control_title, data.category_id, data.expected_timeline, data.priority, status, data.applicable_to,
+          data.control_statement, data.control_objective, data.risk_description,
+          JSON.stringify(data.implementation), JSON.stringify(data.evidence_requirements),
+          JSON.stringify(data.compliance_mapping), JSON.stringify(data.aima_mapping),
+          newVersion, existing.id
+        ];
+        const result = await client.query(updateQuery, values);
+        const updatedRow = result.rows[0];
+        processed.push(updatedRow);
+
+        // Record a new version history snapshot
+        await client.query(
+          `INSERT INTO crc_control_versions (control_id, version, snapshot, status_from, status_to, changed_by, change_note)
+           VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7)`,
+          [existing.id, newVersion, JSON.stringify(updatedRow), existing.status, status, user.id, "Bulk import overwrite"]
+        );
+      }
     }
 
     await client.query("COMMIT");
-    res.status(201).json({ success: true, data: created });
+    res.status(201).json({ success: true, data: processed });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Error bulk creating controls:", error);
