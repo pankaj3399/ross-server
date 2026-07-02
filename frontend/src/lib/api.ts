@@ -50,6 +50,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   deleted_at?: string;
+  path_choice?: "aima" | "premium" | null;
 }
 
 export interface InventoryComponent {
@@ -599,6 +600,7 @@ class ApiService {
       aiSystemType?: string;
       industry?: string;
       status?: string;
+      pathChoice?: string;
     },
   ): Promise<{ project: Project }> {
     return this.request<{ project: Project }>(`/projects/${id}`, {

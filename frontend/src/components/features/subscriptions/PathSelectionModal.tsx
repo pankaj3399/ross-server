@@ -31,6 +31,7 @@ interface PathSelectionModalProps {
   projectId: string;
   onSelectAima: () => void;
   onSelectPremium: () => void;
+  onUpgradeClick?: () => void;
 }
 
 const AIMA_FEATURES = [
@@ -77,10 +78,14 @@ export default function PathSelectionModal({
   projectId,
   onSelectAima,
   onSelectPremium,
+  onUpgradeClick,
 }: PathSelectionModalProps) {
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isStartingTrial, setIsStartingTrial] = useState(false);
   const [isSelectingAima, setIsSelectingAima] = useState(false);
+
+  const isPaidUser = user?.subscription_status && user?.subscription_status !== "free";
+  const hasUsedTrial = user?.trial_used;
 
   const handleSelectAima = async () => {
     setIsSelectingAima(true);
@@ -97,6 +102,16 @@ export default function PathSelectionModal({
   };
 
   const handleSelectPremium = async () => {
+    if (isPaidUser) {
+      onSelectPremium();
+      return;
+    }
+
+    if (hasUsedTrial) {
+      onUpgradeClick?.();
+      return;
+    }
+
     setIsStartingTrial(true);
     try {
       await apiService.startTrial();
@@ -247,7 +262,7 @@ export default function PathSelectionModal({
               </div>
 
               <Badge className="w-fit mb-4 text-xs bg-primary/10 text-primary border-primary/20">
-                7-Day Free Trial
+                {isPaidUser ? "Included in your Plan" : hasUsedTrial ? "Premium Upgrade" : "7-Day Free Trial"}
               </Badge>
 
               <p className="text-sm text-foreground/80 mb-6">
@@ -282,18 +297,20 @@ export default function PathSelectionModal({
                 {isStartingTrial ? (
                   <>
                     <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
-                    Starting Trial...
+                    {isPaidUser ? "Loading..." : "Starting Trial..."}
                   </>
                 ) : (
                   <>
                     <IconCrown className="w-5 h-5 mr-2" />
-                    Start 7-Day Free Trial
+                    {isPaidUser ? "Start with CRC (Premium)" : hasUsedTrial ? "Upgrade to Premium" : "Start 7-Day Free Trial"}
                   </>
                 )}
               </Button>
-              <p className="text-center text-xs text-muted-foreground mt-2">
-                No credit card required
-              </p>
+              {!isPaidUser && !hasUsedTrial && (
+                <p className="text-center text-xs text-muted-foreground mt-2">
+                  No credit card required
+                </p>
+              )}
             </motion.div>
           </div>
         </motion.div>

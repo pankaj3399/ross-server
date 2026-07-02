@@ -579,11 +579,12 @@ function SidebarContentComponent() {
   // ─── Expansion states ───────────────────────────────────────────────────────
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(currentDomainId ?? null);
-  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
-  const [isFreeExpanded, setIsFreeExpanded] = useState(true);
+  // For premium/trial users: collapse AIMA by default, expand Premium Features + CRC
+  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(!premiumStatus);
+  const [isFreeExpanded, setIsFreeExpanded] = useState(!premiumStatus);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!routeFlags.isFairnessPage);
-  const [isCrcExpanded, setIsCrcExpanded] = useState(!!routeFlags.isCrcPage);
+  const [isCrcExpanded, setIsCrcExpanded] = useState(premiumStatus || !!routeFlags.isCrcPage);
   const [expandedCrcCategories, setExpandedCrcCategories] = useState<Record<string, boolean>>(
     currentCategory ? { [currentCategory]: true } : {}
   );
@@ -597,13 +598,23 @@ function SidebarContentComponent() {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
 
-  // Keep AIMA Assessment toggle closed by default for admin account
+  // Keep AIMA Assessment toggle closed by default for admin and premium accounts
   useEffect(() => {
-    if (user?.role === ROLES.ADMIN) {
+    if (user?.role === ROLES.ADMIN || premiumStatus) {
       setIsAssessmentExpanded(false);
       setIsFreeExpanded(false);
+    } else {
+      setIsAssessmentExpanded(true);
+      setIsFreeExpanded(true);
     }
-  }, [user?.role]);
+    if (premiumStatus) {
+      setIsPremiumFeaturesExpanded(true);
+      setIsCrcExpanded(true);
+    } else {
+      setIsPremiumFeaturesExpanded(false);
+      setIsCrcExpanded(false);
+    }
+  }, [user?.role, premiumStatus]);
 
   useEffect(() => {
     if (isAuthenticated && !fetchInProgress.current) {
@@ -680,12 +691,15 @@ function SidebarContentComponent() {
     } else if (flags.isInventoryPage) {
       setIsPremiumFeaturesExpanded(true);
     } else if (flags.isAimaPage) {
-      setIsFreeExpanded(true);
-      setIsAssessmentExpanded(true);
+      // Only auto-expand AIMA for free (non-premium) users
+      if (!premiumStatus) {
+        setIsFreeExpanded(true);
+        setIsAssessmentExpanded(true);
+      }
     } else if (flags.isTeamPage || flags.isSettingsPage) {
       setIsProjectSettingsExpanded(true);
     }
-  }, [pathname, isInsideProject]);
+  }, [pathname, isInsideProject, premiumStatus]);
 
   // Sync domain expansion
   useEffect(() => {
@@ -989,7 +1003,6 @@ function SidebarContentComponent() {
                         isActive={isPremiumActive}
                         onClick={() => {
                           setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded);
-                          router.push("/premium-features");
                         }}
                         className={cn(
                           "transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",

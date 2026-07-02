@@ -5,6 +5,8 @@ import { useAssessmentContext } from "../../../contexts/AssessmentContext";
 import { usePathname } from "next/navigation";
 import { Breadcrumb } from "../../../components/shared/Breadcrumb";
 import { WizardGateProvider } from "../../../components/features/wizard/WizardGateProvider";
+import { useAuth } from "../../../contexts/AuthContext";
+import { isPremiumStatus } from "../../../lib/constants";
 
 const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("premium-features")) return "Premium Features";
@@ -24,11 +26,14 @@ const getBreadcrumbLabel = (pathname: string) => {
 
 function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const { user } = useAuth();
     const {
         projectId,
         projectName,
         loading,
     } = useAssessmentContext();
+
+    const premiumStatus = isPremiumStatus(user?.subscription_status);
 
     if (loading) {
         return (
@@ -47,6 +52,11 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
          pathname.includes("/premium-features")) &&
         !pathname.includes("/settings");
 
+    // For premium users, the project breadcrumb link goes to CRC dashboard (not AIMA)
+    const projectBreadcrumbHref = premiumStatus
+        ? `/assess/${projectId}/crc/dashboard`
+        : `/assess/${projectId}`;
+
     return (
         <div className="flex flex-col min-h-full overflow-auto">
             {/* Main Content Area — navigation now lives in the unified left sidebar */}
@@ -54,7 +64,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                 <div className="px-8 py-6 max-w-7xl w-full mx-auto">
                     <Breadcrumb
                         projectName={projectName || "Loading project..."}
-                        projectHref={`/assess/${projectId}`}
+                        projectHref={projectBreadcrumbHref}
                         items={[
                             {
                                 label: getBreadcrumbLabel(pathname)

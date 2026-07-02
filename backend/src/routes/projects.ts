@@ -231,16 +231,17 @@ router.put(
   requireProjectRole(["OWNER", "EDITOR"]),
   async (req, res) => {
   try {
-    const { name, description, aiSystemType, industry, status } = req.body;
+    const { name, description, aiSystemType, industry, status, pathChoice } = req.body;
 
     const result = await pool.query(
-      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), industry = COALESCE($4, industry), status = COALESCE($5, status), updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *",
+      "UPDATE projects SET name = COALESCE($1, name), description = COALESCE($2, description), ai_system_type = COALESCE($3, ai_system_type), industry = COALESCE($4, industry), status = COALESCE($5, status), path_choice = COALESCE($6, path_choice), updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *",
       [
         name,
         description,
         aiSystemType,
         industry,
         status,
+        pathChoice,
         req.params.projectId,
       ],
     );
