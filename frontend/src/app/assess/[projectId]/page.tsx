@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAssessmentContext } from "../../../contexts/AssessmentContext";
 import { useAuth } from "../../../contexts/AuthContext";
-import { PREMIUM_STATUS } from "../../../lib/constants";
+import { isPremiumStatus } from "../../../lib/constants";
 import { IconAlertTriangle, IconBrain } from "@tabler/icons-react";
 import { AssessmentSkeleton } from "../../../components/Skeleton";
 import QuestionView from "../../../components/assess/QuestionView";
@@ -22,11 +22,9 @@ export default function AssessmentPage() {
     error,
     projectNotFound,
     questions,
-    isPremium,
   } = useAssessmentContext();
 
-  const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
-  const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
+  const premiumStatus = isPremiumStatus(user?.subscription_status);
 
   // Redirect premium users to CRC dashboard — AIMA is not their default workspace
   useEffect(() => {

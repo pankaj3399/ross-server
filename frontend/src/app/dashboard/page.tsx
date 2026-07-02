@@ -56,7 +56,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import ProjectEditForm from "@/components/features/projects/ProjectEditForm";
-import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES } from "@/lib/constants";
+import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES, isPremiumStatus } from "@/lib/constants";
 import { getReportRoute } from "@/lib/reportRoute";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
@@ -91,23 +91,25 @@ export default function DashboardPage() {
   const decliningTokensRef = useRef<Set<string>>(new Set());
 
   const getProjectReportHref = (projId: string) => {
-    const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${projId}`);
+    const project = projects.find(p => p.id === projId);
+    const savedChoice = project?.path_choice || localStorage.getItem(`path_choice_${user?.id}_${projId}`);
     if (savedChoice === "premium") {
       return getReportRoute(projId, "CRC");
     } else if (savedChoice === "aima") {
       return getReportRoute(projId, "AIMA");
     }
-    return user?.subscription_status && user?.subscription_status !== "free" ? getReportRoute(projId, "CRC") : getReportRoute(projId, "AIMA");
+    return isPremiumStatus(user?.subscription_status) ? getReportRoute(projId, "CRC") : getReportRoute(projId, "AIMA");
   };
 
   const getProjectEditHref = (projId: string) => {
-    const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${projId}`);
+    const project = projects.find(p => p.id === projId);
+    const savedChoice = project?.path_choice || localStorage.getItem(`path_choice_${user?.id}_${projId}`);
     if (savedChoice === "premium") {
       return `/assess/${projId}/crc`;
     } else if (savedChoice === "aima") {
       return `/assess/${projId}`;
     }
-    return user?.subscription_status && user?.subscription_status !== "free" ? `/assess/${projId}/crc` : `/assess/${projId}`;
+    return isPremiumStatus(user?.subscription_status) ? `/assess/${projId}/crc` : `/assess/${projId}`;
   };
 
   // Pending Invitations State from Store
@@ -572,18 +574,7 @@ export default function DashboardPage() {
                                       setPathSelectionProjectId(project.id);
                                       setShowPathSelection(true);
                                     } else {
-                                      const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${project.id}`);
-                                      if (savedChoice === "premium") {
-                                        router.push(`/assess/${project.id}/crc`);
-                                      } else if (savedChoice === "aima") {
-                                        router.push(`/assess/${project.id}`);
-                                      } else {
-                                        if (user?.subscription_status && user?.subscription_status !== "free") {
-                                          router.push(`/assess/${project.id}/crc`);
-                                        } else {
-                                          router.push(`/assess/${project.id}`);
-                                        }
-                                      }
+                                      router.push(getProjectEditHref(project.id));
                                     }
                                   }}
                                   className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
@@ -669,9 +660,12 @@ export default function DashboardPage() {
           isOpen={showPathSelection}
           projectId={pathSelectionProjectId}
           onSelectAima={() => {
-            // Store choice in localStorage for re-engagement popup tracking
+            // Store choice in localStorage for re-engagement popup tracking and server
             if (user?.id && pathSelectionProjectId) {
               localStorage.setItem(`path_choice_${user.id}_${pathSelectionProjectId}`, "aima");
+              apiService.updateProject(pathSelectionProjectId, { pathChoice: "aima" })
+                .then(() => loadProjects())
+                .catch(err => console.error("Failed to save path choice to server:", err));
             }
             setShowPathSelection(false);
             router.push(`/assess/${pathSelectionProjectId}`);
@@ -679,6 +673,9 @@ export default function DashboardPage() {
           onSelectPremium={() => {
             if (user?.id && pathSelectionProjectId) {
               localStorage.setItem(`path_choice_${user.id}_${pathSelectionProjectId}`, "premium");
+              apiService.updateProject(pathSelectionProjectId, { pathChoice: "premium" })
+                .then(() => loadProjects())
+                .catch(err => console.error("Failed to save path choice to server:", err));
             }
             setShowPathSelection(false);
             router.push(`/assess/${pathSelectionProjectId}/crc/welcome`);

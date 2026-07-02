@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Breadcrumb } from "../../../components/shared/Breadcrumb";
 import { WizardGateProvider } from "../../../components/features/wizard/WizardGateProvider";
 import { useAuth } from "../../../contexts/AuthContext";
-import { PREMIUM_STATUS } from "../../../lib/constants";
+import { isPremiumStatus } from "../../../lib/constants";
 
 const getBreadcrumbLabel = (pathname: string) => {
     if (pathname.includes("premium-features")) return "Premium Features";
@@ -31,11 +31,9 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
         projectId,
         projectName,
         loading,
-        isPremium,
     } = useAssessmentContext();
 
-    const userIsPremium = user?.subscription_status ? PREMIUM_STATUS.includes(user.subscription_status as typeof PREMIUM_STATUS[number]) : false;
-    const premiumStatus = isPremium !== undefined ? isPremium : userIsPremium;
+    const premiumStatus = isPremiumStatus(user?.subscription_status);
 
     if (loading) {
         return (

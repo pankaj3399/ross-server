@@ -603,10 +603,16 @@ function SidebarContentComponent() {
     if (user?.role === ROLES.ADMIN || premiumStatus) {
       setIsAssessmentExpanded(false);
       setIsFreeExpanded(false);
+    } else {
+      setIsAssessmentExpanded(true);
+      setIsFreeExpanded(true);
     }
     if (premiumStatus) {
       setIsPremiumFeaturesExpanded(true);
       setIsCrcExpanded(true);
+    } else {
+      setIsPremiumFeaturesExpanded(false);
+      setIsCrcExpanded(false);
     }
   }, [user?.role, premiumStatus]);
 
