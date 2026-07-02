@@ -90,6 +90,26 @@ export default function DashboardPage() {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const decliningTokensRef = useRef<Set<string>>(new Set());
 
+  const getProjectReportHref = (projId: string) => {
+    const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${projId}`);
+    if (savedChoice === "premium") {
+      return getReportRoute(projId, "CRC");
+    } else if (savedChoice === "aima") {
+      return getReportRoute(projId, "AIMA");
+    }
+    return user?.subscription_status && user?.subscription_status !== "free" ? getReportRoute(projId, "CRC") : getReportRoute(projId, "AIMA");
+  };
+
+  const getProjectEditHref = (projId: string) => {
+    const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${projId}`);
+    if (savedChoice === "premium") {
+      return `/assess/${projId}/crc`;
+    } else if (savedChoice === "aima") {
+      return `/assess/${projId}`;
+    }
+    return user?.subscription_status && user?.subscription_status !== "free" ? `/assess/${projId}/crc` : `/assess/${projId}`;
+  };
+
   // Pending Invitations State from Store
   const { invitations: myInvitations, fetchInvitations, removeInvitation, clearInvitations } = useNotificationStore();
   const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
@@ -530,7 +550,7 @@ export default function DashboardPage() {
                               {project.status === 'completed' ? (
                                 <div className="flex items-center gap-3">
                                   <Link
-                                    href={getReportRoute(project.id)}
+                                    href={getProjectReportHref(project.id)}
                                     className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
                                   >
                                     <span>Report</span>
@@ -538,7 +558,7 @@ export default function DashboardPage() {
                                   </Link>
                                   <span className="text-border">|</span>
                                   <Link
-                                    href={`/assess/${project.id}`}
+                                    href={getProjectEditHref(project.id)}
                                     className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
                                   >
                                     <span>Edit</span>
@@ -548,17 +568,22 @@ export default function DashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    // Show path selection for free users who haven't chosen a path yet on a new project
-                                    if (
-                                      user?.subscription_status === "free" &&
-                                      !user?.free_path_chosen_at &&
-                                      !user?.trial_used &&
-                                      project.status === "not_started"
-                                    ) {
+                                    if (project.status === "not_started") {
                                       setPathSelectionProjectId(project.id);
                                       setShowPathSelection(true);
                                     } else {
-                                      router.push(`/assess/${project.id}`);
+                                      const savedChoice = localStorage.getItem(`path_choice_${user?.id}_${project.id}`);
+                                      if (savedChoice === "premium") {
+                                        router.push(`/assess/${project.id}/crc`);
+                                      } else if (savedChoice === "aima") {
+                                        router.push(`/assess/${project.id}`);
+                                      } else {
+                                        if (user?.subscription_status && user?.subscription_status !== "free") {
+                                          router.push(`/assess/${project.id}/crc`);
+                                        } else {
+                                          router.push(`/assess/${project.id}`);
+                                        }
+                                      }
                                     }
                                   }}
                                   className="inline-flex items-center gap-1 text-primary hover:text-primary/80 transition-colors text-sm font-medium"
@@ -638,7 +663,7 @@ export default function DashboardPage() {
         description="Upgrade to premium to create unlimited projects and unlock many more advanced capabilities."
       />
 
-      {/* Path Selection Modal — shown when free user clicks Start on a new project */}
+      {/* Path Selection Modal — shown when user clicks Start on a new project */}
       {pathSelectionProjectId && (
         <PathSelectionModal
           isOpen={showPathSelection}
@@ -652,8 +677,15 @@ export default function DashboardPage() {
             router.push(`/assess/${pathSelectionProjectId}`);
           }}
           onSelectPremium={() => {
+            if (user?.id && pathSelectionProjectId) {
+              localStorage.setItem(`path_choice_${user.id}_${pathSelectionProjectId}`, "premium");
+            }
             setShowPathSelection(false);
-            router.push(`/assess/${pathSelectionProjectId}`);
+            router.push(`/assess/${pathSelectionProjectId}/crc/welcome`);
+          }}
+          onUpgradeClick={() => {
+            setShowPathSelection(false);
+            setShowSubscriptionModal(true);
           }}
         />
       )}
