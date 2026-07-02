@@ -34,6 +34,7 @@ import {
   IconChevronDown,
   IconSelector,
   IconBug,
+  IconGift,
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -579,6 +580,7 @@ function SidebarContentComponent() {
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(currentDomainId ?? null);
   const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(true);
+  const [isFreeExpanded, setIsFreeExpanded] = useState(true);
   const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
   const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!routeFlags.isFairnessPage);
   const [isCrcExpanded, setIsCrcExpanded] = useState(!!routeFlags.isCrcPage);
@@ -599,6 +601,7 @@ function SidebarContentComponent() {
   useEffect(() => {
     if (user?.role === ROLES.ADMIN) {
       setIsAssessmentExpanded(false);
+      setIsFreeExpanded(false);
     }
   }, [user?.role]);
 
@@ -677,6 +680,7 @@ function SidebarContentComponent() {
     } else if (flags.isInventoryPage) {
       setIsPremiumFeaturesExpanded(true);
     } else if (flags.isAimaPage) {
+      setIsFreeExpanded(true);
       setIsAssessmentExpanded(true);
     } else if (flags.isTeamPage || flags.isSettingsPage) {
       setIsProjectSettingsExpanded(true);
@@ -867,43 +871,39 @@ function SidebarContentComponent() {
                   );
                 })()}
 
-                {/* AIMA Assessment collapsible item */}
+                {/* Free section — collapsible, contains AIMA Assessment */}
                 {(() => {
                   const isAimaActive = routeFlags.isAimaPage;
+                  const isFreeActive = isAimaActive;
                   return (
-                    <SidebarMenuItem key="aima-assessment">
+                    <SidebarMenuItem key="free-section">
                       <SidebarMenuButton
-                        isActive={isAimaActive}
+                        isActive={isFreeActive}
                         onClick={() => {
-                          setIsAssessmentExpanded(!isAssessmentExpanded);
-                          if (isInsideProject && projectId) {
-                            router.push(`/assess/${projectId}`);
-                          } else {
-                            handleProjectAction("");
-                          }
+                          setIsFreeExpanded(!isFreeExpanded);
                         }}
                         className={cn(
                           "transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                          isAimaActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
+                          isFreeActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
                         )}
-                        tooltip="AIMA Assessment"
+                        tooltip="Free"
                       >
-                        <IconClipboardCheck className={cn("size-5 shrink-0 transition-colors duration-200", isAimaActive ? "text-primary" : "text-muted-foreground/80")} />
+                        <IconGift className={cn("size-5 shrink-0 transition-colors duration-200", isFreeActive ? "text-primary" : "text-muted-foreground/80")} />
                         {state === "expanded" && (
-                          <span className={cn("text-sm font-medium", isAimaActive ? "text-foreground font-semibold" : "text-foreground/80")}>AIMA Assessment</span>
+                          <span className={cn("text-sm font-medium", isFreeActive ? "text-foreground font-semibold" : "text-foreground/80")}>Free</span>
                         )}
                         {state === "expanded" && (
                           <IconChevronRight
                             className={cn(
                               "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
-                              isAssessmentExpanded && "rotate-90"
+                              isFreeExpanded && "rotate-90"
                             )}
                           />
                         )}
                       </SidebarMenuButton>
 
                       <AnimatePresence>
-                        {isAssessmentExpanded && state === "expanded" && (
+                        {isFreeExpanded && state === "expanded" && (
                           <motion.div
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
@@ -911,24 +911,68 @@ function SidebarContentComponent() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <SidebarMenu className="ml-[18px] pl-3 border-l border-sidebar-border mt-0.5 gap-0.5 w-[calc(100%-18px)]">
-                              {displayDomains.map((domain: any) => (
-                                <DomainTreeItem
-                                  key={domain.id}
-                                  domain={domain}
-                                  currentDomainId={currentDomainId}
-                                  currentPracticeId={currentPracticeId}
-                                  currentQuestionIndex={currentQuestionIndex}
-                                  expandedDomainId={expandedDomainId}
-                                  onDomainClick={isInsideProject ? handleDomainClick : () => handleProjectAction("")}
-                                  onPracticeClick={isInsideProject ? handlePracticeClick : () => handleProjectAction("")}
-                                  onQuestionClick={isInsideProject ? handleQuestionClick : () => handleProjectAction("")}
-                                  toggleDomain={isInsideProject ? toggleDomain : () => {}}
-                                  premiumStatus={premiumStatus}
-                                  activeQuestionRef={currentQuestionRef}
-                                />
-                              ))}
-                            </SidebarMenu>
+                            <SidebarMenuSub className="border-l border-sidebar-border ml-[18px] pl-3 mt-0.5 gap-0.5">
+                              {/* AIMA Assessment — nested inside Free */}
+                              <SidebarMenuSubItem>
+                                <SidebarMenuSubButton
+                                  onClick={() => {
+                                    setIsAssessmentExpanded(!isAssessmentExpanded);
+                                    if (isInsideProject && projectId) {
+                                      router.push(`/assess/${projectId}`);
+                                    } else {
+                                      handleProjectAction("");
+                                    }
+                                  }}
+                                  isActive={isAimaActive}
+                                  className={cn(
+                                    "group/aima h-8 px-2 transition-all duration-200",
+                                    isAimaActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                                  )}
+                                >
+                                  <IconClipboardCheck className={cn("size-5 transition-colors duration-200", isAimaActive ? "text-primary" : "text-blue-500")} />
+                                  <span className={cn("text-[13px] truncate ml-1", isAimaActive ? "text-foreground font-semibold" : "text-foreground/80")}>
+                                    AIMA Assessment
+                                  </span>
+                                  <IconChevronRight
+                                    className={cn(
+                                      "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
+                                      isAssessmentExpanded && "rotate-90"
+                                    )}
+                                  />
+                                </SidebarMenuSubButton>
+
+                                <AnimatePresence>
+                                  {isAssessmentExpanded && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.2 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <SidebarMenuSub className="border-l border-sidebar-border ml-[18px] pl-3 mt-0.5 gap-0.5">
+                                        {displayDomains.map((domain: any) => (
+                                          <DomainTreeItem
+                                            key={domain.id}
+                                            domain={domain}
+                                            currentDomainId={currentDomainId}
+                                            currentPracticeId={currentPracticeId}
+                                            currentQuestionIndex={currentQuestionIndex}
+                                            expandedDomainId={expandedDomainId}
+                                            onDomainClick={isInsideProject ? handleDomainClick : () => handleProjectAction("")}
+                                            onPracticeClick={isInsideProject ? handlePracticeClick : () => handleProjectAction("")}
+                                            onQuestionClick={isInsideProject ? handleQuestionClick : () => handleProjectAction("")}
+                                            toggleDomain={isInsideProject ? toggleDomain : () => {}}
+                                            premiumStatus={premiumStatus}
+                                            activeQuestionRef={currentQuestionRef}
+                                          />
+                                        ))}
+                                      </SidebarMenuSub>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </SidebarMenuSubItem>
+                            </SidebarMenuSub>
                           </motion.div>
                         )}
                       </AnimatePresence>

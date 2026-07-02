@@ -548,9 +548,10 @@ export default function DashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    // Show path selection for free users who haven't used trial on a new project
+                                    // Show path selection for free users who haven't chosen a path yet on a new project
                                     if (
                                       user?.subscription_status === "free" &&
+                                      !user?.free_path_chosen_at &&
                                       !user?.trial_used &&
                                       project.status === "not_started"
                                     ) {
