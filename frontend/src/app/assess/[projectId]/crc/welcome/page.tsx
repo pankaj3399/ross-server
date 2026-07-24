@@ -185,10 +185,9 @@ export default function CRCWelcomePage() {
             <h2>Readiness tiers</h2>
             <p className="text-sm text-muted-foreground">From overall score</p>
             <ul className="list-disc pl-5 space-y-1 not-prose text-sm">
-              <li>Ready: score 90% and above</li>
-              <li>Mostly Ready: 75% to 89%</li>
-              <li>Partially Ready: 55% to 74%</li>
-              <li>Not Ready: below 55%</li>
+              <li>Ready: score 75% and above</li>
+              <li>Partially Ready: 30% to 74%</li>
+              <li>Not Ready: below 30%</li>
             </ul>
           </section>
 

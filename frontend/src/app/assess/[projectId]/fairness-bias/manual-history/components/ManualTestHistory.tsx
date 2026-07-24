@@ -215,9 +215,9 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                                     <div className="font-medium text-foreground truncate max-w-[200px]">
                                                         Manual Evaluation
                                                     </div>
-                                                     <div className="text-xs text-muted-foreground">
-                                                         {report.total_prompts} of 20 prompts answered
-                                                     </div>
+                                                      <div className="text-xs text-muted-foreground">
+                                                          {report.total_prompts} of {(report as any).config?.totalQuestions || (report as any).config?.total_questions || report.total_prompts || 20} prompts answered
+                                                      </div>
                                                 </div>
                                             </div>
                                         </td>

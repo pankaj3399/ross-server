@@ -50,85 +50,111 @@ function computeRiskRating(priority: string, answerValue: number): RiskRating | 
  *   auto-calculated rating.
  * - If the answer is Yes / NA → close the risk if one exists.
  */
+function hashToTwoInts(str: string): { key1: number; key2: number } {
+    let hash1 = 0;
+    let hash2 = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        if (i % 2 === 0) {
+            hash1 = ((hash1 << 5) - hash1 + char) | 0;
+        } else {
+            hash2 = ((hash2 << 5) - hash2 + char) | 0;
+        }
+    }
+    return { key1: hash1, key2: hash2 };
+}
+
 export async function syncRiskFromResponse(
     projectId: string,
     controlId: string
 ): Promise<void> {
-    // Fetch latest persisted response for this project and control
-    const responseResult = await pool.query(
-        `SELECT value FROM crc_assessment_responses
-         WHERE project_id = $1 AND control_id = $2`,
-        [projectId, controlId]
-    );
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
 
-    const answerValue = responseResult.rows.length > 0 && responseResult.rows[0].value !== null
-        ? Number(responseResult.rows[0].value)
-        : null;
+        const { key1, key2 } = hashToTwoInts(`${projectId}:${controlId}`);
+        await client.query("SELECT pg_advisory_xact_lock($1, $2)", [key1, key2]);
 
-    // Fetch control metadata for risk title & category_id & priority
-    const controlResult = await pool.query(
-        `SELECT control_id, control_title, category_id, priority, risk_description
-         FROM crc_controls WHERE id = $1`,
-        [controlId]
-    );
-    if (controlResult.rows.length === 0) return;
-
-    const control = controlResult.rows[0];
-    const rating = answerValue !== null ? computeRiskRating(control.priority, answerValue) : null;
-
-    if (rating === null) {
-        // Yes or NA — close any existing risk
-        await pool.query(
-            `UPDATE crc_risks SET status = 'Closed', updated_at = CURRENT_TIMESTAMP
-             WHERE project_id = $1 AND control_id = $2 AND status = 'Open'`,
-            [projectId, controlId]
-        );
-    } else {
-        // No / Partially / Not Sure — upsert an Open risk
-        const title = `${control.control_id}: ${control.control_title}`;
-        const description = control.risk_description || "";
-
-        // Fetch category name if control has a category_id
-        let categoryName = "Uncategorized";
-        if (control.category_id) {
-            const catResult = await pool.query(
-                `SELECT name FROM crc_categories WHERE id = $1`,
-                [control.category_id]
-            );
-            if (catResult.rows.length > 0) {
-                categoryName = catResult.rows[0].name;
-            }
-        }
-
-        // Fetch existing risk to compare rating transition
-        const existingResult = await pool.query(
-            `SELECT id, rating, status FROM crc_risks
+        // Re-read latest response within transaction
+        const responseResult = await client.query(
+            `SELECT value FROM crc_assessment_responses
              WHERE project_id = $1 AND control_id = $2`,
             [projectId, controlId]
         );
-        const oldRisk = existingResult.rows[0];
 
-        const upsertResult = await pool.query(
-            `INSERT INTO crc_risks (project_id, control_id, title, category, rating, status, description, source)
-             VALUES ($1, $2, $3, $4, $5, 'Open', $6, 'Automated')
-             ON CONFLICT (project_id, control_id)
-             DO UPDATE SET rating = $5,
-                           status = 'Open',
-                           title = $3, category = $4, description = $6,
-                           updated_at = CURRENT_TIMESTAMP
-             RETURNING id`,
-            [projectId, controlId, title, categoryName, rating, description]
+        const answerValue = responseResult.rows.length > 0 && responseResult.rows[0].value !== null
+            ? Number(responseResult.rows[0].value)
+            : null;
+
+        const controlResult = await client.query(
+            `SELECT control_id, control_title, category_id, priority, risk_description
+             FROM crc_controls WHERE id = $1`,
+            [controlId]
         );
-        const riskId = upsertResult.rows[0].id;
 
-        // Trigger critical risk alert if transitioning to Critical
-        if (rating === "Critical" && (!oldRisk || oldRisk.rating !== "Critical" || oldRisk.status === "Closed")) {
-            await inngest.send({
-                name: "notification/critical-risk.triggered",
-                data: { projectId, riskId },
-            }).catch((err) => {
-                console.error("Failed to emit Inngest critical risk event:", err);
-            });
+        if (controlResult.rows.length === 0) {
+            await client.query("COMMIT");
+            return;
         }
+
+        const control = controlResult.rows[0];
+        const rating = answerValue !== null ? computeRiskRating(control.priority, answerValue) : null;
+
+        if (rating === null) {
+            await client.query(
+                `UPDATE crc_risks SET status = 'Closed', updated_at = CURRENT_TIMESTAMP
+                 WHERE project_id = $1 AND control_id = $2 AND status = 'Open'`,
+                [projectId, controlId]
+            );
+        } else {
+            const title = `${control.control_id}: ${control.control_title}`;
+            const description = control.risk_description || "";
+
+            let categoryName = "Uncategorized";
+            if (control.category_id) {
+                const catResult = await client.query(
+                    `SELECT name FROM crc_categories WHERE id = $1`,
+                    [control.category_id]
+                );
+                if (catResult.rows.length > 0) {
+                    categoryName = catResult.rows[0].name;
+                }
+            }
+
+            const existingResult = await client.query(
+                `SELECT id, rating, status FROM crc_risks
+                 WHERE project_id = $1 AND control_id = $2`,
+                [projectId, controlId]
+            );
+            const oldRisk = existingResult.rows[0];
+
+            const upsertResult = await client.query(
+                `INSERT INTO crc_risks (project_id, control_id, title, category, rating, status, description, source)
+                 VALUES ($1, $2, $3, $4, $5, 'Open', $6, 'Automated')
+                 ON CONFLICT (project_id, control_id)
+                 DO UPDATE SET rating = $5,
+                               status = 'Open',
+                               title = $3, category = $4, description = $6,
+                               updated_at = CURRENT_TIMESTAMP
+                 RETURNING id`,
+                [projectId, controlId, title, categoryName, rating, description]
+            );
+            const riskId = upsertResult.rows[0].id;
+
+            if (rating === "Critical" && (!oldRisk || oldRisk.rating !== "Critical" || oldRisk.status === "Closed")) {
+                await inngest.send({
+                    name: "notification/critical-risk.triggered",
+                    data: { projectId, riskId },
+                }).catch((err) => {
+                    console.error("Failed to emit Inngest critical risk event:", err);
+                });
+            }
+        }
+        await client.query("COMMIT");
+    } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+    } finally {
+        client.release();
     }
 }

@@ -267,10 +267,9 @@ router.post("/:projectId/component/:componentId/complete", authenticateToken, as
     await client.query(
       `UPDATE component_inventory SET
         vendor_assessment_status = 'Completed',
-        vendor_assessment_completed_at = $1,
         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2`,
-      [now, componentId]
+       WHERE id = $1`,
+      [componentId]
     );
 
     const targetControls = ['GOV-3P-01', 'GOV-3P-02', 'GOV-3P-03'];

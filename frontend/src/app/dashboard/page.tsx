@@ -788,7 +788,7 @@ export default function DashboardPage() {
                                   </DropdownMenuItem>
                                 )}
 
-                                {(project.role === 'OWNER' || project.user_id === user?.id) && (
+                                {project.role === 'OWNER' && project.user_id === user?.id && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem

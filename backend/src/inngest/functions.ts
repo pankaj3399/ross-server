@@ -20,6 +20,7 @@ import {
   type JobResult,
   type JobError,
   type UserApiResponse,
+  FAIRNESS_PASS_THRESHOLD,
   failJob,
   buildSummary,
   markJobCompleted,
@@ -554,7 +555,7 @@ export const evaluationAggregator = inngest.createFunction(
       let errorEntry: string | null = null;
       
       if (result) {
-        const isPassed = result.overallScore !== null ? result.overallScore >= 0.6 : true;
+        const isPassed = result.overallScore !== null ? result.overallScore >= FAIRNESS_PASS_THRESHOLD : true;
         resultEntry = JSON.stringify([{
           category: response?.category || "unknown",
           prompt: response?.prompt || "unknown",

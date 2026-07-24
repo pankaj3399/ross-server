@@ -45,14 +45,14 @@ const getReadinessTier = (
   if (answeredCount === 0 || percent === null) {
     return { label: "Not Started", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10" };
   }
-  if (percent >= 60) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
+  if (percent >= 75) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
   if (percent >= 30) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
   return { label: "Not Ready", color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" };
 };
 
 const getCategoryColor = (percent: number | null, answeredCount: number = 1): string => {
   if (answeredCount === 0 || percent === null) return "text-blue-500 dark:text-blue-400";
-  if (percent >= 60) return "text-emerald-600 dark:text-emerald-400";
+  if (percent >= 75) return "text-emerald-600 dark:text-emerald-400";
   if (percent >= 30) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 };

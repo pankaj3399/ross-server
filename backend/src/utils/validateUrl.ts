@@ -115,13 +115,52 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     }
   }
 
-  // IPv6 check (including fc00::/7 ULA range)
+  // IPv6 check
   const cleanHostname = hostname.replace(/^\[|\]$/g, "");
+
+  // Detect IPv4-mapped IPv6 literals and NAT64 64:ff9b::/96 range with embedded IPv4 tail
+  const ipv4MappedRegex = /^(?:::ffff:(?:0:0:)?|::ffff:|(?:0+:){5}ffff:|64:ff9b::)(.+)$/i;
+  const matchMapped = cleanHostname.match(ipv4MappedRegex);
+  if (matchMapped) {
+    const tail = matchMapped[1];
+    let extractedIp: string | null = null;
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(tail)) {
+      extractedIp = tail;
+    } else {
+      const hexParts = tail.split(":");
+      if (hexParts.length === 2) {
+        const h1 = parseInt(hexParts[0], 16);
+        const h2 = parseInt(hexParts[1], 16);
+        if (!isNaN(h1) && !isNaN(h2)) {
+          extractedIp = `${(h1 >> 8) & 255}.${h1 & 255}.${(h2 >> 8) & 255}.${h2 & 255}`;
+        }
+      }
+    }
+    if (extractedIp) {
+      const parsedEmbedded = parseIPv4(extractedIp);
+      if (parsedEmbedded) {
+        const [a, b] = parsedEmbedded;
+        if (
+          a === 127 ||
+          a === 0 ||
+          a === 10 ||
+          (a === 172 && b >= 16 && b <= 31) ||
+          (a === 192 && b === 168) ||
+          (a === 169 && b === 254) ||
+          (a === 100 && b >= 64 && b <= 127)
+        ) {
+          return { isValid: false, error: `Embedded private/reserved IPv4 address (${extractedIp}) in IPv6 is not allowed.` };
+        }
+      }
+    }
+  }
+
   if (
+    cleanHostname === "::" ||
     cleanHostname === "::1" ||
     cleanHostname === "0:0:0:0:0:0:0:1" ||
     cleanHostname.startsWith("fe80:") ||
-    /^f[cd][0-9a-f]{2}:/i.test(cleanHostname) ||
+    /^f[cd][0-9a-f]{0,4}:/i.test(cleanHostname) ||
     cleanHostname.startsWith("fc00:") ||
     cleanHostname.startsWith("fd00:")
   ) {

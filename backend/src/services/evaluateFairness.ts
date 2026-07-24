@@ -60,8 +60,9 @@ export async function evaluateFairnessResponse(
     const project = projectCheck.rows[0];
     const versionId = project.version_id || (await getCurrentVersion()).id;
 
-    // Sanitize user response to prevent XSS
+    // Sanitize user response and question text
     const userResponse = sanitizeNote(rawUserResponse);
+    const sanitizedQuestionText = sanitizeForPrompt(questionText);
 
     // An empty user response means the upstream model returned nothing
     if (!userResponse.trim() || isNonResponsiveOrJargon(userResponse)) {
@@ -95,7 +96,7 @@ export async function evaluateFairnessResponse(
             userId,
             versionId,
             category,
-            questionText,
+            sanitizedQuestionText,
             userResponse,
             1.0,
             0.0,
@@ -122,7 +123,6 @@ export async function evaluateFairnessResponse(
     }
 
     // Sanitize inputs for prompt injection prevention
-    const sanitizedQuestionText = sanitizeForPrompt(questionText);
     const sanitizedUserResponse = sanitizeForPrompt(userResponse);
 
     // SERVICE 1: Claude-based Evaluation - Single call for all metrics

@@ -961,7 +961,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const result = await pool.query(
             `SELECT 
                 id, job_id, total_prompts, success_count, failure_count,
-                average_scores, config, created_at
+                average_scores, results, config, created_at
              FROM api_test_reports
              WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')
              ORDER BY created_at DESC

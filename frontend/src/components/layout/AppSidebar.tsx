@@ -365,7 +365,7 @@ const ActivityBarButton = ({
         type="button"
         onClick={onClick}
         className={cn(
-          "relative flex items-center justify-center size-9 rounded-xl transition-all duration-200 group cursor-pointer focus:outline-none select-none",
+          "relative flex items-center justify-center size-9 rounded-xl transition-all duration-200 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 select-none",
           isActive
             ? "bg-primary/15 font-semibold shadow-xs ring-1 ring-primary/20"
             : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60"
@@ -1375,7 +1375,7 @@ function SidebarContentComponent() {
                           <span>Security & Assets</span>
                         </div>
                         <SidebarMenuButton
-                          onClick={() => handleProjectNav("/crc")}
+                          onClick={() => handleProjectNav("/vulnerability-assessment")}
                           isActive={routeFlags.isVulnerabilityPage}
                           className={cn(
                             "h-8 px-2 transition-all",

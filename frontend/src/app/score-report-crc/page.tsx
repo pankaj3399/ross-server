@@ -23,7 +23,7 @@ const formatPercent = (value: number | null): string =>
 
 const getMaturityLabel = (percent: number | null): { label: string; color: string } => {
   if (percent === null) return { label: "Not Started", color: "text-blue-500 dark:text-blue-400" };
-  if (percent >= 60) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400" };
+  if (percent >= 75) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400" };
   if (percent >= 30) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400" };
   return { label: "Not Ready", color: "text-red-600 dark:text-red-400" };
 };
