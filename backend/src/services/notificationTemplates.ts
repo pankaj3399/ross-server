@@ -66,13 +66,16 @@ function getSafeOrigin(urlStr: string, fallback: string): string {
 function getFooterUrls(userId: string, type: string) {
   const token = generateUnsubscribeToken(userId, type);
   const rawBackend = process.env.BACKEND_URL || "http://localhost:4000";
-  const rawFrontend = process.env.FRONTEND_URL || "http://localhost:3000";
+  const rawFrontend = process.env.FRONTEND_URL || process.env.APP_URL || process.env.PUBLIC_URL || "http://localhost:3000";
   
   const backendUrl = getSafeOrigin(rawBackend, "http://localhost:4000");
   const frontendUrl = getSafeOrigin(rawFrontend, "http://localhost:3000");
   
+  // Prefer public app frontend origin so email links point to main app domain and resolve seamlessly
+  const appOrigin = process.env.PUBLIC_URL || process.env.APP_URL || frontendUrl;
+
   return {
-    unsubscribeUrl: `${backendUrl}/notifications/unsubscribe/${encodeURIComponent(token)}`,
+    unsubscribeUrl: `${appOrigin}/notifications/unsubscribe/${encodeURIComponent(token)}`,
     preferencesUrl: `${frontendUrl}/settings?tab=notifications`,
     privacyUrl: `${frontendUrl}/privacy`,
   };

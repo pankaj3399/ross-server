@@ -585,7 +585,7 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-8 py-6 w-full space-y-6">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full min-w-0 space-y-6">
         <p className="text-muted-foreground text-sm max-w-3xl">
           Document and maintain audit evidence for every AI model, system, dataset, and vector database in use. Required for EU AI Act Annex IV and ISO 42001 compliance.
         </p>
@@ -651,9 +651,9 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Filter and search Bar */}
-      <div className="flex flex-col lg:flex-row items-center gap-4 bg-card/30 border border-border/55 rounded-2xl p-4 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-center gap-4 bg-card/30 border border-border/55 rounded-2xl p-4 shadow-sm min-w-0">
         {/* Search */}
-        <div className="relative w-full lg:w-72">
+        <div className="relative w-full lg:w-72 shrink-0">
           <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search components..."
@@ -664,10 +664,10 @@ export default function ComponentInventoryPage() {
         </div>
 
         {/* Dropdown Filters */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full flex-1">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full flex-1 min-w-0">
           {/* Type Filter */}
           <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-[130px] rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -682,7 +682,7 @@ export default function ComponentInventoryPage() {
 
           {/* Provider Filter */}
           <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-[140px] rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Providers" />
             </SelectTrigger>
             <SelectContent>
@@ -697,7 +697,7 @@ export default function ComponentInventoryPage() {
 
           {/* Risk Filter */}
           <Select value={selectedRisk} onValueChange={setSelectedRisk}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-[120px] rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Risks" />
             </SelectTrigger>
             <SelectContent>
@@ -712,7 +712,7 @@ export default function ComponentInventoryPage() {
 
           {/* Status Filter */}
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -740,7 +740,7 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Main Table view */}
-      <div className="bg-card/40 border border-border/65 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col">
+      <div className="bg-card/40 border border-border/65 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col min-w-0 max-w-full">
         {filteredComponents.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center">
             <IconTable className="h-16 w-16 text-muted-foreground/30 mb-4 stroke-[1.2]" />
@@ -761,7 +761,7 @@ export default function ComponentInventoryPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full max-w-full">
             <Table>
               <TableHeader className="bg-card/30">
                 <TableRow className="border-b border-border/50">

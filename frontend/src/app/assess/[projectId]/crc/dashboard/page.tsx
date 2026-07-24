@@ -474,6 +474,7 @@ export default function CRCDashboardPage() {
                           : isExportingFull
                           ? "Exporting..."
                           : "Download Full PDF"}
+                        <IconInfoCircle className="w-3.5 h-3.5 ml-0.5 opacity-80 shrink-0" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -507,6 +508,7 @@ export default function CRCDashboardPage() {
                           : isExportingSummary
                           ? "Exporting..."
                           : "Download Summary"}
+                        <IconInfoCircle className="w-3.5 h-3.5 ml-0.5 opacity-80 shrink-0" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -676,7 +678,13 @@ export default function CRCDashboardPage() {
                   <IconAlertCircle className="w-6 h-6 shrink-0" style={{ color: "var(--section-premium)" }} />
                   <span>Risk Summary</span>
                 </h2>
-                <p className="text-sm text-muted-foreground">Open risks from the Risk Register</p>
+                <Link
+                  href={`/assess/${projectId}/crc/risks`}
+                  className="text-xs sm:text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  <span>Open Risk Register</span>
+                  <IconArrowRight className="w-4 h-4" />
+                </Link>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
@@ -686,13 +694,16 @@ export default function CRCDashboardPage() {
                   { label: "Low", count: results.riskSummary?.low ?? 0, bg: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400" },
                 ].map((badge) => (
                   <Link key={badge.label} href={`/assess/${projectId}/crc/risks`}>
-                    <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
+                    <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer group">
                       <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                         <span className="text-2xl font-bold tabular-nums text-foreground">
                           {badge.count}
                         </span>
                         <span className={`mt-2 text-xs font-semibold px-2.5 py-0.5 border rounded-full ${badge.bg}`}>
                           {badge.label}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground group-hover:text-primary mt-1.5 transition-colors font-medium flex items-center gap-0.5">
+                          View in Risk Register <IconArrowRight className="w-3 h-3" />
                         </span>
                       </CardContent>
                     </Card>
@@ -709,7 +720,13 @@ export default function CRCDashboardPage() {
                     <IconShieldCheck className="w-6 h-6 shrink-0" style={{ color: "var(--section-premium)" }} />
                     <span>Evidence Progress</span>
                   </h2>
-                  <p className="text-sm text-muted-foreground">Audit readiness & evidence metrics</p>
+                  <Link
+                    href={`/assess/${projectId}/crc`}
+                    className="text-xs sm:text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-all"
+                  >
+                    <span>View Control Evidence</span>
+                    <IconArrowRight className="w-4 h-4" />
+                  </Link>
                 </div>
                 <Card>
                   <CardContent className="p-6">

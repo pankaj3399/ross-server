@@ -21,6 +21,7 @@ import {
   IconInfoCircle,
   IconFileText,
   IconMessage,
+  IconX,
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -163,6 +164,15 @@ export default function CRCAssessmentPage() {
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({});
   const [showDetails, setShowDetails] = useState(false);
   const [activeTab, setActiveTab] = useState<"evidence" | "notes" | "comments">("evidence");
+  const [dismissedNudges, setDismissedNudges] = useState<Set<string>>(new Set());
+
+  const handleDismissNudge = (controlId: string) => {
+    setDismissedNudges(prev => {
+      const next = new Set(prev);
+      next.add(controlId);
+      return next;
+    });
+  };
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, tab: "evidence" | "notes" | "comments") => {
     const tabs: ("evidence" | "notes" | "comments")[] = ["evidence", "notes", "comments"];
@@ -501,6 +511,12 @@ export default function CRCAssessmentPage() {
                       a.click();
                       a.remove();
                       window.URL.revokeObjectURL(url);
+
+                      // Instantly autoflip evidence status from "No Evidence" to "Template Downloaded" without requiring page refresh
+                      const currentStatus = currentResponse?.evidenceStatus || "No Evidence";
+                      if (!isReadOnly && (currentStatus === "No Evidence" || !currentResponse?.evidenceStatus)) {
+                        await handleEvidenceStatusChange(currentControl.id, "Template Downloaded");
+                      }
                     } catch (err: any) {
                       showToast.error("Failed to download compliance template.");
                     }
@@ -976,16 +992,27 @@ export default function CRCAssessmentPage() {
                     )}
 
                     {/* Gentle nudge message */}
-                    {((currentAnswer === 1 || currentAnswer === 0.5) && (!currentResponse?.evidenceStatus || currentResponse?.evidenceStatus === "No Evidence")) && (
+                    {((currentAnswer === 1 || currentAnswer === 0.5) && (!currentResponse?.evidenceStatus || currentResponse?.evidenceStatus === "No Evidence") && !dismissedNudges.has(currentControl.id)) && (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start gap-2 text-xs text-amber-600 dark:text-amber-500"
+                        className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start justify-between gap-2 text-xs text-amber-600 dark:text-amber-500"
                       >
-                        <IconAlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-semibold">Gentle Nudge:</span> You indicated this control is implemented, but haven't provided evidence. Consider downloading the template above.
+                        <div className="flex items-start gap-2 flex-1">
+                          <IconAlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-semibold">Gentle Nudge:</span> You indicated this control is implemented, but haven't provided evidence. Consider downloading the template above.
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDismissNudge(currentControl.id)}
+                          title="Dismiss nudge"
+                          aria-label="Dismiss nudge"
+                          className="text-amber-600/70 hover:text-amber-600 dark:text-amber-500/70 dark:hover:text-amber-400 p-1 rounded-lg hover:bg-amber-500/10 transition-colors shrink-0"
+                        >
+                          <IconX className="w-4 h-4" />
+                        </button>
                       </motion.div>
                     )}
                   </motion.div>
