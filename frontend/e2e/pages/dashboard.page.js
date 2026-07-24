@@ -113,7 +113,6 @@ class DashboardPage {
     await this.cardMenuButton(name).click();
     await this.page.getByRole("menuitem", { name: "Delete", exact: true }).click();
     await this.deleteDialog.waitFor();
-    await this.page.getByRole("button", { name: "Delete", exact: true }).click();
 
     await Promise.all([
       this.page.waitForResponse(
