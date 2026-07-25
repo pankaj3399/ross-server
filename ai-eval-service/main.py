@@ -81,7 +81,15 @@ def run_worker(payload: dict, timeout: int = 300):
             decoder = json.JSONDecoder()
 
             def is_valid_schema(obj: Any) -> bool:
-                return isinstance(obj, dict) and "success" in obj and ("results" in obj or "error" in obj)
+                if not isinstance(obj, dict):
+                    return False
+                success = obj.get("success")
+                if not isinstance(success, bool):
+                    return False
+                if success:
+                    return "results" in obj and "error" not in obj and isinstance(obj["results"], list)
+                else:
+                    return "error" in obj and "results" not in obj and isinstance(obj["error"], (str, dict))
 
             try:
                 data = json.loads(text)
@@ -104,8 +112,8 @@ def run_worker(payload: dict, timeout: int = 300):
                 except (json.JSONDecodeError, ValueError):
                     idx = start + 1
 
-            if candidates:
-                return candidates[-1][1]
+            if len(candidates) == 1:
+                return candidates[0][1]
 
             raise ValueError("No valid JSON object matching worker schema found in output")
 
@@ -124,8 +132,9 @@ def run_worker(payload: dict, timeout: int = 300):
                     "Worker process failed and error response could not be parsed as JSON"
                 ) from e
             logger.error(
-                f"Worker process failed with returncode {result.returncode}. "
-                f"Worker stderr (first 500 chars): {result.stderr[:500]}"
+                "Worker process failed with returncode %s. Worker stderr (first 500 chars): %s",
+                result.returncode,
+                result.stderr[:500],
             )
             raise RuntimeError("Worker process failed")
         
