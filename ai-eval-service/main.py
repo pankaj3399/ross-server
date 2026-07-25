@@ -76,9 +76,20 @@ def run_worker(payload: dict, timeout: int = 300):
             check=False
         )
         
+        stdout_str = result.stdout.strip()
+        def parse_stdout_json(text: str) -> dict:
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, ValueError):
+                start = text.find('{')
+                end = text.rfind('}')
+                if start != -1 and end > start:
+                    return json.loads(text[start:end+1])
+                raise
+
         if result.returncode != 0:
             try:
-                error_data = json.loads(result.stdout)
+                error_data = parse_stdout_json(stdout_str)
                 if not error_data.get("success", True):
                     return error_data
             except (json.JSONDecodeError, ValueError) as e:
@@ -87,14 +98,13 @@ def run_worker(payload: dict, timeout: int = 300):
                     f"Worker stdout (first 500 chars): {result.stdout[:500]}. "
                     f"Worker stderr (first 500 chars): {result.stderr[:500]}"
                 )
-                # Re-raise with context to ensure the parsing error isn't silently ignored
                 raise RuntimeError(
                     f"Worker process failed and error response could not be parsed as JSON. "
                     f"Worker stderr: {result.stderr[:500]}"
                 ) from e
             raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
         
-        output_data = json.loads(result.stdout)
+        output_data = parse_stdout_json(stdout_str)
         return output_data
     except subprocess.TimeoutExpired as e:
         raise HTTPException(
