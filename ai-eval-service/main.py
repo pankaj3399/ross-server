@@ -78,14 +78,36 @@ def run_worker(payload: dict, timeout: int = 300):
         
         stdout_str = result.stdout.strip()
         def parse_stdout_json(text: str) -> dict:
+            decoder = json.JSONDecoder()
+
+            def is_valid_schema(obj: Any) -> bool:
+                return isinstance(obj, dict) and "success" in obj and ("results" in obj or "error" in obj)
+
             try:
-                return json.loads(text)
+                data = json.loads(text)
+                if is_valid_schema(data):
+                    return data
             except (json.JSONDecodeError, ValueError):
-                start = text.find('{')
-                end = text.rfind('}')
-                if start != -1 and end > start:
-                    return json.loads(text[start:end+1])
-                raise
+                pass
+
+            idx = 0
+            candidates = []
+            while idx < len(text):
+                start = text.find('{', idx)
+                if start == -1:
+                    break
+                try:
+                    obj, end = decoder.raw_decode(text, start)
+                    if is_valid_schema(obj):
+                        candidates.append((start, obj))
+                    idx = max(start + 1, end)
+                except (json.JSONDecodeError, ValueError):
+                    idx = start + 1
+
+            if candidates:
+                return candidates[-1][1]
+
+            raise ValueError("No valid JSON object matching worker schema found in output")
 
         if result.returncode != 0:
             try:
@@ -101,7 +123,11 @@ def run_worker(payload: dict, timeout: int = 300):
                 raise RuntimeError(
                     "Worker process failed and error response could not be parsed as JSON"
                 ) from e
-            raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
+            logger.error(
+                f"Worker process failed with returncode {result.returncode}. "
+                f"Worker stderr (first 500 chars): {result.stderr[:500]}"
+            )
+            raise RuntimeError("Worker process failed")
         
         output_data = parse_stdout_json(stdout_str)
         return output_data
