@@ -99,8 +99,7 @@ def run_worker(payload: dict, timeout: int = 300):
                     f"Worker stderr (first 500 chars): {result.stderr[:500]}"
                 )
                 raise RuntimeError(
-                    f"Worker process failed and error response could not be parsed as JSON. "
-                    f"Worker stderr: {result.stderr[:500]}"
+                    "Worker process failed and error response could not be parsed as JSON"
                 ) from e
             raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
         
