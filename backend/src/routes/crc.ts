@@ -1110,30 +1110,77 @@ router.get("/public/controls", authenticateToken, async (req, res) => {
 
 const BLOCKED_DOMAINS = [
   'google.com', 'example.com', 'example.org', 'example.net',
-  'localhost', '127.0.0.1', '0.0.0.0', 'test.com', 'foo.com', 'bar.com'
+  'localhost', '127.0.0.1', '0.0.0.0', 'test.com', 'foo.com', 'bar.com',
+  'facebook.com', 'twitter.com', 'x.com', 'instagram.com', 'youtube.com',
+  'linkedin.com', 'reddit.com', 'amazon.com'
+];
+
+const VALID_EVIDENCE_DOMAINS = [
+  'docs.google.com', 'drive.google.com',
+  'sharepoint.com', 'onedrive.live.com', 'office.com', 'office365.com',
+  'notion.so', 'notion.site',
+  'atlassian.net', 'confluence.atlassian.net',
+  'github.com', 'gitlab.com',
+  'dropbox.com', 'box.com'
+];
+
+const VALID_DOCUMENT_EXTENSIONS = [
+  '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.csv', '.txt', '.png', '.jpg', '.jpeg'
 ];
 
 export function validateEvidenceUrl(url: string): { valid: boolean; error?: string } {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return { valid: false, error: 'Evidence URL is required.' };
+  }
+
+  let parsed: URL;
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') {
-      return { valid: false, error: 'Evidence URL must use HTTPS' };
-    }
-    const hostname = parsed.hostname.toLowerCase();
+    parsed = new URL(url.trim());
+  } catch {
+    return { valid: false, error: 'Invalid URL format. Please enter a complete HTTPS URL.' };
+  }
 
-    // Whitelist specific allowed Google subdomains before applying the blocked-domain check
-    const allowedGoogleSubdomains = ['docs.google.com', 'drive.google.com'];
-    if (allowedGoogleSubdomains.includes(hostname)) {
-      return { valid: true };
-    }
+  if (parsed.protocol !== 'https:') {
+    return { valid: false, error: 'Evidence URL must use secure HTTPS protocol.' };
+  }
 
-    if (BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
-      return { valid: false, error: 'This URL does not appear to be a real evidence document. Evidence Status will not be updated to "Evidence Complete" until a valid evidence URL is provided.' };
+  const hostname = parsed.hostname.toLowerCase();
+  const pathname = parsed.pathname.toLowerCase();
+  const hasPath = pathname !== '/' && pathname.trim().length > 1;
+
+  // Evaluate recognized evidence platforms first
+  if (VALID_EVIDENCE_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+    if (!hasPath) {
+      return { 
+        valid: false, 
+        error: 'Please provide a direct link to the specific evidence artifact rather than a home page.' 
+      };
     }
     return { valid: true };
-  } catch {
-    return { valid: false, error: 'Invalid URL format' };
   }
+
+  // Rejection check for blocked root domains
+  if (BLOCKED_DOMAINS.some(d => hostname === d || hostname.endsWith(`.${d}`))) {
+    return { 
+      valid: false, 
+      error: 'This URL appears to be a generic domain rather than a specific evidence document. Please provide a link to your compliance artifact (e.g. Google Doc, PDF, Word doc, SharePoint, or Notion page).' 
+    };
+  }
+
+  // Accepted if pathname ends with a supported document extension
+  if (VALID_DOCUMENT_EXTENSIONS.some(ext => pathname.endsWith(ext))) {
+    return { valid: true };
+  }
+
+  // If path contains document-like subpaths (e.g. /documents/, /files/, /pdf/, /evidence/)
+  if (/\/(document|documents|file|files|evidence|report|reports|pdf|view|share|d|s)\//i.test(pathname)) {
+    return { valid: true };
+  }
+
+  return { 
+    valid: false, 
+    error: 'Evidence URL must point to a recognized document source (e.g., Google Doc, PDF, Word doc, SharePoint, Notion, GitHub, or direct file download).' 
+  };
 }
 
 const crcResponseSchema = z.object({
@@ -1601,7 +1648,7 @@ router.get("/risks/:projectId", authenticateToken, async (req, res) => {
        FROM crc_risks r
        LEFT JOIN crc_controls c ON r.control_id = c.id
        WHERE r.project_id = $1
-       ORDER BY r.created_at DESC`,
+       ORDER BY CASE LOWER(r.rating) WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END, r.created_at DESC`,
       [projectId]
     );
 

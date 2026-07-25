@@ -20,6 +20,7 @@ import {
   IconMessageChatbot,
   IconChevronRight,
   IconChevronsRight,
+  IconChevronsLeft,
   IconCircleCheck,
   IconCircle,
   IconFolder,
@@ -39,7 +40,10 @@ import {
   IconMessageReport,
   IconApi,
   IconCpu,
+  IconLoader2,
+  IconSearch,
 } from "@tabler/icons-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { AUTH_LOGIN_URL, ROLES, PREMIUM_STATUS } from "../../lib/constants";
@@ -83,11 +87,11 @@ import { Button } from "@/components/ui/button";
 import { showToast } from "@/lib/toast";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
-import { apiService, CRCControl } from "../../lib/api";
+import { apiService, CRCControl, Project } from "../../lib/api";
 import { cn, getDomainIcon } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import { ProjectSelectionModal } from "./ProjectSelectionModal";
-import { useSidebarStore, MIN_WIDTH, MAX_WIDTH_RATIO } from "../../store/sidebarStore";
+import { useSidebarStore, getTotalSidebarWidth, ACTIVITY_BAR_WIDTH, MIN_WIDTH, MAX_WIDTH_RATIO } from "../../store/sidebarStore";
 import { buildAssessmentAnswerKey } from "@/lib/assessmentValidation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -181,7 +185,7 @@ interface Question {
 const CompactProgress = ({ current, total, isCompleted, size = "default" }: { current: number; total: number; isCompleted: boolean; size?: "default" | "sm" }) => (
   <span
     className={cn(
-      size === "sm" ? "text-[9px]" : "text-[10px]",
+      size === "sm" ? "text-[10px]" : "text-[11px]",
       "font-mono ml-auto shrink-0",
       isCompleted ? "text-green-500" : current > 0 ? "text-blue-500" : "text-muted-foreground/60"
     )}
@@ -226,7 +230,10 @@ const DomainTreeItem = ({
           toggleDomain(domain.id);
         }}
         isActive={isDomainActive && !currentPracticeId}
-        className="group/domain h-8 px-2"
+        className={cn(
+          "group/domain h-8 px-2 transition-all",
+          isDomainActive && !currentPracticeId && "border-l-[3px] border-[var(--section-free)] bg-[var(--section-free)]/10 text-[var(--section-free)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+        )}
       >
         <IconChevronRight
           className={cn(
@@ -239,8 +246,8 @@ const DomainTreeItem = ({
           return <Icon className="w-3.5 h-3.5 shrink-0 text-[var(--section-free)]" />;
         })()}
         <span className={cn(
-          "font-semibold text-xs truncate ml-1 flex-1 min-w-0",
-          isDomainActive && !currentPracticeId ? "text-foreground font-semibold" : "text-foreground/80"
+          "font-bold text-sm truncate ml-1.5 flex-1 min-w-0 text-foreground",
+          isDomainActive && !currentPracticeId && "text-primary font-extrabold"
         )}>
           {domain.title}
         </span>
@@ -249,7 +256,7 @@ const DomainTreeItem = ({
           total={domain.totalQuestions}
           isCompleted={domain.isCompleted}
         />
-        {!premiumStatus && domain.is_premium && <IconLock className="ml-1 h-3 w-3 text-muted-foreground/50" />}
+        {!premiumStatus && domain.is_premium && <IconLock className="ml-1 h-3.5 w-3.5 text-amber-400 shrink-0" />}
       </SidebarMenuButton>
 
       <AnimatePresence>
@@ -260,7 +267,7 @@ const DomainTreeItem = ({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <SidebarMenuSub className="mt-1 gap-0.5">
+            <SidebarMenuSub className="mt-1 gap-1 border-l border-sidebar-border/40 ml-3.5 pl-1.5">
               {domain.practices.map((practice) => {
                 const isPracticeActive = isDomainActive && currentPracticeId === practice.id;
                 const isPracticeSelectedOnly = isPracticeActive && (currentQuestionIndex === null || currentQuestionIndex === undefined);
@@ -270,9 +277,17 @@ const DomainTreeItem = ({
                     <SidebarMenuSubButton
                       onClick={() => onPracticeClick(domain.id, practice.id)}
                       isActive={isPracticeSelectedOnly}
-                      className="group/practice h-7 px-1.5"
+                      className={cn(
+                        "group/practice h-7 px-2 transition-all rounded-md",
+                        isPracticeSelectedOnly
+                          ? "border-l-[3px] border-primary bg-primary/15 text-primary font-bold pl-1.5 rounded-l-none"
+                          : "hover:bg-sidebar-accent/50"
+                      )}
                     >
-                      <span className="text-[12px] truncate pl-1 flex-1 min-w-0 text-foreground/70 group-hover/practice:text-foreground">
+                      <span className={cn(
+                        "text-[13px] truncate flex-1 min-w-0 font-medium",
+                        isPracticeActive ? "text-foreground font-semibold" : "text-foreground/90 group-hover/practice:text-foreground"
+                      )}>
                         {practice.title}
                       </span>
                       <CompactProgress
@@ -284,7 +299,7 @@ const DomainTreeItem = ({
                     </SidebarMenuSubButton>
 
                     {isPracticeActive && practice.questions && practice.questions.length > 0 && (
-                      <SidebarMenuSub className="border-sidebar-border/50 mt-0.5 gap-0">
+                      <SidebarMenuSub className="border-l border-sidebar-border/30 my-1 ml-2 pl-1 gap-0.5">
                         {practice.questions.map((q, qIdx) => {
                           const isQuestionActive = isPracticeActive && currentQuestionIndex === qIdx;
                           return (
@@ -292,16 +307,23 @@ const DomainTreeItem = ({
                               <SidebarMenuSubButton
                                 onClick={() => onQuestionClick(domain.id, practice.id, qIdx)}
                                 isActive={isQuestionActive}
-                                className="h-6 px-2 group/question"
+                                className={cn(
+                                  "h-7 px-2 group/question transition-all rounded-md w-full",
+                                  isQuestionActive
+                                    ? "border-l-[3px] border-primary bg-primary/20 text-white font-semibold pl-1.5 rounded-l-none"
+                                    : "hover:bg-sidebar-accent/60"
+                                )}
                               >
                                 {q.isAnswered ? (
-                                  <IconCircleCheck className={cn("h-3 w-3", isQuestionActive ? "text-primary" : "text-success")} />
+                                  <IconCircleCheck className={cn("h-3.5 w-3.5 shrink-0", isQuestionActive ? "text-emerald-400" : "text-emerald-500/90")} />
                                 ) : (
-                                  <IconCircle className={cn("h-3 w-3", isQuestionActive ? "text-primary" : "text-muted-foreground/40")} />
+                                  <IconCircle className={cn("h-3.5 w-3.5 shrink-0", isQuestionActive ? "text-primary" : "text-zinc-400 dark:text-zinc-500")} />
                                 )}
                                 <span className={cn(
-                                  "text-[11px] truncate ml-1 flex-1 min-w-0",
-                                  isQuestionActive ? "text-foreground font-medium" : "text-muted-foreground group-hover/question:text-foreground"
+                                  "text-[12.5px] truncate ml-1.5 flex-1 min-w-0 leading-normal",
+                                  isQuestionActive
+                                    ? "text-white dark:text-white font-semibold"
+                                    : "text-zinc-300 dark:text-zinc-200 font-medium group-hover/question:text-white"
                                 )}>
                                   Q{qIdx + 1}: {q.question}
                                 </span>
@@ -321,6 +343,46 @@ const DomainTreeItem = ({
     </SidebarMenuItem>
   );
 };
+
+const ActivityBarButton = ({
+  icon: Icon,
+  label,
+  isActive,
+  badge,
+  iconColorClass,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  isActive?: boolean;
+  badge?: number;
+  iconColorClass?: string;
+  onClick: () => void;
+}) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn(
+          "relative flex items-center justify-center size-9 rounded-xl transition-all duration-200 group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 select-none",
+          isActive
+            ? "bg-primary/15 font-semibold shadow-xs ring-1 ring-primary/20"
+            : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60"
+        )}
+        aria-label={label}
+      >
+        <Icon className={cn("size-5 shrink-0 transition-transform group-hover:scale-110", isActive ? (iconColorClass || "text-primary") : "text-muted-foreground/80 group-hover:text-foreground")} />
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute top-1 right-1 size-2 bg-primary rounded-full ring-2 ring-sidebar" />
+        )}
+      </button>
+    </TooltipTrigger>
+    <TooltipContent side="right" sideOffset={8} className="font-medium text-sm">
+      {label}
+    </TooltipContent>
+  </Tooltip>
+);
 
 // ─── Main Sidebar Content Component ───────────────────────────────────────────
 
@@ -344,19 +406,86 @@ function SidebarContentComponent() {
   const [modalTitle, setModalTitle] = useState("Choose Your Plan");
   const [modalDescription, setModalDescription] = useState<string | undefined>();
 
-  const openSubscriptionModal = useCallback((title?: string, description?: string) => {
-    setModalTitle(title || "Choose Your Plan");
-    setModalDescription(description);
-    setShowSubscriptionModal(true);
+  // ─── Sidebar Resizable & Secondary State ─────────────────────────────────────
+  const { sidebarWidth, setSidebarWidth, isSecondaryOpen, setIsSecondaryOpen, isResizing, setIsResizing } = useSidebarStore();
+
+  const getTabFromPathname = useCallback((path: string | null): "dashboard" | "aima" | "premium" | "settings" | "admin" => {
+    if (!path) return "dashboard";
+    const flags = getRouteFlags(path);
+    if (flags.isCrcPage || flags.isFairnessPage || flags.isVulnerabilityPage || flags.isInventoryPage) {
+      return "premium";
+    }
+    if (flags.isAimaPage) {
+      return "aima";
+    }
+    if (flags.isTeamPage || flags.isSettingsPage) {
+      return "settings";
+    }
+    if (path.startsWith("/admin")) {
+      return "admin";
+    }
+    return "dashboard";
   }, []);
+
+  const [activeTab, setActiveTab] = useState<"dashboard" | "aima" | "premium" | "settings" | "admin">(() => getTabFromPathname(pathname));
+
+  useEffect(() => {
+    setActiveTab(getTabFromPathname(pathname));
+  }, [pathname, getTabFromPathname]);
+
+  const handleTabClick = (tab: "dashboard" | "aima" | "premium" | "settings" | "admin") => {
+    if (activeTab === tab) {
+      setIsSecondaryOpen((prev) => !prev);
+    } else {
+      setActiveTab(tab);
+      setIsSecondaryOpen(true);
+    }
+  };
+
+  const [userProjects, setUserProjects] = useState<Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let active = true;
+    setIsLoadingProjects(true);
+    apiService.getProjects()
+      .then((data) => {
+        if (active && Array.isArray(data)) {
+          setUserProjects(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch projects in sidebar:", err);
+      })
+      .finally(() => {
+        if (active) setIsLoadingProjects(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated]);
+
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
+
+  const filteredSidebarProjects = useMemo(() => {
+    if (!projectSearchQuery.trim()) return userProjects;
+    const q = projectSearchQuery.toLowerCase();
+    return userProjects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.ai_system_type && p.ai_system_type.toLowerCase().includes(q)) ||
+        (p.industry && p.industry.toLowerCase().includes(q))
+    );
+  }, [userProjects, projectSearchQuery]);
+
+  const totalSidebarWidth = getTotalSidebarWidth(isSecondaryOpen, sidebarWidth);
 
   // ─── Project Selection Modal State ──────────────────────────────────────────
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [pendingDestinationRoute, setPendingDestinationRoute] = useState<string>("");
   const [staticDomains, setStaticDomains] = useState<any[]>([]);
-
-  // ─── Sidebar Resizable State ────────────────────────────────────────────────
-  const { sidebarWidth, setSidebarWidth, isResizing, setIsResizing } = useSidebarStore();
 
   const handleProjectAction = useCallback((destinationRoute: string) => {
     const isInsideProject = !!getProjectIdFromPath(pathname);
@@ -420,8 +549,6 @@ function SidebarContentComponent() {
   const orderedDomains = useMemo(() => {
     return sortDomainsByPriority(domains);
   }, [domains]);
-
-  const standardDomains = useMemo(() => orderedDomains.filter((d: any) => !d.is_premium), [orderedDomains]);
 
   // Helper to extract linear list of questions from structured levels map
   const getQuestionsListFromLevels = useCallback((levels: any) => {
@@ -562,14 +689,7 @@ function SidebarContentComponent() {
   // ─── Expansion states ───────────────────────────────────────────────────────
 
   const [expandedDomainId, setExpandedDomainId] = useState<string | null>(currentDomainId ?? null);
-  // For premium/trial users: collapse AIMA by default, expand Premium Features + CRC
-  const [isAssessmentExpanded, setIsAssessmentExpanded] = useState(!premiumStatus);
-  const [isFreeExpanded, setIsFreeExpanded] = useState(!premiumStatus);
-  const [isPremiumFeaturesExpanded, setIsPremiumFeaturesExpanded] = useState(true);
-  const [isFairnessExpanded, setIsFairnessExpanded] = useState(!!routeFlags.isFairnessPage);
-  const [isCrcExpanded, setIsCrcExpanded] = useState(premiumStatus || !!routeFlags.isCrcPage);
   const { expandedCrcCategories, setExpandedCrcCategories } = useCrcCategoryExpansion(currentCategory);
-  const [isProjectSettingsExpanded, setIsProjectSettingsExpanded] = useState(!!routeFlags.isTeamPage || !!routeFlags.isSettingsPage);
 
   const currentQuestionRef = useRef<HTMLLIElement>(null);
 
@@ -578,31 +698,6 @@ function SidebarContentComponent() {
   useEffect(() => {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
-
-  // Auto-expand sidebar when on any AIMA page
-  useEffect(() => {
-    if (routeFlags.isAimaPage) {
-      setOpen(true);
-    }
-  }, [routeFlags.isAimaPage, setOpen]);
-
-  // Keep AIMA Assessment toggle closed by default for admin and premium accounts
-  useEffect(() => {
-    if (user?.role === ROLES.ADMIN || premiumStatus) {
-      setIsAssessmentExpanded(false);
-      setIsFreeExpanded(false);
-    } else {
-      setIsAssessmentExpanded(true);
-      setIsFreeExpanded(true);
-    }
-    if (premiumStatus) {
-      setIsPremiumFeaturesExpanded(true);
-      setIsCrcExpanded(true);
-    } else {
-      setIsPremiumFeaturesExpanded(false);
-      setIsCrcExpanded(false);
-    }
-  }, [user?.role, premiumStatus]);
 
   useEffect(() => {
     if (isAuthenticated && !fetchInProgress.current) {
@@ -639,7 +734,7 @@ function SidebarContentComponent() {
     if (!isResizing) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(MIN_WIDTH, Math.min(e.clientX, window.innerWidth * MAX_WIDTH_RATIO));
+      const newWidth = Math.max(MIN_WIDTH, Math.min(e.clientX - 48, window.innerWidth * MAX_WIDTH_RATIO));
       setSidebarWidth(newWidth);
     };
 
@@ -647,47 +742,23 @@ function SidebarContentComponent() {
       setIsResizing(false);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      document.body.classList.remove("sidebar-resizing");
     };
 
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
     document.body.style.cursor = "ew-resize";
     document.body.style.userSelect = "none";
+    document.body.classList.add("sidebar-resizing");
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
+      document.body.classList.remove("sidebar-resizing");
     };
   }, [isResizing, setSidebarWidth, setIsResizing]);
-
-  // Auto-manage expansion based on route
-  useEffect(() => {
-    if (!pathname || !isInsideProject) return;
-
-    const flags = getRouteFlags(pathname);
-
-    if (flags.isCrcPage) {
-      setIsPremiumFeaturesExpanded(true);
-      setIsCrcExpanded(true);
-    } else if (flags.isFairnessPage || flags.isVulnerabilityPage) {
-      setIsPremiumFeaturesExpanded(true);
-      if (flags.isFairnessPage) {
-        setIsFairnessExpanded(true);
-      }
-    } else if (flags.isInventoryPage) {
-      setIsPremiumFeaturesExpanded(true);
-    } else if (flags.isAimaPage) {
-      // Only auto-expand AIMA for free (non-premium) users
-      if (!premiumStatus) {
-        setIsFreeExpanded(true);
-        setIsAssessmentExpanded(true);
-      }
-    } else if (flags.isTeamPage || flags.isSettingsPage) {
-      setIsProjectSettingsExpanded(true);
-    }
-  }, [pathname, isInsideProject, premiumStatus]);
 
   // Sync domain expansion
   useEffect(() => {
@@ -771,13 +842,6 @@ function SidebarContentComponent() {
     setExpandedDomainId((prev) => (prev === domainId ? null : domainId));
   }, []);
 
-  const globalNavItems: SidebarItem[] = useMemo(() => {
-    return [
-      { id: "dashboard", label: "Dashboard", icon: IconLayoutDashboard, href: "/dashboard" },
-      { id: "settings", label: "Settings", icon: IconSettings, href: "/settings", activePatterns: ["/settings", "/manage-subscription"] },
-    ];
-  }, []);
-
   const adminNavItems: SidebarItem[] = useMemo(() => {
     if (user?.role !== ROLES.ADMIN) return [];
     return [
@@ -805,752 +869,638 @@ function SidebarContentComponent() {
 
   if (!isAuthenticated) return null;
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render Dual Sidebar ────────────────────────────────────────────────────
 
   return (
     <>
-      <Sidebar
-        collapsible="icon"
-        variant="sidebar"
-        className="border-r-0"
-        style={{
-          "--sidebar-width": `${sidebarWidth}px`,
-        } as React.CSSProperties}
-      >
-        {/* ─── Header ──────────────────────────────────────────────────── */}
-        <SidebarHeader className="p-3 group-data-[collapsible=icon]:p-2">
-          <div className="flex items-center justify-between w-full gap-2 group-data-[collapsible=icon]:justify-center">
-            {state === "expanded" && (
-              <>
-                <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="h-7 dark:hidden" />
-                <img src="/matur-dark.png" alt="MATUR.ai" className="h-7 hidden dark:block" />
-              </>
-            )}
-            <SidebarTrigger className={cn("size-7 text-muted-foreground hover:text-foreground", state === "collapsed" && "mx-auto")} />
-          </div>
-        </SidebarHeader>
+      <TooltipProvider delayDuration={0}>
+        {/* Layout width spacer */}
+        <div
+          className="shrink-0 h-screen pointer-events-none"
+          style={{ width: `${totalSidebarWidth}px` }}
+          aria-hidden="true"
+        />
 
-        {/* ─── Content ─────────────────────────────────────────────────── */}
-        <SidebarContent>
-          {/* Global Navigation */}
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {/* Dashboard */}
-                {(() => {
-                  const item = globalNavItems.find((i) => i.id === "dashboard");
-                  if (!item) return null;
-                  const Icon = item.icon;
-                  const active = isItemActive(item);
-                  return (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        disabled={item.disabled}
-                        tooltip={item.label}
-                        className={cn(
-                          "sidebar-btn-dashboard transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                          active && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
-                        )}
-                      >
-                        <Link href={item.disabled ? "#" : item.href} className="flex items-center gap-2 w-full group-data-[collapsible=icon]:justify-center">
-                          <Icon className="size-5 shrink-0 text-primary" />
-                          {state === "expanded" && (
-                            <span className={cn("text-sm font-medium", active ? "text-foreground font-semibold" : "text-foreground/80")}>{item.label}</span>
-                          )}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })()}
+        {/* Fixed position dual sidebar */}
+        <aside
+          className="fixed top-0 left-0 bottom-0 z-30 h-screen flex select-none bg-sidebar border-r-0 p-0 shadow-none"
+          style={{ width: `${totalSidebarWidth}px` }}
+        >
+          <div className="flex h-screen w-full select-none">
+          {/* ─── 1. Thin Primary Activity Bar (48px) ─────────────────────────── */}
+          <div className="w-[48px] shrink-0 h-screen min-h-screen border-r border-sidebar-border/40 bg-sidebar flex flex-col justify-between items-center py-0 z-10 select-none">
+            {/* Top Header Aligned with Secondary Header (h-12) */}
+            <div className="flex flex-col items-center w-full">
+              <div className="h-12 w-full flex items-center justify-center border-b border-sidebar-border/30 shrink-0">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setIsSecondaryOpen((prev) => !prev)}
+                      className="size-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition-colors cursor-pointer focus:outline-none"
+                      aria-label={isSecondaryOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                      {isSecondaryOpen ? (
+                        <>
+                          <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="size-5 object-contain dark:hidden" />
+                          <img src="/matur-dark.png" alt="MATUR.ai" className="size-5 object-contain hidden dark:block" />
+                        </>
+                      ) : (
+                        <IconChevronsRight className="size-4 shrink-0 text-primary" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8} className="text-xs font-medium">
+                    {isSecondaryOpen ? "MATUR.ai" : "Expand Sidebar"}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
 
-                {/* Free section — collapsible, contains AIMA Assessment */}
-                {(() => {
-                  const isAimaActive = routeFlags.isAimaPage;
-                  const isFreeActive = isAimaActive;
-                  return (
-                    <SidebarMenuItem key="free-section">
-                      <SidebarMenuButton
-                        isActive={isFreeActive}
-                        onClick={() => {
-                          setIsFreeExpanded(!isFreeExpanded);
-                        }}
-                        className={cn(
-                          "sidebar-btn-free transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                          isFreeActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
-                        )}
-                        tooltip="Free"
-                      >
-                        <IconGift className={cn("size-5 shrink-0 transition-colors duration-200", isFreeActive ? "text-primary" : "text-muted-foreground/80")} />
-                        {state === "expanded" && (
-                          <span className={cn("text-sm font-medium", isFreeActive ? "text-foreground font-semibold" : "text-foreground/80")}>Free</span>
-                        )}
-                        {state === "expanded" && (
-                          <IconChevronRight
-                            className={cn(
-                              "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
-                              isFreeExpanded && "rotate-90"
-                            )}
-                          />
-                        )}
-                      </SidebarMenuButton>
+              {/* Navigation Icon Buttons */}
+              <div className="flex flex-col gap-1.5 w-full items-center py-1.5">
+                <ActivityBarButton
+                  icon={IconLayoutDashboard}
+                  label="Dashboard"
+                  isActive={activeTab === "dashboard"}
+                  iconColorClass="text-[var(--primary)]"
+                  onClick={() => handleTabClick("dashboard")}
+                />
+                <ActivityBarButton
+                  icon={IconClipboardCheck}
+                  label="AIMA Assessment"
+                  isActive={activeTab === "aima"}
+                  iconColorClass="text-[var(--section-free)]"
+                  onClick={() => handleTabClick("aima")}
+                />
+                <ActivityBarButton
+                  icon={IconDiamond}
+                  label="Premium Features"
+                  isActive={activeTab === "premium"}
+                  iconColorClass="text-[var(--section-premium)]"
+                  onClick={() => handleTabClick("premium")}
+                />
+                <ActivityBarButton
+                  icon={IconBriefcase}
+                  label="Project Settings"
+                  isActive={activeTab === "settings"}
+                  iconColorClass="text-[var(--section-settings)]"
+                  onClick={() => handleTabClick("settings")}
+                />
+                {user?.role === ROLES.ADMIN && (
+                  <ActivityBarButton
+                    icon={IconShieldLock}
+                    label="Admin Panel"
+                    isActive={activeTab === "admin"}
+                    iconColorClass="text-[var(--section-admin)]"
+                    onClick={() => handleTabClick("admin")}
+                  />
+                )}
+              </div>
+            </div>
 
-                      <AnimatePresence>
-                        {isFreeExpanded && state === "expanded" && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <SidebarMenuSub className="mt-0.5 gap-0.5">
-                              {/* AIMA Assessment — nested inside Free */}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => {
-                                    setIsAssessmentExpanded(!isAssessmentExpanded);
-                                    if (isInsideProject && projectId) {
-                                      router.push(`/assess/${projectId}`);
-                                    } else {
-                                      handleProjectAction("");
-                                    }
-                                  }}
-                                  isActive={isAimaActive}
-                                  className={cn(
-                                    "sidebar-btn-free group/aima h-8 px-2 transition-all duration-200",
-                                    isAimaActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 font-semibold rounded-l-none rounded-r-md"
-                                  )}
-                                >
-                                  <IconClipboardCheck className="size-5 shrink-0 text-[var(--section-free)]" />
-                                  <span className={cn("text-[13px] truncate ml-1", isAimaActive ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    AIMA Assessment
-                                  </span>
-                                  <IconChevronRight
-                                    className={cn(
-                                      "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
-                                      isAssessmentExpanded && "rotate-90"
-                                    )}
-                                  />
-                                </SidebarMenuSubButton>
-
-                                <AnimatePresence>
-                                  {isAssessmentExpanded && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      transition={{ duration: 0.2 }}
-                                      className="overflow-hidden"
-                                    >
-                                      <SidebarMenuSub className="mt-0.5 gap-0.5">
-                                        {displayDomains.map((domain: any) => (
-                                          <DomainTreeItem
-                                            key={domain.id}
-                                            domain={domain}
-                                            currentDomainId={currentDomainId}
-                                            currentPracticeId={currentPracticeId}
-                                            currentQuestionIndex={currentQuestionIndex}
-                                            expandedDomainId={expandedDomainId}
-                                            onDomainClick={isInsideProject ? handleDomainClick : () => handleProjectAction("")}
-                                            onPracticeClick={isInsideProject ? handlePracticeClick : () => handleProjectAction("")}
-                                            onQuestionClick={isInsideProject ? handleQuestionClick : () => handleProjectAction("")}
-                                            toggleDomain={isInsideProject ? toggleDomain : () => {}}
-                                            premiumStatus={premiumStatus}
-                                            activeQuestionRef={currentQuestionRef}
-                                          />
-                                        ))}
-                                      </SidebarMenuSub>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </SidebarMenuItem>
-                  );
-                })()}
-
-                {/* Premium Features collapsible item */}
-                {(() => {
-                  const isPremiumActive = pathname === "/premium-features" || routeFlags.isCrcPage || routeFlags.isFairnessPage || routeFlags.isVulnerabilityPage || routeFlags.isInventoryPage;
-                  return (
-                    <SidebarMenuItem key="premium">
-                      <SidebarMenuButton
-                        isActive={isPremiumActive}
-                        onClick={() => {
-                          setIsPremiumFeaturesExpanded(!isPremiumFeaturesExpanded);
-                        }}
-                        className={cn(
-                          "sidebar-btn-premium transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                          isPremiumActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
-                        )}
-                        tooltip="Premium Features"
-                      >
-                        <IconDiamond className={cn("size-5 shrink-0 transition-colors duration-200", isPremiumActive ? "text-primary" : "text-muted-foreground/80")} />
-                        {state === "expanded" && (
-                          <span className={cn("text-sm font-medium", isPremiumActive ? "text-foreground font-semibold" : "text-foreground/80")}>Premium Features</span>
-                        )}
-                        {state === "expanded" && (
-                          <IconChevronRight
-                            className={cn(
-                              "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
-                              isPremiumFeaturesExpanded && "rotate-90"
-                            )}
-                          />
-                        )}
-                      </SidebarMenuButton>
-
-                      <AnimatePresence>
-                        {isPremiumFeaturesExpanded && state === "expanded" && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <SidebarMenuSub className="mt-0.5 gap-0.5">
-                              {/* AI Vulnerability Assessment */}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => premiumStatus
-                                    ? handleProjectNav(`/vulnerability-assessment`)
-                                    : openSubscriptionModal("Unlock Premium to Access AI Vulnerability Assessment", "Upgrade to premium to unlock this feature and many more advanced capabilities.")}
-                                  isActive={routeFlags.isVulnerabilityPage}
-                                  className="sidebar-btn-premium group/premium-btn h-8 px-2 transition-all duration-200"
-                                >
-                                  <IconShield className="size-5 shrink-0 text-[var(--section-premium)]" />
-                                  <span className={cn("text-[13px] truncate ml-1", routeFlags.isVulnerabilityPage ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    AI Vulnerability Assessment
-                                  </span>
-                                  {!premiumStatus && <IconLock className="ml-auto h-3 w-3 text-muted-foreground/50" />}
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-
-                              {/* CRC */}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => {
-                                    setIsCrcExpanded(!isCrcExpanded);
-                                    premiumStatus
-                                      ? handleProjectNav(`/crc/dashboard`)
-                                      : openSubscriptionModal("Unlock Premium to Access Compliance Readiness Controls (CRC)", "Upgrade to premium.");
-                                  }}
-                                  isActive={routeFlags.isCrcPage}
-                                  className="sidebar-btn-premium group/premium-btn h-8 px-2 transition-all duration-200"
-                                >
-                                  <IconChevronRight className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0", isCrcExpanded && "rotate-90")} />
-                                  <IconShieldCheck className="size-5 shrink-0 text-[var(--section-premium)]" />
-                                  <span className={cn("font-medium text-[13px] truncate ml-1", routeFlags.isCrcPage ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    CRC
-                                  </span>
-                                  {!premiumStatus && <IconLock className="ml-auto h-3 w-3 text-muted-foreground/50" />}
-                                </SidebarMenuSubButton>
-
-                                <AnimatePresence>
-                                  {isCrcExpanded && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      className="overflow-hidden"
-                                    >
-                                      <SidebarMenuSub className="mt-0.5 gap-0.5">
-                                        {/* Dashboard */}
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton
-                                            onClick={() => premiumStatus ? handleProjectNav(`/crc/dashboard`) : openSubscriptionModal()}
-                                            className="sidebar-btn-premium h-7 px-2 group/cat"
-                                            isActive={pathname?.endsWith("/crc/dashboard") || false}
-                                          >
-                                            <IconDashboard className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--section-premium)" }} />
-                                            <span className={cn("text-[12px] truncate ml-1.5", pathname?.endsWith("/crc/dashboard") ? "text-foreground font-medium" : "text-foreground/70")}>
-                                              Readiness Dashboard
-                                            </span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        {/* Risk Register */}
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton
-                                            onClick={() => premiumStatus ? handleProjectNav(`/crc/risks`) : openSubscriptionModal()}
-                                            className="sidebar-btn-premium h-7 px-2 group/cat"
-                                            isActive={pathname?.endsWith("/crc/risks") || false}
-                                          >
-                                            <IconClipboardCheck className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--section-premium)" }} />
-                                            <span className={cn("text-[12px] truncate ml-1.5", pathname?.endsWith("/crc/risks") ? "text-foreground font-medium" : "text-foreground/70")}>
-                                              AI Risk Register
-                                            </span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        {/* CRC Categories */}
-                                        {crcCategories.filter((cat: string) => (controlsByCategory[cat] || []).length > 0).map((cat: string) => {
-                                          const catControls = controlsByCategory[cat] || [];
-                                          const answeredInCat = catControls.filter((c: CRCControl) => crcResponses[c.id] !== undefined).length;
-                                          const isCatExpanded = expandedCrcCategories[cat];
-
-                                          return (
-                                            <SidebarMenuSubItem key={cat}>
-                                              <div className="flex items-center gap-0.5 group/cat">
-                                                <button
-                                                  type="button"
-                                                  aria-label={`Toggle ${cat}`}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setExpandedCrcCategories(prev => ({ ...prev, [cat]: !prev[cat] }));
-                                                  }}
-                                                  className="h-7 w-5 flex items-center justify-center hover:bg-sidebar-accent rounded transition-colors"
-                                                >
-                                                  <IconChevronRight className={cn("h-2.5 w-2.5 transition-transform text-muted-foreground", isCatExpanded && "rotate-90")} />
-                                                </button>
-                                                <SidebarMenuSubButton
-                                                  onClick={() => {
-                                                    if (premiumStatus) {
-                                                      handleProjectNav(`/crc?category=${encodeURIComponent(cat)}`);
-                                                      setExpandedCrcCategories({ [cat]: true });
-                                                    } else {
-                                                      openSubscriptionModal();
-                                                    }
-                                                  }}
-                                                  className="sidebar-btn-premium h-7 px-2 flex-1 group/cat"
-                                                  isActive={currentCategory === cat}
-                                                >
-                                                  <IconFolder className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--section-premium)" }} />
-                                                  <span className={cn("text-[12px] truncate ml-1.5", currentCategory === cat ? "text-foreground font-medium" : "text-foreground/70")}>
-                                                    {cat}
-                                                  </span>
-                                                  <CompactProgress current={answeredInCat} total={catControls.length} isCompleted={answeredInCat === catControls.length && catControls.length > 0} size="sm" />
-                                                </SidebarMenuSubButton>
-                                              </div>
-
-                                              {isCatExpanded && catControls.length > 0 && (
-                                                <SidebarMenuSub className="border-sidebar-border/50 mt-0.5 gap-0 ml-7">
-                                                  {catControls.map((control: CRCControl) => {
-                                                    const isAnswered = crcResponses[control.id] !== undefined;
-                                                    return (
-                                                      <SidebarMenuSubItem key={control.id}>
-                                                        <SidebarMenuSubButton
-                                                          onClick={() => premiumStatus ? handleProjectNav(`/crc?controlId=${control.id}`) : openSubscriptionModal()}
-                                                          className="sidebar-btn-premium h-6 px-2 group/control"
-                                                          isActive={currentControlId === control.id}
-                                                        >
-                                                          {isAnswered ? (
-                                                            <IconCircleCheck className={cn("h-3 w-3", currentControlId === control.id ? "text-primary" : "text-success")} />
-                                                          ) : (
-                                                            <IconCircle className={cn("h-3 w-3", currentControlId === control.id ? "text-primary" : "text-muted-foreground/40")} />
-                                                          )}
-                                                          <span className={cn("text-[11px] truncate ml-1.5", currentControlId === control.id ? "text-foreground font-medium" : "text-muted-foreground group-hover/control:text-foreground")}>
-                                                            {control.control_id}
-                                                          </span>
-                                                        </SidebarMenuSubButton>
-                                                      </SidebarMenuSubItem>
-                                                    );
-                                                  })}
-                                                </SidebarMenuSub>
-                                              )}
-                                            </SidebarMenuSubItem>
-                                          );
-                                        })}
-                                      </SidebarMenuSub>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </SidebarMenuSubItem>
-
-                              {/* AI Component Inventory */}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => premiumStatus
-                                    ? handleProjectNav(`/inventory`)
-                                    : openSubscriptionModal("Unlock Premium to Access AI Component Inventory")}
-                                  isActive={routeFlags.isInventoryPage}
-                                  className="sidebar-btn-premium group/premium-btn h-8 px-2 transition-all duration-200"
-                                >
-                                  <IconTable className="size-5 shrink-0 text-[var(--section-premium)]" />
-                                  <span className={cn("text-[13px] truncate ml-1", routeFlags.isInventoryPage ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    AI Component Inventory
-                                  </span>
-                                  {!premiumStatus && <IconLock className="ml-auto h-3 w-3 text-muted-foreground/50" />}
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-
-                              {/* Bias & Fairness Testing */}
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => {
-                                    setIsFairnessExpanded(!isFairnessExpanded);
-                                    handleProjectNav(`/fairness-bias/options`);
-                                  }}
-                                  isActive={routeFlags.isFairnessPage && !routeFlags.isVulnerabilityPage}
-                                  className="sidebar-btn-premium group/premium-btn h-8 px-2 transition-all duration-200"
-                                >
-                                  <IconChevronRight className={cn("h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0", isFairnessExpanded && "rotate-90")} />
-                                  <IconScale className="size-5 shrink-0 text-[var(--section-premium)]" />
-                                  <span className={cn("font-medium text-[13px] truncate ml-1", (routeFlags.isFairnessPage && !routeFlags.isVulnerabilityPage) ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    Bias & Fairness Testing
-                                  </span>
-                                </SidebarMenuSubButton>
-
-                                <AnimatePresence>
-                                  {isFairnessExpanded && (
-                                    <motion.div
-                                      initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: "auto", opacity: 1 }}
-                                      exit={{ height: 0, opacity: 0 }}
-                                      className="overflow-hidden"
-                                    >
-                                      <SidebarMenuSub className="mt-0.5 gap-0.5">
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton
-                                            onClick={() => premiumStatus ? handleProjectNav(`/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing")}
-                                            className="sidebar-btn-premium h-7 px-2 group/fairness"
-                                            isActive={(routeFlags.isFairnessRootPage || routeFlags.isFairnessPage) && !routeFlags.isApiEndpointPage && !routeFlags.isDatasetTestingPage && !routeFlags.isFairnessOptionsPage}
-                                          >
-                                            <IconMessageReport className="h-3.5 w-3.5 text-[var(--section-premium)] shrink-0" />
-                                            <span className={cn("text-[12px] truncate ml-1.5",
-                                              (routeFlags.isFairnessRootPage || (routeFlags.isFairnessPage && !routeFlags.isApiEndpointPage && !routeFlags.isDatasetTestingPage && !routeFlags.isFairnessOptionsPage))
-                                                ? "text-foreground font-medium" : "text-foreground/70")}>
-                                              Manual Prompt Testing
-                                            </span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton
-                                            onClick={() => premiumStatus ? handleProjectNav(`/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing")}
-                                            className="sidebar-btn-premium h-7 px-2 group/fairness"
-                                            isActive={routeFlags.isApiEndpointPage}
-                                          >
-                                            <IconApi className="h-3.5 w-3.5 text-[var(--section-premium)] shrink-0" />
-                                            <span className={cn("text-[12px] truncate ml-1.5", routeFlags.isApiEndpointPage ? "text-foreground font-medium" : "text-foreground/70")}>
-                                              API Automated Testing
-                                            </span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                        <SidebarMenuSubItem>
-                                          <SidebarMenuSubButton
-                                            onClick={() => premiumStatus ? handleProjectNav(`/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing")}
-                                            className="sidebar-btn-premium h-7 px-2 group/fairness"
-                                            isActive={routeFlags.isDatasetTestingPage}
-                                          >
-                                            <IconDatabase className="h-3.5 w-3.5 text-[var(--section-premium)] shrink-0" />
-                                            <span className={cn("text-[12px] truncate ml-1.5", routeFlags.isDatasetTestingPage ? "text-foreground font-medium" : "text-foreground/70")}>
-                                              Dataset Testing
-                                            </span>
-                                          </SidebarMenuSubButton>
-                                        </SidebarMenuSubItem>
-                                      </SidebarMenuSub>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </SidebarMenuItem>
-                  );
-                })()}
-
-                {/* Project Settings collapsible item */}
-                {(() => {
-                  const isProjectSettingsActive = routeFlags.isSettingsPage || routeFlags.isTeamPage;
-                  return (
-                    <SidebarMenuItem key="project-settings">
-                      <SidebarMenuButton
-                        isActive={isProjectSettingsActive}
-                        onClick={() => {
-                          setIsProjectSettingsExpanded(!isProjectSettingsExpanded);
-                          if (isInsideProject && projectId) {
-                            router.push(`/assess/${projectId}/settings`);
-                          } else {
-                            handleProjectAction("/settings");
-                          }
-                        }}
-                        className={cn(
-                          "sidebar-btn-settings transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                          isProjectSettingsActive && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
-                        )}
-                        tooltip="Project Settings"
-                      >
-                        <IconSettings className={cn("size-5 shrink-0 transition-colors duration-200", isProjectSettingsActive ? "text-primary" : "text-muted-foreground/80")} />
-                        {state === "expanded" && (
-                          <span className={cn("text-sm font-medium", isProjectSettingsActive ? "text-foreground font-semibold" : "text-foreground/80")}>Project Settings</span>
-                        )}
-                        {state === "expanded" && (
-                          <IconChevronRight
-                            className={cn(
-                              "ml-auto h-3.5 w-3.5 transition-transform text-muted-foreground shrink-0",
-                              isProjectSettingsExpanded && "rotate-90"
-                            )}
-                          />
-                        )}
-                      </SidebarMenuButton>
-
-                      <AnimatePresence>
-                        {isProjectSettingsExpanded && state === "expanded" && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
-                          >
-                            <SidebarMenuSub className="mt-0.5 gap-0.5">
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => handleProjectNav(`/settings`)}
-                                  isActive={routeFlags.isSettingsPage}
-                                  className={cn(
-                                    "sidebar-btn-settings h-8 px-2 transition-all duration-200",
-                                    routeFlags.isSettingsPage && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 font-semibold rounded-l-none rounded-r-md"
-                                  )}
-                                >
-                                  <IconBriefcase className="size-5 shrink-0 text-[var(--section-settings)]" />
-                                  <span className={cn("text-[13px] truncate ml-1", routeFlags.isSettingsPage ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    Project Information
-                                  </span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                              <SidebarMenuSubItem>
-                                <SidebarMenuSubButton
-                                  onClick={() => handleProjectNav(`/team`)}
-                                  isActive={routeFlags.isTeamPage}
-                                  className={cn(
-                                    "sidebar-btn-settings h-8 px-2 transition-all duration-200",
-                                    routeFlags.isTeamPage && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 font-semibold rounded-l-none rounded-r-md"
-                                  )}
-                                >
-                                  <IconUsers className="size-5 shrink-0 text-[var(--section-settings)]" />
-                                  <span className={cn("text-[13px] truncate ml-1", routeFlags.isTeamPage ? "text-foreground font-semibold" : "text-foreground/80")}>
-                                    Teams
-                                  </span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            </SidebarMenuSub>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </SidebarMenuItem>
-                  );
-                })()}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {/* Spacer to push Admin Navigation to the bottom of the container */}
-          <div className="flex-grow" />
-
-          {/* Admin Navigation */}
-          {adminNavItems.length > 0 && (
-            <SidebarGroup>
-              <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--section-admin)] px-2">Admin</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminNavItems.map((item) => {
-                    const Icon = item.icon;
-                    const active = isItemActive(item);
-                    return (
-                      <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={active}
-                          tooltip={item.label}
-                          className={cn(
-                            "sidebar-btn-admin transition-all duration-250 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:[&>svg]:!size-[22px] group-data-[collapsible=icon]:mx-auto",
-                            active && "border-l-[3px] border-primary bg-sidebar-accent/60 text-sidebar-accent-foreground pl-1.5 group-data-[collapsible=icon]:border-0 group-data-[collapsible=icon]:rounded-md font-semibold rounded-l-none rounded-r-md"
-                          )}
-                        >
-                          <Link href={item.href} className="flex items-center gap-2 w-full group-data-[collapsible=icon]:justify-center">
-                            <Icon className="size-5 shrink-0 text-[var(--section-admin)]" />
-                            {state === "expanded" && (
-                              <span className={cn("text-sm font-medium", active ? "text-foreground font-semibold" : "text-foreground/80")}>{item.label}</span>
-                            )}
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
-
-        </SidebarContent>
-
-        {/* ─── Footer ──────────────────────────────────────────────────── */}
-        <SidebarFooter className="p-3 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
-          <SidebarSeparator className="mb-2" />
-
-          {/* User Profile Selector Card & Settings Shortcut Button */}
-          {user && (
-            <div className="flex items-center gap-2 w-full group-data-[collapsible=icon]:flex-col">
+            {/* Bottom Profile / Theme / Notification Controls */}
+            <div className="flex flex-col items-center gap-2 w-full pb-3">
+              {/* Notifications */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  {state === "collapsed" ? (
-                    <button aria-label="User profile menu" className="flex items-center justify-center size-8 rounded-lg bg-transparent border-0 cursor-pointer mx-auto relative hover:bg-sidebar-accent/60 focus:outline-none focus:ring-1 focus:ring-ring select-none">
-                      <Avatar className="size-6 rounded-full shrink-0 select-none">
-                        <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center size-6">
-                          {(user.name || user.email || "U").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {/* Small red dot on avatar if there are pending invitations/notifications */}
-                      {myInvitations.length > 0 && (
-                        <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full border border-sidebar" />
-                      )}
-                    </button>
-                  ) : (
-                    <button className="flex items-center gap-2 w-full flex-1 text-left p-1.5 h-[38px] rounded-lg border border-border/40 dark:border-sidebar-border bg-slate-50 dark:bg-sidebar-accent/30 hover:bg-slate-100 dark:hover:bg-sidebar-accent/60 transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer relative">
-                      <Avatar className="size-7 rounded-lg shrink-0 select-none">
-                        <AvatarFallback className="bg-primary text-primary-foreground text-[10px] font-bold rounded-lg flex items-center justify-center size-7">
-                          {(user.name || user.email || "U").charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col flex-1 min-w-0 leading-tight justify-center">
-                        <span className="text-xs font-semibold text-foreground truncate">
-                          {user.name || "User"}
-                        </span>
-                      </div>
-                      <IconSelector className="size-3.5 text-muted-foreground/75 shrink-0 ml-0.5" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    aria-label="Notifications"
+                    className="relative flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition-colors focus:outline-none cursor-pointer"
+                  >
+                    <IconBell className="size-5 shrink-0" />
+                    {myInvitations.length > 0 && (
+                      <span className="absolute top-1 right-1 size-2 bg-primary rounded-full ring-2 ring-sidebar" />
+                    )}
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" side="right" align="end">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1 overflow-hidden">
-                      <p className="text-sm font-semibold leading-none truncate text-foreground">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
+                <DropdownMenuContent className="w-80" side="right" align="end">
+                  <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pending Invitations</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  
-                  {/* Notifications Submenu */}
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger className="flex items-center gap-2 cursor-pointer">
-                      <IconBell className="size-4 shrink-0 text-primary" />
-                      <span>Notifications</span>
-                      {myInvitations.length > 0 && (
-                        <span className="ml-auto bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                          {myInvitations.length}
-                        </span>
-                      )}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent className="w-80">
-                        <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pending Invitations</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {myInvitations.length > 0 ? (
-                          <div className="max-h-[250px] overflow-y-auto">
-                            {myInvitations.map((inv) => (
-                              <div key={inv.id} className="p-3 text-xs flex flex-col gap-2 border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                <p className="text-foreground leading-snug">
-                                  <span className="font-semibold">{inv.inviter?.name || "Someone"}</span> invited you to join <span className="font-semibold text-primary">{inv.project.name}</span>
-                                </p>
-                                <div className="flex gap-2 mt-1">
-                                  <Button size="sm" className="flex-1 h-7 text-[10px] py-0" onClick={() => router.push(`/invite/accept?token=${encodeURIComponent(inv.token)}`)}>
-                                    Accept
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px] py-0 text-destructive hover:bg-destructive/10" onClick={() => handleDecline(inv.token)} disabled={decliningTokens.has(inv.token)}>
-                                    {decliningTokens.has(inv.token) ? "Declining..." : "Decline"}
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                  {myInvitations.length > 0 ? (
+                    <div className="max-h-[250px] overflow-y-auto">
+                      {myInvitations.map((inv) => (
+                        <div key={inv.id} className="p-3 text-xs flex flex-col gap-2 border-b last:border-0 hover:bg-muted/50 transition-colors">
+                          <p className="text-foreground leading-snug">
+                            <span className="font-semibold">{inv.inviter?.name || "Someone"}</span> invited you to join <span className="font-semibold text-primary">{inv.project.name}</span>
+                          </p>
+                          <div className="flex gap-2 mt-1">
+                            <Button size="sm" className="flex-1 h-7 text-[10px] py-0" onClick={() => router.push(`/invite/accept?token=${encodeURIComponent(inv.token)}`)}>
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="outline" className="flex-1 h-7 text-[10px] py-0 text-destructive hover:bg-destructive/10" onClick={() => handleDecline(inv.token)} disabled={decliningTokens.has(inv.token)}>
+                              {decliningTokens.has(inv.token) ? "Declining..." : "Decline"}
+                            </Button>
                           </div>
-                        ) : (
-                          <div className="p-4 text-xs text-muted-foreground text-center">No new notifications</div>
-                        )}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-
-                  {/* Theme Toggle (Inline inside dropdown) */}
-                  <DropdownMenuItem onClick={(e) => { e.preventDefault(); toggleTheme(); }} className="flex items-center justify-between cursor-pointer">
-                    <div className="flex items-center gap-2">
-                      {theme === "dark" ? <IconSun className="size-4 shrink-0 text-primary" /> : <IconMoon className="size-4 shrink-0 text-primary" />}
-                      <span>Theme</span>
+                        </div>
+                      ))}
                     </div>
-                    <Switch checked={theme === "dark"} className="pointer-events-none scale-75" />
-                  </DropdownMenuItem>
-
-                  <DropdownMenuSeparator />
-                  
-                  {/* Profile Settings */}
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="flex items-center gap-2 cursor-pointer">
-                      <IconSettings className="size-4 shrink-0" />
-                      <span>Profile Settings</span>
-                    </Link>
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSeparator />
-                  
-                  {/* Sign Out */}
-                  <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer">
-                    <IconLogout className="size-4 shrink-0" />
-                    <span>Sign out</span>
-                  </DropdownMenuItem>
+                  ) : (
+                    <div className="p-4 text-xs text-muted-foreground text-center">No new notifications</div>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {state === "expanded" && (
-                <Link
-                  href="/settings"
-                  title="Profile Settings"
-                  className="h-[38px] w-[38px] rounded-lg shrink-0 flex items-center justify-center border border-border/40 dark:border-sidebar-border bg-slate-50 dark:bg-sidebar-accent/30 hover:bg-slate-100 dark:hover:bg-sidebar-accent/60 transition-all duration-200 cursor-pointer group/settings"
-                >
-                  <IconSettings className="size-[18px] text-muted-foreground/75 group-hover/settings:text-foreground transition-colors" />
-                </Link>
+              {/* Theme Switcher */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="flex items-center justify-center size-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition-colors focus:outline-none cursor-pointer"
+                    aria-label="Toggle Theme"
+                  >
+                    {theme === "dark" ? <IconSun className="size-5 text-primary" /> : <IconMoon className="size-5" />}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8} className="text-xs">
+                  Toggle Theme ({theme === "dark" ? "Light" : "Dark"})
+                </TooltipContent>
+              </Tooltip>
+
+              {/* User Profile */}
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button aria-label="User profile menu" className="flex items-center justify-center size-9 rounded-lg bg-transparent border-0 cursor-pointer relative hover:bg-sidebar-accent/60 focus:outline-none focus:ring-1 focus:ring-ring select-none">
+                      <Avatar className="size-7 rounded-full shrink-0 select-none">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center size-7">
+                          {(user.name || user.email || "U").charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" side="right" align="end">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1 overflow-hidden">
+                        <p className="text-sm font-semibold leading-none truncate text-foreground">{user.name}</p>
+                        <p className="text-xs leading-none text-muted-foreground truncate">{user.email}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer">
+                      <IconLogout className="size-4 shrink-0" />
+                      <span>Sign out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
-          )}
-        </SidebarFooter>
-
-        {/* Resize Handle – drag to widen/narrow the sidebar */}
-        {state === "expanded" && (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            aria-valuenow={sidebarWidth}
-            aria-valuemin={MIN_WIDTH}
-            aria-valuemax={typeof window !== "undefined" ? Math.round(window.innerWidth * MAX_WIDTH_RATIO) : 800}
-            tabIndex={0}
-            className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize z-[100] group/resize focus-visible:outline-none select-none pointer-events-auto"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsResizing(true);
-            }}
-            onKeyDown={(e) => {
-              const step = e.shiftKey ? 40 : 10;
-              if (e.key === "ArrowRight") {
-                e.preventDefault();
-                setSidebarWidth(sidebarWidth + step);
-              } else if (e.key === "ArrowLeft") {
-                e.preventDefault();
-                setSidebarWidth(sidebarWidth - step);
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                setIsResizing(false);
-                e.currentTarget.blur();
-              }
-            }}
-          >
-            {/* Visible drag line/border */}
-            <div className={cn(
-              "absolute inset-y-0 left-1/2 -translate-x-1/2 transition-all duration-150",
-              isResizing
-                ? "w-[3px] bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.4)]"
-                : "w-[1px] bg-border/80 group-hover/resize:bg-primary/60 group-hover/resize:w-[3px]"
-            )} />
           </div>
-        )}
 
-        {/* Remove SidebarRail — replaced by resize handle above */}
-      </Sidebar>
+          {/* ─── 2. Expanded Secondary Details Sidebar ──────────────────────── */}
+          <AnimatePresence initial={false}>
+            {isSecondaryOpen && (
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: sidebarWidth, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={isResizing ? { duration: 0 } : { duration: 0.2, ease: "easeInOut" }}
+                style={{ width: sidebarWidth }}
+                className="relative h-screen min-h-screen border-r border-sidebar-border/40 bg-sidebar flex flex-col shrink-0 overflow-hidden"
+              >
+                {/* Header */}
+                <div className="h-12 px-3 flex items-center justify-between border-b border-sidebar-border/30 bg-sidebar/50 shrink-0 select-none">
+                  <span className="text-base font-bold tracking-tight text-foreground truncate">
+                    MATUR<span className="text-primary font-semibold">.ai</span>
+                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setIsSecondaryOpen(false)}
+                        className="size-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60 transition-colors focus:outline-none cursor-pointer"
+                        aria-label="Collapse Sidebar"
+                      >
+                        <IconChevronsLeft className="size-4 shrink-0" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      Collapse Details Sidebar
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                {/* Details Content Container */}
+                <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+                  {/* Project Selection Card (for non-dashboard tabs) */}
+                  {activeTab !== "dashboard" && (
+                    <div className="mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowProjectModal(true)}
+                        className="flex items-center justify-between w-full p-2.5 rounded-xl border border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/50 to-sidebar-accent/20 hover:from-sidebar-accent/70 hover:to-sidebar-accent/40 transition-all duration-200 cursor-pointer text-left group shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="size-7 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 shadow-2xs">
+                            <IconFolder className="size-4" />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-bold text-foreground truncate">{projectName || "Select Project"}</span>
+                          </div>
+                        </div>
+                        <IconSelector className="size-4 text-muted-foreground/70 shrink-0 ml-1.5 group-hover:text-primary transition-colors" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Tab specific detail menus */}
+                  {activeTab === "dashboard" && (
+                    <div className="flex flex-col gap-3">
+                      {/* Overview Dashboard Link */}
+                      <div className="flex flex-col gap-1">
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === "/dashboard" || pathname === "/"}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            (pathname === "/dashboard" || pathname === "/") && "border-l-[3px] border-primary bg-primary/10 text-primary pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <Link href="/dashboard" className="flex items-center gap-2 w-full px-2 py-1.5 text-sm font-medium">
+                            <IconDashboard className="size-4 text-primary shrink-0" />
+                            <span>Dashboard</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </div>
+
+                      {/* Project Search & List Section */}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between px-2 py-0.5">
+                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            Projects ({userProjects.length})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowProjectModal(true)}
+                            className="text-xs text-primary font-semibold hover:underline cursor-pointer"
+                          >
+                            Modal View
+                          </button>
+                        </div>
+
+                        {/* Search Input Filter */}
+                        {userProjects.length > 2 && (
+                          <div className="px-0.5">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                placeholder="Search projects..."
+                                value={projectSearchQuery}
+                                onChange={(e) => setProjectSearchQuery(e.target.value)}
+                                className="w-full h-7 pl-7 pr-2 text-sm rounded-md border border-border/50 bg-background/80 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground/60"
+                              />
+                              <IconSearch className="size-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+                            </div>
+                          </div>
+                        )}
+
+                        {isLoadingProjects ? (
+                          <div className="flex items-center justify-center p-4">
+                            <IconLoader2 className="size-4 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : userProjects.length === 0 ? (
+                          <div className="p-3 text-center rounded-lg border border-dashed border-border/50 bg-muted/20">
+                            <p className="text-xs text-muted-foreground">No projects found</p>
+                            <button
+                              type="button"
+                              onClick={() => router.push("/dashboard")}
+                              className="mt-2 text-xs text-primary font-medium hover:underline cursor-pointer"
+                            >
+                              + Create Project
+                            </button>
+                          </div>
+                        ) : filteredSidebarProjects.length === 0 ? (
+                          <div className="p-3 text-center rounded-lg border border-dashed border-border/40 bg-muted/10">
+                            <p className="text-xs text-muted-foreground">No matching projects</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 max-h-[calc(100vh-220px)] overflow-y-auto pr-0.5">
+                            {filteredSidebarProjects.map((p) => {
+                              const isSelected = projectId === p.id;
+                              const statusLabel = p.status === "completed" ? "Completed" : p.status === "in_progress" ? "In Progress" : "Not Started";
+                              const statusColor = p.status === "completed" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : p.status === "in_progress" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" : "bg-slate-500/10 text-slate-500 border-slate-500/20";
+
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => router.push(`/assess/${p.id}`)}
+                                  className={cn(
+                                    "flex flex-col gap-1 p-2 rounded-lg border transition-all text-left cursor-pointer group",
+                                    isSelected
+                                      ? "border-primary/50 bg-primary/10 text-foreground font-medium shadow-xs"
+                                      : "border-border/40 dark:border-sidebar-border/60 bg-slate-50/50 dark:bg-sidebar-accent/20 hover:bg-slate-100 dark:hover:bg-sidebar-accent/60 text-foreground/90"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 w-full min-w-0">
+                                    <div className={cn(
+                                      "size-6 rounded-md flex items-center justify-center shrink-0 transition-colors",
+                                      isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground"
+                                    )}>
+                                      <IconFolder className="size-3.5" />
+                                    </div>
+                                    <span className="text-xs font-semibold truncate text-foreground flex-1 min-w-0">{p.name}</span>
+                                    {isSelected && (
+                                      <span className="size-2 rounded-full bg-primary shrink-0 ml-auto" />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between gap-1 pl-8 text-[10px] text-muted-foreground">
+                                    <span className="truncate max-w-[110px]">{p.ai_system_type || "General AI"}</span>
+                                    <span className={cn("px-1.5 py-0.5 rounded font-medium text-[9px] border", statusColor)}>
+                                      {statusLabel}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "aima" && (
+                    <div className="flex flex-col gap-1">
+                      <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300 dark:text-zinc-400 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
+                        <span className="size-1.5 rounded-full bg-primary shrink-0" />
+                        <span>AIMA Domains</span>
+                      </div>
+                      <SidebarMenu className="gap-0.5">
+                        {displayDomains.map((domain: any) => (
+                          <DomainTreeItem
+                            key={domain.id}
+                            domain={domain}
+                            currentDomainId={currentDomainId}
+                            currentPracticeId={currentPracticeId}
+                            currentQuestionIndex={currentQuestionIndex}
+                            expandedDomainId={expandedDomainId}
+                            onDomainClick={isInsideProject ? handleDomainClick : () => handleProjectAction("")}
+                            onPracticeClick={isInsideProject ? handlePracticeClick : () => handleProjectAction("")}
+                            onQuestionClick={isInsideProject ? handleQuestionClick : () => handleProjectAction("")}
+                            toggleDomain={isInsideProject ? toggleDomain : () => {}}
+                            premiumStatus={premiumStatus}
+                            activeQuestionRef={currentQuestionRef}
+                          />
+                        ))}
+                      </SidebarMenu>
+                    </div>
+                  )}
+
+                  {activeTab === "premium" && (
+                    <div className="flex flex-col gap-3">
+                      {/* CRC Governance & Controls */}
+                      <div className="flex flex-col gap-1">
+                        <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
+                          <span className="size-1.5 rounded-full bg-[var(--section-premium)] shrink-0" />
+                          <span>CRC Governance & Controls</span>
+                        </div>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/crc/dashboard")}
+                          isActive={routeFlags.isCrcPage && pathname?.endsWith("/dashboard")}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            routeFlags.isCrcPage && pathname?.endsWith("/dashboard") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconLayoutDashboard className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">CRC Dashboard</span>
+                        </SidebarMenuButton>
+
+                        {/* Categories */}
+                        {crcCategories.map((cat: any, idx: number) => {
+                          const categoryName = typeof cat === "string" ? cat : (cat?.category_name || cat?.name || `Category ${idx + 1}`);
+                          const categoryKey = typeof cat === "string" ? cat : (cat?.id || cat?.category_name || idx);
+                          const isCatExpanded = !!expandedCrcCategories[categoryName];
+                          const catControls = controlsByCategory[categoryName] || [];
+                          const isCatActive = currentCategory === categoryName;
+                          return (
+                            <div key={categoryKey} className="flex flex-col">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExpandedCrcCategories((prev: Record<string, boolean>) => ({
+                                    ...prev,
+                                    [categoryName]: !prev[categoryName],
+                                  }));
+                                }}
+                                className={cn(
+                                  "flex items-center gap-1.5 h-7 px-2 rounded-md text-sm font-medium transition-colors w-full text-left cursor-pointer hover:bg-sidebar-accent/50",
+                                  isCatActive && "text-[var(--section-premium)] font-semibold bg-[var(--section-premium)]/10 border-l-[3px] border-[var(--section-premium)] pl-1.5 rounded-l-none rounded-r-md"
+                                )}
+                              >
+                                <IconChevronRight className={cn("size-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
+                                <span className="truncate flex-1">{categoryName}</span>
+                                <span className="text-xs text-muted-foreground/70 font-mono">{catControls.length}</span>
+                              </button>
+
+                              <AnimatePresence>
+                                {isCatExpanded && catControls.length > 0 && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="overflow-hidden pl-4 flex flex-col gap-0.5 mt-0.5"
+                                  >
+                                    {catControls.map((ctrl: CRCControl) => {
+                                      const isCtrlActive = currentControlId === ctrl.id;
+                                      return (
+                                        <button
+                                          key={ctrl.id}
+                                          type="button"
+                                          onClick={() => handleProjectNav(`/crc?controlId=${ctrl.id}`)}
+                                          className={cn(
+                                            "flex items-center gap-1.5 h-6 px-2 rounded-md text-xs transition-colors w-full text-left cursor-pointer",
+                                            isCtrlActive ? "text-[var(--section-premium)] font-semibold bg-[var(--section-premium)]/15 border-l-[3px] border-[var(--section-premium)] pl-1 rounded-l-none rounded-r-md" : "text-muted-foreground hover:text-foreground"
+                                          )}
+                                        >
+                                          <IconShieldCheck className="size-3 shrink-0 text-[var(--section-premium)]" />
+                                          <span className="truncate">{ctrl.control_id} - {ctrl.control_title}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Fairness & Bias */}
+                      <div className="flex flex-col gap-1">
+                        <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
+                          <span className="size-1.5 rounded-full bg-[var(--section-premium)] shrink-0" />
+                          <span>Fairness & Bias</span>
+                        </div>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/fairness-bias")}
+                          isActive={pathname?.endsWith("/fairness-bias")}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            pathname?.endsWith("/fairness-bias") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconScale className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Fairness Overview</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/fairness-bias/options")}
+                          isActive={pathname?.endsWith("/options")}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            pathname?.endsWith("/options") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Options & Metrics</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/fairness-bias/dataset-testing")}
+                          isActive={pathname?.endsWith("/dataset-testing")}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            pathname?.endsWith("/dataset-testing") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconTable className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Dataset Testing</span>
+                        </SidebarMenuButton>
+                      </div>
+
+                      {/* Model Vulnerability & Inventory */}
+                      <div className="flex flex-col gap-1">
+                        <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
+                          <span className="size-1.5 rounded-full bg-[var(--section-premium)] shrink-0" />
+                          <span>Security & Assets</span>
+                        </div>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/vulnerability-assessment")}
+                          isActive={routeFlags.isVulnerabilityPage}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            routeFlags.isVulnerabilityPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconShieldLock className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Model Vulnerability</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/inventory")}
+                          isActive={routeFlags.isInventoryPage}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            routeFlags.isInventoryPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconFolder className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">System Inventory</span>
+                        </SidebarMenuButton>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTab === "settings" && (
+                    <div className="flex flex-col gap-1">
+                      <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-[var(--primary)]">
+                        Project Settings
+                      </div>
+                      <SidebarMenuButton
+                        onClick={() => handleProjectNav("/settings")}
+                        isActive={routeFlags.isSettingsPage}
+                        className={cn(
+                          "h-8 px-2 transition-all",
+                          routeFlags.isSettingsPage && "border-l-[3px] border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                        )}
+                      >
+                        <IconBriefcase className="size-4 text-[var(--primary)] shrink-0" />
+                        <span className="text-sm font-medium truncate">Project Information</span>
+                      </SidebarMenuButton>
+                      <SidebarMenuButton
+                        onClick={() => handleProjectNav("/team")}
+                        isActive={routeFlags.isTeamPage}
+                        className={cn(
+                          "h-8 px-2 transition-all",
+                          routeFlags.isTeamPage && "border-l-[3px] border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                        )}
+                      >
+                        <IconUsers className="size-4 text-[var(--primary)] shrink-0" />
+                        <span className="text-sm font-medium truncate">Team Members</span>
+                      </SidebarMenuButton>
+                    </div>
+                  )}
+
+                  {activeTab === "admin" && user?.role === ROLES.ADMIN && (
+                    <div className="flex flex-col gap-1">
+                      <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-[var(--section-admin)]">
+                        Admin Tools
+                      </div>
+                      {adminNavItems.map((item) => {
+                        const Icon = item.icon;
+                        const active = isItemActive(item);
+                        return (
+                          <SidebarMenuButton
+                            key={item.id}
+                            asChild
+                            isActive={active}
+                            className={cn(
+                              "h-8 px-2 transition-all",
+                              active && "border-l-[3px] border-[var(--section-admin)] bg-[var(--section-admin)]/10 text-[var(--section-admin)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            )}
+                          >
+                            <Link href={item.href} className="flex items-center gap-2 text-sm font-medium">
+                              <Icon className="size-4 text-[var(--section-admin)] shrink-0" />
+                              <span className="truncate">{item.label}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Drag Resize Handle on right edge */}
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize sidebar"
+                  aria-valuenow={sidebarWidth}
+                  aria-valuemin={MIN_WIDTH}
+                  aria-valuemax={typeof window !== "undefined" ? Math.round(window.innerWidth * MAX_WIDTH_RATIO) : 800}
+                  tabIndex={0}
+                  className="absolute -right-2 top-0 bottom-0 w-4 cursor-col-resize z-[100] group/resize focus-visible:outline-none select-none pointer-events-auto"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsResizing(true);
+                  }}
+                  onKeyDown={(e) => {
+                    const step = e.shiftKey ? 40 : 10;
+                    if (e.key === "ArrowRight") {
+                      e.preventDefault();
+                      setSidebarWidth(sidebarWidth + step);
+                    } else if (e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      setSidebarWidth(sidebarWidth - step);
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      setIsResizing(false);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                >
+                  <div className={cn(
+                    "absolute inset-y-0 left-1/2 -translate-x-1/2 transition-all duration-150",
+                    isResizing
+                      ? "w-[3px] bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.4)]"
+                      : "w-[1px] bg-border/80 group-hover/resize:bg-primary/60 group-hover/resize:w-[3px]"
+                  )} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </aside>
 
       <SubscriptionModal
         isOpen={showSubscriptionModal}
@@ -1566,6 +1516,7 @@ function SidebarContentComponent() {
           router.push(`/assess/${selectedId}${pendingDestinationRoute}`);
         }}
       />
+      </TooltipProvider>
     </>
   );
 }

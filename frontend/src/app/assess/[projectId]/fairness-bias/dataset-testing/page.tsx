@@ -312,7 +312,7 @@ const DatasetTestingPage = () => {
     <div className="flex-1 flex flex-col w-full min-h-screen bg-background">
       {/* Header */}
       <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2">
           {/* Top: Breadcrumb */}
           <div className="flex items-center justify-between text-xs">
             <Breadcrumb
@@ -350,7 +350,7 @@ const DatasetTestingPage = () => {
 
         {/* Error state - subscription check failed */}
         {!isCheckingSubscription && subscriptionStatus === 'unknown' && (
-          <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="w-full px-6 py-12">
             <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
               <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto">
                 <RefreshCw className="w-8 h-8 text-warning" />
@@ -379,7 +379,7 @@ const DatasetTestingPage = () => {
         {/* Free tier - locked feature */}
         {
           !isCheckingSubscription && subscriptionStatus === 'free' && (
-            <div className="max-w-7xl mx-auto px-6 py-12">
+            <div className="w-full px-6 py-12">
               <div className="rounded-3xl bg-card shadow-xl ring-1 ring-border p-12 text-center space-y-6">
                 <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
                   <Lock className="w-8 h-8 text-primary" />
@@ -406,7 +406,7 @@ const DatasetTestingPage = () => {
         {
           !isCheckingSubscription && subscriptionStatus === 'trial' && (
             <>
-              <div className="max-w-7xl mx-auto px-6 pt-6">
+              <div className="w-full px-6 pt-6">
                 <div className="rounded-xl bg-secondary/50 border border-secondary px-4 py-3 flex items-center gap-3">
                   <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-secondary-foreground text-sm">⏱</span>
@@ -444,7 +444,7 @@ const DatasetTestingPage = () => {
                 preview={preview}
               />
 
-              <div className="max-w-7xl mx-auto px-6 pb-12">
+              <div className="w-full px-6 pb-12">
                 <div className="h-px bg-border mb-8 mt-12" />
                 <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
               </div>
@@ -472,7 +472,7 @@ const DatasetTestingPage = () => {
                 preview={preview}
               />
 
-              <div className="max-w-7xl mx-auto px-6">
+              <div className="w-full px-6">
                 <div className="h-px bg-border mb-8" />
                 <ReportHistory projectId={projectId} projectName={projectInfo?.name} aiSystemType={projectInfo?.aiSystemType} />
               </div>

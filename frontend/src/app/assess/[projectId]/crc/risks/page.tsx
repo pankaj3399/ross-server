@@ -288,8 +288,16 @@ export default function CRCRiskRegisterPage() {
     return counts;
   }, [risks]);
 
-  // Filtered Risks
-  const filteredRisks = useMemo(() => {
+  const [showAllRisks, setShowAllRisks] = useState(false);
+
+  // Filtered & Sorted Risks (Capped at 10 by severity Critical > High > Medium > Low)
+  const sortedRisks = useMemo(() => {
+    const severityScore: Record<string, number> = {
+      critical: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
     return risks.filter((r) => {
       const matchesSearch =
         r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -302,8 +310,19 @@ export default function CRCRiskRegisterPage() {
       const matchesSource = selectedSource === "All" || r.source === selectedSource;
 
       return matchesSearch && matchesRating && matchesStatus && matchesSource;
+    }).sort((a, b) => {
+      const scoreA = severityScore[a.rating.toLowerCase()] || 0;
+      const scoreB = severityScore[b.rating.toLowerCase()] || 0;
+      return scoreB - scoreA;
     });
   }, [risks, searchTerm, selectedRating, selectedStatus, selectedSource]);
+
+  const displayedRisks = useMemo(() => {
+    if (showAllRisks || sortedRisks.length <= 10) return sortedRisks;
+    return sortedRisks.slice(0, 10);
+  }, [sortedRisks, showAllRisks]);
+
+  const hiddenCount = sortedRisks.length > 10 && !showAllRisks ? sortedRisks.length - 10 : 0;
 
   // Premium Gate
   if (!authLoading && !contextLoading && user && !isPremium) {
@@ -347,7 +366,7 @@ export default function CRCRiskRegisterPage() {
 
   return (
     <div className="flex-1 bg-background overflow-y-auto h-screen pb-16">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-8">
+      <div className="w-full px-4 sm:px-6 py-6 space-y-8">
         
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -476,8 +495,8 @@ export default function CRCRiskRegisterPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredRisks.length > 0 ? (
-                  filteredRisks.map((risk) => (
+                {displayedRisks.length > 0 ? (
+                  displayedRisks.map((risk) => (
                     <motion.tr
                       key={risk.id}
                       onClick={() => handleRowClick(risk)}
@@ -546,6 +565,24 @@ export default function CRCRiskRegisterPage() {
               </tbody>
             </table>
           </div>
+          {hiddenCount > 0 && (
+            <div className="p-3.5 mt-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-300">
+              <div className="flex items-center gap-2">
+                <IconAlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>
+                  <strong>{hiddenCount} additional risks were not displayed</strong> (starter list capped at top 10 sorted Critical &gt; High &gt; Medium &gt; Low).
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAllRisks(true)}
+                className="h-7 text-xs border-amber-500/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shrink-0 font-semibold"
+              >
+                View All {sortedRisks.length} Risks
+              </Button>
+            </div>
+          )}
         </Card>
       </div>
 

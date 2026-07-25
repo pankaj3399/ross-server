@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiService, Project } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { IconLoader2, IconSettings, IconArrowLeft } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { IconLoader2, IconSettings, IconArrowLeft, IconTrash } from "@tabler/icons-react";
 import ProjectEditForm from "@/components/features/projects/ProjectEditForm";
 import ProjectSettingsTabs from "@/components/features/projects/ProjectSettingsTabs";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
@@ -20,6 +22,8 @@ export default function ProjectSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [loadError, setLoadError] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     const fetchProject = useCallback(async (options: { suppressGlobalLoading?: boolean } = {}) => {
         setLoadError(false);
@@ -66,6 +70,19 @@ export default function ProjectSettingsPage() {
             showToast.error(error.message || "Failed to update project");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        setDeleting(true);
+        try {
+            await apiService.deleteProject(projectId);
+            showToast.success("Project moved to trash");
+            router.push("/dashboard");
+        } catch (error: any) {
+            console.error("Failed to delete project", error);
+            showToast.error(error.message || "Failed to delete project");
+            setDeleting(false);
         }
     };
 
@@ -134,7 +151,7 @@ export default function ProjectSettingsPage() {
         <div className="flex-1 flex flex-col w-full">
             {/* Header */}
             <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full mb-8">
-                <div className="max-w-7xl mx-auto flex flex-col gap-2">
+                <div className="w-full flex flex-col gap-2">
                     {/* Top: Breadcrumb */}
                     <div className="flex items-center justify-between text-xs">
                         <Breadcrumb
@@ -167,7 +184,7 @@ export default function ProjectSettingsPage() {
                 </div>
             </div>
 
-            <div className="max-w-4xl mx-auto px-8 w-full pb-12 space-y-6">
+            <div className="px-8 w-full pb-12 space-y-6">
                 <ProjectSettingsTabs projectId={projectId} />
 
                 <Card className="border-primary/20 shadow-md ring-1 ring-primary/5">
@@ -194,7 +211,76 @@ export default function ProjectSettingsPage() {
                         />
                     </CardContent>
                 </Card>
+
+                {/* Danger Zone - Owner Only */}
+                {user?.id && project?.user_id && user.id === project.user_id && (
+                    <Card className="border-destructive/20 shadow-md ring-1 ring-destructive/5 mt-8">
+                        <CardHeader className="bg-destructive/5 border-b border-destructive/10 pb-4">
+                            <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                                <IconTrash className="w-5 h-5 text-destructive" />
+                                Danger Zone
+                            </CardTitle>
+                            <CardDescription>
+                                Permanently move this project to trash. You can recover it from your Dashboard for up to 30 days.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div>
+                                <h4 className="text-sm font-semibold text-foreground">Delete Project</h4>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Moving this project to trash will disable access to all associated assessments and data.
+                                </p>
+                            </div>
+                            <Button
+                                variant="destructive"
+                                onClick={() => setShowDeleteModal(true)}
+                                className="shrink-0 font-medium flex items-center gap-2"
+                            >
+                                <IconTrash className="w-4 h-4" />
+                                Delete Project
+                            </Button>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-destructive flex items-center gap-2">
+                            <IconTrash className="w-5 h-5" />
+                            Delete Project
+                        </DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{project.name}&quot;</span>? This will move the project to trash. You can recover it from your Dashboard settings within 30 days.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowDeleteModal(false)}
+                            disabled={deleting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteProject}
+                            disabled={deleting}
+                        >
+                            {deleting ? (
+                                <>
+                                    <IconLoader2 className="w-4 h-4 animate-spin mr-2" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                "Delete Project"
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

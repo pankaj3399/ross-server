@@ -276,7 +276,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 naCount: b.naCount,
                 applicableControls: applicable,
                 averageScore: b.scoredControls > 0 ? b.scoreSum / b.scoredControls : null,
-                percentage: applicable > 0 ? (b.scoreSum / applicable) * 100 : null,
+                percentage: b.answeredControls > 0 && applicable > 0 ? (b.scoreSum / applicable) * 100 : null,
             };
         })
         .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
@@ -285,13 +285,14 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
     // Denominator = totalControls - naCount (applicable controls for this framework)
     const buildFrameworkResult = (acc: typeof fw.eu_ai_act): CrcFrameworkResult => {
         const applicable = acc.totalControls - acc.naCount;
+        const answered = acc.scoredControls + acc.naCount;
         return {
             totalControls: acc.totalControls,
             scoredControls: acc.scoredControls,
             naCount: acc.naCount,
             applicableControls: applicable,
             points: acc.points,
-            percentage: applicable > 0
+            percentage: answered > 0 && applicable > 0
                 ? (acc.points / applicable) * 100
                 : null,
         };

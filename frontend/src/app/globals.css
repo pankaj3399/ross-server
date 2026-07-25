@@ -1100,4 +1100,15 @@ button:enabled,
   box-shadow: rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.2) 0px 1px 3px 0px !important;
 }
 
+/* Disable transitions, animations and text selection across all navbars & layout elements while resizing sidebar */
+body.sidebar-resizing,
+body.sidebar-resizing *,
+.sidebar-resizing,
+.sidebar-resizing * {
+  transition: none !important;
+  animation-duration: 0s !important;
+  user-select: none !important;
+}
+
+
 

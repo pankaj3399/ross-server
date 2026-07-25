@@ -168,7 +168,7 @@ export default function ApiReportDetailPage() {
         <div ref={reportRef} className="min-h-screen bg-background">
             {/* Header / Meta */}
             <header className="px-8 py-10 border-b border-border bg-white dark:bg-slate-900 break-inside-avoid pdf-break-safe">
-                <div className="max-w-7xl mx-auto">
+                <div className="w-full">
                     <div className="flex items-center gap-4 mb-4">
                         <button
                             onClick={() => router.back()}
@@ -213,7 +213,7 @@ export default function ApiReportDetailPage() {
                 </div>
             </header>
 
-            <div className={`max-w-7xl mx-auto px-0 py-8 ${isSecurityReport ? "space-y-8" : "space-y-6"}`}>
+            <div className={`w-full px-0 py-8 ${isSecurityReport ? "space-y-8" : "space-y-6"}`}>
                 {/* Stats Grid */}
                 <div className={`grid gap-4 ${isSecurityReport ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-4"} pdf-metric-grid break-inside-avoid pdf-break-safe pdf-section`}>
                     <div className="bg-card border border-border rounded-xl p-6 shadow-sm break-inside-avoid pdf-break-safe">

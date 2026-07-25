@@ -28,12 +28,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+import { IconTrash } from "@tabler/icons-react";
+
 interface PathSelectionModalProps {
   isOpen: boolean;
   projectId: string;
   onSelectAima: () => void;
   onSelectPremium: () => void;
   onUpgradeClick?: () => void;
+  onClose?: () => void;
+  onDeleteProject?: (projectId: string) => void;
 }
 
 const AIMA_FEATURES = [
@@ -81,6 +85,8 @@ export default function PathSelectionModal({
   onSelectAima,
   onSelectPremium,
   onUpgradeClick,
+  onClose,
+  onDeleteProject,
 }: PathSelectionModalProps) {
   const { user } = useAuth();
   const { confirmTrial, isStartingTrial } = useTrialStart();
@@ -127,11 +133,9 @@ export default function PathSelectionModal({
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open && onClose) onClose(); }}>
       <DialogContent
-        className="max-w-5xl p-0 overflow-y-auto max-h-[95vh] border-0 bg-transparent [&>button]:hidden"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        className="max-w-5xl p-0 overflow-y-auto max-h-[95vh] border-0 bg-transparent"
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -314,6 +318,35 @@ export default function PathSelectionModal({
               )}
             </motion.div>
           </div>
+
+          {(onDeleteProject || onClose) && (
+            <div className="flex justify-between items-center px-6 py-3 border-t border-border bg-muted/20">
+              {onDeleteProject ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteProject(projectId);
+                  }}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+                >
+                  <IconTrash className="w-4 h-4" />
+                  <span>Delete Project</span>
+                </Button>
+              ) : <div />}
+              {onClose && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Close & Decide Later
+                </Button>
+              )}
+            </div>
+          )}
         </motion.div>
       </DialogContent>
     </Dialog>

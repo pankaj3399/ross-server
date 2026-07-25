@@ -650,7 +650,7 @@ export default function SettingsPage() {
 
   return (
     <div className="bg-background min-h-screen relative">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1293,24 +1293,24 @@ export default function SettingsPage() {
                     return (
                       <div
                         key={project.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-4"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between py-4 first:pt-0 last:pb-0 gap-4 min-w-0"
                       >
-                        <div>
-                          <h4 className="font-semibold text-foreground">{project.name}</h4>
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <h4 className="font-semibold text-foreground truncate break-words">{project.name}</h4>
                           {project.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5">
+                            <p className="text-sm text-muted-foreground line-clamp-1 mt-0.5 break-words">
                               {project.description}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap min-w-0">
+                            <span className="text-xs text-muted-foreground shrink-0">
                               Deleted on {new Date(project.deleted_at!).toLocaleDateString()}
                             </span>
-                            <span className="w-1.5 h-1.5 rounded-full bg-border" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-border shrink-0" />
                             <Badge
                               variant="outline"
                               className={cn(
-                                "text-xs font-semibold px-2.5 py-0.5 rounded-full",
+                                "text-xs font-semibold px-2.5 py-0.5 rounded-full shrink-0",
                                 daysRemaining <= 7
                                   ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                                   : "bg-amber-500/10 text-amber-400 border-amber-500/30"

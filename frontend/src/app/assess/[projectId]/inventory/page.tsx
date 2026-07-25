@@ -366,7 +366,7 @@ export default function ComponentInventoryPage() {
   // Handle Submit Form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formType || !formProvider || !formRole.trim()) {
+    if (!formName.trim() || !formType || !formProvider || !formRole.trim() || formDataCategories.length === 0) {
       showToast.error( "Please fill in all required fields");
       return;
     }
@@ -532,7 +532,7 @@ export default function ComponentInventoryPage() {
     <div className="flex-1 flex flex-col w-full">
       {/* Header */}
       <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2">
           {/* Top: Breadcrumb */}
           <div className="flex items-center justify-between text-xs">
             <Breadcrumb
@@ -585,7 +585,7 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 px-8 py-6 max-w-7xl w-full mx-auto space-y-6">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 py-6 w-full max-w-full min-w-0 space-y-6">
         <p className="text-muted-foreground text-sm max-w-3xl">
           Document and maintain audit evidence for every AI model, system, dataset, and vector database in use. Required for EU AI Act Annex IV and ISO 42001 compliance.
         </p>
@@ -651,9 +651,9 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Filter and search Bar */}
-      <div className="flex flex-col lg:flex-row items-center gap-4 bg-card/30 border border-border/55 rounded-2xl p-4 shadow-sm">
+      <div className="flex flex-col lg:flex-row items-center gap-4 bg-card/30 border border-border/55 rounded-2xl p-4 shadow-sm min-w-0">
         {/* Search */}
-        <div className="relative w-full lg:w-72">
+        <div className="relative w-full lg:w-72 shrink-0">
           <IconSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search components..."
@@ -664,10 +664,10 @@ export default function ComponentInventoryPage() {
         </div>
 
         {/* Dropdown Filters */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full flex-1">
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full flex-1 min-w-0">
           {/* Type Filter */}
           <Select value={selectedType} onValueChange={setSelectedType}>
-            <SelectTrigger className="rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
@@ -682,7 +682,7 @@ export default function ComponentInventoryPage() {
 
           {/* Provider Filter */}
           <Select value={selectedProvider} onValueChange={setSelectedProvider}>
-            <SelectTrigger className="rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Providers" />
             </SelectTrigger>
             <SelectContent>
@@ -697,7 +697,7 @@ export default function ComponentInventoryPage() {
 
           {/* Risk Filter */}
           <Select value={selectedRisk} onValueChange={setSelectedRisk}>
-            <SelectTrigger className="rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Risks" />
             </SelectTrigger>
             <SelectContent>
@@ -712,7 +712,7 @@ export default function ComponentInventoryPage() {
 
           {/* Status Filter */}
           <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="rounded-xl border-border/60 bg-transparent">
+            <SelectTrigger className="w-full rounded-xl border-border/60 bg-transparent">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
@@ -740,7 +740,7 @@ export default function ComponentInventoryPage() {
       </div>
 
       {/* Main Table view */}
-      <div className="bg-card/40 border border-border/65 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col">
+      <div className="bg-card/40 border border-border/65 rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col min-w-0 max-w-full">
         {filteredComponents.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-20 px-4 text-center">
             <IconTable className="h-16 w-16 text-muted-foreground/30 mb-4 stroke-[1.2]" />
@@ -761,7 +761,7 @@ export default function ComponentInventoryPage() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto w-full max-w-full">
             <Table>
               <TableHeader className="bg-card/30">
                 <TableRow className="border-b border-border/50">
@@ -1114,7 +1114,9 @@ export default function ComponentInventoryPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Type */}
               <div className="space-y-1.5 col-span-2 md:col-span-1">
-                <label className="text-xs font-bold text-foreground">Component Type *</label>
+                <label className="text-xs font-bold text-foreground">
+                  Component Type <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <Select value={formType} onValueChange={(val) => {
                   setFormType(val);
                   // Auto override risk suggestions if not locked
@@ -1135,7 +1137,9 @@ export default function ComponentInventoryPage() {
               {/* Provider */}
               <div className="space-y-1.5 col-span-2 md:col-span-1">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-foreground">Provider / Vendor *</label>
+                  <label className="text-xs font-bold text-foreground">
+                    Provider / Vendor <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   {isCustomProvider && (
                     <button
                       type="button"
@@ -1184,7 +1188,9 @@ export default function ComponentInventoryPage() {
               {/* Name */}
               <div className="space-y-1.5 col-span-2">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-foreground">Component / Model Name *</label>
+                  <label className="text-xs font-bold text-foreground">
+                    Component / Model Name <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </label>
                   {!isCustomProvider && isCustomModel && (
                     <button
                       type="button"
@@ -1251,7 +1257,9 @@ export default function ComponentInventoryPage() {
 
               {/* Status */}
               <div className="space-y-1.5 col-span-2 md:col-span-1">
-                <label className="text-xs font-bold text-foreground">Inventory Status *</label>
+                <label className="text-xs font-bold text-foreground">
+                  Inventory Status <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <Select value={formStatus} onValueChange={setFormStatus}>
                   <SelectTrigger className="rounded-xl border-border/65">
                     <SelectValue placeholder="Select status" />
@@ -1268,7 +1276,9 @@ export default function ComponentInventoryPage() {
 
               {/* Role in system */}
               <div className="space-y-1.5 col-span-2">
-                <label className="text-xs font-bold text-foreground">Role in AI System *</label>
+                <label className="text-xs font-bold text-foreground">
+                  Role in AI System <span className="text-red-500 font-bold ml-0.5">*</span>
+                </label>
                 <Textarea
                   placeholder="Explain exactly what this component does in your architecture (e.g., 'Primary closed foundation LLM used for user chat generation and summarization of case studies.')"
                   value={formRole}
@@ -1282,7 +1292,9 @@ export default function ComponentInventoryPage() {
               {/* Data Categories Multi-select */}
               <div className="space-y-1.5 col-span-2">
                 <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>Data Categories Sent/Processed *</span>
+                  <span>
+                    Data Categories Sent/Processed <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </span>
                   <button
                     type="button"
                     onClick={handleNoDataProcessing}

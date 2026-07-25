@@ -44,7 +44,7 @@ export default function CRCWelcomePage() {
 
   return (
     <div className="flex-1 bg-background">
-      <div className="max-w-3xl mx-auto py-6 space-y-8">
+      <div className="max-w-4xl mx-auto px-6 py-6 space-y-8">
         <div className="flex items-center gap-4">
           <button
             type="button"
@@ -185,10 +185,9 @@ export default function CRCWelcomePage() {
             <h2>Readiness tiers</h2>
             <p className="text-sm text-muted-foreground">From overall score</p>
             <ul className="list-disc pl-5 space-y-1 not-prose text-sm">
-              <li>Ready: score 90% and above</li>
-              <li>Mostly Ready: 75% to 89%</li>
-              <li>Partially Ready: 55% to 74%</li>
-              <li>Not Ready: below 55%</li>
+              <li>Ready: score 75% and above</li>
+              <li>Partially Ready: 30% to 74%</li>
+              <li>Not Ready: below 30%</li>
             </ul>
           </section>
 

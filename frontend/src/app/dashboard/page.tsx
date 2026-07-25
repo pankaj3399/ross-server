@@ -32,7 +32,76 @@ import {
   IconCpu,
   IconUserCheck,
   IconFilter,
+  IconRefresh,
 } from "@tabler/icons-react";
+
+function RollbackBanner({ projects }: { projects: Project[] }) {
+  const [rollbackInfo, setRollbackInfo] = useState<{ projectId: string; timestamp: number; projectName: string } | null>(null);
+
+  useEffect(() => {
+    if (!projects || projects.length === 0) return;
+    try {
+      for (const p of projects) {
+        const saved = localStorage.getItem(`wizard_rollback_snapshot_${p.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const elapsedHours = (Date.now() - parsed.timestamp) / (1000 * 3600);
+          if (elapsedHours < 48) {
+            setRollbackInfo({ projectId: p.id, timestamp: parsed.timestamp, projectName: p.name });
+            break;
+          } else {
+            localStorage.removeItem(`wizard_rollback_snapshot_${p.id}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to check rollback snapshots:", e);
+    }
+  }, [projects]);
+
+  const handleRollback = async () => {
+    if (!rollbackInfo) return;
+    try {
+      const snapshotKey = `wizard_rollback_snapshot_${rollbackInfo.projectId}`;
+      const savedRaw = localStorage.getItem(snapshotKey);
+      if (savedRaw) {
+        const parsed = JSON.parse(savedRaw);
+        if (parsed?.answers) {
+          await apiService.saveWizardAnswers(rollbackInfo.projectId, parsed.answers);
+        }
+      }
+      localStorage.removeItem(snapshotKey);
+      setRollbackInfo(null);
+      showToast.success("Wizard profile reverted. Reverted project state.");
+      window.location.reload();
+    } catch (err) {
+      showToast.error("Failed to restore previous state.");
+    }
+  };
+
+  if (!rollbackInfo) return null;
+
+  return (
+    <div className="mb-6 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-foreground">
+      <div className="flex items-center gap-3">
+        <IconRefresh className="w-5 h-5 text-indigo-400 shrink-0" />
+        <div>
+          <span className="font-bold text-indigo-300 block">Wizard Profile Applied — Undo Available for "{rollbackInfo.projectName}" (48-hour rollback)</span>
+          <span className="text-muted-foreground">You applied a compliance profile to a pre-populated project. You can restore your previous project state anytime within 48 hours.</span>
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={handleRollback}
+        className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 shrink-0 font-bold gap-1.5"
+      >
+        <IconRefresh className="w-3.5 h-3.5" />
+        Undo Profile &amp; Restore Previous State
+      </Button>
+    </div>
+  );
+}
 import { CardSkeleton, DashboardSkeleton } from "../../components/Skeleton";
 import SubscriptionModal from "../../components/features/subscriptions/SubscriptionModal";
 import PathSelectionModal from "../../components/features/subscriptions/PathSelectionModal";
@@ -418,7 +487,7 @@ export default function DashboardPage() {
     <div className="min-h-full flex flex-col bg-background">
       {/* Page Header inside a sticky header bar */}
       <header className="sticky top-0 z-30 w-full bg-white dark:bg-card border-b border-border shadow-xs backdrop-blur-md">
-        <div className="max-w-7xl mx-auto h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 w-full">
+        <div className="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 w-full">
           <div className="flex items-center gap-2">
             <IconLayoutDashboard className="w-6 h-6 text-primary shrink-0" />
             <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
@@ -434,7 +503,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-6">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 w-full py-6">
         <div className="py-2">
           {/* Welcome User Section */}
           <motion.div
@@ -451,6 +520,9 @@ export default function DashboardPage() {
 
           {/* Trial Expired Banner */}
           <TrialExpiredBanner />
+
+          {/* 48-Hour Rollback Banner */}
+          <RollbackBanner projects={projects} />
 
           {/* Success Message */}
           {showSuccessMessage && (
@@ -716,12 +788,16 @@ export default function DashboardPage() {
                                   </DropdownMenuItem>
                                 )}
 
-                                {(project.role === 'OWNER' || project.user_id === user?.id) && (
+                                {project.role === 'OWNER' && project.user_id === user?.id && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
-                                      onClick={() => setDeletingProjectId(project.id)}
-                                      className="text-destructive focus:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setDeletingProjectId(project.id);
+                                      }}
+                                      className="text-destructive focus:text-destructive cursor-pointer"
                                     >
                                       <IconTrash className="mr-2 h-4 w-4" />
                                       <span>Delete</span>
@@ -937,6 +1013,13 @@ export default function DashboardPage() {
           onUpgradeClick={() => {
             setShowPathSelection(false);
             setShowSubscriptionModal(true);
+          }}
+          onClose={() => {
+            setShowPathSelection(false);
+          }}
+          onDeleteProject={(id) => {
+            setShowPathSelection(false);
+            setDeletingProjectId(id);
           }}
         />
       )}

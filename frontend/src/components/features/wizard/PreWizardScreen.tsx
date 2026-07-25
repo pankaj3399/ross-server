@@ -9,9 +9,10 @@ import { Button } from "../../ui/button";
 interface PreWizardScreenProps {
   featureName: string;
   onStart: () => void;
+  onSkip?: () => void;
 }
 
-export function PreWizardScreen({ featureName, onStart }: PreWizardScreenProps) {
+export function PreWizardScreen({ featureName, onStart, onSkip }: PreWizardScreenProps) {
   const containerVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: {
@@ -153,18 +154,28 @@ export function PreWizardScreen({ featureName, onStart }: PreWizardScreenProps) 
           </CardContent>
 
           <CardFooter className="relative z-10 flex flex-col items-center gap-4 py-6 px-6 sm:px-8 border-t border-border/40 bg-muted/20">
-            <motion.div variants={itemVariants} className="w-full max-w-md">
+            <motion.div variants={itemVariants} className="w-full max-w-md flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={onStart}
-                className="w-full py-6 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-xs flex items-center justify-center gap-2"
+                className="flex-1 py-5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold shadow-xs flex items-center justify-center gap-2"
               >
                 Configure AI Profile <ArrowRight className="h-4 w-4" />
               </Button>
+
+              {onSkip && (
+                <Button
+                  variant="outline"
+                  onClick={onSkip}
+                  className="py-5 font-semibold border-border text-foreground hover:bg-muted"
+                >
+                  Skip for Now
+                </Button>
+              )}
             </motion.div>
 
-            <motion.div variants={itemVariants} className="text-center max-w-sm">
+            <motion.div variants={itemVariants} className="text-center max-w-md">
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-primary">Required:</span> This setup is needed to unlock your premium features. Takes about 5 minutes — you can save and resume anytime.
+                <span className="font-semibold text-primary">Recommended:</span> Configuring your profile takes ~5 minutes. You can skip now and configure it anytime from Settings.
               </p>
             </motion.div>
           </CardFooter>

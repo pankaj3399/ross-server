@@ -348,7 +348,16 @@ router.delete(
       const projectId = req.params.projectId;
       const actorId = req.user!.id;
 
-      // Best-effort audit logging before deletion so FK constraint is satisfied
+      const result = await pool.query(
+        "UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2 RETURNING id",
+        [projectId, actorId],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+
+      // Best-effort audit logging after confirming project deletion
       try {
         await recordEvent({
           projectId,
@@ -359,15 +368,6 @@ router.delete(
         });
       } catch (logError) {
         console.error("Failed to record project deletion audit log:", logError);
-      }
-
-      const result = await pool.query(
-        "UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id",
-        [projectId],
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: "Project not found" });
       }
 
       res.json({ message: "Project deleted successfully" });

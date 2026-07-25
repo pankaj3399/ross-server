@@ -121,13 +121,17 @@ export default function FairnessBiasTest() {
   }, [loading, user, projectId]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const mainElement = document.querySelector('main') || document.getElementById('main-content');
+    if (mainElement) {
+      mainElement.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     if (currentQuestionRef.current) {
-      setTimeout(() => {
-        currentQuestionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-      }, 300);
+      currentQuestionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
     }
   }, [currentCategoryIndex, currentPromptIndex]);
 
@@ -449,7 +453,7 @@ export default function FairnessBiasTest() {
       <div className={`flex-1 flex flex-col h-full overflow-hidden ${!isPremium ? 'blur-md pointer-events-none select-none' : ''}`}>
         {/* Header */}
         <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-          <div className="max-w-7xl mx-auto flex flex-col gap-2">
+          <div className="w-full flex flex-col gap-2">
             {/* Top: Breadcrumb */}
             <div className="flex items-center justify-between text-xs">
               <Breadcrumb
@@ -501,7 +505,7 @@ export default function FairnessBiasTest() {
         </div>
 
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full">
             <div className="mb-8 space-y-4">
               <InfoSection
                 title="About Manual Prompt Testing"
@@ -567,12 +571,32 @@ export default function FairnessBiasTest() {
                 </div>
 
                 <div className="mb-6">
-                  <label
-                    htmlFor="responseTextarea"
-                    className="block text-sm font-medium text-foreground mb-2"
-                  >
-                    Your Response
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label
+                      htmlFor="responseTextarea"
+                      className="block text-sm font-semibold text-foreground"
+                    >
+                      Your Response
+                    </label>
+                    {(() => {
+                      const val = responses[currentResKey] || "";
+                      const words = val.trim() ? val.trim().split(/\s+/).filter(Boolean).length : 0;
+                      const chars = val.length;
+                      const isLimitReached = words >= 1000 || chars >= 5000;
+                      const isNearLimit = words >= 800 || chars >= 4000;
+                      return (
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-md transition-colors ${
+                          isLimitReached 
+                            ? "text-rose-500 bg-rose-500/10 font-bold" 
+                            : isNearLimit 
+                            ? "text-amber-500 bg-amber-500/10" 
+                            : "text-muted-foreground"
+                        }`}>
+                          {words} / 1,000 words ({chars} / 5,000 chars)
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <textarea
                     id="responseTextarea"
                     rows={8}
@@ -580,6 +604,21 @@ export default function FairnessBiasTest() {
                     value={responses[currentResKey] || ""}
                     onChange={(e) => {
                       const originalValue = e.target.value;
+                      const currentVal = responses[currentResKey] || "";
+                      const currentWords = currentVal.trim() ? currentVal.trim().split(/\s+/).filter(Boolean) : [];
+                      const isPrevUnderLimit = currentWords.length <= 1000 && currentVal.length <= 5000;
+
+                      const words = originalValue.trim() ? originalValue.trim().split(/\s+/).filter(Boolean) : [];
+                      
+                      if (words.length > 1000 || originalValue.length > 5000) {
+                        if (isPrevUnderLimit) {
+                          showToast.warning("Maximum response limit reached (1,000 words / 5,000 characters).");
+                        }
+                        if (originalValue.length > 5000) {
+                          setResponses({ ...responses, [currentResKey]: originalValue.slice(0, 5000) });
+                        }
+                        return;
+                      }
 
                       if (!originalValue.trim()) {
                         setHasShownDangerWarning(prev => {
@@ -608,7 +647,7 @@ export default function FairnessBiasTest() {
                     }}
                     placeholder="Type or paste your response here..."
                   />
-                  <div className="mt-2 text-xs text-warning-foreground bg-warning/10 border border-warning/20 p-3 rounded-xl flex items-start gap-2">
+                  <div className="mt-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-start gap-2">
                     <span className="shrink-0 mt-0.5">⚠️</span>
                     <div>
                       <strong>Security:</strong> Your notes are automatically sanitized to
@@ -631,14 +670,24 @@ export default function FairnessBiasTest() {
                 Previous
               </Button>
 
-              <Button
-                onClick={handleNext}
-                disabled={!hasNext}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-              >
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
+              {hasNext ? (
+                <Button
+                  onClick={handleNext}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleEvaluateAssessment}
+                  disabled={isEvaluating}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-200 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                >
+                  {isEvaluating ? "Evaluating..." : "Evaluate Assessment"}
+                  <BarChart3 className="w-4 h-4 ml-2" />
+                </Button>
+              )}
             </div>
           </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search, Shield } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search, Shield, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
 
 type ApiReport = {
@@ -115,25 +115,34 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
     }
 
     const getStatusBadge = (success: number, failure: number) => {
+        const total = success + failure;
+        if (total === 0) {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Pending
+                </span>
+            );
+        }
         if (failure === 0 && success > 0) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
                     <CheckCircle className="w-3.5 h-3.5" />
-                    Success
+                    Success ({success}/{total})
                 </span>
             );
         } else if (success === 0 && failure > 0) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
                     <XCircle className="w-3.5 h-3.5" />
-                    Failed
+                    Failed ({failure}/{total})
                 </span>
             );
         } else {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Partial ({success}/{success + failure})
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Completed ({success}/{total})
                 </span>
             );
         }

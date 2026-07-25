@@ -101,7 +101,7 @@ export default function PendingJobsPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -135,7 +135,7 @@ export default function PendingJobsPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="w-full px-6 py-10">
         {error && (
           <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 mb-6 text-sm text-destructive">
             {error}

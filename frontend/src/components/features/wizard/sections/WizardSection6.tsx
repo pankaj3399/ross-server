@@ -24,6 +24,7 @@ export function WizardSection6() {
   const biometricPurposes = [
     { value: "emotion_recognition", label: "Emotion Recognition (detecting emotional states in workplace/schools)" },
     { value: "biometric_categorization", label: "Biometric Categorization (inferring race, gender, political beliefs)" },
+    { value: "biometric_identification", label: "Remote Biometric Identification (biometric scanning / identification)" },
     { value: "public_spaces_identification", label: "Remote Identification in public spaces (crowd scanning/surveillance)" },
     { value: "verification_authentication", label: "1-to-1 Verification (secure login, authentication, face-unlock)" },
     { value: "none", label: "No biometric data is processed" },
@@ -53,7 +54,7 @@ export function WizardSection6() {
   };
 
   return (
-    <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+    <div className="space-y-6 px-0.5">
       {/* Q12: Annex III Sensitive Domains */}
       <div className="space-y-3">
         <Label className="text-base font-bold text-foreground">

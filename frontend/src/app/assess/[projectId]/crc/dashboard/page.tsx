@@ -42,19 +42,17 @@ const getReadinessTier = (
   percent: number | null,
   answeredCount: number = 1
 ): { label: string; color: string; bg: string } => {
-  if (answeredCount === 0) {
+  if (answeredCount === 0 || percent === null) {
     return { label: "Not Started", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10" };
   }
-  if (percent === null) return { label: "Insufficient Data", color: "text-muted-foreground", bg: "bg-muted" };
-  if (percent >= 60) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
+  if (percent >= 75) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
   if (percent >= 30) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
   return { label: "Not Ready", color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" };
 };
 
 const getCategoryColor = (percent: number | null, answeredCount: number = 1): string => {
-  if (answeredCount === 0) return "text-blue-500 dark:text-blue-400";
-  if (percent === null) return "text-muted-foreground";
-  if (percent >= 60) return "text-emerald-600 dark:text-emerald-400";
+  if (answeredCount === 0 || percent === null) return "text-blue-500 dark:text-blue-400";
+  if (percent >= 75) return "text-emerald-600 dark:text-emerald-400";
   if (percent >= 30) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
 };
@@ -136,7 +134,7 @@ function CircularProgress({ percentage, size = 160, answeredCount = 1 }: { perce
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-bold text-foreground tabular-nums">
-          {percentage !== null ? `${Math.round(value)}%` : "—"}
+          {percentage !== null ? formatPercent(percentage) : "—"}
         </span>
         <span className={`text-xs font-semibold mt-0.5 ${tier.color}`}>{tier.label}</span>
       </div>
@@ -424,7 +422,7 @@ export default function CRCDashboardPage() {
     <div className="flex-1 flex flex-col w-full bg-background">
       {/* Header */}
       <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2">
           {/* Top: Breadcrumb */}
           <div className="flex items-center justify-between text-xs">
             <Breadcrumb
@@ -476,6 +474,7 @@ export default function CRCDashboardPage() {
                           : isExportingFull
                           ? "Exporting..."
                           : "Download Full PDF"}
+                        <IconInfoCircle className="w-3.5 h-3.5 ml-0.5 opacity-80 shrink-0" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -509,6 +508,7 @@ export default function CRCDashboardPage() {
                           : isExportingSummary
                           ? "Exporting..."
                           : "Download Summary"}
+                        <IconInfoCircle className="w-3.5 h-3.5 ml-0.5 opacity-80 shrink-0" />
                       </Button>
                     </span>
                   </TooltipTrigger>
@@ -534,7 +534,7 @@ export default function CRCDashboardPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 px-8 py-6 max-w-7xl w-full mx-auto space-y-8">
+      <div className="flex-1 px-8 py-6 w-full space-y-8">
 
         {/* Incomplete Warning */}
         {!complete && hasResponses && (
@@ -555,9 +555,6 @@ export default function CRCDashboardPage() {
             </div>
           </motion.div>
         )}
-
-        {/* Quick Wins Widget */}
-        <QuickWinsWidget projectId={projectId} />
 
         {/* Empty State */}
         {!hasResponses && (
@@ -597,6 +594,8 @@ export default function CRCDashboardPage() {
         {/* Dashboard Content - Only show when we have responses */}
         {hasResponses && (
           <>
+            {/* Quick Wins Widget */}
+            <QuickWinsWidget projectId={projectId} />
             {/* Overall Score + Breakdown Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Overall Score Card */}
@@ -679,7 +678,13 @@ export default function CRCDashboardPage() {
                   <IconAlertCircle className="w-6 h-6 shrink-0" style={{ color: "var(--section-premium)" }} />
                   <span>Risk Summary</span>
                 </h2>
-                <p className="text-sm text-muted-foreground">Open risks from the Risk Register</p>
+                <Link
+                  href={`/assess/${projectId}/crc/risks`}
+                  className="text-xs sm:text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  <span>Open Risk Register</span>
+                  <IconArrowRight className="w-4 h-4" />
+                </Link>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
@@ -689,13 +694,16 @@ export default function CRCDashboardPage() {
                   { label: "Low", count: results.riskSummary?.low ?? 0, bg: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400" },
                 ].map((badge) => (
                   <Link key={badge.label} href={`/assess/${projectId}/crc/risks`}>
-                    <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer">
+                    <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer group">
                       <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                         <span className="text-2xl font-bold tabular-nums text-foreground">
                           {badge.count}
                         </span>
                         <span className={`mt-2 text-xs font-semibold px-2.5 py-0.5 border rounded-full ${badge.bg}`}>
                           {badge.label}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground group-hover:text-primary mt-1.5 transition-colors font-medium flex items-center gap-0.5">
+                          View in Risk Register <IconArrowRight className="w-3 h-3" />
                         </span>
                       </CardContent>
                     </Card>
@@ -712,7 +720,13 @@ export default function CRCDashboardPage() {
                     <IconShieldCheck className="w-6 h-6 shrink-0" style={{ color: "var(--section-premium)" }} />
                     <span>Evidence Progress</span>
                   </h2>
-                  <p className="text-sm text-muted-foreground">Audit readiness & evidence metrics</p>
+                  <Link
+                    href={`/assess/${projectId}/crc`}
+                    className="text-xs sm:text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1.5 bg-primary/10 hover:bg-primary/15 px-3 py-1.5 rounded-lg transition-all"
+                  >
+                    <span>View Control Evidence</span>
+                    <IconArrowRight className="w-4 h-4" />
+                  </Link>
                 </div>
                 <Card>
                   <CardContent className="p-6">

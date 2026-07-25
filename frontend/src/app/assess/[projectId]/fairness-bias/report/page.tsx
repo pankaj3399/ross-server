@@ -199,7 +199,7 @@ export default function FairnessBiasReport() {
     <div ref={reportRef} className="min-h-screen bg-background">
       {/* Compact Header */}
       <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm pdf-section">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="w-full px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -264,7 +264,7 @@ export default function FairnessBiasReport() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="w-full px-6 py-8">
         {fairnessQuestions.map((category, catIdx) => {
           let questionNumber = 0;
 

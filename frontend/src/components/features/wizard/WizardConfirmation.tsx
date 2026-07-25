@@ -14,6 +14,9 @@ import { Label } from "../../ui/label";
 import { toast } from "sonner";
 import { useWizardStore } from "../../../store/wizardStore";
 
+import { apiService } from "../../../lib/api";
+import { Save, History, AlertCircle } from "lucide-react";
+
 interface ScrollIndicatorWrapperProps {
   children: React.ReactNode;
   maxHeightClass?: string;
@@ -95,17 +98,69 @@ interface WizardConfirmationProps {
 }
 
 export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers }: WizardConfirmationProps) {
-  const { engineOutput, loadSavedAnswers, applyProfile, saving, loading } = useWizardStore();
+  const { engineOutput, loadSavedAnswers, applyProfile, saveProgress, answers, saving, loading } = useWizardStore();
   const [acknowledgedUnacceptable, setAcknowledgedUnacceptable] = useState(false);
+  const [acknowledgedExistingData, setAcknowledgedExistingData] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>("risks");
   
   // Selective confirm states
   const [selectedRisks, setSelectedRisks] = useState<string[]>([]);
   const [selectedComponents, setSelectedComponents] = useState<string[]>([]);
 
+  // Existing Data Review State (Migration Diff)
+  const [existingData, setExistingData] = useState<{
+    completedControlsCount: number;
+    manualRisks: any[];
+    manualComponents: any[];
+    hasManualData: boolean;
+  }>({
+    completedControlsCount: 0,
+    manualRisks: [],
+    manualComponents: [],
+    hasManualData: false,
+  });
+
   useEffect(() => {
     loadSavedAnswers(projectId);
   }, [projectId, loadSavedAnswers]);
+
+  useEffect(() => {
+    async function checkExistingData() {
+      try {
+        const [responsesRes, risksRes, inventoryRes] = await Promise.allSettled([
+          apiService.getCRCResponses(projectId),
+          apiService.getCRCRisks(projectId),
+          apiService.getComponents(projectId),
+        ]);
+
+        let completedControlsCount = 0;
+        if (responsesRes.status === "fulfilled" && responsesRes.value?.responses) {
+          completedControlsCount = Object.keys(responsesRes.value.responses).length;
+        }
+
+        let manualRisks: any[] = [];
+        if (risksRes.status === "fulfilled" && Array.isArray(risksRes.value?.data)) {
+          manualRisks = risksRes.value.data;
+        }
+
+        let manualComponents: any[] = [];
+        if (inventoryRes.status === "fulfilled" && Array.isArray(inventoryRes.value)) {
+          manualComponents = inventoryRes.value;
+        }
+
+        const hasManualData = completedControlsCount > 0 || manualRisks.length > 0 || manualComponents.length > 0;
+        setExistingData({
+          completedControlsCount,
+          manualRisks,
+          manualComponents,
+          hasManualData,
+        });
+      } catch (err) {
+        console.error("Error checking existing project data:", err);
+      }
+    }
+    checkExistingData();
+  }, [projectId]);
 
   // Pre-populate selections when engine outputs are loaded
   useEffect(() => {
@@ -177,13 +232,40 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
     );
   };
 
+  const handleSaveDraftAndExit = async () => {
+    try {
+      await saveProgress(projectId);
+      toast.success("Wizard answers saved as draft. No profile changes were applied.");
+      onApplyComplete();
+    } catch (err) {
+      toast.error("Failed to save draft.");
+    }
+  };
+
   const handleApply = async () => {
     if (eu_risk_tier === "UNACCEPTABLE" && !acknowledgedUnacceptable) {
       toast.error("You must acknowledge the Prohibited AI Practice warning before applying this profile.");
       return;
     }
+    if (existingData.hasManualData && !acknowledgedExistingData) {
+      toast.error("You must acknowledge the Existing Data Review before applying this profile.");
+      return;
+    }
 
     try {
+      // Store 48-hour rollback snapshot if project had manual data
+      if (existingData.hasManualData) {
+        localStorage.setItem(`wizard_rollback_snapshot_${projectId}`, JSON.stringify({
+          timestamp: Date.now(),
+          answers,
+          existingDataSummary: {
+            completedControlsCount: existingData.completedControlsCount,
+            risksCount: existingData.manualRisks.length,
+            componentsCount: existingData.manualComponents.length,
+          }
+        }));
+      }
+
       await applyProfile(projectId, {
         acceptedRisks: selectedRisks,
         acceptedComponents: selectedComponents,
@@ -228,6 +310,38 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
           </Button>
         </div>
       </div>
+
+      {/* Existing Data Migration Diff Review */}
+      {existingData.hasManualData && (
+        <Card className="border-amber-500/30 bg-amber-500/5 shadow-md">
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-3 text-amber-400">
+              <History className="h-6 w-6 flex-shrink-0" />
+              <CardTitle className="text-lg font-bold">Existing Data Review (Migration Diff)</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-amber-200/90 leading-relaxed">
+              This project contains pre-existing manual data: 
+              <strong> {existingData.completedControlsCount} completed CRC controls</strong>, 
+              <strong> {existingData.manualRisks.length} manual risks</strong>, and 
+              <strong> {existingData.manualComponents.length} manual inventory components</strong>. 
+              Applying this profile will merge new framework flags and starter suggestions without overwriting your manual progress.
+            </p>
+            <div className="flex items-start gap-3 p-3 rounded bg-amber-500/10 border border-amber-500/20">
+              <Checkbox 
+                id="ack-existing-data" 
+                checked={acknowledgedExistingData} 
+                onCheckedChange={(checked) => setAcknowledgedExistingData(!!checked)}
+                className="mt-0.5"
+              />
+              <Label htmlFor="ack-existing-data" className="text-xs text-amber-200 font-medium cursor-pointer leading-normal">
+                I have reviewed the existing project data and confirm applying this compliance profile will merge settings without silently overwriting manual progress.
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Warnings & Notices */}
       {article5_warning && (
@@ -286,13 +400,39 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col gap-2">
-              {applicable_frameworks.map((f: string) => (
-                <div key={f} className="flex items-center gap-2 text-sm text-foreground/90 font-semibold bg-muted/20 p-2 rounded border border-border/20">
-                  <CheckCircle2 className="h-4 w-4 text-indigo-400" />
-                  {f}
-                </div>
-              ))}
+              {applicable_frameworks.map((f: string) => {
+                const isEUProhibited = f === "EU AI Act" && eu_risk_tier === "UNACCEPTABLE";
+                return (
+                  <div 
+                    key={f} 
+                    className={`flex items-center justify-between gap-2 text-sm font-semibold p-2 rounded border transition-all ${
+                      isEUProhibited 
+                        ? "bg-red-500/10 border-red-500/30 text-red-400" 
+                        : "bg-muted/20 border-border/20 text-foreground/90"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {isEUProhibited ? (
+                        <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+                      ) : (
+                        <CheckCircle2 className="h-4 w-4 text-indigo-400 shrink-0" />
+                      )}
+                      <span>{f}</span>
+                    </div>
+                    {isEUProhibited && (
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                        NOT IN COMPLIANCE
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+            {eu_risk_tier === "UNACCEPTABLE" && (
+              <p className="text-[11px] text-red-300/80 leading-snug mt-2 p-2 bg-red-500/5 rounded border border-red-500/20">
+                <strong>Compliance Note:</strong> You are <strong>not blocked from using MATUR.ai</strong>, but blocked from claiming EU AI Act compliance until you edit answers or document a legal review.
+              </p>
+            )}
             <div className="pt-2 border-t border-border/30 space-y-1">
               <span className="text-xs text-muted-foreground uppercase font-bold block">CRC Control Summary</span>
               <div className="flex justify-between text-xs">
@@ -544,18 +684,31 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
 
       {/* Apply Actions */}
       <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-border/40 justify-end items-center">
+        <Button
+          onClick={handleSaveDraftAndExit}
+          variant="secondary"
+          disabled={saving}
+          className="w-full sm:w-auto px-6 py-6 font-bold flex items-center justify-center gap-2 border border-border/60"
+        >
+          <Save className="h-4 w-4 text-muted-foreground" />
+          Save &amp; Exit (Draft)
+        </Button>
         <Button 
           onClick={onAdjustAnswers} 
           variant="outline" 
           disabled={saving}
-          className="w-full sm:w-auto px-8 py-6 font-bold"
+          className="w-full sm:w-auto px-6 py-6 font-bold"
         >
           Adjust Answers
         </Button>
         <Button
           onClick={handleApply}
-          disabled={saving || (eu_risk_tier === "UNACCEPTABLE" && !acknowledgedUnacceptable)}
-          className="w-full sm:w-auto px-8 py-6 bg-indigo-600 text-white hover:bg-indigo-500 font-bold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2"
+          disabled={
+            saving || 
+            (eu_risk_tier === "UNACCEPTABLE" && !acknowledgedUnacceptable) ||
+            (existingData.hasManualData && !acknowledgedExistingData)
+          }
+          className="w-full sm:w-auto px-8 py-6 bg-indigo-600 text-white hover:bg-indigo-500 font-bold shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {saving ? "Applying Profile..." : "Apply Profile & Open Platform"}
           <Play className="h-4 w-4" />

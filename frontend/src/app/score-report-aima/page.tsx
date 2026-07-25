@@ -282,7 +282,7 @@ export default function ScoreReportPage() {
   return (
       <div ref={reportRef} data-premium-aima className="text-foreground selection:bg-primary/30 transition-colors duration-300">
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-10">
           {/* Navigation / Actions */}
           <div className="flex justify-between items-center mb-8 hide-in-pdf">
             <Button
@@ -348,7 +348,7 @@ export default function ScoreReportPage() {
             </motion.div>
           </header>
 
-          <div className="flex flex-col items-center gap-10 w-full max-w-5xl mx-auto">
+          <div className="flex flex-col items-center gap-10 w-full">
             {/* Overall Maturity - Horizontal Card */}
             <div className="w-full">
               <div className="relative overflow-hidden rounded-3xl bg-card border border-border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-sm">

@@ -52,7 +52,7 @@ export const DatasetUploadSection = ({
 }: DatasetUploadSectionProps) => {
     return (
         <>
-            <main className="max-w-7xl mx-auto px-6 py-8 space-y-10">
+            <main className="w-full px-6 py-8 space-y-10">
                 <InfoSection
                     title="About Dataset Testing"
                     description={`This premium path analyzes a CSV you upload for statistical fairness signals and representation gaps before prompts reach a model. MATUR also asks Gemini to explain key metrics such as fairness, bias, toxicity, relevancy, and faithfulness for the sample. Basic premium lists at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}

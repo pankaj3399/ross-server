@@ -22,11 +22,10 @@ const formatPercent = (value: number | null): string =>
   value === null ? "—" : `${value.toFixed(1)}%`;
 
 const getMaturityLabel = (percent: number | null): { label: string; color: string } => {
-  if (percent === null) return { label: "Insufficient data", color: "text-muted-foreground" };
-  if (percent >= 80) return { label: "Strong", color: "text-success" };
-  if (percent >= 60) return { label: "Moderate", color: "text-primary" };
-  if (percent >= 40) return { label: "Developing", color: "text-warning" };
-  return { label: "Needs Attention", color: "text-destructive" };
+  if (percent === null) return { label: "Not Started", color: "text-blue-500 dark:text-blue-400" };
+  if (percent >= 75) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400" };
+  if (percent >= 30) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400" };
+  return { label: "Not Ready", color: "text-red-600 dark:text-red-400" };
 };
 
 export default function ScoreReportCrcPage() {
@@ -142,7 +141,7 @@ export default function ScoreReportCrcPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="w-full px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -161,7 +160,7 @@ export default function ScoreReportCrcPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <main className="w-full px-6 py-8 space-y-8">
         {!complete && (
           <div className="rounded-2xl px-4 py-3 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
             <IconAlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />

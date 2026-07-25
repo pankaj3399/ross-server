@@ -86,7 +86,7 @@ function AssessmentLayoutContent({ children }: { children: React.ReactNode }) {
                 {hideLayoutBreadcrumb ? (
                     renderedChildren
                 ) : (
-                    <div className="px-8 py-6 max-w-7xl w-full mx-auto">
+                    <div className="px-8 py-6 w-full">
                         <Breadcrumb
                             projectName={projectName || "Loading project..."}
                             projectHref={projectBreadcrumbHref}

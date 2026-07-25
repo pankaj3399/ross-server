@@ -116,12 +116,14 @@ export default function AssessmentPage() {
         <QuestionView />
       </div>
 
-      <div className="border border-border/80 p-6 bg-card rounded-2xl shadow-sm mt-6 max-w-4xl mx-auto w-full flex-none">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-4 px-2">
-          <IconMessages className="w-4 h-4 text-primary shrink-0" />
-          <span>Project Notes & Collaboration</span>
-        </h3>
-        <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+      <div className="px-8 pb-8 w-full flex-none">
+        <div className="border border-border/80 p-6 bg-card rounded-2xl shadow-sm w-full">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-4 px-2">
+            <IconMessages className="w-4 h-4 text-primary shrink-0" />
+            <span>Project Notes & Collaboration</span>
+          </h3>
+          <CommentsPanel projectId={projectId as string} objectType="PROJECT" objectId={projectId as string} />
+        </div>
       </div>
     </div>
   );

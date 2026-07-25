@@ -12,7 +12,7 @@ import TrialBanner from "../features/trial/TrialBanner";
 import { useAuth } from "../../contexts/AuthContext";
 import AICopilot from "../shared/AICopilot";
 import { AssessmentProvider } from "../../contexts/AssessmentContext";
-import { useSidebarStore } from "../../store/sidebarStore";
+import { useSidebarStore, getTotalSidebarWidth } from "../../store/sidebarStore";
 
 const getProjectIdFromPath = (pathname: string | null): string | null => {
   const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
@@ -25,7 +25,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isHomePage = isLandingRoute(pathname);
   const { isAuthenticated } = useAuth();
 
-  const { sidebarWidth, isResizing, initializeWidth } = useSidebarStore();
+  const { sidebarWidth, isSecondaryOpen, isResizing, initializeWidth } = useSidebarStore();
 
   // Run initialization after client-side mount to avoid hydration mismatch
   useEffect(() => {
@@ -49,19 +49,20 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   // Show sidebar on all other pages (Dashboard, Assess, etc.)
 
   const projectId = getProjectIdFromPath(pathname);
+  const totalSidebarWidth = getTotalSidebarWidth(isSecondaryOpen, sidebarWidth);
 
   const sidebarContent = (
     <SidebarProvider
       defaultOpen={true}
       className={isResizing ? "sidebar-resizing" : ""}
       style={{
-        "--sidebar-width": `${sidebarWidth}px`,
+        "--sidebar-width": `${totalSidebarWidth}px`,
       } as React.CSSProperties}
     >
       <AppSidebar />
-      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30">
+      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30 min-w-0 overflow-hidden">
         <TrialBanner />
-        <main className="flex-1 bg-background relative flex flex-col min-h-0">{children}</main>
+        <main className="flex-1 bg-background relative flex flex-col min-h-0 min-w-0 overflow-x-hidden">{children}</main>
       </SidebarInset>
       {isAuthenticated && <AICopilot />}
     </SidebarProvider>

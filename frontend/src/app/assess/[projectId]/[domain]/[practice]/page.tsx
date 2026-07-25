@@ -301,7 +301,7 @@ export default function AssessmentPage() {
     <div className="min-h-screen bg-background">
       {/* HEADER */}
       <div className="bg-background border-b border-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full mb-8">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2">
           {/* Top: Breadcrumb */}
           <div className="flex items-center justify-between text-xs">
             <Breadcrumb projectName={projectName || "Loading..."} projectHref={projectBreadcrumbHref} items={[{ label: "AI Maturity Assessment (AIMA)" }]} />
@@ -353,7 +353,7 @@ export default function AssessmentPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-8 pb-8">
+      <div className="w-full px-8 pb-8">
 
         {/* Questions */}
         <div className="space-y-6">

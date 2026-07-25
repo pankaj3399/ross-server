@@ -600,7 +600,7 @@ export default function ManageSubscriptionPage() {
 
   return (
     <div className="min-h-full flex flex-col bg-background">
-      <div className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-8">
+      <div className="flex-1 px-4 sm:px-6 lg:px-8 w-full py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}

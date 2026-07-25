@@ -211,7 +211,7 @@ export default function FairnessBiasOptions() {
       <div className={`flex-1 flex flex-col w-full ${isPremium ? "" : "blur-sm pointer-events-none select-none"}`}>
         {/* Header */}
         <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-          <div className="max-w-7xl mx-auto flex flex-col gap-2">
+          <div className="w-full flex flex-col gap-2">
             {/* Top: Breadcrumb */}
             <div className="flex items-center justify-between text-xs">
               <Breadcrumb
@@ -245,12 +245,12 @@ export default function FairnessBiasOptions() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 px-8 py-6 max-w-7xl w-full mx-auto space-y-8">
+        <div className="flex-1 px-8 py-6 w-full space-y-8">
           <p className="text-muted-foreground text-sm max-w-3xl">
             Select one of the following options to proceed with fairness and bias testing.
           </p>
 
-          <div className="mb-12 max-w-5xl mx-auto">
+          <div className="mb-12 w-full">
             <InfoSection
               title="About Automated Bias and Fairness Testing"
               description={`This premium hub connects three fairness paths: manual prompt testing, API automated testing, and dataset testing. Each path is designed to produce evidence you can archive for governance. Premium lists Basic at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
@@ -290,7 +290,7 @@ export default function FairnessBiasOptions() {
           </div>
 
           {/* Options Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 w-full">
             {options.map((option, index) => {
               const Icon = option.icon;
               const isSelected = selectedMethod === option.id;
@@ -363,7 +363,7 @@ export default function FairnessBiasOptions() {
 
           {/* Recent Evaluations Section */}
           {isPremium && (
-            <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
+            <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-foreground flex items-center gap-2.5">
                   <FileText className="w-6 h-6 shrink-0" style={{ color: "var(--section-premium)" }} />

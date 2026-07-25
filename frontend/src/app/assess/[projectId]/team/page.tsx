@@ -244,7 +244,7 @@ export default function TeamManagementPage() {
         <div className="flex-1 flex flex-col w-full">
             {/* Header */}
             <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full mb-8">
-                <div className="max-w-7xl mx-auto flex flex-col gap-2">
+                <div className="w-full flex flex-col gap-2">
                     {/* Top: Breadcrumb */}
                     <div className="flex items-center justify-between text-xs">
                         <Breadcrumb
@@ -277,7 +277,7 @@ export default function TeamManagementPage() {
                 </div>
             </div>
 
-            <div className="max-w-5xl mx-auto px-8 w-full pb-12 space-y-6">
+            <div className="px-8 w-full pb-12 space-y-6">
                 <ProjectSettingsTabs projectId={projectId} />
 
             {isOwner && (

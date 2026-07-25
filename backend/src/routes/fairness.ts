@@ -28,6 +28,8 @@ import {
     RESPONSE_KEY_ERROR_MESSAGE,
 } from "../shared/responseKeyRegex";
 
+import { isPublicApiUrl } from "../utils/validateUrl";
+
 const router = Router();
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,7 +37,15 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 // Batch API evaluation schema
 const evaluateApiSchema = z.object({
     projectId: z.string().uuid(),
-    apiUrl: z.string().url("Invalid API URL"),
+    apiUrl: z.string().url("Invalid API URL").superRefine((val, ctx) => {
+        const check = isPublicApiUrl(val);
+        if (!check.isValid) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: check.error || "Localhost and internal IP addresses are not allowed.",
+            });
+        }
+    }),
     responseKey: z
         .string()
         .min(1, "Response key is required")
@@ -675,14 +685,15 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         const summary = payload.summary || null;
         const results = payload.results || [];
         const errors = payload.errors || [];
-        // Defense-in-depth fallback: when an Inngest function aborts without
-        // recording a reason, the UI used to show only "Job failed". Surface a
-        // generic message so the user always sees actionable text.
         const isFailed = String(job.status).toLowerCase() === "failed";
+        const firstErrorMsg = Array.isArray(errors) && errors.length > 0 
+            ? (errors[0]?.error || errors[0]?.message) 
+            : null;
         const errorMessage =
             payload.error ||
+            firstErrorMsg ||
             (isFailed
-                ? "No reason recorded. Please retry or contact support."
+                ? "Target API request failed. Please check endpoint URL, authentication, and response key path."
                 : null);
 
         // Normalize status for consistent API responses
@@ -950,7 +961,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const result = await pool.query(
             `SELECT 
                 id, job_id, total_prompts, success_count, failure_count,
-                average_scores, config, created_at
+                average_scores, results, config, created_at
              FROM api_test_reports
              WHERE project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')
              ORDER BY created_at DESC

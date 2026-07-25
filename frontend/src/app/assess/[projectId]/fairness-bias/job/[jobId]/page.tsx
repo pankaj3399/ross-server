@@ -174,7 +174,7 @@ export default function ManualPromptJobPage() {
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
+        <div className="w-full px-6 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
             onClick={() => router.push(`/assess/${projectId}/fairness-bias`)}
@@ -191,7 +191,7 @@ export default function ManualPromptJobPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+      <div className="w-full px-6 py-10 space-y-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -286,14 +286,16 @@ export default function ManualPromptJobPage() {
                 >
                   <p className="text-sm font-semibold text-foreground">{result.category}</p>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{result.prompt}</p>
-                  {result.evaluation && (
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Overall score: {(result.evaluation.overallScore * 100).toFixed(1)}%
+                  {result.evaluation ? (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+                      <span>Overall score:</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {result.evaluation.overallScore != null ? `${(result.evaluation.overallScore * 100).toFixed(1)}%` : "Score unavailable"}
+                      </span>
                     </div>
-                  )}
-                  {result.message && (
+                  ) : result.message && !result.message.toLowerCase().includes("overall score") ? (
                     <p className="text-xs text-success mt-2">{result.message}</p>
-                  )}
+                  ) : null}
                 </div>
               ))}
 

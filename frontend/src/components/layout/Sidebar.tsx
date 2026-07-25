@@ -105,6 +105,9 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
 
   useEffect(() => {
     setOpenMobile(false);
+    if (typeof document !== "undefined" && document.body.style.pointerEvents === "none") {
+      document.body.style.pointerEvents = "";
+    }
   }, [pathname, setOpenMobile]);
 
   useEffect(() => {

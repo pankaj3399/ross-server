@@ -158,7 +158,7 @@ export default function ManualReportDetailPage() {
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
             <div className="bg-card border-b border-border pdf-section">
-                <div className="max-w-7xl mx-auto px-6 py-4">
+                <div className="w-full px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <button
@@ -200,12 +200,17 @@ export default function ManualReportDetailPage() {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+            <div className="w-full px-6 py-8 space-y-8">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 break-inside-avoid pdf-section">
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
-                        <div className="text-2xl font-bold text-foreground">{report.total_prompts}</div>
+                        <div className="text-2xl font-bold text-foreground">
+                            {report.total_prompts} <span className="text-base font-normal text-muted-foreground">/ 20</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                            {report.total_prompts} of 20 prompts answered
+                        </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Success Rate</div>
@@ -290,7 +295,7 @@ export default function ManualReportDetailPage() {
                                             </div>
                                             <div>
                                                 <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">Your Response</div>
-                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm whitespace-pre-wrap">{(item as any).userResponse || (item as any).response || "N/A"}</div>
+                                                <div className="bg-secondary/10 p-3 rounded-lg text-sm whitespace-pre-wrap">{(item as any).userResponse || (item as any).response || (item as any)?.evaluation?.userResponse || "N/A"}</div>
                                             </div>
                                         </div>
 
@@ -321,7 +326,7 @@ export default function ManualReportDetailPage() {
                                                 <div>
                                                     <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wider pb-1 leading-normal">AI Feedback</div>
                                                     <div className="text-sm text-foreground/80 leading-relaxed">
-                                                        {item.evaluation.explanation || "No explanation provided."}
+                                                        {item.evaluation.explanation || (item.evaluation as any).reasoning || "No explanation provided."}
                                                     </div>
                                                 </div>
                                             </div>

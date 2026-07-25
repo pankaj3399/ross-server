@@ -130,7 +130,7 @@ export default function ProjectWizardSettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-24">
+    <div className="space-y-6 w-full pb-24">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Project Settings</h1>
         <p className="text-muted-foreground mt-1 text-sm">Manage your project details and team access.</p>

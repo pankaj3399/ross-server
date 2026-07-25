@@ -33,6 +33,7 @@ import { ApiHistory } from "@/app/assess/[projectId]/fairness-bias/api-history/c
 import InfoSection from "@/components/features/governance/InfoSection";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
+import { isPublicApiUrl } from "@/lib/validateUrl";
 
 const DEFAULT_REQUEST_TEMPLATE = `{
   "contents": [
@@ -141,6 +142,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const [requestTemplate, setRequestTemplate] = useState(DEFAULT_REQUEST_TEMPLATE);
   const [responseKey, setResponseKey] = useState("");
   const [isValidUrl, setIsValidUrl] = useState(true);
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [jobStartError, setJobStartError] = useState<string | null>(null);
   const [jobStarting, setJobStarting] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -154,14 +156,12 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
 
   useEffect(() => {
     if (apiEndpoint) {
-      try {
-        const url = new URL(apiEndpoint);
-        setIsValidUrl(url.protocol === 'http:' || url.protocol === 'https:');
-      } catch {
-        setIsValidUrl(false);
-      }
+      const res = isPublicApiUrl(apiEndpoint);
+      setIsValidUrl(res.isValid);
+      setUrlError(res.error || null);
     } else {
       setIsValidUrl(true);
+      setUrlError(null);
     }
   }, [apiEndpoint]);
 
@@ -527,8 +527,8 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
               />
               {!isValidUrl && apiEndpoint && (
                 <p className="mt-2 text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  Please enter a valid URL
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{urlError || "Please enter a valid public URL"}</span>
                 </p>
               )}
             </div>

@@ -253,7 +253,7 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
           <div 
             ref={scrollRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto py-6 my-2 pr-1"
+            className="flex-1 overflow-y-auto py-6 my-2 px-1.5"
           >
             {loading ? (
               <div className="space-y-4 py-8">
