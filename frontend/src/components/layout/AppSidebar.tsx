@@ -1038,6 +1038,11 @@ function SidebarContentComponent() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 cursor-pointer">
+                      <IconUser className="size-4 shrink-0 text-muted-foreground" />
+                      <span>Profile Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer">
                       <IconLogout className="size-4 shrink-0" />
                       <span>Sign out</span>

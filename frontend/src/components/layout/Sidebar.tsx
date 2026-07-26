@@ -392,8 +392,8 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/settings" className="flex items-center">
-                      <IconSettings className="size-6 mr-2" />
-                      Settings
+                      <IconSettings className="size-5 mr-2 text-muted-foreground" />
+                      <span>Profile Settings</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
