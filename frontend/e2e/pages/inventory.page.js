@@ -49,7 +49,11 @@ class InventoryPage {
 
   async goto(projectId) {
     await this.page.goto(`/assess/${projectId}/inventory`, { waitUntil: "domcontentloaded" });
-    await this.addComponentButton.or(this.emptyState).waitFor({ timeout: 30_000 });
+    // addComponentButton alone, not .or(emptyState) — the header button is
+    // always rendered (see comment above), so pairing it with .or() against
+    // the empty-state text that's simultaneously visible on a fresh inventory
+    // is a non-exclusive match and trips Playwright's strict mode.
+    await this.addComponentButton.waitFor({ timeout: 30_000 });
   }
 
   // `componentName` is caller-supplied dynamic data, not UI copy —

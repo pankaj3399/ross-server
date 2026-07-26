@@ -2,7 +2,10 @@ class WizardPage {
   constructor(page) {
     this.page = page;
 
-    this.configureButton = page.getByRole("button", { name: "Configure AI Profile", exact: true });
+    // The AI Profile Setup banner's button renders as "Configure AI Profile →"
+    // (a literal arrow character, not an icon, unlike the old dead-code
+    // PreWizardScreen version) — substring match, not exact.
+    this.configureButton = page.getByRole("button", { name: "Configure AI Profile", exact: false });
     this.modalTitle = page.getByText("AI System Profile Wizard", { exact: true });
     // WizardSection1.tsx's placeholder for path==="system" (the only path
     // this spec ever selects — see complete()'s "Single AI System" pick) is

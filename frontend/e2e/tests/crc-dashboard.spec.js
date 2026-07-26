@@ -3,8 +3,13 @@
 // CRC lifecycle (100%-Ready tier badge, the dashboard/report tier-label
 // mismatch, the Quick-Wins-before-data bug, PDF export). This spec covers two
 // things that lifecycle doesn't touch:
-//  - the wizard gate applying to /crc/dashboard itself, not just /crc
-//    (WizardGateProvider wraps the whole isPremiumRoute set per layout.tsx)
+//  - the AI Profile Setup nudge banner on a fresh premium project's
+//    /crc/dashboard, and that the dashboard itself (not a hard gate) renders
+//    underneath it. Prior to the 2026-07-26 upstream merge, WizardGateProvider
+//    fully blocked isPremiumRoute pages behind PreWizardScreen until the AI
+//    System Profile wizard was applied; that gate is gone (PreWizardScreen is
+//    now unreferenced dead code) — the wizard is an optional, dismissible
+//    nudge and every premium route renders its real content immediately.
 //  - Framework Readiness (EU AI Act/NIST/ISO 42001) + Evidence Progress
 //    rendering on a scored project, manually QA'd once (see
 //    [[ross-server-readiness-dashboard-qa]]) but never asserted in an
@@ -35,7 +40,7 @@ async function deleteProject(page, projectId) {
 }
 
 test.describe("CRC Readiness Dashboard", () => {
-  test("a fresh premium project without the wizard applied shows the onboarding gate, not the dashboard", async ({ page }) => {
+  test("a fresh premium project without the wizard applied shows the dashboard directly, with a dismissible AI Profile Setup nudge", async ({ page }) => {
     const name = `E2E CrcDash Gate ${Date.now()}`;
     const dashboard = new DashboardPage(page);
     const premiumFeatures = new PremiumFeaturesPage(page);
@@ -48,9 +53,18 @@ test.describe("CRC Readiness Dashboard", () => {
       expect(projectId).toBeTruthy();
 
       await page.goto(`/assess/${projectId}/crc/dashboard`, { waitUntil: "domcontentloaded" });
-      await expect(premiumFeatures.onboardingHeading).toBeVisible({ timeout: 30_000 });
-      await expect(crcDash.tierBadge).toHaveCount(0);
-      await expect(crcDash.noAssessmentData).toHaveCount(0);
+      // No hard gate: the empty-state dashboard renders immediately, with a
+      // non-blocking banner nudging (not requiring) profile setup.
+      await expect(premiumFeatures.wizardSetupBanner).toBeVisible({ timeout: 30_000 });
+      await expect(premiumFeatures.wizard.configureButton).toBeVisible();
+      await expect(crcDash.noAssessmentData).toBeVisible();
+      await expect(crcDash.tierBadge).toHaveCount(0); // no score yet, but not gated out either
+
+      // Dismissing the banner hides it (persisted per-project in
+      // localStorage) without affecting the dashboard underneath.
+      await premiumFeatures.dismissWizardBannerButton.click();
+      await expect(premiumFeatures.wizardSetupBanner).toHaveCount(0);
+      await expect(crcDash.noAssessmentData).toBeVisible();
     } finally {
       await deleteProject(page, projectId);
     }

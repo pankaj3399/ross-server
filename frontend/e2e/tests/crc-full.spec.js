@@ -1,9 +1,10 @@
 // Full CRC (Compliance Readiness Controls) module UI + logic e2e coverage.
 // Complements the disabled premium-feature/fully-compliant specs (all-Yes
-// only) with: a 100% run, a mixed run that mathematically reproduces the
-// known dashboard-vs-report tier-label mismatch, NA-exclusion-from-
-// denominator scoring, the incomplete-submit guard, the Quick-Wins-widget
-// empty-state bug on a zero-response project, and PDF export.
+// only) with: a 100% run, a mixed run that exercises NA-exclusion-from-
+// denominator scoring and (as of the 2026-07-26 upstream merge) confirms the
+// dashboard/report tier-label vocabulary is now unified rather than
+// mismatched, the incomplete-submit guard, the Quick-Wins-widget
+// empty-state (also fixed in that merge), and PDF export.
 //
 // Does not depend on AIMA being completed first — the AI System Profile
 // wizard (which gates CRC) only requires a premium account, not a finished
@@ -58,7 +59,7 @@ async function deleteProject(page, projectId) {
 }
 
 test.describe("CRC assessment → report → dashboard", () => {
-  test("all 'Yes' → 100% Ready/Strong, dashboard+report agree, PDF export works", async ({ page }) => {
+  test("all 'Yes' → 100% Ready, dashboard+report agree, PDF export works", async ({ page }) => {
     const name = `E2E CRC Yes ${Date.now()}`;
     const crc = new CrcPage(page);
     const crcDash = new CrcDashboardPage(page);
@@ -71,11 +72,13 @@ test.describe("CRC assessment → report → dashboard", () => {
         await expect(page).toHaveURL(/score-report-crc/i);
       });
 
-      await test.step("report shows 100% and 'Strong'", async () => {
+      await test.step("report shows 100% and 'Ready'", async () => {
         await expect(crc.reportSummaryHeading).toBeVisible();
         await expect(crc.reportOverallReadiness).toBeVisible();
         await expect(page.getByText(/100(\.0)?%/).first()).toBeVisible();
-        await expect(crc.reportMaturityLabel).toHaveText(/strong/i);
+        // Was "Strong" pre-2026-07-26 upstream merge — getMaturityLabel's
+        // vocabulary was unified with the dashboard's getReadinessTier.
+        await expect(crc.reportMaturityLabel).toHaveText(/^ready$/i);
         await page.screenshot({ path: "e2e/.artifacts/crc-report-100.png", fullPage: true });
       });
 
@@ -109,7 +112,7 @@ test.describe("CRC assessment → report → dashboard", () => {
     }
   });
 
-  test("mixed NA/Yes/No pattern → NA excluded from denominator, dashboard/report tier-label mismatch reproduces", async ({ page }) => {
+  test("mixed NA/Yes/No pattern → NA excluded from denominator, dashboard/report tier labels now agree", async ({ page }) => {
     const name = `E2E CRC Mixed ${Date.now()}`;
     const crc = new CrcPage(page);
     const crcDash = new CrcDashboardPage(page);
@@ -117,10 +120,13 @@ test.describe("CRC assessment → report → dashboard", () => {
 
     // Controls 0-9 (10 total) = NA, next 48 = Yes, rest = No.
     // Applicable = total - 10. With total=138: applicable=128, score=48/128=37.5%.
-    // 37.5% is in the boundary zone where the two pages disagree in tone:
-    // dashboard's getReadinessTier (30-59% = "Partially Ready", mildly
-    // positive) vs score-report-crc's getMaturityLabel (<40% = "Needs
-    // Attention", urgent).
+    // Before the 2026-07-26 upstream merge (af35378), 37.5% sat in a boundary
+    // zone where the two pages disagreed in tone: dashboard's
+    // getReadinessTier (30-59% = "Partially Ready", mildly positive) vs
+    // score-report-crc's getMaturityLabel (<40% = "Needs Attention", urgent)
+    // — see [[ross-server-readiness-dashboard-qa]]. That merge unified both
+    // functions onto the same ≥75%/≥30% thresholds and label set, so 37.5%
+    // should now read "Partially Ready" on both.
     const pattern = (i) => {
       if (i < 10) return "NA";
       if (i < 58) return "Yes";
@@ -144,9 +150,10 @@ test.describe("CRC assessment → report → dashboard", () => {
       let reportLabel;
       await test.step("capture report maturity label", async () => {
         reportLabel = (await crc.reportMaturityLabel.innerText()).trim().toLowerCase();
+        expect(reportLabel).toBe("partially ready");
       });
 
-      await test.step("dashboard tier label vs report maturity label at 37.5%", async () => {
+      await test.step("dashboard tier label matches the report label at 37.5%", async () => {
         await crcDash.goto(projectId);
         await expect(page.getByText(/37\.5%/).first()).toBeVisible();
         const dashLabel = (await crcDash.tierBadge.innerText()).trim().toLowerCase();
@@ -154,16 +161,7 @@ test.describe("CRC assessment → report → dashboard", () => {
 
         console.log(`[crc-tier-mismatch] report="${reportLabel}" dashboard="${dashLabel}" at 37.5%`);
 
-        // Asserts the two labels actually agree at the same score. Currently
-        // fails — dashboard's getReadinessTier and score-report-crc's
-        // getMaturityLabel use different thresholds/vocabulary, so 37.5%
-        // reads as "Partially Ready" on one and "Needs Attention" on the
-        // other. Left as a real, unmasked assertion on purpose: this should
-        // go red until that's fixed, and turn green on its own once it is.
-        expect(
-          dashLabel.includes("partially") === reportLabel.includes("needs attention"),
-          `dashboard="${dashLabel}" vs report="${reportLabel}" — same 37.5% score, opposite framing`
-        ).toBeFalsy();
+        expect(dashLabel, `dashboard="${dashLabel}" vs report="${reportLabel}" — should now agree at 37.5%`).toBe(reportLabel);
       });
     } finally {
       await deleteProject(page, projectId);
@@ -230,7 +228,11 @@ test.describe("CRC assessment → report → dashboard", () => {
       });
 
       await test.step("a real evidence URL saves, and the audit-ready flow completes", async () => {
-        await crc.evidenceUrlInput.fill("https://docs.com");
+        // Was "https://docs.com" — no longer valid post-2026-07-26 upstream
+        // merge, which tightened validateEvidenceUrl to an allowlist of
+        // recognized evidence platforms (docs.google.com, sharepoint.com,
+        // etc.) with a real path, rather than "anything not blocklisted".
+        await crc.evidenceUrlInput.fill("https://docs.google.com/document/d/abc123/edit");
         await crc.evidenceUrlInput.press("Tab");
         await expect(crc.evidenceUrlSavedToast).toBeVisible({ timeout: 10_000 });
 
@@ -257,10 +259,12 @@ test.describe("CRC assessment → report → dashboard", () => {
       await crcDash.goto(projectId);
       await expect(crcDash.noAssessmentData).toBeVisible();
 
-      // Known bug: QuickWinsWidget renders unconditionally above the
-      // hasResponses check, so a zero-answer project shows recommended
-      // "quick wins" at the same time as "no assessment data yet" —
-      // contradictory framing.
+      // Regression guard for a bug fixed in the 2026-07-26 upstream merge
+      // (5675d57, "improve nudge UI/UX"): QuickWinsWidget used to render
+      // unconditionally above the hasResponses check, so a zero-answer
+      // project showed recommended "quick wins" at the same time as "no
+      // assessment data yet" — contradictory framing. Confirmed live that
+      // this no longer reproduces (quickWinsVisible is now false).
       const quickWinsVisible = await crcDash.quickWinsHeading.isVisible().catch(() => false);
       await page.screenshot({ path: "e2e/.artifacts/crc-dashboard-quickwins-bug.png", fullPage: true });
 

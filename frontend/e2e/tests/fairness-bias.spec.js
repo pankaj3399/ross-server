@@ -1,8 +1,10 @@
 // AI Bias & Fairness Testing (/assess/<id>/fairness-bias/*) — the one premium
 // feature the e2e README explicitly marked "out of scope; not attempted
 // here." This is the first pass: create a project, complete the AI System
-// Profile wizard (wizard-gated, same as CRC/vulnerability-assessment — see
-// isPremiumRoute in layout.tsx), and drive all three testing paths (Manual
+// Profile wizard (one of isPremiumRoute in layout.tsx, same as CRC/
+// vulnerability-assessment; a dismissible nudge banner as of the 2026-07-26
+// upstream merge, not a hard gate — still completed here as setup), and
+// drive all three testing paths (Manual
 // Prompt Testing, API Automated Testing, Dataset Testing) end-to-end.
 //
 // Kept project, like premium-feature.spec.js's "Full Premium Feature": named
