@@ -64,6 +64,27 @@ class LangFairEvaluator:
         if self._stereotype_metrics is None:
             self._stereotype_metrics = StereotypeMetrics()
         return self._stereotype_metrics
+
+    def warmup(self) -> None:
+        """Eagerly load classifiers/models so request handlers reuse warm weights."""
+        logger.info(
+            "Warming up LangFair models (lightweight_mode=%s)...",
+            self.lightweight_mode,
+        )
+        toxicity = self._get_toxicity_metrics()
+        stereotype = self._get_stereotype_metrics()
+
+        # First evaluate() often triggers HF/NLTK downloads and weight loads.
+        toxicity.evaluate(
+            prompts=["warmup"],
+            responses=["This is a warmup response for model loading."],
+            return_data=False,
+        )
+        stereotype.evaluate(
+            responses=["This is a warmup response for model loading."],
+            categories=["gender"],
+        )
+        logger.info("LangFair models are warm and ready")
     
     def _resolve_toxicity_classifiers(self) -> list[str]:
         override = os.getenv("TOXICITY_CLASSIFIERS")
@@ -115,7 +136,7 @@ class LangFairEvaluator:
             "stereotype_fraction": _safe_float(stereotype_metrics.get(stereotype_fraction_key), 0.0),
         }
     
-    async def evaluate_batch(
+    def evaluate_batch(
         self,
         items: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:

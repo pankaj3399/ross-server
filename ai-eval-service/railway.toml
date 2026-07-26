@@ -3,7 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# First boot downloads/warms HF models; allow plenty of time before marking unhealthy.
 healthcheckPath = "/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 600
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

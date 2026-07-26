@@ -1,6 +1,10 @@
+"""
+Optional CLI entrypoint for local one-off evaluation.
+
+Production traffic goes through main.py, which keeps a shared warm LangFairEvaluator.
+"""
 import sys
 import json
-import asyncio
 import logging
 from evaluator import LangFairEvaluator
 
@@ -12,27 +16,28 @@ logging.basicConfig(
 
 ERROR_EMPTY_ITEMS = "Items list cannot be empty"
 
-async def run_evaluation(payload):
+
+def run_evaluation(payload):
     evaluator = LangFairEvaluator()
-    
+
     try:
-        # Always use batch evaluation (works for single items too)
         items = payload.get("items", [])
         if not items:
             raise ValueError(ERROR_EMPTY_ITEMS)
-        
-        results = await evaluator.evaluate_batch(items)
+
+        results = evaluator.evaluate_batch(items)
         return {"success": True, "results": results}
     finally:
         evaluator.cleanup()
+
 
 def main():
     try:
         input_data = sys.stdin.read()
         payload = json.loads(input_data)
-        
-        result = asyncio.run(run_evaluation(payload))
-        
+
+        result = run_evaluation(payload)
+
         print(json.dumps(result))
         sys.exit(0)
     except json.JSONDecodeError as e:
@@ -50,6 +55,6 @@ def main():
         print(json.dumps(error_result))
         sys.exit(1)
 
+
 if __name__ == "__main__":
     main()
-

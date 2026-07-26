@@ -1,13 +1,15 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, List, Any
+from typing import List, Any, Optional
+import asyncio
 import os
 import logging
 import sys
-import json
-import subprocess
 from dotenv import load_dotenv
+
+from evaluator import LangFairEvaluator
 
 load_dotenv()
 
@@ -30,10 +32,37 @@ class MemoryLimitedFormatter(logging.Formatter):
 for handler in logging.root.handlers:
     handler.setFormatter(MemoryLimitedFormatter())
 
+# Shared across requests: models load once at startup and stay warm.
+_evaluator: Optional[LangFairEvaluator] = None
+_eval_lock: Optional[asyncio.Lock] = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _evaluator, _eval_lock
+    _eval_lock = asyncio.Lock()
+    _evaluator = LangFairEvaluator()
+    logger.info("Starting model warmup (one-time load)...")
+    try:
+        await asyncio.to_thread(_evaluator.warmup)
+    except Exception:
+        logger.exception("Model warmup failed")
+        _evaluator.cleanup()
+        _evaluator = None
+        raise
+    logger.info("Evaluation service ready with warm models")
+    yield
+    if _evaluator is not None:
+        _evaluator.cleanup()
+        _evaluator = None
+    _eval_lock = None
+
+
 app = FastAPI(
     title="LangFair Evaluation Service",
     description="Microservice for evaluating LLM responses using LangFair",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -57,82 +86,39 @@ class EvaluateItemResponse(BaseModel):
     success: bool = Field(..., description="Whether the evaluation was successful")
     metrics: dict[str, Any] = Field(..., description="Evaluation metrics for this item")
 
-def run_worker(payload: dict, timeout: int = 300):
-    try:
-        worker_path = os.path.join(os.path.dirname(__file__), "worker.py")
-        
-        # Verify worker.py exists before spawning subprocess
-        if not os.path.exists(worker_path):
-            raise FileNotFoundError(f"Worker script not found at {worker_path}")
-        
-        json_input = json.dumps(payload)
-        
-        result = subprocess.run(
-            [sys.executable, worker_path],
-            input=json_input,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            check=False
+
+def _require_evaluator() -> LangFairEvaluator:
+    if _evaluator is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Evaluation models are not loaded yet",
         )
-        
-        if result.returncode != 0:
-            try:
-                error_data = json.loads(result.stdout)
-                if not error_data.get("success", True):
-                    return error_data
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(
-                    f"Failed to parse worker error response as JSON: {e}. "
-                    f"Worker stdout (first 500 chars): {result.stdout[:500]}. "
-                    f"Worker stderr (first 500 chars): {result.stderr[:500]}"
-                )
-                # Re-raise with context to ensure the parsing error isn't silently ignored
-                raise RuntimeError(
-                    f"Worker process failed and error response could not be parsed as JSON. "
-                    f"Worker stderr: {result.stderr[:500]}"
-                ) from e
-            raise RuntimeError(f"Worker process failed: {result.stderr[:500]}")
-        
-        output_data = json.loads(result.stdout)
-        return output_data
-    except subprocess.TimeoutExpired as e:
-        raise HTTPException(
-            status_code=504,
-            detail="Evaluation timeout - request took longer than 5 minutes"
-        ) from e
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Invalid response from worker: {str(e)}"
-        ) from e
-    except Exception as e:
-        error_msg = str(e)[:200]
-        logger.exception(f"Worker execution error: {error_msg}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Worker execution failed: {error_msg}"
-        ) from e
+    return _evaluator
+
 
 @app.get("/health")
 async def health_check():
-    worker_path = os.path.join(os.path.dirname(__file__), "worker.py")
-    
-    if not os.path.exists(worker_path):
+    if _evaluator is None:
         raise HTTPException(
             status_code=503,
             detail={
                 "status": "unhealthy",
-                "message": f"Worker script not found at {worker_path}. Service is degraded."
-            }
+                "message": "Models are still loading or failed to load",
+            },
         )
-    
+
     return {
-        "status": "healthy"
+        "status": "healthy",
+        "models_loaded": True,
     }
+
 
 @app.post("/evaluate", response_model=List[EvaluateItemResponse])
 async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
+    evaluator = _require_evaluator()
+    if _eval_lock is None:
+        raise HTTPException(status_code=503, detail="Evaluation service is not ready")
+
     try:
         items = [
             {
@@ -143,34 +129,20 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
             }
             for item in request.items
         ]
-        
-        payload = {
-            "type": "batch",
-            "items": items
-        }
-        
-        worker_result = run_worker(payload)
-        
-        if not worker_result.get("success", False):
-            error_msg = worker_result.get("error", "Unknown error")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Evaluation failed: {error_msg}"
+
+        # Serialize inference: one shared model instance is not safely concurrent.
+        # Requests queue here instead of each spawning a process and reloading models.
+        async with _eval_lock:
+            results = await asyncio.to_thread(evaluator.evaluate_batch, items)
+
+        return [
+            EvaluateItemResponse(
+                success=result.get("success", True),
+                metrics=result.get("metrics", {}),
             )
-        
-        results = worker_result.get("results", [])
-        
-        response_array = []
-        for result in results:
-            response_array.append(
-                EvaluateItemResponse(
-                    success=result.get("success", True),
-                    metrics=result.get("metrics", {})
-                )
-            )
-        
-        return response_array
-    
+            for result in results
+        ]
+
     except HTTPException:
         raise
     except ValueError as e:
@@ -192,15 +164,16 @@ async def evaluate(request: EvaluateRequest) -> List[EvaluateItemResponse]:
 
 if __name__ == "__main__":
     import uvicorn
-    is_production = os.getenv("RENDER") is not None or os.getenv("ENV") == "production"
-    
+    is_production = os.getenv("RAILWAY_ENVIRONMENT") is not None or os.getenv("RENDER") is not None or os.getenv("ENV") == "production"
+
     uvicorn.run(
         "main:app",
         host=os.getenv("HOST", "0.0.0.0"),
         port=int(os.getenv("PORT", 8000)),
         reload=not is_production,
         workers=1,
-        limit_concurrency=int(os.getenv("MAX_CONCURRENT_REQUESTS", "2")),
+        # HTTP concurrency (queued requests). Actual model inference is serialized by _eval_lock.
+        limit_concurrency=int(os.getenv("MAX_CONCURRENT_REQUESTS", "10")),
         limit_max_requests=int(os.getenv("MAX_REQUESTS", "1000")),
         access_log=False,
         log_level="info"

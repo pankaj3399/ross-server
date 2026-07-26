@@ -1,11 +1,13 @@
 # AI Evaluation Microservice
 
-Lightweight FastAPI service that proxies LangFair models to score AI responses for toxicity, stereotypes, and fairness. This README focuses only on the two things you asked for: running it locally with Docker and deploying the same image to Render.
+FastAPI service that scores AI responses for toxicity, stereotypes, and fairness using LangFair.
+
+Models are loaded **once at startup** and reused for every `/evaluate` request (inference is serialized with an in-process lock so the shared models stay safe).
 
 ## Run Locally with Docker
 
 ```bash
-cd examplar/ai-eval-service
+cd ai-eval-service
 docker build -t ai-eval-service .
 docker run -d \
   --name ai-eval-service \
@@ -13,7 +15,8 @@ docker run -d \
   --env-file .env \
   --restart unless-stopped \
   ai-eval-service
-curl http://localhost:8000/health   # {"status":"healthy","service":"LangFair Evaluation Service"}
+# Wait for warmup (first boot downloads HF models), then:
+curl http://localhost:8000/health   # {"status":"healthy","models_loaded":true}
 ```
 
 Stop and clean up when you're done:
@@ -24,32 +27,20 @@ docker stop ai-eval-service && docker rm ai-eval-service
 
 ## Environment Variables
 
-All environment variables used by the service:
-
-- **PORT** (default: 8000) - Server port
+- **PORT** (default: 8000) - Server port (Railway injects this; do not hardcode in production)
 - **HOST** (default: 0.0.0.0) - Server host address
-- **ENV** (optional) - Environment mode, set to "production" to disable auto-reload
-- **RENDER** (optional) - Automatically set by Render platform, used to detect production
+- **ENV** (optional) - Set to `production` to disable auto-reload
 - **LIGHTWEIGHT_EVAL_MODE** (default: true) - Use lightweight models to reduce memory usage
-- **TOXICITY_BATCH_SIZE** (default: 1 for lightweight mode, 8 otherwise) - Batch size for toxicity evaluation
-- **TOXICITY_CLASSIFIERS** (optional) - Comma-separated list of toxicity classifiers (e.g., "toxigen,detoxify_unbiased"). Overrides default based on LIGHTWEIGHT_EVAL_MODE
-- **MAX_CONCURRENT_REQUESTS** (default: 2) - Limit concurrent requests to prevent memory issues
-- **MAX_REQUESTS** (default: 1000) - Auto-restart after N requests to prevent memory leaks
+- **TOXICITY_BATCH_SIZE** (default: 1 for lightweight mode, 8 otherwise)
+- **TOXICITY_CLASSIFIERS** (optional) - Comma-separated classifiers override
+- **MAX_CONCURRENT_REQUESTS** (default: 10) - Max in-flight HTTP connections (queued). Model inference itself is one-at-a-time.
+- **MAX_REQUESTS** (default: 1000) - Recycle the process after N requests
+- **HF_TOKEN** (optional) - Hugging Face token for more reliable model downloads on startup
 
-## Deploy by Connecting the Repository to Render
+## Deploy on Railway
 
-1. **Push the repo to GitHub/GitLab.**
-   - Ensure the Dockerfile and `.env.example` (or docs for env vars) are committed.
-2. **Create a Render Web Service.**
-   - Click “New +” → “Web Service” → “Build and deploy from a Git repository”.
-   - Select your repo/branch and confirm Render detects the Dockerfile.
-3. **Confirm Render’s build settings.**
-   - Environment: Docker.
-   - Docker context: repo root (or `ai-eval-service` if the service lives in a subfolder).
-   - Dockerfile path: `ai-eval-service/Dockerfile` if needed.
-4. **Set runtime values.**
-   - `PORT=8000`.
-   - See the [Environment Variables](#environment-variables) section above for all supported variables.
-5. **Deploy and verify.**
-   - Hit `https://<render-service>.onrender.com/health`.
-   - Point clients to `LANGFAIR_SERVICE_URL=https://<render-service>.onrender.com`.
+1. Connect the repo and set **Root Directory** to `ai-eval-service`.
+2. Builder: Dockerfile (`railway.toml` already points at it).
+3. Set env vars from `.env.example` (`ENV=production`, `LIGHTWEIGHT_EVAL_MODE=true`, etc.).
+4. Generate a public domain and wait for `/health` (first deploy can take several minutes while models warm up).
+5. Point the backend at `LANGFAIR_SERVICE_URL=https://<your-railway-url>` (no trailing slash).

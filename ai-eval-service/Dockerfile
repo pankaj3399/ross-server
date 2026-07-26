@@ -41,10 +41,13 @@ COPY --chown=appuser:appuser main.py evaluator.py worker.py ./
 
 USER appuser
 
+# Pre-download NLTK data used by stereotype metrics (avoids first-request downloads).
+RUN python -c "import nltk; nltk.download('stopwords', quiet=True)"
+
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Models warm up during app lifespan; allow a long start period before health fails.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency ${MAX_CONCURRENT_REQUESTS:-2} --limit-max-requests ${MAX_REQUESTS:-1000} --no-access-log"]
-
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --limit-concurrency ${MAX_CONCURRENT_REQUESTS:-10} --limit-max-requests ${MAX_REQUESTS:-1000} --no-access-log"]
