@@ -1347,18 +1347,18 @@ function SidebarContentComponent() {
                           )}
                         >
                           <IconScale className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Fairness Overview</span>
+                          <span className="text-sm font-medium truncate">Manual Prompt Testing</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
-                          onClick={() => handleProjectNav("/fairness-bias/options")}
-                          isActive={pathname?.endsWith("/options")}
+                          onClick={() => handleProjectNav("/fairness-bias/api-endpoint")}
+                          isActive={pathname?.endsWith("/api-endpoint")}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/options") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            pathname?.endsWith("/api-endpoint") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
-                          <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Options & Metrics</span>
+                          <IconApi className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">API Automated Testing</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias/dataset-testing")}
@@ -1371,9 +1371,20 @@ function SidebarContentComponent() {
                           <IconTable className="size-4 text-[var(--section-premium)] shrink-0" />
                           <span className="text-sm font-medium truncate">Dataset Testing</span>
                         </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/fairness-bias/options")}
+                          isActive={pathname?.endsWith("/options")}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            pathname?.endsWith("/options") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Testing Options & Hub</span>
+                        </SidebarMenuButton>
                       </div>
 
-                      {/* Model Vulnerability & Inventory */}
+                      {/* Security & Assets */}
                       <div className="flex flex-col gap-1">
                         <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
                           <span className="size-1.5 rounded-full bg-[var(--section-premium)] shrink-0" />
@@ -1388,7 +1399,7 @@ function SidebarContentComponent() {
                           )}
                         >
                           <IconShieldLock className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Model Vulnerability</span>
+                          <span className="text-sm font-medium truncate">AI Vulnerability Assessment</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/inventory")}
@@ -1399,7 +1410,7 @@ function SidebarContentComponent() {
                           )}
                         >
                           <IconFolder className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">System Inventory</span>
+                          <span className="text-sm font-medium truncate">AI Component Inventory</span>
                         </SidebarMenuButton>
                       </div>
                     </div>
