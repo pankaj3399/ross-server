@@ -1340,10 +1340,10 @@ function SidebarContentComponent() {
                         </div>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias")}
-                          isActive={pathname?.endsWith("/fairness-bias")}
+                          isActive={routeFlags.isManualPromptPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/fairness-bias") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isManualPromptPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconScale className="size-4 text-[var(--section-premium)] shrink-0" />
@@ -1351,10 +1351,10 @@ function SidebarContentComponent() {
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias/api-endpoint")}
-                          isActive={pathname?.endsWith("/api-endpoint")}
+                          isActive={routeFlags.isApiEndpointPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/api-endpoint") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isApiEndpointPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconApi className="size-4 text-[var(--section-premium)] shrink-0" />
@@ -1362,10 +1362,10 @@ function SidebarContentComponent() {
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias/dataset-testing")}
-                          isActive={pathname?.endsWith("/dataset-testing")}
+                          isActive={routeFlags.isDatasetTestingPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/dataset-testing") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isDatasetTestingPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconTable className="size-4 text-[var(--section-premium)] shrink-0" />
@@ -1373,10 +1373,10 @@ function SidebarContentComponent() {
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias/options")}
-                          isActive={pathname?.endsWith("/options")}
+                          isActive={routeFlags.isFairnessOptionsPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/options") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isFairnessOptionsPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
