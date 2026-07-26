@@ -1038,6 +1038,11 @@ function SidebarContentComponent() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2 cursor-pointer">
+                      <IconUser className="size-4 shrink-0 text-muted-foreground" />
+                      <span>Profile Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive focus:text-destructive cursor-pointer">
                       <IconLogout className="size-4 shrink-0" />
                       <span>Sign out</span>
@@ -1335,40 +1340,51 @@ function SidebarContentComponent() {
                         </div>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias")}
-                          isActive={pathname?.endsWith("/fairness-bias")}
+                          isActive={routeFlags.isManualPromptPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/fairness-bias") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isManualPromptPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconScale className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Fairness Overview</span>
+                          <span className="text-sm font-medium truncate">Manual Prompt Testing</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
-                          onClick={() => handleProjectNav("/fairness-bias/options")}
-                          isActive={pathname?.endsWith("/options")}
+                          onClick={() => handleProjectNav("/fairness-bias/api-endpoint")}
+                          isActive={routeFlags.isApiEndpointPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/options") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isApiEndpointPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
-                          <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Options & Metrics</span>
+                          <IconApi className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">API Automated Testing</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/fairness-bias/dataset-testing")}
-                          isActive={pathname?.endsWith("/dataset-testing")}
+                          isActive={routeFlags.isDatasetTestingPage}
                           className={cn(
                             "h-8 px-2 transition-all",
-                            pathname?.endsWith("/dataset-testing") && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                            routeFlags.isDatasetTestingPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
                           )}
                         >
                           <IconTable className="size-4 text-[var(--section-premium)] shrink-0" />
                           <span className="text-sm font-medium truncate">Dataset Testing</span>
                         </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/fairness-bias/options")}
+                          isActive={routeFlags.isFairnessOptionsPage}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            routeFlags.isFairnessOptionsPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconSettings className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">Testing Options & Hub</span>
+                        </SidebarMenuButton>
                       </div>
 
-                      {/* Model Vulnerability & Inventory */}
+                      {/* Security & Assets */}
                       <div className="flex flex-col gap-1">
                         <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
                           <span className="size-1.5 rounded-full bg-[var(--section-premium)] shrink-0" />
@@ -1383,7 +1399,7 @@ function SidebarContentComponent() {
                           )}
                         >
                           <IconShieldLock className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">Model Vulnerability</span>
+                          <span className="text-sm font-medium truncate">AI Vulnerability Assessment</span>
                         </SidebarMenuButton>
                         <SidebarMenuButton
                           onClick={() => handleProjectNav("/inventory")}
@@ -1394,7 +1410,7 @@ function SidebarContentComponent() {
                           )}
                         >
                           <IconFolder className="size-4 text-[var(--section-premium)] shrink-0" />
-                          <span className="text-sm font-medium truncate">System Inventory</span>
+                          <span className="text-sm font-medium truncate">AI Component Inventory</span>
                         </SidebarMenuButton>
                       </div>
                     </div>

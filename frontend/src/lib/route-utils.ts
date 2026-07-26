@@ -34,8 +34,9 @@ export const getRouteFlags = (pathname: string | null) => {
   const isFairnessRootPage = !!pathname?.match(/\/fairness-bias($|\?|\/$)/);
   const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/(api-endpoint|api-history)($|\/|\?)/);
   const isVulnerabilityPage = !!pathname?.match(/\/vulnerability-assessment($|\/|\?)/);
-  const isDatasetTestingPage = !!pathname?.match(/\/fairness-bias\/dataset-testing($|\/|\?)/);
+  const isDatasetTestingPage = !!pathname?.match(/\/fairness-bias\/dataset-(testing|history)($|\/|\?)/);
   const isFairnessOptionsPage = !!pathname?.match(/\/fairness-bias\/options($|\/|\?)/);
+  const isManualPromptPage = isFairnessPage && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage;
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
   const isSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings($|\/|\?)/);
   const isInventoryPage = !!pathname?.match(/\/inventory($|\/|\?)/);
@@ -45,6 +46,7 @@ export const getRouteFlags = (pathname: string | null) => {
     isCrcPage,
     isFairnessPage,
     isFairnessRootPage,
+    isManualPromptPage,
     isApiEndpointPage,
     isVulnerabilityPage,
     isDatasetTestingPage,
