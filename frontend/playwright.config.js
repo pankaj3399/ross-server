@@ -5,7 +5,9 @@ const path = require("path");
 
 require("dotenv").config({ path: path.join(__dirname, "e2e/.env.e2e") });
 
-const BASE_URL = process.env.E2E_BASE_URL || "https://ross-server-w14l.vercel.app";
+// Single source of truth: BASE_URL comes from e2e/constants.js (which reads
+// E2E_BASE_URL — see e2e/.env.e2e.example), not a literal duplicated here.
+const { BASE_URL } = require("./e2e/constants");
 
 module.exports = defineConfig({
   testDir: "./e2e",
@@ -29,13 +31,18 @@ module.exports = defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    viewport: { width: 2560, height: 1440 },
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.js/ },
     {
       name: "chromium",
       dependencies: ["setup"],
-      use: { ...devices["Desktop Chrome"] },
+      // devices["Desktop Chrome"] carries its own 1280x720 viewport, which
+      // would silently win over the global `use.viewport` above since
+      // project-level `use` is merged on top of it — so the 1440p viewport
+      // has to be reasserted here, after the spread, to actually apply.
+      use: { ...devices["Desktop Chrome"], viewport: { width: 2560, height: 1440 } },
     },
   ],
 

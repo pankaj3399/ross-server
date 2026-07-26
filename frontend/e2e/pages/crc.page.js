@@ -8,19 +8,49 @@ class CrcPage {
   constructor(page) {
     this.page = page;
 
-    this.welcomeStartLink = page.getByRole("link", { name: /start crc assessment|continue to the crc assessment/i });
+    // crc/welcome/page.tsx: `hasProgress ? "Continue to the CRC assessment"
+    // : "Start CRC assessment"` — two mutually-exclusive fixed strings
+    // (lowercase "assessment", verified against source).
+    this.welcomeStartLink = page
+      .getByRole("link", { name: "Start CRC assessment", exact: true })
+      .or(page.getByRole("link", { name: "Continue to the CRC assessment", exact: true }));
 
+    // "Control N of M" is genuinely dynamic (live counter), so this is the
+    // one locator in this file that can't drop the regex.
     this.counter = page.getByText(/Control \d+ of \d+/).first();
-    this.nextButton = page.getByRole("button", { name: /^next$/i });
-    this.submitButton = page.getByRole("button", { name: /submit assessment/i });
+    this.nextButton = page.getByRole("button", { name: "Next", exact: true });
+    this.submitButton = page.getByRole("button", { name: "Submit Assessment", exact: true });
 
-    this.evidenceStatusSelect = page.getByLabel(/select status/i);
-    this.evidenceUrlInput = page.getByLabel(/evidence url/i);
-    this.auditReadyCheckbox = page.getByLabel(/audit-ready confirmation/i);
+    this.evidenceStatusSelect = page.getByLabel("Select Status", { exact: true });
+    // Full label text is "Evidence URL (HTTPS required)" — substring match,
+    // not exact.
+    this.evidenceUrlInput = page.getByLabel("Evidence URL");
+    // Full label text is "🔒 Audit-ready confirmation" — substring match to
+    // avoid having to encode the emoji prefix exactly.
+    this.auditReadyCheckbox = page.getByLabel("Audit-ready confirmation");
 
-    this.reportSummaryHeading = page.getByText(/compliance readiness summary/i);
-    this.reportOverallReadiness = page.getByText(/overall compliance readiness/i);
-    this.reportByCategory = page.getByText(/by category/i);
+    // Sonner toasts (see frontend/src/lib/toast.ts) render their message as
+    // plain text; Playwright's getByText is already a case-insensitive
+    // substring match on a plain string, so no regex is needed to match
+    // against the backend's longer exact error copy.
+    this.blockedEvidenceUrlToast = page.getByText("does not appear to be a real evidence document");
+    this.evidenceUrlSavedToast = page.getByText("Evidence URL saved", { exact: true });
+
+    this.reportSummaryHeading = page.getByText("Compliance Readiness Summary", { exact: true });
+    this.reportOverallReadiness = page.getByText("Overall compliance readiness", { exact: true });
+    this.reportByCategory = page.getByText("By Category", { exact: true });
+    // "Strong"/"Moderate"/"Developing"/"Needs Attention" maturity badge on
+    // /score-report-crc, next to the overall % (getMaturityTier()'s labels).
+    this.reportMaturityLabel = page
+      .getByText("Strong", { exact: true })
+      .or(page.getByText("Moderate", { exact: true }))
+      .or(page.getByText("Developing", { exact: true }))
+      .or(page.getByText("Needs Attention", { exact: true }))
+      .first();
+    // title attribute interpolates live counts ("Answer all controls (3/138)
+    // before submitting"), so this stays a substring match, just without the
+    // regex wrapper.
+    this.submitBlockedReason = page.getByTitle("Answer all controls");
   }
 
   answerOption(label) {
@@ -45,11 +75,10 @@ class CrcPage {
     await this.page.waitForTimeout(300);
   }
 
-  // Answers every control with `label`, walking via "Next", then submits.
-  // Lands on /score-report-crc. Requires the wizard to have been applied
-  // first. Pass withEvidence to also fully populate each control's evidence
-  // tracker before moving on.
-  async answerAllAndSubmit(projectId, label = "Yes", withEvidence = false) {
+  // Navigates to the first unanswered control, going through the welcome
+  // page's "Start"/"Continue" CTA if present. Shared by answerAllAndSubmit
+  // and any test that only needs a control or two, not a full walk.
+  async gotoAssessment(projectId) {
     await this.page.goto(`/assess/${projectId}/crc/welcome`, { waitUntil: "domcontentloaded" });
     const started = await this.welcomeStartLink
       .waitFor({ timeout: 30_000 })
@@ -59,10 +88,27 @@ class CrcPage {
     else await this.page.goto(`/assess/${projectId}/crc`, { waitUntil: "domcontentloaded" });
 
     await expect(this.counter).toBeVisible({ timeout: 30_000 });
+  }
+
+  // Answers every control, walking via "Next", then submits. Lands on
+  // /score-report-crc. Requires the wizard to have been applied first.
+  // `labelOrFn` is either a fixed answer label ("Yes"/"No"/"Partially"/"NA"/
+  // "Not Sure") applied to every control, or a function (index, total) =>
+  // label for a mixed pattern (index is 0-based). Pass withEvidence to also
+  // fully populate each control's evidence tracker before moving on.
+  async answerAllAndSubmit(projectId, labelOrFn = "Yes", withEvidence = false) {
+    await this.gotoAssessment(projectId);
 
     for (let i = 0; i < 300; i++) {
       const text = await this.counter.innerText();
       const match = text.match(/Control (\d+) of (\d+)/);
+      const total = match ? Number(match[2]) : null;
+      // Derived from the displayed "Control N of M", not the loop variable:
+      // gotoAssessment() can resume at the first unanswered control (not
+      // necessarily #1), so a mixed pattern keyed on the loop index would be
+      // applied to the wrong controls after a resume.
+      const index = match ? Number(match[1]) - 1 : i;
+      const label = typeof labelOrFn === "function" ? labelOrFn(index, total) : labelOrFn;
 
       await this.answerOption(label).click();
       await this.page.waitForTimeout(400); // let the answer persist

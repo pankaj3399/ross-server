@@ -5,18 +5,28 @@ class AssessmentPage {
   constructor(page) {
     this.page = page;
 
+    // "Question {n} of {total}" is genuinely dynamic (live counter) —
+    // can't drop the regex.
     this.questionCounter = page.getByText(/Question \d+ of \d+/).first();
-    this.nextButton = page.getByRole("button", { name: "Next" });
-    this.previousButton = page.getByRole("button", { name: "Previous" });
-    this.submitButton = page.getByRole("button", { name: /submit project/i }).first();
-    // Once a project is already completed, the same button relabels to this.
-    this.resubmitButton = page.getByRole("button", { name: /resubmit changes/i }).first();
+    this.nextButton = page.getByRole("button", { name: "Next", exact: true });
+    this.previousButton = page.getByRole("button", { name: "Previous", exact: true });
+    // QuestionView.tsx: `isCompleted ? 'Resubmit Changes' : 'Submit Project'`
+    // — two mutually-exclusive fixed strings.
+    this.submitButton = page.getByRole("button", { name: "Submit Project", exact: true }).first();
+    this.resubmitButton = page.getByRole("button", { name: "Resubmit Changes", exact: true }).first();
 
-    this.missingDialog = page.getByRole("dialog").filter({ hasText: /unanswered|missing/i });
-    this.missingDialogGoToFirst = this.missingDialog.getByRole("button", { name: /go to first unanswered/i });
+    // "<N> unanswered question(s)" is the dialog's actual <DialogTitle>, so
+    // it's the accessible name Radix exposes via aria-labelledby — matching
+    // on `name` targets that title specifically instead of scanning the
+    // whole dialog body (which also lists the unanswered questions' own text
+    // and could coincidentally contain "missing"/"unanswered").
+    this.missingDialog = page.getByRole("dialog", { name: /unanswered question/i });
+    this.missingDialogGoToFirst = this.missingDialog.getByRole("button", { name: "Go to first unanswered", exact: true });
 
-    this.notesTextarea = page.getByPlaceholder(/add your notes/i);
-    this.savingIndicator = page.getByText(/saving\.\.\./i);
+    // Full placeholder is "Add your notes, reminders, or thoughts about this
+    // question..." — substring match, not exact.
+    this.notesTextarea = page.getByPlaceholder("Add your notes");
+    this.savingIndicator = page.getByText("Saving...", { exact: true });
   }
 
   answerOption(label) {

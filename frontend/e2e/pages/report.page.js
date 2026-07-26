@@ -2,26 +2,30 @@ class ReportPage {
   constructor(page) {
     this.page = page;
 
-    this.overallScoreLabel = page.getByText(/overall score/i);
-    // The big "X.XX" figure — renders before the domain breakdown in DOM
-    // order, so .first() reliably targets it over a per-domain score.
+    this.overallScoreLabel = page.getByText("Overall Score", { exact: true });
+    // The big "X.XX" figure is genuinely dynamic (a live computed score), so
+    // this is one of the few locators here that has to stay a regex.
+    // Renders before the domain breakdown in DOM order, so .first() reliably
+    // targets it over a per-domain score.
     this.overallScoreValue = page.getByText(/^\d\.\d{2}$/).first();
-    this.questionsEvaluated = page.getByText(/questions evaluated/i);
+    this.questionsEvaluated = page.getByText("Questions Evaluated", { exact: true });
     this.questionsEvaluatedValue = page
-      .locator("div", { hasText: /questions evaluated/i })
+      .locator("div", { hasText: "Questions Evaluated" })
       .last()
-      .getByText(/^\d+$/);
-    this.domainBreakdown = page.getByText(/domain maturity breakdown/i);
-    // Premium projects also render their premium domain(s); on this
-    // deployment it's named "Test Premium Control Family …".
-    this.premiumDomainRow = page.getByText(/premium control family/i).first();
+      .getByText(/^\d+$/); // dynamic count, unavoidably a regex
+    this.domainBreakdown = page.getByText("Domain Maturity Breakdown", { exact: true });
+    // Premium projects also render their premium domain(s) — the domain's
+    // name itself is backend/dataset-driven, not fixed UI copy (on this
+    // deployment it happens to be "Test Premium Control Family …"), so this
+    // stays a substring match rather than an exact one.
+    this.premiumDomainRow = page.getByText("Premium Control Family").first();
 
-    // Disabled and reads "Preparing insights..." until the AI-insights job
-    // finishes; only then does it enable and read "Download Report".
-    this.downloadButton = page.getByRole("button", { name: /download report/i });
-    this.preparingInsights = page.getByText(/preparing insights/i);
+    // Toggles between "Generating..." / "Preparing insights..." (disabled,
+    // while the AI-insights job runs) / "Download Report" (idle, enabled).
+    this.downloadButton = page.getByRole("button", { name: "Download Report", exact: true });
+    this.preparingInsights = page.getByText("Preparing insights...", { exact: true });
 
-    this.backToAssessmentButton = page.getByRole("button", { name: /back to assessment/i }).first();
+    this.backToAssessmentButton = page.getByRole("button", { name: "Back to Assessment", exact: true }).first();
   }
 
   async download() {
