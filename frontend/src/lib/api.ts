@@ -195,6 +195,13 @@ export interface Thresholds {
 export type CRCControlStatus = "Draft" | "In Review" | "Published" | "Archived";
 export type CRCEvidenceStatus = 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
 
+export interface ControlFlagInfo {
+  flag: string;
+  original_flag?: string;
+  is_manual_override?: boolean;
+  reason?: string;
+}
+
 export interface EvidenceAnalysis {
   success: boolean;
   extractedTextLength: number;
@@ -1684,6 +1691,7 @@ class ApiService {
       evidenceAnalysis?: EvidenceAnalysis;
       updatedAt: string;
     }>; 
+    controlFlags?: Record<string, ControlFlagInfo>;
     count: number;
   }> {
     return this.request<{ 
@@ -1696,6 +1704,7 @@ class ApiService {
         evidenceAnalysis?: EvidenceAnalysis;
         updatedAt: string;
       }>; 
+      controlFlags?: Record<string, ControlFlagInfo>;
       count: number;
     }>(`/crc/assess/${projectId}`);
   }
@@ -1710,6 +1719,8 @@ class ApiService {
       id: string;
       projectId: string;
       controlId: string;
+      value?: number;
+      notes?: string;
       evidenceStatus: CRCEvidenceStatus;
       evidenceUrl: string | null;
       auditReady: boolean;
@@ -1905,11 +1916,14 @@ class ApiService {
     projectId: string,
     controlId: string,
     mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET"
-  ): Promise<{ success: boolean; controlId: string; flagInfo: any; controlFlags: Record<string, any> }> {
-    return this.request(`/crc/control-mandate/${projectId}/${controlId}`, {
-      method: "PUT",
-      body: JSON.stringify({ mandate }),
-    });
+  ): Promise<{ success: boolean; controlId: string; flagInfo: ControlFlagInfo; controlFlags: Record<string, ControlFlagInfo> }> {
+    return this.request<{ success: boolean; controlId: string; flagInfo: ControlFlagInfo; controlFlags: Record<string, ControlFlagInfo> }>(
+      `/crc/control-mandate/${projectId}/${controlId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ mandate }),
+      }
+    );
   }
 
   // ==========================================

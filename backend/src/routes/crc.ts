@@ -1410,30 +1410,36 @@ router.post(
         const FileConstructor = typeof File !== "undefined" ? File : require("node:buffer").File;
         const utFile = new FileConstructor([file.buffer], file.originalname, { type: file.mimetype });
         const utResult = await utapi.uploadFiles(utFile);
-        if (utResult && utResult.data) {
+        if (utResult && utResult.data && utResult.data.url) {
           uploadedUrl = utResult.data.url;
         }
       } catch (utErr) {
         console.error("[evidence-upload] UploadThing upload error:", utErr);
       }
 
-      const evidenceUrl = uploadedUrl || `file://${file.originalname}`;
+      if (!uploadedUrl) {
+        return res.status(400).json({
+          success: false,
+          error: "Failed to upload file to storage. A valid HTTPS upload URL is required.",
+        });
+      }
+
+      const evidenceUrl = uploadedUrl;
       const status = analysis.isValidTemplate ? "Evidence Complete" : "Evidence in Progress";
 
       const saveRes = await pool.query(
         `INSERT INTO crc_assessment_responses 
            (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
-         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 1), '', $4, $5, $6, $7::jsonb)
+         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 1), COALESCE((SELECT notes FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), ''), $4, $5, COALESCE((SELECT audit_ready FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), false), $6::jsonb)
          ON CONFLICT (project_id, control_id)
          DO UPDATE SET 
            user_id = $3,
            evidence_status = $4,
            evidence_url = $5,
-           audit_ready = $6,
-           evidence_analysis = $7::jsonb,
+           evidence_analysis = $6::jsonb,
            updated_at = CURRENT_TIMESTAMP
          RETURNING *`,
-        [projectId, actualControlUuid, userId, status, evidenceUrl, analysis.isValidTemplate, JSON.stringify(analysis)]
+        [projectId, actualControlUuid, userId, status, evidenceUrl, JSON.stringify(analysis)]
       );
 
       syncRiskFromResponse(projectId, actualControlUuid).catch((err) =>
@@ -1447,6 +1453,8 @@ router.post(
           id: saved.id,
           projectId: saved.project_id,
           controlId: saved.control_id,
+          value: parseFloat(saved.value),
+          notes: saved.notes || "",
           evidenceStatus: saved.evidence_status,
           evidenceUrl: saved.evidence_url,
           auditReady: saved.audit_ready,
@@ -1459,7 +1467,7 @@ router.post(
       });
     } catch (err: any) {
       console.error("Error processing evidence file upload:", err);
-      return res.status(500).json({ success: false, error: err.message || "Failed to process evidence file" });
+      return res.status(500).json({ success: false, error: "Failed to process evidence file" });
     }
   }
 );
@@ -1521,11 +1529,15 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
   }
 });
 
+const controlMandateSchema = z.object({
+  mandate: z.enum(["MANDATORY", "RECOMMENDED", "OPTIONAL", "RESET"]),
+});
+
 // PUT /crc/control-mandate/:projectId/:controlId - Elevate or change control mandate manually
 router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (req, res) => {
   try {
     const { projectId, controlId } = req.params;
-    const { mandate } = req.body; // "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET"
+    const { mandate } = controlMandateSchema.parse(req.body);
     const userId = (req as any).user.id;
 
     const membership = await getMembership(projectId, userId);
@@ -1533,51 +1545,68 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
       return res.status(403).json({ success: false, error: "Insufficient project permissions" });
     }
 
-    const wizardResult = await pool.query(
-      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1`,
-      [projectId]
-    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    let controlFlags = wizardResult.rows[0]?.control_flags || {};
-    const existing = controlFlags[controlId] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
+      const wizardResult = await client.query(
+        `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
+        [projectId]
+      );
 
-    if (mandate === "RESET") {
-      delete existing.is_manual_override;
-      if (existing.original_flag) {
-        existing.flag = existing.original_flag;
+      let controlFlags = wizardResult.rows[0]?.control_flags || {};
+      const existing = controlFlags[controlId] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
+
+      if (mandate === "RESET") {
+        delete existing.is_manual_override;
+        if (existing.original_flag) {
+          existing.flag = existing.original_flag;
+        }
+        delete existing.reason;
+        delete existing.original_flag;
+      } else {
+        const targetFlag = String(mandate).toUpperCase();
+        existing.original_flag = existing.original_flag || existing.flag;
+        existing.flag = targetFlag;
+        existing.is_manual_override = true;
+        existing.reason = targetFlag === "MANDATORY" 
+          ? "Manually elevated to Mandatory by user."
+          : `Manually set to ${targetFlag} by user.`;
       }
-    } else {
-      const targetFlag = String(mandate).toUpperCase();
-      existing.original_flag = existing.original_flag || existing.flag;
-      existing.flag = targetFlag;
-      existing.is_manual_override = true;
-      existing.reason = targetFlag === "MANDATORY" 
-        ? "Manually elevated to Mandatory by user."
-        : `Manually set to ${targetFlag} by user.`;
+
+      controlFlags[controlId] = existing;
+
+      await client.query(
+        `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
+         VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+         ON CONFLICT (project_id) DO UPDATE SET
+           control_flags = EXCLUDED.control_flags,
+           updated_at = CURRENT_TIMESTAMP`,
+        [projectId, JSON.stringify(controlFlags)]
+      );
+
+      await client.query("COMMIT");
+
+      await recordEvent({
+        projectId,
+        actorId: userId,
+        action: "control_mandate_updated",
+        objectType: "CRC_CONTROL",
+        objectId: controlId,
+        metadata: { controlId, mandate, updatedFlag: existing.flag }
+      });
+
+      return res.json({ success: true, controlId, flagInfo: existing, controlFlags });
+    } catch (dbErr) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw dbErr;
+    } finally {
+      client.release();
     }
-
-    controlFlags[controlId] = existing;
-
-    await pool.query(
-      `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
-       VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
-       ON CONFLICT (project_id) DO UPDATE SET
-         control_flags = EXCLUDED.control_flags,
-         updated_at = CURRENT_TIMESTAMP`,
-      [projectId, JSON.stringify(controlFlags)]
-    );
-
-    await recordEvent({
-      projectId,
-      actorId: userId,
-      action: "control_mandate_updated",
-      objectType: "CRC_CONTROL",
-      objectId: controlId,
-      metadata: { controlId, mandate, updatedFlag: existing.flag }
-    });
-
-    res.json({ success: true, controlId, flagInfo: existing, controlFlags });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ success: false, error: error.errors[0]?.message || "Invalid mandate value" });
+    }
     console.error("Error updating control mandate:", error);
     res.status(500).json({ success: false, error: "Failed to update control mandate" });
   }

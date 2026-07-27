@@ -468,8 +468,9 @@ export default function CRCAssessmentPage() {
                           {!isReadOnly && (
                             <button
                               type="button"
+                              disabled={saving}
                               onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
-                              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer"
+                              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Revert to Profile Default
                             </button>
@@ -495,8 +496,9 @@ export default function CRCAssessmentPage() {
                           {!isReadOnly && (
                             <button
                               type="button"
+                              disabled={saving}
                               onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                              className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                              className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Mark as Mandatory
                             </button>
@@ -513,8 +515,9 @@ export default function CRCAssessmentPage() {
                         {!isReadOnly && (
                           <button
                             type="button"
+                            disabled={saving}
                             onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                            className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                            className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Mark as Mandatory
                           </button>
@@ -983,26 +986,30 @@ export default function CRCAssessmentPage() {
                             <span className="text-[10px] text-muted-foreground">Auto-parsed & validated</span>
                           </label>
                           <div className="flex items-center gap-3">
-                            <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border hover:border-primary/50 bg-muted/20 cursor-pointer transition-colors ${uploadingFile || isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
+                            <label
+                              htmlFor={`evidence-file-input-${currentControl.id}`}
+                              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border hover:border-primary/50 bg-muted/20 cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${uploadingFile || isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
                               <IconUpload className="w-4 h-4 text-primary" />
                               <span className="text-xs font-medium text-foreground">
                                 {uploadingFile ? "Parsing document..." : "Choose & Parse Evidence File"}
                               </span>
                               <input
+                                id={`evidence-file-input-${currentControl.id}`}
                                 type="file"
                                 accept=".docx,.doc,.pdf,.txt,.md"
                                 disabled={isReadOnly || uploadingFile}
-                                className="hidden"
+                                className="sr-only"
                                 onChange={async (e) => {
                                   const file = e.target.files?.[0];
                                   if (!file) return;
                                   setUploadingFile(true);
                                   try {
                                     const res = await uploadEvidenceFile(currentControl.id, file);
-                                    if (res.analysis) {
-                                      if (res.analysis.extractedTextLength > 0) {
-                                        showToast.info(`Extracted ${res.analysis.extractedTextLength} chars from document`);
-                                      }
+                                    if (res.error) {
+                                      showToast.error(res.error);
+                                    } else if (res.analysis && res.analysis.extractedTextLength > 0) {
+                                      showToast.info(`Extracted ${res.analysis.extractedTextLength} chars from document`);
                                     }
                                   } catch (err: any) {
                                     showToast.error(err.message || "Failed to upload file");

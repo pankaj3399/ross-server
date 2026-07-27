@@ -1,5 +1,7 @@
 import AdmZip from "adm-zip";
 
+export const MAX_ZIP_UNCOMPRESSED_SIZE = 100 * 1024 * 1024; // 100MB
+
 export interface EvidenceParsingResult {
   success: boolean;
   extractedTextLength: number;
@@ -23,7 +25,7 @@ export function extractTextFromDocx(buffer: Buffer): string {
     const docEntry = zipEntries.find(
       (entry) => entry.entryName === "word/document.xml"
     );
-    if (!docEntry) {
+    if (!docEntry || docEntry.header.size > MAX_ZIP_UNCOMPRESSED_SIZE) {
       return "";
     }
     const xml = docEntry.getData().toString("utf-8");
@@ -59,11 +61,30 @@ export function parseAndValidateEvidence(
   if (rawTextInput && rawTextInput.trim().length > 0) {
     extractedText = rawTextInput.trim();
   } else if (fileBuffer && fileBuffer.length > 0) {
-    const isDocx = filename ? /\.docx$/i.test(filename) : true;
-    if (isDocx) {
+    const isDocx = filename ? /\.docx$/i.test(filename) : false;
+    const isTextFile = filename ? /\.(txt|md)$/i.test(filename) : false;
+    const isNonDocxBinary = filename ? /\.(pdf|doc)$/i.test(filename) : false;
+
+    if (isDocx || (!filename && !isTextFile)) {
       extractedText = extractTextFromDocx(fileBuffer);
     }
     if (!extractedText) {
+      if (isNonDocxBinary) {
+        return {
+          success: false,
+          extractedTextLength: 0,
+          extractedSnippet: "",
+          unfilledPlaceholders: [],
+          isValidTemplate: false,
+          missingRequirements: evidenceRequirements,
+          matchedRequirements: [],
+          validationErrors: [
+            `Parsing text from ${filename || "this binary format"} is not supported. Please upload a .docx or plain text file.`,
+          ],
+          validationWarnings: [],
+          score: 0,
+        };
+      }
       extractedText = fileBuffer.toString("utf-8").replace(/[^\x20-\x7E\n\r\t]/g, " ");
     }
   }

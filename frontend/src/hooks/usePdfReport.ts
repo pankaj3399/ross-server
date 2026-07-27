@@ -440,8 +440,10 @@ export const usePdfReport = ({
                         // Check if it's a giant block that needs slicing
                         if (pageBlocks.length === 1 && (pageBlocks[0].offsetHeight * usableWidth / pageBlocks[0].offsetWidth) > usableHeight) {
                             const giantBlock = pageBlocks[0];
+                            const blockHeight = giantBlock.offsetHeight || 1;
+                            const safeScale = Math.min(2.5, Math.max(1.0, 4096 / blockHeight));
                             const canvas = await html2canvas(giantBlock, {
-                                scale: 3.0,
+                                scale: safeScale,
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 windowWidth: 1280,
@@ -487,15 +489,15 @@ export const usePdfReport = ({
                                 });
 
                                 const canvas = await html2canvas(pageContainer, {
-                                    scale: 3.0,
+                                    scale: 2.0,
                                     useCORS: true,
                                     backgroundColor: "#ffffff",
                                     logging: false,
                                 });
 
-                                const imgData = canvas.toDataURL("image/png");
+                                const imgData = canvas.toDataURL("image/jpeg", 0.92);
                                 const imgHeight = (canvas.height * usableWidth) / canvas.width;
-                                pdf.addImage(imgData, "PNG", margin, contentTop, usableWidth, imgHeight);
+                                pdf.addImage(imgData, "JPEG", margin, contentTop, usableWidth, imgHeight);
                             } finally {
                                 pageContainer.remove();
                             }
@@ -517,8 +519,8 @@ export const usePdfReport = ({
                     ctx.fillStyle = "#ffffff";
                     ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
                     ctx.drawImage(sourceCanvas, 0, y, sourceCanvas.width, h, 0, 0, sourceCanvas.width, h);
-                    const sliceData = sliceCanvas.toDataURL("image/png");
-                    pdfDoc.addImage(sliceData, "PNG", xMm, yMm, wMm, hMm);
+                    const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.92);
+                    pdfDoc.addImage(sliceData, "JPEG", xMm, yMm, wMm, hMm);
                 }
             };
 

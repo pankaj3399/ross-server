@@ -40,11 +40,19 @@ export default function ProjectWizardSettingsPage() {
   const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+    setProject(null);
     if (isAuthenticated) {
       loadSavedAnswers(projectId);
-      apiService.getProject(projectId).then(setProject).catch(() => {});
+      apiService
+        .getProject(projectId)
+        .then((proj) => {
+          if (isMounted) setProject(proj);
+        })
+        .catch(() => {});
     }
     return () => {
+      isMounted = false;
       resetStore();
     };
   }, [projectId, isAuthenticated, loadSavedAnswers, resetStore]);

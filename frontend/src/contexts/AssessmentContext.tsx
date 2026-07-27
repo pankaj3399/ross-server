@@ -13,6 +13,7 @@ import {
     CRCControl,
     CRCEvidenceStatus,
     EvidenceAnalysis,
+    ControlFlagInfo,
 } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { PREMIUM_STATUS } from "../lib/constants";
@@ -85,7 +86,7 @@ interface AssessmentContextType {
     crcControls: CRCControl[];
     crcCategories: string[];
     crcResponses: Record<string, CRCResponse>;
-    crcControlFlags: Record<string, { flag: string; reason: string; is_manual_override?: boolean }>;
+    crcControlFlags: Record<string, ControlFlagInfo>;
     updateControlMandate: (controlId: string, mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET") => Promise<void>;
 
     // Navigation State
@@ -223,7 +224,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [crcControls, setCrcControls] = useState<CRCControl[]>([]);
     const [crcCategories, setCrcCategories] = useState<string[]>([]);
     const [crcResponses, setCrcResponses] = useState<Record<string, CRCResponse>>({});
-    const [crcControlFlags, setCrcControlFlags] = useState<Record<string, { flag: string; reason: string; is_manual_override?: boolean }>>({});
+    const [crcControlFlags, setCrcControlFlags] = useState<Record<string, ControlFlagInfo>>({});
 
     const [saving, setSaving] = useState(false);
     const [savingNote, setSavingNote] = useState(false);
@@ -714,6 +715,10 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     };
 
     const uploadEvidenceFile = useCallback(async (controlId: string, file: File) => {
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return { success: false, error: "Read-only mode" };
+        }
         try {
             setSaving(true);
             const res = await apiService.uploadCRCEvidenceFile(projectId, controlId, file);
@@ -722,8 +727,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setCrcResponses(prev => ({
                     ...prev,
                     [controlId]: {
-                        value: prev[controlId]?.value ?? 0,
-                        notes: prev[controlId]?.notes ?? "",
+                        value: res.data!.value ?? prev[controlId]?.value ?? 0,
+                        notes: res.data!.notes ?? prev[controlId]?.notes ?? "",
                         evidenceStatus: res.data!.evidenceStatus,
                         evidenceUrl: res.data!.evidenceUrl,
                         auditReady: res.data!.auditReady,
@@ -731,7 +736,13 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         updatedAt: new Date().toISOString(),
                     }
                 }));
-                showToast.success("Evidence document parsed and validated successfully");
+                if (!res.error) {
+                    showToast.success("Evidence document parsed and validated successfully");
+                } else {
+                    showToast.warning(res.error);
+                }
+            } else if (res.error) {
+                showToast.error(res.error);
             }
             return {
                 success: res.success,
@@ -745,9 +756,13 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         } finally {
             setSaving(false);
         }
-    }, [projectId]);
+    }, [projectId, isReadOnly]);
 
     const updateControlMandate = useCallback(async (controlId: string, mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET") => {
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return;
+        }
         try {
             setSaving(true);
             const res = await apiService.updateControlMandate(projectId, controlId, mandate);
@@ -767,7 +782,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         } finally {
             setSaving(false);
         }
-    }, [projectId]);
+    }, [projectId, isReadOnly]);
 
     const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
         if (isReadOnly) {

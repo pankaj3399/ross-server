@@ -58,21 +58,12 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
   } catch {
     const schemeMatch = trimmed.match(/^(https?:\/\/)([^/]+)(.*)$/i);
     if (schemeMatch) {
-      const scheme = schemeMatch[1];
       const hostPort = schemeMatch[2];
-      const path = schemeMatch[3];
       if (hostPort.includes(":") && !hostPort.startsWith("[")) {
-        try {
-          url = new URL(`${scheme}[${hostPort}]${path}`);
-        } catch {
-          return { isValid: false, error: "Please enter a valid URL (e.g. https://api.example.com/v1/chat)." };
-        }
-      } else {
-        return { isValid: false, error: "Please enter a valid URL (e.g. https://api.example.com/v1/chat)." };
+        return { isValid: false, error: "IPv6 host literals must be enclosed in square brackets (e.g. https://[2001:db8::1]/v1)." };
       }
-    } else {
-      return { isValid: false, error: "Please enter a valid URL (e.g. https://api.example.com/v1/chat)." };
     }
+    return { isValid: false, error: "Please enter a valid URL (e.g. https://api.example.com/v1/chat)." };
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {

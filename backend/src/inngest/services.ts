@@ -520,9 +520,37 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
   }
 
   const validatedIps = await validateTargetHostname(config.apiUrl);
+  if (!validatedIps || validatedIps.length === 0) {
+    throw new Error("Target API host failed DNS validation");
+  }
 
   const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
   const { url, headers, body } = prepareRequestOptions(config, requestPayload);
+
+  let fetchUrl = url;
+  const parsedUrl = new URL(url);
+  const originalHost = parsedUrl.host;
+  let dispatcher: any = undefined;
+
+  try {
+    const { Agent } = require("undici");
+    const targetIp = validatedIps[0];
+    const family = targetIp.includes(":") ? 6 : 4;
+    dispatcher = new Agent({
+      connect: {
+        lookup: (_hostname: string, _options: any, callback: any) => {
+          callback(null, [{ address: targetIp, family }]);
+        },
+      },
+    });
+  } catch {
+    if (validatedIps.length > 0) {
+      headers["Host"] = originalHost;
+      const targetIp = validatedIps[0];
+      const formattedIp = targetIp.includes(":") ? `[${targetIp}]` : targetIp;
+      fetchUrl = url.replace(`://${originalHost}`, `://${formattedIp}`);
+    }
+  }
 
   const controller = new AbortController();
   const timeoutMs = 10000; // 10 seconds timeout
@@ -532,13 +560,14 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await fetch(fetchUrl, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
       signal: controller.signal,
       redirect: "error",
-    });
+      ...(dispatcher && { dispatcher }),
+    } as any);
     clearTimeout(timeoutId);
   } catch (error: any) {
     clearTimeout(timeoutId);

@@ -861,6 +861,14 @@ async function seedAIMAData() {
       }
     }
 
+    // Backfill transparency wording update for existing databases
+    await pool.query(
+      `UPDATE aima_questions 
+       SET question_text = $1 
+       WHERE practice_id = 'transparency_explainability' AND level = '1' AND stream = 'B' AND question_index = 0`,
+      ["Is communication about AI systems' workings structured and proactive?"]
+    );
+
     console.log("AIMA data seeding completed successfully!");
   } catch (error) {
     console.error("Error seeding AIMA data:", error);

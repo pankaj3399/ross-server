@@ -418,7 +418,7 @@ function SidebarContentComponent() {
     if (flags.isAimaPage) {
       return "aima";
     }
-    if (flags.isTeamPage || flags.isSettingsPage) {
+    if (flags.isTeamPage || flags.isSettingsPage || flags.isWizardSettingsPage) {
       return "settings";
     }
     if (path.startsWith("/admin")) {
