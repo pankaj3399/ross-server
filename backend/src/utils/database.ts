@@ -492,7 +492,7 @@ export const seedAIMAData = async () => {
         level: "1",
         stream: "B",
         index: 0,
-        text: "Is communication about AI systems' workings sporadic or reactive?",
+        text: "Is communication about AI systems' workings structured and proactive?",
       },
       {
         practice_id: "transparency_explainability",

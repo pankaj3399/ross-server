@@ -14,10 +14,30 @@ import { syncRiskFromResponse } from "../services/crcRiskService";
 import crypto from "crypto";
 import { inngest } from "../inngest/client";
 import { UTApi } from "uploadthing/server";
+import { parseAndValidateEvidence } from "../services/evidenceParserService";
 
 const router = Router();
 
 const utapi = new UTApi({ token: process.env.UPLOADTHING_TOKEN });
+
+const evidenceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "application/pdf",
+      "text/plain",
+      "text/markdown",
+    ];
+    if (allowed.includes(file.mimetype) || /\.(docx|doc|pdf|txt|md)$/i.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .docx, .pdf, and text files are supported for evidence upload"));
+    }
+  },
+});
 
 // --- Multer configuration for template uploads ---
 const TEMPLATES_DIR = path.join(__dirname, "../../static/templates");
@@ -1312,6 +1332,7 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
           evidenceStatus: saved.evidence_status,
           evidenceUrl: saved.evidence_url,
           auditReady: saved.audit_ready,
+          evidenceAnalysis: saved.evidence_analysis,
           createdAt: saved.created_at,
           updatedAt: saved.updated_at
         }
@@ -1331,6 +1352,118 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
   }
 });
 
+// POST /crc/assess/:projectId/evidence-file - Upload & parse evidence document for a control
+router.post(
+  "/assess/:projectId/evidence-file",
+  authenticateToken,
+  (req, res, next) => {
+    evidenceUpload.single("file")(req, res, (err: any) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      if (err) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      const { projectId } = req.params;
+      const { controlId } = req.body;
+      const file = req.file;
+      const userId = (req as any).user.id;
+
+      if (!controlId) {
+        return res.status(400).json({ success: false, error: "controlId is required" });
+      }
+      if (!file) {
+        return res.status(400).json({ success: false, error: "No file uploaded. Please select a .docx, .pdf, or text file." });
+      }
+
+      const membership = await getMembership(projectId, userId);
+      if (!membership || !["OWNER", "EDITOR"].includes(membership.role)) {
+        return res.status(403).json({ success: false, error: "Insufficient project role or access denied" });
+      }
+
+      const controlRes = await pool.query(
+        "SELECT id, control_id, evidence_requirements, control_statement FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
+        [controlId]
+      );
+      if (controlRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: "Control not found" });
+      }
+
+      const control = controlRes.rows[0];
+      const actualControlUuid = control.id;
+      const evidenceReqs: string[] = control.evidence_requirements || [];
+
+      const analysis = parseAndValidateEvidence(
+        file.buffer,
+        null,
+        file.originalname,
+        evidenceReqs
+      );
+
+      let uploadedUrl: string | null = null;
+      try {
+        const FileConstructor = typeof File !== "undefined" ? File : require("node:buffer").File;
+        const utFile = new FileConstructor([file.buffer], file.originalname, { type: file.mimetype });
+        const utResult = await utapi.uploadFiles(utFile);
+        if (utResult && utResult.data) {
+          uploadedUrl = utResult.data.url;
+        }
+      } catch (utErr) {
+        console.error("[evidence-upload] UploadThing upload error:", utErr);
+      }
+
+      const evidenceUrl = uploadedUrl || `file://${file.originalname}`;
+      const status = analysis.isValidTemplate ? "Evidence Complete" : "Evidence in Progress";
+
+      const saveRes = await pool.query(
+        `INSERT INTO crc_assessment_responses 
+           (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
+         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 1), '', $4, $5, $6, $7::jsonb)
+         ON CONFLICT (project_id, control_id)
+         DO UPDATE SET 
+           user_id = $3,
+           evidence_status = $4,
+           evidence_url = $5,
+           audit_ready = $6,
+           evidence_analysis = $7::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+         RETURNING *`,
+        [projectId, actualControlUuid, userId, status, evidenceUrl, analysis.isValidTemplate, JSON.stringify(analysis)]
+      );
+
+      syncRiskFromResponse(projectId, actualControlUuid).catch((err) =>
+        console.error("Risk sync failed after evidence upload:", err)
+      );
+
+      const saved = saveRes.rows[0];
+      return res.json({
+        success: true,
+        data: {
+          id: saved.id,
+          projectId: saved.project_id,
+          controlId: saved.control_id,
+          evidenceStatus: saved.evidence_status,
+          evidenceUrl: saved.evidence_url,
+          auditReady: saved.audit_ready,
+          evidenceAnalysis: saved.evidence_analysis,
+          analysis,
+        },
+        error: !analysis.isValidTemplate && analysis.validationErrors.length > 0
+          ? analysis.validationErrors[0]
+          : undefined,
+      });
+    } catch (err: any) {
+      console.error("Error processing evidence file upload:", err);
+      return res.status(500).json({ success: false, error: err.message || "Failed to process evidence file" });
+    }
+  }
+);
+
 // GET /crc/assess/:projectId - Get all CRC responses for a project
 router.get("/assess/:projectId", authenticateToken, async (req, res) => {
   try {
@@ -1346,19 +1479,27 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT control_id, value, notes, evidence_status, evidence_url, audit_ready, updated_at
+      `SELECT control_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis, updated_at
        FROM crc_assessment_responses
        WHERE project_id = $1`,
       [projectId]
     );
 
-    // Build a map: controlId -> { value, notes, evidenceStatus, evidenceUrl, auditReady, updatedAt }
+    const wizardResult = await pool.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1`,
+      [projectId]
+    );
+
+    const controlFlags = wizardResult.rows[0]?.control_flags || {};
+
+    // Build a map: controlId -> { value, notes, evidenceStatus, evidenceUrl, auditReady, evidenceAnalysis, updatedAt }
     const responses: Record<string, { 
       value: number; 
       notes: string; 
       evidenceStatus: string; 
       evidenceUrl: string | null; 
       auditReady: boolean; 
+      evidenceAnalysis?: any;
       updatedAt: string 
     }> = {};
     result.rows.forEach((row: any) => {
@@ -1368,14 +1509,77 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
         evidenceStatus: row.evidence_status,
         evidenceUrl: row.evidence_url,
         auditReady: row.audit_ready,
+        evidenceAnalysis: row.evidence_analysis || undefined,
         updatedAt: row.updated_at,
       };
     });
 
-    res.json({ success: true, responses, count: result.rowCount });
+    res.json({ success: true, responses, controlFlags, count: result.rowCount });
   } catch (error) {
     console.error("Error fetching CRC responses:", error);
     res.status(500).json({ success: false, error: "Failed to fetch responses" });
+  }
+});
+
+// PUT /crc/control-mandate/:projectId/:controlId - Elevate or change control mandate manually
+router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (req, res) => {
+  try {
+    const { projectId, controlId } = req.params;
+    const { mandate } = req.body; // "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET"
+    const userId = (req as any).user.id;
+
+    const membership = await getMembership(projectId, userId);
+    if (!membership || !["OWNER", "EDITOR"].includes(membership.role)) {
+      return res.status(403).json({ success: false, error: "Insufficient project permissions" });
+    }
+
+    const wizardResult = await pool.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1`,
+      [projectId]
+    );
+
+    let controlFlags = wizardResult.rows[0]?.control_flags || {};
+    const existing = controlFlags[controlId] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
+
+    if (mandate === "RESET") {
+      delete existing.is_manual_override;
+      if (existing.original_flag) {
+        existing.flag = existing.original_flag;
+      }
+    } else {
+      const targetFlag = String(mandate).toUpperCase();
+      existing.original_flag = existing.original_flag || existing.flag;
+      existing.flag = targetFlag;
+      existing.is_manual_override = true;
+      existing.reason = targetFlag === "MANDATORY" 
+        ? "Manually elevated to Mandatory by user."
+        : `Manually set to ${targetFlag} by user.`;
+    }
+
+    controlFlags[controlId] = existing;
+
+    await pool.query(
+      `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
+       VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
+       ON CONFLICT (project_id) DO UPDATE SET
+         control_flags = EXCLUDED.control_flags,
+         updated_at = CURRENT_TIMESTAMP`,
+      [projectId, JSON.stringify(controlFlags)]
+    );
+
+    await recordEvent({
+      projectId,
+      actorId: userId,
+      action: "control_mandate_updated",
+      objectType: "CRC_CONTROL",
+      objectId: controlId,
+      metadata: { controlId, mandate, updatedFlag: existing.flag }
+    });
+
+    res.json({ success: true, controlId, flagInfo: existing, controlFlags });
+  } catch (error) {
+    console.error("Error updating control mandate:", error);
+    res.status(500).json({ success: false, error: "Failed to update control mandate" });
   }
 });
 

@@ -313,29 +313,29 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
 
       {/* Existing Data Migration Diff Review */}
       {existingData.hasManualData && (
-        <Card className="border-amber-500/30 bg-amber-500/5 shadow-md">
+        <Card className="border-amber-500/40 bg-amber-500/10 dark:bg-amber-500/10 shadow-md">
           <CardHeader className="pb-2">
-            <div className="flex items-center gap-3 text-amber-400">
+            <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400">
               <History className="h-6 w-6 flex-shrink-0" />
-              <CardTitle className="text-lg font-bold">Existing Data Review (Migration Diff)</CardTitle>
+              <CardTitle className="text-lg font-bold text-amber-900 dark:text-amber-300">Existing Data Review (Migration Diff)</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-amber-200/90 leading-relaxed">
+            <p className="text-sm text-amber-950 dark:text-amber-100 font-normal leading-relaxed">
               This project contains pre-existing manual data: 
-              <strong> {existingData.completedControlsCount} completed CRC controls</strong>, 
-              <strong> {existingData.manualRisks.length} manual risks</strong>, and 
-              <strong> {existingData.manualComponents.length} manual inventory components</strong>. 
+              <strong className="text-amber-900 dark:text-amber-200 font-bold"> {existingData.completedControlsCount} completed CRC controls</strong>, 
+              <strong className="text-amber-900 dark:text-amber-200 font-bold"> {existingData.manualRisks.length} manual risks</strong>, and 
+              <strong className="text-amber-900 dark:text-amber-200 font-bold"> {existingData.manualComponents.length} manual inventory components</strong>. 
               Applying this profile will merge new framework flags and starter suggestions without overwriting your manual progress.
             </p>
-            <div className="flex items-start gap-3 p-3 rounded bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/30">
               <Checkbox 
                 id="ack-existing-data" 
                 checked={acknowledgedExistingData} 
                 onCheckedChange={(checked) => setAcknowledgedExistingData(!!checked)}
                 className="mt-0.5"
               />
-              <Label htmlFor="ack-existing-data" className="text-xs text-amber-200 font-medium cursor-pointer leading-normal">
+              <Label htmlFor="ack-existing-data" className="text-xs text-amber-950 dark:text-amber-100 font-semibold cursor-pointer leading-normal">
                 I have reviewed the existing project data and confirm applying this compliance profile will merge settings without silently overwriting manual progress.
               </Label>
             </div>
@@ -345,25 +345,25 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
 
       {/* Warnings & Notices */}
       {article5_warning && (
-        <Card className="border-red-500/30 bg-red-500/5 shadow-md">
+        <Card className="border-red-500/40 bg-red-500/10 dark:bg-red-500/10 shadow-md">
           <CardHeader className="pb-2">
-            <div className="flex items-center gap-3 text-red-400">
+            <div className="flex items-center gap-3 text-red-700 dark:text-red-400">
               <ShieldAlert className="h-6 w-6 flex-shrink-0" />
-              <CardTitle className="text-lg font-bold">WARNING: Prohibited AI Practice Detected</CardTitle>
+              <CardTitle className="text-lg font-bold text-red-900 dark:text-red-300">WARNING: Prohibited AI Practice Detected</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-red-300/90 leading-relaxed">
-              This system appears to engage in a <strong>Prohibited AI Practice</strong> under Article 5 of the EU AI Act ({eu_risk_reason}). Placing these systems on the market or putting them into service within the EU is prohibited and carries severe legal penalties (up to €35M or 7% of global annual turnover).
+            <p className="text-sm text-red-950 dark:text-red-100 font-normal leading-relaxed">
+              This system appears to engage in a <strong className="text-red-900 dark:text-red-200 font-bold">Prohibited AI Practice</strong> under Article 5 of the EU AI Act ({eu_risk_reason}). Placing these systems on the market or putting them into service within the EU is prohibited and carries severe legal penalties (up to €35M or 7% of global annual turnover).
             </p>
-            <div className="flex items-start gap-3 p-3 rounded bg-red-500/10 border border-red-500/20">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-red-500/15 dark:bg-red-500/20 border border-red-500/30">
               <Checkbox 
                 id="ack-unacceptable" 
                 checked={acknowledgedUnacceptable} 
                 onCheckedChange={(checked) => setAcknowledgedUnacceptable(!!checked)}
                 className="mt-0.5"
               />
-              <Label htmlFor="ack-unacceptable" className="text-xs text-red-200 font-medium cursor-pointer leading-normal">
+              <Label htmlFor="ack-unacceptable" className="text-xs text-red-950 dark:text-red-100 font-semibold cursor-pointer leading-normal">
                 I acknowledge that this system is flagged as a Prohibited AI Practice under EU AI Act Article 5 and understand the severe legal/compliance implications of proceeding.
               </Label>
             </div>
@@ -449,8 +449,8 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
       {informational_notes.length > 0 && (
         <div className="space-y-2">
           {informational_notes.map((note: string, i: number) => (
-            <div key={i} className="p-3.5 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-xs text-indigo-300/95 flex items-start gap-2.5">
-              <Info className="h-4 w-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+            <div key={i} className="p-3.5 rounded-lg bg-indigo-500/10 dark:bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-950 dark:text-indigo-200 font-medium flex items-start gap-2.5">
+              <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
               <span>{note}</span>
             </div>
           ))}

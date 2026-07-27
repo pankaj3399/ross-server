@@ -1443,6 +1443,17 @@ function SidebarContentComponent() {
                         <IconUsers className="size-4 text-[var(--primary)] shrink-0" />
                         <span className="text-sm font-medium truncate">Team Members</span>
                       </SidebarMenuButton>
+                      <SidebarMenuButton
+                        onClick={() => handleProjectNav("/settings/wizard")}
+                        isActive={routeFlags.isWizardSettingsPage}
+                        className={cn(
+                          "h-8 px-2 transition-all",
+                          routeFlags.isWizardSettingsPage && "border-l-[3px] border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                        )}
+                      >
+                        <IconCpu className="size-4 text-[var(--primary)] shrink-0" />
+                        <span className="text-sm font-medium truncate">AI System Profile</span>
+                      </SidebarMenuButton>
                     </div>
                   )}
 

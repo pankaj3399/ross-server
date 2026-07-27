@@ -39,7 +39,7 @@ const ethicalImpactQuestions = [
 
 const transparencyQuestions = [
   "Are there informal efforts to explain AI outputs or decisions when requested?",
-  "Is communication about AI systems' workings sporadic or reactive?",
+  "Is communication about AI systems' workings structured and proactive?",
   "Are formal explainability mechanisms in place for critical AI models or systems?",
   "Are transparency and explanations regularly documented and shared internally?",
   "Are advanced, comprehensive explainability techniques consistently applied across all AI systems?",

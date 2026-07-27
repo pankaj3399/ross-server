@@ -248,6 +248,18 @@ router.post("/:projectId/complete", authenticateToken, loadProject, requireProje
     // Run rules engine
     const outputs = runRulesEngine(answers, controls);
 
+    // Preserve manual control mandate overrides if wizard_engine_outputs already exists
+    const existingEngineResult = await pool.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1`,
+      [projectId]
+    );
+    const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+    for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+      if (flagInfo?.is_manual_override) {
+        outputs.control_flags[cid] = flagInfo;
+      }
+    }
+
     // Save outputs to database
     await pool.query(
       `INSERT INTO wizard_engine_outputs (
@@ -643,6 +655,18 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     const controls = controlsResult.rows;
 
     const outputs = runRulesEngine(answers, controls);
+
+    // Preserve manual control mandate overrides
+    const existingEngineResult = await pool.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1`,
+      [projectId]
+    );
+    const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+    for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+      if (flagInfo?.is_manual_override) {
+        outputs.control_flags[cid] = flagInfo;
+      }
+    }
 
     // Save updated outputs
     await pool.query(

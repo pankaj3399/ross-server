@@ -441,7 +441,7 @@ export const usePdfReport = ({
                         if (pageBlocks.length === 1 && (pageBlocks[0].offsetHeight * usableWidth / pageBlocks[0].offsetWidth) > usableHeight) {
                             const giantBlock = pageBlocks[0];
                             const canvas = await html2canvas(giantBlock, {
-                                scale: 2.0,
+                                scale: 3.0,
                                 useCORS: true,
                                 backgroundColor: "#ffffff",
                                 windowWidth: 1280,
@@ -487,15 +487,15 @@ export const usePdfReport = ({
                                 });
 
                                 const canvas = await html2canvas(pageContainer, {
-                                    scale: 2.0,
+                                    scale: 3.0,
                                     useCORS: true,
                                     backgroundColor: "#ffffff",
                                     logging: false,
                                 });
 
-                                const imgData = canvas.toDataURL("image/jpeg", 0.9);
+                                const imgData = canvas.toDataURL("image/png");
                                 const imgHeight = (canvas.height * usableWidth) / canvas.width;
-                                pdf.addImage(imgData, "JPEG", margin, contentTop, usableWidth, imgHeight);
+                                pdf.addImage(imgData, "PNG", margin, contentTop, usableWidth, imgHeight);
                             } finally {
                                 pageContainer.remove();
                             }
@@ -517,8 +517,8 @@ export const usePdfReport = ({
                     ctx.fillStyle = "#ffffff";
                     ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
                     ctx.drawImage(sourceCanvas, 0, y, sourceCanvas.width, h, 0, 0, sourceCanvas.width, h);
-                    const sliceData = sliceCanvas.toDataURL("image/jpeg", 0.9);
-                    pdfDoc.addImage(sliceData, "JPEG", xMm, yMm, wMm, hMm);
+                    const sliceData = sliceCanvas.toDataURL("image/png");
+                    pdfDoc.addImage(sliceData, "PNG", xMm, yMm, wMm, hMm);
                 }
             };
 

@@ -195,6 +195,19 @@ export interface Thresholds {
 export type CRCControlStatus = "Draft" | "In Review" | "Published" | "Archived";
 export type CRCEvidenceStatus = 'No Evidence' | 'Template Downloaded' | 'Evidence in Progress' | 'Evidence Complete';
 
+export interface EvidenceAnalysis {
+  success: boolean;
+  extractedTextLength: number;
+  extractedSnippet: string;
+  unfilledPlaceholders: string[];
+  isValidTemplate: boolean;
+  missingRequirements: string[];
+  matchedRequirements: string[];
+  validationErrors: string[];
+  validationWarnings: string[];
+  score: number;
+}
+
 export interface CRCCategory {
   id: number;
   name: string;
@@ -1668,6 +1681,7 @@ class ApiService {
       evidenceStatus: CRCEvidenceStatus;
       evidenceUrl: string | null;
       auditReady: boolean;
+      evidenceAnalysis?: EvidenceAnalysis;
       updatedAt: string;
     }>; 
     count: number;
@@ -1679,10 +1693,53 @@ class ApiService {
         evidenceStatus: CRCEvidenceStatus;
         evidenceUrl: string | null;
         auditReady: boolean;
+        evidenceAnalysis?: EvidenceAnalysis;
         updatedAt: string;
       }>; 
       count: number;
     }>(`/crc/assess/${projectId}`);
+  }
+
+  async uploadCRCEvidenceFile(
+    projectId: string,
+    controlId: string,
+    file: File
+  ): Promise<{
+    success: boolean;
+    data?: {
+      id: string;
+      projectId: string;
+      controlId: string;
+      evidenceStatus: CRCEvidenceStatus;
+      evidenceUrl: string | null;
+      auditReady: boolean;
+      evidenceAnalysis?: EvidenceAnalysis;
+      analysis?: EvidenceAnalysis;
+    };
+    error?: string;
+  }> {
+    const formData = new FormData();
+    formData.append("controlId", controlId);
+    formData.append("file", file);
+
+    const token = this.getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/crc/assess/${projectId}/evidence-file`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: "File upload failed" }));
+      throw new Error(errorData.error || "Failed to upload evidence file");
+    }
+
+    return response.json();
   }
 
   async submitCRCAssessment(projectId: string): Promise<{ success: boolean; results: CRCResults }> {
@@ -1842,6 +1899,17 @@ class ApiService {
 
   async getCRCTemplateStatuses(): Promise<{ success: boolean; data: Record<string, { filename: string; size: number; updatedAt: string }> }> {
     return this.request<{ success: boolean; data: Record<string, { filename: string; size: number; updatedAt: string }> }>("/crc/templates/status");
+  }
+
+  async updateControlMandate(
+    projectId: string,
+    controlId: string,
+    mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET"
+  ): Promise<{ success: boolean; controlId: string; flagInfo: any; controlFlags: Record<string, any> }> {
+    return this.request(`/crc/control-mandate/${projectId}/${controlId}`, {
+      method: "PUT",
+      body: JSON.stringify({ mandate }),
+    });
   }
 
   // ==========================================

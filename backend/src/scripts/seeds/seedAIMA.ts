@@ -45,7 +45,7 @@ const aimaData = {
                 "Are there informal efforts to explain AI outputs or decisions when requested?"
               ],
               "B": [
-                "Is communication about AI systems' workings sporadic or reactive?"
+                "Is communication about AI systems' workings structured and proactive?"
               ]
             },
             "2": {

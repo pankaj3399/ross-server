@@ -18,6 +18,7 @@ import {
   IconCheck,
   IconLock,
   IconDownload,
+  IconUpload,
   IconInfoCircle,
   IconFileText,
   IconMessage,
@@ -145,9 +146,12 @@ export default function CRCAssessmentPage() {
   const {
     crcControls: controls,
     crcResponses: responses,
+    crcControlFlags: controlFlags,
+    updateControlMandate,
     handleCrcAnswerChange,
     handleCrcNoteSave,
     handleEvidenceStatusChange,
+    uploadEvidenceFile,
     isPremium,
     projectName,
     loading: contextLoading,
@@ -156,6 +160,8 @@ export default function CRCAssessmentPage() {
     submitCrcProject,
     submitting,
   } = useAssessmentContext();
+
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const projectBreadcrumbHref = isPremium
     ? `/assess/${projectId}/crc/dashboard`
@@ -444,20 +450,79 @@ export default function CRCAssessmentPage() {
                   <Badge className={PRIORITY_COLORS[currentControl.priority] || "bg-muted text-muted-foreground"}>
                     {currentControl.priority} Priority
                   </Badge>
-                  {(currentControl as any).flag && (
-                    <Badge 
-                      variant="secondary" 
-                      className={
-                        (currentControl as any).flag === "MANDATORY" 
-                          ? "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 text-xs font-semibold"
-                          : (currentControl as any).flag === "RECOMMENDED"
-                          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 text-xs font-semibold"
-                          : "bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 text-xs font-semibold"
-                      }
-                    >
-                      {(currentControl as any).flag === "MANDATORY" ? "Mandatory" : (currentControl as any).flag === "RECOMMENDED" ? "Recommended" : "Optional"}
-                    </Badge>
-                  )}
+
+                  {(() => {
+                    const flagInfo = controlFlags?.[currentControl.control_id] || {
+                      flag: (currentControl as any).flag || "OPTIONAL",
+                      reason: "Optional control based on system profile.",
+                    };
+                    const currentFlag = flagInfo.flag || "OPTIONAL";
+                    const isManualOverride = flagInfo.is_manual_override === true;
+
+                    if (currentFlag === "MANDATORY" && isManualOverride) {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold">
+                            Elevated to Mandatory (Manual)
+                          </Badge>
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
+                              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer"
+                            >
+                              Revert to Profile Default
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    if (currentFlag === "MANDATORY") {
+                      return (
+                        <Badge className="bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-semibold">
+                          Mandatory
+                        </Badge>
+                      );
+                    }
+
+                    if (currentFlag === "RECOMMENDED") {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-semibold">
+                            Recommended
+                          </Badge>
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
+                              className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                            >
+                              Mark as Mandatory
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 text-xs font-semibold">
+                          Optional based on your profile
+                        </Badge>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
+                            className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            Mark as Mandatory
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   <Badge variant="outline" className="text-xs">
                     {currentControl.category_name}
                   </Badge>
@@ -904,13 +969,54 @@ export default function CRCAssessmentPage() {
                       </div>
                     </div>
 
-                    {/* Evidence URL Input - Shown for answered non-NA controls */}
+                    {/* Evidence Document Upload & URL Input - Shown for answered non-NA controls */}
                     {currentAnswer !== null && currentAnswer !== undefined && currentAnswer !== 2 && (
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="space-y-3 w-full border-t border-border pt-4"
+                        className="space-y-4 w-full border-t border-border pt-4"
                       >
+                        {/* Direct File Upload & Parse */}
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1.5 font-medium flex items-center justify-between">
+                            <span>Upload Evidence Document (.docx, .pdf, .txt)</span>
+                            <span className="text-[10px] text-muted-foreground">Auto-parsed & validated</span>
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-dashed border-border hover:border-primary/50 bg-muted/20 cursor-pointer transition-colors ${uploadingFile || isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
+                              <IconUpload className="w-4 h-4 text-primary" />
+                              <span className="text-xs font-medium text-foreground">
+                                {uploadingFile ? "Parsing document..." : "Choose & Parse Evidence File"}
+                              </span>
+                              <input
+                                type="file"
+                                accept=".docx,.doc,.pdf,.txt,.md"
+                                disabled={isReadOnly || uploadingFile}
+                                className="hidden"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file) return;
+                                  setUploadingFile(true);
+                                  try {
+                                    const res = await uploadEvidenceFile(currentControl.id, file);
+                                    if (res.analysis) {
+                                      if (res.analysis.extractedTextLength > 0) {
+                                        showToast.info(`Extracted ${res.analysis.extractedTextLength} chars from document`);
+                                      }
+                                    }
+                                  } catch (err: any) {
+                                    showToast.error(err.message || "Failed to upload file");
+                                  } finally {
+                                    setUploadingFile(false);
+                                    e.target.value = "";
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* URL Input */}
                         <div>
                           <label htmlFor="evidence-url-input" className="block text-xs text-muted-foreground mb-1.5 flex items-center justify-between font-medium">
                             <span>Evidence URL (HTTPS required)</span>
@@ -948,6 +1054,71 @@ export default function CRCAssessmentPage() {
                             className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </div>
+
+                        {/* Parsed Evidence Analysis & Template Content Validation Card */}
+                        {currentResponse?.evidenceAnalysis && (
+                          <div className={`p-4 rounded-xl border text-xs space-y-2.5 transition-all ${
+                            currentResponse.evidenceAnalysis.isValidTemplate
+                              ? "bg-green-500/10 border-green-500/20 text-foreground"
+                              : "bg-red-500/10 border-red-500/20 text-foreground"
+                          }`}>
+                            <div className="flex items-center justify-between font-semibold">
+                              <div className="flex items-center gap-1.5">
+                                {currentResponse.evidenceAnalysis.isValidTemplate ? (
+                                  <span className="text-green-500 font-bold">✅ Evidence Verified & Validated</span>
+                                ) : (
+                                  <span className="text-red-500 font-bold">⚠️ Unfilled Template / Parsing Issues</span>
+                                )}
+                              </div>
+                              <span className="px-2 py-0.5 rounded bg-background border border-border font-mono">
+                                Quality Score: {currentResponse.evidenceAnalysis.score}/100
+                              </span>
+                            </div>
+
+                            {/* Validation Errors & Unfilled Placeholders */}
+                            {currentResponse.evidenceAnalysis.validationErrors && currentResponse.evidenceAnalysis.validationErrors.length > 0 && (
+                              <div className="p-2.5 rounded-lg bg-red-500/15 text-red-600 border border-red-500/30 space-y-1">
+                                <p className="font-semibold">Template Validation Errors:</p>
+                                <ul className="list-disc pl-4 space-y-1 text-xs">
+                                  {currentResponse.evidenceAnalysis.validationErrors.map((err: string, i: number) => (
+                                    <li key={i}>{err}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Unfilled Placeholders Badge List */}
+                            {currentResponse.evidenceAnalysis.unfilledPlaceholders && currentResponse.evidenceAnalysis.unfilledPlaceholders.length > 0 && (
+                              <div>
+                                <p className="font-semibold text-muted-foreground mb-1">Unfilled Bracketed Placeholders:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {currentResponse.evidenceAnalysis.unfilledPlaceholders.map((ph: string, i: number) => (
+                                    <span key={i} className="px-2 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-mono text-[11px]">
+                                      {ph}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Matched vs Missing Requirements */}
+                            {currentResponse.evidenceAnalysis.missingRequirements && currentResponse.evidenceAnalysis.missingRequirements.length > 0 && (
+                              <div className="text-amber-500 font-medium">
+                                ⚡ Missing Evidence Items: {currentResponse.evidenceAnalysis.missingRequirements.join(", ")}
+                              </div>
+                            )}
+
+                            {/* Extracted Text Snippet Preview */}
+                            {currentResponse.evidenceAnalysis.extractedSnippet && (
+                              <div className="pt-1 border-t border-border/40">
+                                <p className="text-[11px] font-semibold text-muted-foreground mb-0.5">Parsed Evidence Snippet:</p>
+                                <p className="font-mono text-[11px] text-muted-foreground bg-muted/30 p-2 rounded max-h-24 overflow-y-auto whitespace-pre-wrap">
+                                  {currentResponse.evidenceAnalysis.extractedSnippet}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Audit-ready Checkbox */}
                         {currentResponse?.evidenceUrl && (

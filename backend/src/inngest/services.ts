@@ -435,7 +435,8 @@ export async function validateTargetHostname(apiUrl: string): Promise<string[]> 
     const parsedUrl = new URL(apiUrl);
     const addresses = await dns.promises.lookup(parsedUrl.hostname, { all: true });
     for (const addr of addresses) {
-      const ipCheck = isPublicApiUrl(`http://${addr.address}`);
+      const formattedHost = addr.address.includes(":") ? `[${addr.address}]` : addr.address;
+      const ipCheck = isPublicApiUrl(`http://${formattedHost}`);
       if (!ipCheck.isValid) {
         throw new Error(`Forbidden API host address (${addr.address}): ${ipCheck.error}`);
       }
@@ -523,20 +524,6 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
   const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
   const { url, headers, body } = prepareRequestOptions(config, requestPayload);
 
-  const agent = {
-    connect: {
-      lookup: (_hostname: string, _options: any, callback: (err: Error | null, addresses: Array<{ address: string; family: number }>) => void) => {
-        const ip = validatedIps[0];
-        if (!ip) {
-          callback(new Error("No validated IP addresses available"), []);
-          return;
-        }
-        const isIPv6 = ip.includes(":");
-        callback(null, [{ address: ip, family: isIPv6 ? 6 : 4 }]);
-      },
-    },
-  };
-
   const controller = new AbortController();
   const timeoutMs = 10000; // 10 seconds timeout
   const timeoutId = setTimeout(() => {
@@ -551,8 +538,7 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
       body: JSON.stringify(body),
       signal: controller.signal,
       redirect: "error",
-      dispatcher: agent,
-    } as any);
+    });
     clearTimeout(timeoutId);
   } catch (error: any) {
     clearTimeout(timeoutId);
@@ -635,6 +621,18 @@ export async function updateJobProgress(jobId: string): Promise<{
             status = "failed";
             percent = 50;
             progress = `${collectedCount}/${totalCount}`;
+            const responses = (("responses" in payload ? payload.responses : undefined) || []) as any[];
+            const firstErr = responses.find((r: any) => r && r.error)?.error || "All target API requests failed";
+            await pool.query(
+              `UPDATE evaluation_status
+               SET status = $1,
+                   progress = $2,
+                   percent = $3,
+                   payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
+               WHERE job_id = $5`,
+              [status, progress, percent, JSON.stringify({ error: firstErr }), jobId]
+            );
+            return { percent, progress, status };
           } else {
             status = "evaluating";
             percent = 50;

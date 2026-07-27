@@ -16,13 +16,16 @@ import { WizardSection3 } from "@/components/features/wizard/sections/WizardSect
 import { WizardSection4 } from "@/components/features/wizard/sections/WizardSection4";
 import { WizardSection5 } from "@/components/features/wizard/sections/WizardSection5";
 import { WizardSection6 } from "@/components/features/wizard/sections/WizardSection6";
-import { IconLoader2, IconSettings, IconShieldCheck, IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
+import { IconLoader2, IconSettings, IconShieldCheck, IconAlertTriangle, IconRefresh, IconArrowLeft } from "@tabler/icons-react";
 import { motion } from "framer-motion";
+import { Breadcrumb } from "@/components/shared/Breadcrumb";
+import { isPremiumStatus } from "@/lib/constants";
 
 export default function ProjectWizardSettingsPage() {
   const { projectId } = useParams() as { projectId: string };
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const router = useRouter();
+  const [project, setProject] = useState<any>(null);
 
   const {
     answers,
@@ -39,11 +42,17 @@ export default function ProjectWizardSettingsPage() {
   useEffect(() => {
     if (isAuthenticated) {
       loadSavedAnswers(projectId);
+      apiService.getProject(projectId).then(setProject).catch(() => {});
     }
     return () => {
       resetStore();
     };
   }, [projectId, isAuthenticated, loadSavedAnswers, resetStore]);
+
+  const premiumStatus = user?.subscription_status ? isPremiumStatus(user.subscription_status) : false;
+  const projectBreadcrumbHref = premiumStatus
+    ? `/assess/${projectId}/crc/dashboard`
+    : `/assess/${projectId}`;
 
   const handleSaveAndReRun = async () => {
     // Perform simple validations
@@ -121,28 +130,59 @@ export default function ProjectWizardSettingsPage() {
 
   const getRiskColor = (tier: string) => {
     switch (tier) {
-      case "UNACCEPTABLE": return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "HIGH": return "bg-orange-500/10 text-orange-400 border-orange-500/20";
-      case "LIMITED": return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-      case "MINIMAL": return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      default: return "bg-slate-500/10 text-slate-400 border-slate-500/20";
+      case "UNACCEPTABLE": return "bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30";
+      case "HIGH": return "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30";
+      case "LIMITED": return "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
+      case "MINIMAL": return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
+      default: return "bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30";
     }
   };
 
   return (
-    <div className="space-y-6 w-full pb-24">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Project Settings</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Manage your project details and team access.</p>
+    <div className="flex-1 flex flex-col w-full">
+      {/* Header */}
+      <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full mb-8">
+        <div className="w-full flex flex-col gap-2">
+          {/* Top: Breadcrumb */}
+          <div className="flex items-center justify-between text-xs">
+            <Breadcrumb
+              projectName={project?.name || answers?.name || "Loading..."}
+              projectHref={projectBreadcrumbHref}
+              items={[{ label: "Project Settings" }]}
+            />
+          </div>
+
+          {/* Bottom: Main row */}
+          <div className="flex items-center justify-between gap-4 mt-1">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => router.back()}
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-border/60 hover:bg-muted text-xs text-foreground/80 hover:text-foreground transition-all shadow-2xs shrink-0 cursor-pointer"
+              >
+                <IconArrowLeft className="w-3.5 h-3.5" />
+                Back
+              </button>
+              <div className="h-5 w-px bg-border shrink-0" />
+              <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+                <IconSettings className="w-4 h-4 text-primary shrink-0" style={{ color: "var(--section-settings)" }} />
+                <h1 className="text-sm font-bold text-foreground truncate">
+                  Project Settings
+                </h1>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <ProjectSettingsTabs projectId={projectId} />
+      <div className="px-8 w-full pb-12 space-y-6">
+        <ProjectSettingsTabs projectId={projectId} />
 
       {/* Summary Banner */}
       {engineOutput && (
-        <Card className="border border-blue-500/25 bg-blue-500/5 relative overflow-hidden">
+        <Card className="border border-blue-500/25 bg-blue-500/10 dark:bg-blue-500/5 relative overflow-hidden my-6 shadow-xs">
           <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1 relative z-10">
+            <div className="space-y-1.5 relative z-10">
               <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Active Classification</span>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-lg text-foreground">EU Risk Tier:</h3>
@@ -153,13 +193,13 @@ export default function ProjectWizardSettingsPage() {
                   INTERNAL: {engineOutput.internal_risk_tier}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground max-w-2xl mt-1 leading-normal">
+              <p className="text-xs text-foreground/80 dark:text-muted-foreground max-w-2xl mt-1 leading-normal font-medium">
                 {engineOutput.eu_risk_reason}
               </p>
             </div>
             <div className="flex-shrink-0 relative z-10">
-              <span className="text-xs text-muted-foreground font-medium block text-right">Frameworks in scope</span>
-              <span className="text-xs font-bold text-foreground block text-right mt-0.5">
+              <span className="text-xs text-muted-foreground font-medium block sm:text-right">Frameworks in scope</span>
+              <span className="text-xs font-bold text-foreground block sm:text-right mt-0.5">
                 {(engineOutput.applicable_frameworks || []).join(", ") || "None"}
               </span>
             </div>
@@ -168,7 +208,7 @@ export default function ProjectWizardSettingsPage() {
       )}
 
       {/* Main Settings Editor */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start mt-8">
         {/* Left Sidebar Sections List */}
         <div className="md:col-span-1 space-y-1">
           {sectionsList.map((sec) => (
@@ -225,6 +265,7 @@ export default function ProjectWizardSettingsPage() {
           </CardFooter>
         </Card>
       </div>
+    </div>
     </div>
   );
 }
