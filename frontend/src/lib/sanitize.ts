@@ -5,14 +5,8 @@ import DOMPurify from "dompurify";
 
 // HTML entities that should be escaped
 const HTML_ENTITIES: { [key: string]: string } = {
-  "&": "&amp;",
   "<": "&lt;",
   ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#x27;",
-  "/": "&#x2F;",
-  "`": "&#x60;",
-  "=": "&#x3D;",
 };
 
 // Dangerous patterns that should be removed or escaped
