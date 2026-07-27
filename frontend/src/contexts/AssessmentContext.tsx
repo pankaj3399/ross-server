@@ -379,7 +379,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         const controls = crcData.data || [];
                         setCrcControls(controls);
                         setCrcResponses(crcResponsesData.responses || {});
-                        setCrcControlFlags((crcResponsesData as any).controlFlags || {});
+                        setCrcControlFlags(crcResponsesData.controlFlags || {});
 
                         // Extract unique categories
                         const categories = Array.from(new Set(controls.filter(c => c.category_name).map(c => c.category_name))).sort() as string[];
@@ -746,13 +746,12 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             }
             return {
                 success: res.success,
-                error: res.error,
                 analysis,
             };
         } catch (err: any) {
             console.error("Failed to upload evidence file:", err);
             showToast.error(err.message || "Failed to upload evidence file");
-            return { success: false, error: err.message };
+            return { success: false };
         } finally {
             setSaving(false);
         }

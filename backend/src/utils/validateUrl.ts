@@ -59,7 +59,8 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     const schemeMatch = trimmed.match(/^(https?:\/\/)([^/]+)(.*)$/i);
     if (schemeMatch) {
       const hostPort = schemeMatch[2];
-      if (hostPort.includes(":") && !hostPort.startsWith("[")) {
+      const colonCount = (hostPort.match(/:/g) || []).length;
+      if (colonCount >= 2 && !hostPort.startsWith("[")) {
         return { isValid: false, error: "IPv6 host literals must be enclosed in square brackets (e.g. https://[2001:db8::1]/v1)." };
       }
     }

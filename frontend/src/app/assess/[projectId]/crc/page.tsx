@@ -491,17 +491,30 @@ export default function CRCAssessmentPage() {
                       return (
                         <div className="flex items-center gap-2">
                           <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-semibold">
-                            Recommended
+                            Recommended {isManualOverride && "(Manual)"}
                           </Badge>
                           {!isReadOnly && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                              className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Mark as Mandatory
-                            </button>
+                            <>
+                              {isManualOverride ? (
+                                <button
+                                  type="button"
+                                  disabled={saving}
+                                  onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
+                                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Revert to Profile Default
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={saving}
+                                  onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
+                                  className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Mark as Mandatory
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       );
@@ -510,17 +523,30 @@ export default function CRCAssessmentPage() {
                     return (
                       <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 text-xs font-semibold">
-                          Optional based on your profile
+                          Optional based on your profile {isManualOverride && "(Manual)"}
                         </Badge>
                         {!isReadOnly && (
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                            className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Mark as Mandatory
-                          </button>
+                          <>
+                            {isManualOverride ? (
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
+                                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Revert to Profile Default
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={saving}
+                                onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
+                                className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                Mark as Mandatory
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     );
@@ -1006,9 +1032,7 @@ export default function CRCAssessmentPage() {
                                   setUploadingFile(true);
                                   try {
                                     const res = await uploadEvidenceFile(currentControl.id, file);
-                                    if (res.error) {
-                                      showToast.error(res.error);
-                                    } else if (res.analysis && res.analysis.extractedTextLength > 0) {
+                                    if (res.analysis && res.analysis.extractedTextLength > 0) {
                                       showToast.info(`Extracted ${res.analysis.extractedTextLength} chars from document`);
                                     }
                                   } catch (err: any) {

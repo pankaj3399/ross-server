@@ -441,7 +441,7 @@ export const usePdfReport = ({
                         if (pageBlocks.length === 1 && (pageBlocks[0].offsetHeight * usableWidth / pageBlocks[0].offsetWidth) > usableHeight) {
                             const giantBlock = pageBlocks[0];
                             const blockHeight = giantBlock.offsetHeight || 1;
-                            const safeScale = Math.min(2.5, Math.max(1.0, 4096 / blockHeight));
+                            const safeScale = Math.min(2.5, Math.max(0.25, 4096 / blockHeight));
                             const canvas = await html2canvas(giantBlock, {
                                 scale: safeScale,
                                 useCORS: true,

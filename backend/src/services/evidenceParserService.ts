@@ -18,15 +18,18 @@ export interface EvidenceParsingResult {
 /**
  * Extracts clean plain text from a Word .docx file buffer using AdmZip and XML parsing.
  */
-export function extractTextFromDocx(buffer: Buffer): string {
+export function extractTextFromDocx(buffer: Buffer): { text: string; error?: string } {
   try {
     const zip = new AdmZip(buffer);
     const zipEntries = zip.getEntries();
     const docEntry = zipEntries.find(
       (entry) => entry.entryName === "word/document.xml"
     );
-    if (!docEntry || docEntry.header.size > MAX_ZIP_UNCOMPRESSED_SIZE) {
-      return "";
+    if (!docEntry) {
+      return { text: "" };
+    }
+    if (docEntry.header.size > MAX_ZIP_UNCOMPRESSED_SIZE) {
+      return { text: "", error: "The uncompressed DOCX document size exceeds the limit (100MB)." };
     }
     const xml = docEntry.getData().toString("utf-8");
 
@@ -40,10 +43,10 @@ export function extractTextFromDocx(buffer: Buffer): string {
       .replace(/&quot;/g, '"')
       .replace(/&apos;/g, "'");
 
-    return text.replace(/\n\s*\n/g, "\n").trim();
+    return { text: text.replace(/\n\s*\n/g, "\n").trim() };
   } catch (err) {
     console.error("[evidenceParser] Failed to extract text from docx:", err);
-    return "";
+    return { text: "", error: "Failed to parse DOCX document structure." };
   }
 }
 
@@ -61,15 +64,12 @@ export function parseAndValidateEvidence(
   if (rawTextInput && rawTextInput.trim().length > 0) {
     extractedText = rawTextInput.trim();
   } else if (fileBuffer && fileBuffer.length > 0) {
-    const isDocx = filename ? /\.docx$/i.test(filename) : false;
+    const isDocx = filename ? /\.docx$/i.test(filename) : true;
     const isTextFile = filename ? /\.(txt|md)$/i.test(filename) : false;
-    const isNonDocxBinary = filename ? /\.(pdf|doc)$/i.test(filename) : false;
 
-    if (isDocx || (!filename && !isTextFile)) {
-      extractedText = extractTextFromDocx(fileBuffer);
-    }
-    if (!extractedText) {
-      if (isNonDocxBinary) {
+    if (isDocx) {
+      const docxResult = extractTextFromDocx(fileBuffer);
+      if (docxResult.error) {
         return {
           success: false,
           extractedTextLength: 0,
@@ -78,14 +78,29 @@ export function parseAndValidateEvidence(
           isValidTemplate: false,
           missingRequirements: evidenceRequirements,
           matchedRequirements: [],
-          validationErrors: [
-            `Parsing text from ${filename || "this binary format"} is not supported. Please upload a .docx or plain text file.`,
-          ],
+          validationErrors: [docxResult.error],
           validationWarnings: [],
           score: 0,
         };
       }
+      extractedText = docxResult.text;
+    } else if (isTextFile) {
       extractedText = fileBuffer.toString("utf-8").replace(/[^\x20-\x7E\n\r\t]/g, " ");
+    } else {
+      return {
+        success: false,
+        extractedTextLength: 0,
+        extractedSnippet: "",
+        unfilledPlaceholders: [],
+        isValidTemplate: false,
+        missingRequirements: evidenceRequirements,
+        matchedRequirements: [],
+        validationErrors: [
+          `Parsing text from ${filename || "this binary format"} is not supported. Please upload a .docx or plain text file.`,
+        ],
+        validationWarnings: [],
+        score: 0,
+      };
     }
   }
 

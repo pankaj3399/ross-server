@@ -543,13 +543,9 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
         },
       },
     });
-  } catch {
-    if (validatedIps.length > 0) {
-      headers["Host"] = originalHost;
-      const targetIp = validatedIps[0];
-      const formattedIp = targetIp.includes(":") ? `[${targetIp}]` : targetIp;
-      fetchUrl = url.replace(`://${originalHost}`, `://${formattedIp}`);
-    }
+    headers["Host"] = originalHost;
+  } catch (err: any) {
+    throw new Error("Secure pinned transport (undici) is unavailable: " + (err.message || String(err)));
   }
 
   const controller = new AbortController();
@@ -558,46 +554,52 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
     controller.abort();
   }, timeoutMs);
 
-  let response: Response;
   try {
-    response = await fetch(fetchUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-      redirect: "error",
-      ...(dispatcher && { dispatcher }),
-    } as any);
-    clearTimeout(timeoutId);
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === "AbortError" || controller.signal.aborted) {
-      throw new Error(`Request to user API timed out after ${timeoutMs}ms`);
+    let response: Response;
+    try {
+      response = await fetch(fetchUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        redirect: "error",
+        ...(dispatcher && { dispatcher }),
+      } as any);
+      clearTimeout(timeoutId);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError" || controller.signal.aborted) {
+        throw new Error(`Request to user API timed out after ${timeoutMs}ms`);
+      }
+      throw error;
     }
-    throw error;
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => `API returned status ${response.status}`);
+      throw new Error(
+        errorText?.trim() ? errorText : `API returned status ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    const value = getNestedValue(data, trimmedResponsePath);
+
+    if (value === undefined) {
+      throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
+    }
+
+    if (typeof value !== "string") {
+      throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
+    }
+
+    return value;
+  } finally {
+    if (dispatcher && typeof dispatcher.close === "function") {
+      await dispatcher.close().catch(() => {});
+    }
   }
-
-  if (!response.ok) {
-    const errorText = await response
-      .text()
-      .catch(() => `API returned status ${response.status}`);
-    throw new Error(
-      errorText?.trim() ? errorText : `API returned status ${response.status}`,
-    );
-  }
-
-  const data = await response.json();
-  const value = getNestedValue(data, trimmedResponsePath);
-
-  if (value === undefined) {
-    throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
-  }
-
-  if (typeof value !== "string") {
-    throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
-  }
-
-  return value;
 }
 
 // Updates job progress based on weighted two-phase system or single-phase system

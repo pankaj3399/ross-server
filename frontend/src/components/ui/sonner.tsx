@@ -19,7 +19,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       onClick={(e) => {
         const target = e.target as HTMLElement;
         const toastElement = target.closest('[data-sonner-toast]') as HTMLElement | null;
-        if (toastElement && !target.closest('a') && !target.closest('button')) {
+        if (toastElement && toastElement.getAttribute("data-dismissible") !== "false" && !target.closest('a') && !target.closest('button')) {
           const toastId = toastElement.getAttribute('data-toast-id') || (toastElement.dataset ? toastElement.dataset.toastId : undefined);
           if (toastId) {
             toast.dismiss(toastId);

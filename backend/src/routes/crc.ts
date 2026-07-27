@@ -1430,7 +1430,7 @@ router.post(
       const saveRes = await pool.query(
         `INSERT INTO crc_assessment_responses 
            (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
-         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 1), COALESCE((SELECT notes FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), ''), $4, $5, COALESCE((SELECT audit_ready FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), false), $6::jsonb)
+         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 3), COALESCE((SELECT notes FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), ''), $4, $5, COALESCE((SELECT audit_ready FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), false), $6::jsonb)
          ON CONFLICT (project_id, control_id)
          DO UPDATE SET 
            user_id = $3,
@@ -1545,6 +1545,15 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
       return res.status(403).json({ success: false, error: "Insufficient project permissions" });
     }
 
+    const controlCheck = await pool.query(
+      "SELECT id, control_id FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
+      [controlId]
+    );
+    if (controlCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Control not found" });
+    }
+    const targetControlKey = controlCheck.rows[0].control_id;
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -1555,7 +1564,7 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
       );
 
       let controlFlags = wizardResult.rows[0]?.control_flags || {};
-      const existing = controlFlags[controlId] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
+      const existing = controlFlags[targetControlKey] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
 
       if (mandate === "RESET") {
         delete existing.is_manual_override;
@@ -1574,7 +1583,7 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
           : `Manually set to ${targetFlag} by user.`;
       }
 
-      controlFlags[controlId] = existing;
+      controlFlags[targetControlKey] = existing;
 
       await client.query(
         `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
@@ -1587,16 +1596,20 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
 
       await client.query("COMMIT");
 
-      await recordEvent({
-        projectId,
-        actorId: userId,
-        action: "control_mandate_updated",
-        objectType: "CRC_CONTROL",
-        objectId: controlId,
-        metadata: { controlId, mandate, updatedFlag: existing.flag }
-      });
+      try {
+        await recordEvent({
+          projectId,
+          actorId: userId,
+          action: "control_mandate_updated",
+          objectType: "CRC_CONTROL",
+          objectId: targetControlKey,
+          metadata: { controlId: targetControlKey, mandate, updatedFlag: existing.flag }
+        });
+      } catch (auditErr) {
+        console.error("Failed to record audit log event for control mandate update:", auditErr);
+      }
 
-      return res.json({ success: true, controlId, flagInfo: existing, controlFlags });
+      return res.json({ success: true, controlId: targetControlKey, flagInfo: existing, controlFlags });
     } catch (dbErr) {
       await client.query("ROLLBACK").catch(() => {});
       throw dbErr;
