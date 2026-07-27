@@ -217,14 +217,19 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
     const hasISO = mapping.iso_42001 && Array.isArray(mapping.iso_42001) && mapping.iso_42001.length > 0;
 
     let flag: ControlFlag["flag"] = "OPTIONAL";
-    let reason = "Control is optional based on current system profile.";
+    let reason = "Optional control based on current system profile.";
+
+    const isBaselineCore = cid.startsWith("GOV-01") || cid.startsWith("GOV-02") || cid.startsWith("DATA-01");
 
     // ISO 42001 rules
     if (hasISO && applicable_frameworks.includes("ISO/IEC 42001")) {
       if (answers.governance_scope === "organization") {
         flag = "MANDATORY";
         reason = "Mandatory for organizational AI management systems under ISO/IEC 42001.";
-      } else {
+      } else if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
+        flag = "MANDATORY";
+        reason = "Mandatory control under ISO/IEC 42001 for High/Critical risk profiles.";
+      } else if (internal_risk_tier === "MEDIUM" || isBaselineCore) {
         flag = "RECOMMENDED";
         reason = "Recommended best practice for system-level AI governance under ISO/IEC 42001.";
       }
@@ -235,7 +240,7 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
       if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
         flag = "MANDATORY";
         reason = "Mandatory control under NIST AI RMF for High or Critical risk profiles.";
-      } else if (flag !== "MANDATORY") {
+      } else if (internal_risk_tier === "MEDIUM" && flag !== "MANDATORY") {
         flag = "RECOMMENDED";
         reason = "Recommended control under NIST AI RMF risk management guidelines.";
       }
@@ -247,7 +252,6 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
         flag = "MANDATORY";
         reason = "Mandatory regulatory obligation for High-Risk AI systems under the EU AI Act.";
       } else if (eu_risk_tier === "LIMITED") {
-        // Limited risk systems require transparency
         if (cid.includes("COMM") || cid.includes("TRN") || cid.includes("GOV-CUST")) {
           flag = "MANDATORY";
           reason = "Mandatory Article 50 transparency control for Limited Risk systems under the EU AI Act.";
@@ -255,9 +259,11 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
           flag = "RECOMMENDED";
           reason = "Recommended compliance alignment under the EU AI Act.";
         }
-      } else if (flag !== "MANDATORY") {
-        flag = "RECOMMENDED";
-        reason = "Recommended general risk alignment under the EU AI Act framework.";
+      } else if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
+        if (flag !== "MANDATORY") {
+          flag = "RECOMMENDED";
+          reason = "Recommended general risk alignment under the EU AI Act framework.";
+        }
       }
     }
 

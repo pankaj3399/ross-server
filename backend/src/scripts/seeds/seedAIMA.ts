@@ -45,7 +45,7 @@ const aimaData = {
                 "Are there informal efforts to explain AI outputs or decisions when requested?"
               ],
               "B": [
-                "Is communication about AI systems' workings sporadic or reactive?"
+                "Is communication about AI systems' workings structured and proactive?"
               ]
             },
             "2": {
@@ -860,6 +860,14 @@ async function seedAIMAData() {
         console.log(`Inserted questions for ${practice.title}`);
       }
     }
+
+    // Backfill transparency wording update for existing databases
+    await pool.query(
+      `UPDATE aima_questions 
+       SET question_text = $1 
+       WHERE practice_id = 'transparency_explainability' AND level = '1' AND stream = 'B' AND question_index = 0`,
+      ["Is communication about AI systems' workings structured and proactive?"]
+    );
 
     console.log("AIMA data seeding completed successfully!");
   } catch (error) {

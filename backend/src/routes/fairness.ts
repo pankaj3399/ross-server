@@ -686,9 +686,12 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         const results = payload.results || [];
         const errors = payload.errors || [];
         const isFailed = String(job.status).toLowerCase() === "failed";
-        const firstErrorMsg = Array.isArray(errors) && errors.length > 0 
-            ? (errors[0]?.error || errors[0]?.message) 
+        const firstApiError = Array.isArray(payload.responses)
+            ? payload.responses.find((r: any) => r && r.error)?.error
             : null;
+        const firstErrorMsg = (Array.isArray(errors) && errors.length > 0 
+            ? (errors[0]?.error || errors[0]?.message) 
+            : null) || firstApiError;
         const errorMessage =
             payload.error ||
             firstErrorMsg ||

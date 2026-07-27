@@ -51,10 +51,19 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     return { isValid: false, error: "API URL is required." };
   }
 
+  let trimmed = urlString.trim();
   let url: URL;
   try {
-    url = new URL(urlString.trim());
+    url = new URL(trimmed);
   } catch {
+    const schemeMatch = trimmed.match(/^(https?:\/\/)([^/]+)(.*)$/i);
+    if (schemeMatch) {
+      const hostPort = schemeMatch[2];
+      const colonCount = (hostPort.match(/:/g) || []).length;
+      if (colonCount >= 2 && !hostPort.startsWith("[")) {
+        return { isValid: false, error: "IPv6 host literals must be enclosed in square brackets (e.g. https://[2001:db8::1]/v1)." };
+      }
+    }
     return { isValid: false, error: "Please enter a valid URL (e.g. https://api.example.com/v1/chat)." };
   }
 

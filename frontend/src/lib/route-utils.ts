@@ -38,9 +38,10 @@ export const getRouteFlags = (pathname: string | null) => {
   const isFairnessOptionsPage = !!pathname?.match(/\/fairness-bias\/options($|\/|\?)/);
   const isManualPromptPage = isFairnessPage && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage;
   const isTeamPage = !!pathname?.match(/\/team($|\/|\?)/);
-  const isSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings($|\/|\?)/);
+  const isWizardSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings\/wizard($|\/|\?)/);
+  const isSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings($|\/|\?)/) && !isWizardSettingsPage;
   const isInventoryPage = !!pathname?.match(/\/inventory($|\/|\?)/);
-  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !isInventoryPage && !!pathname?.match(/\/assess\/[^/]+/);
+  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !isWizardSettingsPage && !isInventoryPage && !!pathname?.match(/\/assess\/[^/]+/);
   const isAimaQuestionPage = isAimaPage && !!pathname?.match(/\/assess\/[^/]+\/[^/]+\/[^/]+/);
   return {
     isCrcPage,
@@ -53,6 +54,7 @@ export const getRouteFlags = (pathname: string | null) => {
     isFairnessOptionsPage,
     isTeamPage,
     isSettingsPage,
+    isWizardSettingsPage,
     isInventoryPage,
     isAimaPage,
     isAimaQuestionPage,

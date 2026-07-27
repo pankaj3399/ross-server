@@ -12,6 +12,8 @@ import {
     PracticeQuestionDetail,
     CRCControl,
     CRCEvidenceStatus,
+    EvidenceAnalysis,
+    ControlFlagInfo,
 } from "../lib/api";
 import { showToast } from "../lib/toast";
 import { PREMIUM_STATUS } from "../lib/constants";
@@ -66,6 +68,7 @@ export interface CRCResponse {
     evidenceStatus: CRCEvidenceStatus;
     evidenceUrl: string | null;
     auditReady: boolean;
+    evidenceAnalysis?: EvidenceAnalysis;
     updatedAt: string;
 }
 
@@ -83,6 +86,8 @@ interface AssessmentContextType {
     crcControls: CRCControl[];
     crcCategories: string[];
     crcResponses: Record<string, CRCResponse>;
+    crcControlFlags: Record<string, ControlFlagInfo>;
+    updateControlMandate: (controlId: string, mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET") => Promise<void>;
 
     // Navigation State
     currentDomainId: string;
@@ -104,6 +109,7 @@ interface AssessmentContextType {
         url?: string | null, 
         auditReady?: boolean
     ) => Promise<void>;
+    uploadEvidenceFile: (controlId: string, file: File) => Promise<{ success: boolean; error?: string; analysis?: EvidenceAnalysis }>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
     submitCrcProject: () => Promise<void>;
@@ -218,6 +224,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
     const [crcControls, setCrcControls] = useState<CRCControl[]>([]);
     const [crcCategories, setCrcCategories] = useState<string[]>([]);
     const [crcResponses, setCrcResponses] = useState<Record<string, CRCResponse>>({});
+    const [crcControlFlags, setCrcControlFlags] = useState<Record<string, ControlFlagInfo>>({});
 
     const [saving, setSaving] = useState(false);
     const [savingNote, setSavingNote] = useState(false);
@@ -372,6 +379,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         const controls = crcData.data || [];
                         setCrcControls(controls);
                         setCrcResponses(crcResponsesData.responses || {});
+                        setCrcControlFlags(crcResponsesData.controlFlags || {});
 
                         // Extract unique categories
                         const categories = Array.from(new Set(controls.filter(c => c.category_name).map(c => c.category_name))).sort() as string[];
@@ -706,6 +714,75 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
+    const uploadEvidenceFile = useCallback(async (controlId: string, file: File) => {
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return { success: false, error: "Read-only mode" };
+        }
+        try {
+            setSaving(true);
+            const res = await apiService.uploadCRCEvidenceFile(projectId, controlId, file);
+            const analysis = res.data?.evidenceAnalysis || res.data?.analysis;
+            if (res.success && res.data) {
+                setCrcResponses(prev => ({
+                    ...prev,
+                    [controlId]: {
+                        value: res.data!.value ?? prev[controlId]?.value ?? 0,
+                        notes: res.data!.notes ?? prev[controlId]?.notes ?? "",
+                        evidenceStatus: res.data!.evidenceStatus,
+                        evidenceUrl: res.data!.evidenceUrl,
+                        auditReady: res.data!.auditReady,
+                        evidenceAnalysis: analysis,
+                        updatedAt: new Date().toISOString(),
+                    }
+                }));
+                if (!res.error) {
+                    showToast.success("Evidence document parsed and validated successfully");
+                } else {
+                    showToast.warning(res.error);
+                }
+            } else if (res.error) {
+                showToast.error(res.error);
+            }
+            return {
+                success: res.success,
+                analysis,
+            };
+        } catch (err: any) {
+            console.error("Failed to upload evidence file:", err);
+            showToast.error(err.message || "Failed to upload evidence file");
+            return { success: false };
+        } finally {
+            setSaving(false);
+        }
+    }, [projectId, isReadOnly]);
+
+    const updateControlMandate = useCallback(async (controlId: string, mandate: "MANDATORY" | "OPTIONAL" | "RECOMMENDED" | "RESET") => {
+        if (isReadOnly) {
+            showToast.error("You don't have permission to make changes. You can only view the project.");
+            return;
+        }
+        try {
+            setSaving(true);
+            const res = await apiService.updateControlMandate(projectId, controlId, mandate);
+            if (res.success) {
+                setCrcControlFlags(res.controlFlags || {});
+                showToast.success(
+                    mandate === "MANDATORY" 
+                        ? "Control manually elevated to Mandatory!" 
+                        : mandate === "RESET"
+                        ? "Control mandate reset to profile default."
+                        : `Control mandate updated to ${mandate}`
+                );
+            }
+        } catch (err: any) {
+            console.error("Failed to update control mandate:", err);
+            showToast.error("Failed to update control mandate.");
+        } finally {
+            setSaving(false);
+        }
+    }, [projectId, isReadOnly]);
+
     const saveAllNotes = async (isSubmitting: boolean = false): Promise<boolean> => {
         if (isReadOnly) {
             showToast.error("You don't have permission to make changes. You can only view the project.");
@@ -857,6 +934,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         handleCrcAnswerChange,
         handleCrcNoteSave,
         handleEvidenceStatusChange,
+        uploadEvidenceFile,
         saveAllNotes,
         submitProject,
         submitCrcProject,
@@ -872,6 +950,8 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         crcControls,
         crcCategories,
         crcResponses,
+        crcControlFlags,
+        updateControlMandate,
     };
 
     return <AssessmentContext.Provider value={value}>{children}</AssessmentContext.Provider>;

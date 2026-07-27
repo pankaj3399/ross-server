@@ -435,7 +435,8 @@ export async function validateTargetHostname(apiUrl: string): Promise<string[]> 
     const parsedUrl = new URL(apiUrl);
     const addresses = await dns.promises.lookup(parsedUrl.hostname, { all: true });
     for (const addr of addresses) {
-      const ipCheck = isPublicApiUrl(`http://${addr.address}`);
+      const formattedHost = addr.address.includes(":") ? `[${addr.address}]` : addr.address;
+      const ipCheck = isPublicApiUrl(`http://${formattedHost}`);
       if (!ipCheck.isValid) {
         throw new Error(`Forbidden API host address (${addr.address}): ${ipCheck.error}`);
       }
@@ -519,23 +520,33 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
   }
 
   const validatedIps = await validateTargetHostname(config.apiUrl);
+  if (!validatedIps || validatedIps.length === 0) {
+    throw new Error("Target API host failed DNS validation");
+  }
 
   const requestPayload = buildRequestBodyFromTemplate(trimmedTemplate, prompt);
   const { url, headers, body } = prepareRequestOptions(config, requestPayload);
 
-  const agent = {
-    connect: {
-      lookup: (_hostname: string, _options: any, callback: (err: Error | null, addresses: Array<{ address: string; family: number }>) => void) => {
-        const ip = validatedIps[0];
-        if (!ip) {
-          callback(new Error("No validated IP addresses available"), []);
-          return;
-        }
-        const isIPv6 = ip.includes(":");
-        callback(null, [{ address: ip, family: isIPv6 ? 6 : 4 }]);
+  let fetchUrl = url;
+  const parsedUrl = new URL(url);
+  const originalHost = parsedUrl.host;
+  let dispatcher: any = undefined;
+
+  try {
+    const { Agent } = require("undici");
+    const targetIp = validatedIps[0];
+    const family = targetIp.includes(":") ? 6 : 4;
+    dispatcher = new Agent({
+      connect: {
+        lookup: (_hostname: string, _options: any, callback: any) => {
+          callback(null, [{ address: targetIp, family }]);
+        },
       },
-    },
-  };
+    });
+    headers["Host"] = originalHost;
+  } catch (err: any) {
+    throw new Error("Secure pinned transport (undici) is unavailable: " + (err.message || String(err)));
+  }
 
   const controller = new AbortController();
   const timeoutMs = 10000; // 10 seconds timeout
@@ -543,46 +554,52 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
     controller.abort();
   }, timeoutMs);
 
-  let response: Response;
   try {
-    response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-      redirect: "error",
-      dispatcher: agent,
-    } as any);
-    clearTimeout(timeoutId);
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === "AbortError" || controller.signal.aborted) {
-      throw new Error(`Request to user API timed out after ${timeoutMs}ms`);
+    let response: Response;
+    try {
+      response = await fetch(fetchUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal,
+        redirect: "error",
+        ...(dispatcher && { dispatcher }),
+      } as any);
+      clearTimeout(timeoutId);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === "AbortError" || controller.signal.aborted) {
+        throw new Error(`Request to user API timed out after ${timeoutMs}ms`);
+      }
+      throw error;
     }
-    throw error;
+
+    if (!response.ok) {
+      const errorText = await response
+        .text()
+        .catch(() => `API returned status ${response.status}`);
+      throw new Error(
+        errorText?.trim() ? errorText : `API returned status ${response.status}`,
+      );
+    }
+
+    const data = await response.json();
+    const value = getNestedValue(data, trimmedResponsePath);
+
+    if (value === undefined) {
+      throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
+    }
+
+    if (typeof value !== "string") {
+      throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
+    }
+
+    return value;
+  } finally {
+    if (dispatcher && typeof dispatcher.close === "function") {
+      await dispatcher.close().catch(() => {});
+    }
   }
-
-  if (!response.ok) {
-    const errorText = await response
-      .text()
-      .catch(() => `API returned status ${response.status}`);
-    throw new Error(
-      errorText?.trim() ? errorText : `API returned status ${response.status}`,
-    );
-  }
-
-  const data = await response.json();
-  const value = getNestedValue(data, trimmedResponsePath);
-
-  if (value === undefined) {
-    throw new Error(`Response path "${trimmedResponsePath}" not found in API response`);
-  }
-
-  if (typeof value !== "string") {
-    throw new Error(`Response path "${trimmedResponsePath}" must resolve to a string value`);
-  }
-
-  return value;
 }
 
 // Updates job progress based on weighted two-phase system or single-phase system
@@ -635,6 +652,18 @@ export async function updateJobProgress(jobId: string): Promise<{
             status = "failed";
             percent = 50;
             progress = `${collectedCount}/${totalCount}`;
+            const responses = (("responses" in payload ? payload.responses : undefined) || []) as any[];
+            const firstErr = responses.find((r: any) => r && r.error)?.error || "All target API requests failed";
+            await pool.query(
+              `UPDATE evaluation_status
+               SET status = $1,
+                   progress = $2,
+                   percent = $3,
+                   payload = COALESCE(payload, '{}'::jsonb) || $4::jsonb
+               WHERE job_id = $5`,
+              [status, progress, percent, JSON.stringify({ error: firstErr }), jobId]
+            );
+            return { percent, progress, status };
           } else {
             status = "evaluating";
             percent = 50;

@@ -248,53 +248,75 @@ router.post("/:projectId/complete", authenticateToken, loadProject, requireProje
     // Run rules engine
     const outputs = runRulesEngine(answers, controls);
 
-    // Save outputs to database
-    await pool.query(
-      `INSERT INTO wizard_engine_outputs (
-        project_id, eu_risk_tier, internal_risk_tier, eu_risk_reason, applicable_frameworks,
-        control_flags, suggested_risks, suggested_components, vulnerability_scope,
-        bias_scope, template_variables, copilot_context, article5_warning,
-        article50_note, gpai_warning, informational_notes, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
-        $10::jsonb, $11::jsonb, $12, $13, $14, $15, $16::jsonb, CURRENT_TIMESTAMP
-      )
-      ON CONFLICT (project_id) DO UPDATE SET
-        eu_risk_tier = EXCLUDED.eu_risk_tier,
-        internal_risk_tier = EXCLUDED.internal_risk_tier,
-        eu_risk_reason = EXCLUDED.eu_risk_reason,
-        applicable_frameworks = EXCLUDED.applicable_frameworks,
-        control_flags = EXCLUDED.control_flags,
-        suggested_risks = EXCLUDED.suggested_risks,
-        suggested_components = EXCLUDED.suggested_components,
-        vulnerability_scope = EXCLUDED.vulnerability_scope,
-        bias_scope = EXCLUDED.bias_scope,
-        template_variables = EXCLUDED.template_variables,
-        copilot_context = EXCLUDED.copilot_context,
-        article5_warning = EXCLUDED.article5_warning,
-        article50_note = EXCLUDED.article50_note,
-        gpai_warning = EXCLUDED.gpai_warning,
-        informational_notes = EXCLUDED.informational_notes,
-        updated_at = CURRENT_TIMESTAMP`,
-      [
-        projectId,
-        outputs.eu_risk_tier,
-        outputs.internal_risk_tier,
-        outputs.eu_risk_reason,
-        JSON.stringify(outputs.applicable_frameworks),
-        JSON.stringify(outputs.control_flags),
-        JSON.stringify(outputs.suggested_risks),
-        JSON.stringify(outputs.suggested_components),
-        JSON.stringify(outputs.vulnerability_scope),
-        JSON.stringify(outputs.bias_scope),
-        JSON.stringify(outputs.template_variables),
-        outputs.copilot_context,
-        outputs.article5_warning,
-        outputs.article50_note,
-        outputs.gpai_warning,
-        JSON.stringify(outputs.informational_notes),
-      ]
-    );
+    // Preserve manual control mandate overrides if wizard_engine_outputs already exists (atomic transaction with lock)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existingEngineResult = await client.query(
+        `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
+        [projectId]
+      );
+      const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+      for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+        if (flagInfo?.is_manual_override) {
+          outputs.control_flags[cid] = flagInfo;
+        }
+      }
+
+      // Save outputs to database
+      await client.query(
+        `INSERT INTO wizard_engine_outputs (
+          project_id, eu_risk_tier, internal_risk_tier, eu_risk_reason, applicable_frameworks,
+          control_flags, suggested_risks, suggested_components, vulnerability_scope,
+          bias_scope, template_variables, copilot_context, article5_warning,
+          article50_note, gpai_warning, informational_notes, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
+          $10::jsonb, $11::jsonb, $12, $13, $14, $15, $16::jsonb, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id) DO UPDATE SET
+          eu_risk_tier = EXCLUDED.eu_risk_tier,
+          internal_risk_tier = EXCLUDED.internal_risk_tier,
+          eu_risk_reason = EXCLUDED.eu_risk_reason,
+          applicable_frameworks = EXCLUDED.applicable_frameworks,
+          control_flags = EXCLUDED.control_flags,
+          suggested_risks = EXCLUDED.suggested_risks,
+          suggested_components = EXCLUDED.suggested_components,
+          vulnerability_scope = EXCLUDED.vulnerability_scope,
+          bias_scope = EXCLUDED.bias_scope,
+          template_variables = EXCLUDED.template_variables,
+          copilot_context = EXCLUDED.copilot_context,
+          article5_warning = EXCLUDED.article5_warning,
+          article50_note = EXCLUDED.article50_note,
+          gpai_warning = EXCLUDED.gpai_warning,
+          informational_notes = EXCLUDED.informational_notes,
+          updated_at = CURRENT_TIMESTAMP`,
+        [
+          projectId,
+          outputs.eu_risk_tier,
+          outputs.internal_risk_tier,
+          outputs.eu_risk_reason,
+          JSON.stringify(outputs.applicable_frameworks),
+          JSON.stringify(outputs.control_flags),
+          JSON.stringify(outputs.suggested_risks),
+          JSON.stringify(outputs.suggested_components),
+          JSON.stringify(outputs.vulnerability_scope),
+          JSON.stringify(outputs.bias_scope),
+          JSON.stringify(outputs.template_variables),
+          outputs.copilot_context,
+          outputs.article5_warning,
+          outputs.article50_note,
+          outputs.gpai_warning,
+          JSON.stringify(outputs.informational_notes),
+        ]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
 
     // Mark profile status as completed
     await pool.query(
@@ -644,45 +666,67 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
 
     const outputs = runRulesEngine(answers, controls);
 
-    // Save updated outputs
-    await pool.query(
-      `UPDATE wizard_engine_outputs SET
-        eu_risk_tier = $1,
-        internal_risk_tier = $2,
-        eu_risk_reason = $3,
-        applicable_frameworks = $4::jsonb,
-        control_flags = $5::jsonb,
-        suggested_risks = $6::jsonb,
-        suggested_components = $7::jsonb,
-        vulnerability_scope = $8::jsonb,
-        bias_scope = $9::jsonb,
-        template_variables = $10::jsonb,
-        copilot_context = $11,
-        article5_warning = $12,
-        article50_note = $13,
-        gpai_warning = $14,
-        informational_notes = $15::jsonb,
-        updated_at = CURRENT_TIMESTAMP
-       WHERE project_id = $16`,
-      [
-        outputs.eu_risk_tier,
-        outputs.internal_risk_tier,
-        outputs.eu_risk_reason,
-        JSON.stringify(outputs.applicable_frameworks),
-        JSON.stringify(outputs.control_flags),
-        JSON.stringify(outputs.suggested_risks),
-        JSON.stringify(outputs.suggested_components),
-        JSON.stringify(outputs.vulnerability_scope),
-        JSON.stringify(outputs.bias_scope),
-        JSON.stringify(outputs.template_variables),
-        outputs.copilot_context,
-        outputs.article5_warning,
-        outputs.article50_note,
-        outputs.gpai_warning,
-        JSON.stringify(outputs.informational_notes),
-        projectId,
-      ]
-    );
+    // Preserve manual control mandate overrides (atomic transaction with lock)
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existingEngineResult = await client.query(
+        `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
+        [projectId]
+      );
+      const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+      for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+        if (flagInfo?.is_manual_override) {
+          outputs.control_flags[cid] = flagInfo;
+        }
+      }
+
+      // Save updated outputs
+      await client.query(
+        `UPDATE wizard_engine_outputs SET
+          eu_risk_tier = $1,
+          internal_risk_tier = $2,
+          eu_risk_reason = $3,
+          applicable_frameworks = $4::jsonb,
+          control_flags = $5::jsonb,
+          suggested_risks = $6::jsonb,
+          suggested_components = $7::jsonb,
+          vulnerability_scope = $8::jsonb,
+          bias_scope = $9::jsonb,
+          template_variables = $10::jsonb,
+          copilot_context = $11,
+          article5_warning = $12,
+          article50_note = $13,
+          gpai_warning = $14,
+          informational_notes = $15::jsonb,
+          updated_at = CURRENT_TIMESTAMP
+         WHERE project_id = $16`,
+        [
+          outputs.eu_risk_tier,
+          outputs.internal_risk_tier,
+          outputs.eu_risk_reason,
+          JSON.stringify(outputs.applicable_frameworks),
+          JSON.stringify(outputs.control_flags),
+          JSON.stringify(outputs.suggested_risks),
+          JSON.stringify(outputs.suggested_components),
+          JSON.stringify(outputs.vulnerability_scope),
+          JSON.stringify(outputs.bias_scope),
+          JSON.stringify(outputs.template_variables),
+          outputs.copilot_context,
+          outputs.article5_warning,
+          outputs.article50_note,
+          outputs.gpai_warning,
+          JSON.stringify(outputs.informational_notes),
+          projectId,
+        ]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
 
     // 4. Log audit log diff
     const diff = {

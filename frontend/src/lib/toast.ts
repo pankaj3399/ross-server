@@ -1,13 +1,13 @@
-import { toast } from 'sonner';
+import { toast, ExternalToast } from 'sonner';
 
 export const showToast = {
-  success: (message: string) => toast.success(message),
-  error: (message: string) => toast.error(message),
-  info: (message: string) => toast.info(message),
-  warning: (message: string) => toast.warning(message),
-  loading: (message: string) => toast.loading(message),
+  success: (message: string, options?: ExternalToast) => toast.success(message, options),
+  error: (message: string, options?: ExternalToast) => toast.error(message, options),
+  info: (message: string, options?: ExternalToast) => toast.info(message, options),
+  warning: (message: string, options?: ExternalToast) => toast.warning(message, options),
+  loading: (message: string, options?: ExternalToast) => toast.loading(message, options),
   dismiss: (toastId?: string | number) => toast.dismiss(toastId),
-  message: (message: string) => toast.message(message),
+  message: (message: string, options?: ExternalToast) => toast.message(message, options),
   promise: <T,>(
     promise: Promise<T>,
     options: {
