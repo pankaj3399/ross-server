@@ -37,9 +37,17 @@ const router = Router();
  * Verifies that a user has access to a project (owner, member, or platform ADMIN).
  * Returns true if access is granted, false otherwise.
  */
-async function verifyProjectAccess(projectId: string, userId: string): Promise<boolean> {
+async function verifyProjectAccess(
+    projectId: string,
+    userId: string,
+    allowedRoles?: ("OWNER" | "EDITOR" | "VIEWER")[]
+): Promise<boolean> {
     const membership = await getMembership(projectId, userId);
-    return membership !== null;
+    if (!membership) return false;
+    if (allowedRoles && allowedRoles.length > 0) {
+        return allowedRoles.includes(membership.role as any);
+    }
+    return true;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -141,7 +149,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
 
         // Verify project access (owner, member, or platform ADMIN)
-        if (!(await verifyProjectAccess(projectId, userId))) {
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -413,7 +421,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
 
         // Verify project access (owner, member, or platform ADMIN)
-        if (!(await verifyProjectAccess(projectId, userId))) {
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -488,7 +496,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
 
         // Verify project access (owner, member, or platform ADMIN)
-        if (!(await verifyProjectAccess(projectId, userId))) {
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -1049,7 +1057,7 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
         if (result.rows.length === 0) {
             // Check evaluation_status for this job
             const evalResult = await pool.query(
-                `SELECT id, user_id, project_id, job_id, status, payload, created_at 
+                `SELECT id, user_id, project_id, job_id, status, payload, total_prompts, created_at 
                  FROM evaluation_status 
                  WHERE job_id = $1 AND user_id = $2`,
                 [jobId, userId]
@@ -1061,6 +1069,11 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                 if (!terminalStatuses.includes(evalRow.status)) {
                     return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
                 }
+                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || '0');
+                const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
+                    ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
+                    : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+
                 const insertResult = await pool.query(
                     `INSERT INTO api_test_reports 
                      (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
@@ -1071,13 +1084,13 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                         evalRow.user_id,
                         evalRow.project_id,
                         evalRow.job_id,
-                        parseInt(evalRow.payload?.summary?.total || '0'),
+                        totalPrompts,
                         parseInt(evalRow.payload?.summary?.successful || '0'),
-                        parseInt(evalRow.payload?.summary?.failed || evalRow.payload?.summary?.total || '0'),
+                        parseInt(evalRow.payload?.summary?.failed || totalPrompts.toString() || '0'),
                         JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
                         JSON.stringify(evalRow.payload || {}),
                         JSON.stringify(evalRow.payload?.errors || []),
-                        JSON.stringify(evalRow.payload?.config || {}),
+                        JSON.stringify(configToSave),
                         evalRow.created_at
                     ]
                 );
@@ -1136,7 +1149,7 @@ router.get("/manual-reports/:projectId", authenticateToken, async (req, res) => 
         const userId = req.user!.id;
         
         // Verify project access (owner, member, or platform ADMIN)
-        if (!(await verifyProjectAccess(projectId, userId))) {
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         

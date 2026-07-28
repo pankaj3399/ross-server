@@ -374,7 +374,7 @@ export default function CRCRiskRegisterPage() {
       <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-5 flex-none sticky top-0 z-20 shadow-2xs w-full">
         <div className="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <Breadcrumb projectName={projectName || "Project"} projectHref={`/assess/${projectId}`} items={[{ label: "CRC Dashboard", href: projectBreadcrumbHref }, { label: "AI Risk Register" }]} />
+            <Breadcrumb projectName={projectName || "Project"} projectHref={projectBreadcrumbHref} items={[{ label: "CRC Dashboard", href: projectBreadcrumbHref }, { label: "AI Risk Register" }]} />
             <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
               CRC Compliance Feature
             </p>

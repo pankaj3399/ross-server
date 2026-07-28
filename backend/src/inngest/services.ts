@@ -827,33 +827,35 @@ export async function failJob(jobInternalId: number, message: string) {
 
     if (jobResult.rows.length > 0) {
       const { user_id, project_id, job_id, payload, total_prompts: dbTotalPrompts } = jobResult.rows[0];
-      const configToSave = payload?.type === "FAIRNESS_PROMPTS"
-        ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: payload?.totalQuestions || 20 }
-        : (payload?.config ? (sanitizeConfig(payload.config) || {}) : {});
-      const totalPrompts = payload?.summary?.total || dbTotalPrompts || 0;
-      const failedPrompts = payload?.summary?.failed || totalPrompts;
+      if (payload?.type === "FAIRNESS_API" || payload?.type === "FAIRNESS_PROMPTS") {
+        const configToSave = payload?.type === "FAIRNESS_PROMPTS"
+          ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: payload?.totalQuestions || 20 }
+          : (payload?.config ? (sanitizeConfig(payload.config) || {}) : {});
+        const totalPrompts = payload?.summary?.total || dbTotalPrompts || 0;
+        const failedPrompts = payload?.summary?.failed || totalPrompts;
 
-      await pool.query(
-        `INSERT INTO api_test_reports 
-         (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (job_id) DO UPDATE SET 
-           failure_count = EXCLUDED.failure_count,
-           results = EXCLUDED.results,
-           updated_at = NOW()`,
-        [
-          user_id,
-          project_id,
-          job_id,
-          totalPrompts,
-          0,
-          failedPrompts,
-          JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
-          JSON.stringify({ error: message, failures: [{ prompt: "API Request", reason: message }] }),
-          JSON.stringify([{ prompt: "API Request", error: message }]),
-          JSON.stringify(configToSave)
-        ]
-      );
+        await pool.query(
+          `INSERT INTO api_test_reports 
+           (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (job_id) DO UPDATE SET 
+             failure_count = EXCLUDED.failure_count,
+             results = EXCLUDED.results,
+             updated_at = NOW()`,
+          [
+            user_id,
+            project_id,
+            job_id,
+            totalPrompts,
+            0,
+            failedPrompts,
+            JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+            JSON.stringify({ error: message, failures: [{ prompt: "API Request", reason: message }] }),
+            JSON.stringify([{ prompt: "API Request", error: message }]),
+            JSON.stringify(configToSave)
+          ]
+        );
+      }
     }
   } catch (err) {
     console.error("Failed to save failed job to api_test_reports:", err);

@@ -14,9 +14,14 @@ import AICopilot from "../shared/AICopilot";
 import { AssessmentProvider } from "../../contexts/AssessmentContext";
 import { useSidebarStore, getTotalSidebarWidth } from "../../store/sidebarStore";
 
+const RESERVED_ASSESS_ROUTES = new Set(["new", "create", "admin", "list"]);
+
 const getProjectIdFromPath = (pathname: string | null): string | null => {
   const match = pathname?.match(/\/assess\/([^/]+)/i);
-  return match ? match[1] : null;
+  if (!match) return null;
+  const segment = match[1].toLowerCase();
+  if (RESERVED_ASSESS_ROUTES.has(segment)) return null;
+  return match[1];
 };
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {

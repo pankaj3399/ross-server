@@ -420,6 +420,9 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     if (status === 400 || status === 401 || status === 403 || status === 404) {
                         setProjectNotFound(true);
                         setError("Project not found or access denied");
+                    } else if (!controller.signal.aborted) {
+                        setError(e?.message || "Failed to load project details.");
+                        showToast.error("Failed to load project details.");
                     }
                 }
 
