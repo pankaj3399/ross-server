@@ -1,6 +1,7 @@
 import pool from "../config/database";
 import dns from "dns";
 import type { EvaluationPayload } from "../services/evaluateFairness";
+import { getMembership } from "../services/projectMembershipService";
 
 export const FAIRNESS_PASS_THRESHOLD = 0.6;
 import { sanitizeConfig } from "../utils/sanitize";
@@ -959,12 +960,8 @@ export async function processAutomatedApiTest(
   const config = normalizeFairnessApiJobConfig(payload.config);
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [config.projectId, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(config.projectId, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });
@@ -1182,12 +1179,8 @@ export async function processManualPromptTest(
   }
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [job.project_id, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(job.project_id, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });
@@ -1267,11 +1260,8 @@ export async function processSecurityScan(
   }
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [payload.config.projectId, job.user_id],
-    );
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(payload.config.projectId, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });

@@ -2,6 +2,7 @@ import pool from "../config/database";
 import { getCurrentVersion } from "./getCurrentVersion";
 import { sanitizeNote, sanitizeAIResponse, sanitizeForPrompt } from "../utils/sanitize";
 import { isAnthropicConfigured, callClaudeJSON } from "./anthropicClient";
+import { getMembership } from "./projectMembershipService";
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
 const LANGFAIR_TIMEOUT_MS = parseInt(process.env.LANGFAIR_TIMEOUT_MS || "30000", 10); // Default 30 seconds
@@ -47,17 +48,17 @@ export async function evaluateFairnessResponse(
         throw new Error("Anthropic (Claude) is not configured");
     }
 
-    // Verify project belongs to user before processing or evaluating
-    const projectCheck = await pool.query(
-        "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-        [projectId, userId]
-    );
-
-    if (projectCheck.rows.length === 0) {
+    // Verify project access (owner, member, or platform ADMIN)
+    const membership = await getMembership(projectId, userId);
+    if (!membership) {
         throw new Error("Project not found");
     }
 
-    const project = projectCheck.rows[0];
+    const projectCheck = await pool.query(
+        "SELECT id, version_id FROM projects WHERE id = $1",
+        [projectId]
+    );
+    const project = projectCheck.rows[0] || {};
     const versionId = project.version_id || (await getCurrentVersion()).id;
 
     // Sanitize user response and question text

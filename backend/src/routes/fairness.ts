@@ -29,8 +29,18 @@ import {
 } from "../shared/responseKeyRegex";
 
 import { isPublicApiUrl } from "../utils/validateUrl";
+import { getMembership } from "../services/projectMembershipService";
 
 const router = Router();
+
+/**
+ * Verifies that a user has access to a project (owner, member, or platform ADMIN).
+ * Returns true if access is granted, false otherwise.
+ */
+async function verifyProjectAccess(projectId: string, userId: string): Promise<boolean> {
+    const membership = await getMembership(projectId, userId);
+    return membership !== null;
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -130,13 +140,8 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -407,13 +412,8 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
         const { projectId, responses, totalQuestions } = evaluatePromptsSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -487,13 +487,8 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         const { projectId, apiUrl, responseKey, requestTemplate, apiKey, apiKeyPlacement, apiKeyFieldName } = evaluateApiSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -586,11 +581,8 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
             });
         }
 
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -735,13 +727,8 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
@@ -803,13 +790,8 @@ router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
@@ -864,13 +846,8 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         
@@ -940,13 +917,8 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         
@@ -1150,13 +1122,8 @@ router.get("/manual-reports/:projectId", authenticateToken, async (req, res) => 
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         
