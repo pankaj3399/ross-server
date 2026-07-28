@@ -214,6 +214,17 @@ export default function ApiReportDetailPage() {
             </header>
 
             <div className={`w-full px-0 py-8 ${isSecurityReport ? "space-y-8" : "space-y-6"}`}>
+                {((report.results as any)?.error || (report.results as any)?.status === "failed") && (
+                    <div className="mx-8 bg-destructive/10 border border-destructive/30 rounded-2xl p-6 flex items-start gap-4 shadow-xs">
+                        <AlertTriangle className="w-6 h-6 text-destructive shrink-0 mt-0.5" />
+                        <div>
+                            <h4 className="text-base font-bold text-destructive mb-1">Automated Scan Failed</h4>
+                            <p className="text-sm text-foreground/90 font-medium">
+                                {(report.results as any)?.error || "All target API requests failed or endpoint was unreachable."}
+                            </p>
+                        </div>
+                    </div>
+                )}
                 {/* Stats Grid */}
                 <div className={`grid gap-4 ${isSecurityReport ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 md:grid-cols-4"} pdf-metric-grid break-inside-avoid pdf-break-safe pdf-section`}>
                     <div className="bg-card border border-border rounded-xl p-6 shadow-sm break-inside-avoid pdf-break-safe">

@@ -649,24 +649,25 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen relative">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-center space-x-3 mb-2">
-            <IconSettings className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-foreground">
-              Account Settings
-            </h1>
+    <div className="bg-background min-h-screen relative flex flex-col w-full">
+      {/* Sticky Top Header */}
+      <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <div className="flex items-center space-x-3 mb-1">
+              <IconSettings className="w-8 h-8 text-primary" />
+              <h1 className="text-3xl font-bold text-foreground">
+                Account Settings
+              </h1>
+            </div>
+            <p className="text-muted-foreground text-sm">
+              Manage your account preferences, security settings, and subscriptions.
+            </p>
           </div>
-          <p className="text-muted-foreground">
-            Manage your account preferences, security settings, and subscriptions.
-          </p>
-        </motion.div>
+        </div>
+      </div>
+
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

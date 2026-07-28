@@ -114,8 +114,21 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
         );
     }
 
-    const getStatusBadge = (success: number, failure: number) => {
+    const getStatusBadge = (report: ApiReport) => {
+        const success = report.success_count;
+        const failure = report.failure_count;
         const total = success + failure;
+        const hasError = (report.results as any)?.error != null || (report.results as any)?.status === "failed";
+
+        if (hasError || (success === 0 && failure > 0) || (total === 0 && hasError)) {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Failed {total > 0 ? `(${failure}/${total})` : ""}
+                </span>
+            );
+        }
+
         if (total === 0) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">
@@ -124,18 +137,12 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                 </span>
             );
         }
+
         if (failure === 0 && success > 0) {
             return (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
                     <CheckCircle className="w-3.5 h-3.5" />
                     Success ({success}/{total})
-                </span>
-            );
-        } else if (success === 0 && failure > 0) {
-            return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
-                    <XCircle className="w-3.5 h-3.5" />
-                    Failed ({failure}/{total})
                 </span>
             );
         } else {
@@ -229,7 +236,7 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {getStatusBadge(report.success_count, report.failure_count)}
+                                            {getStatusBadge(report)}
                                         </td>
                                         <td className="px-6 py-4 font-medium">
                                             {report.config?.testType === "SECURITY_SCAN"

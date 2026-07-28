@@ -768,7 +768,7 @@ export async function markJobCompleted(
             // For API tests, we sanitize the existing config
             const configToSave = payload.type === "FAIRNESS_API" 
                 ? (sanitizeConfig(payload.config) || {})
-                : { testType: "MANUAL_PROMPT_TEST" };
+                : { testType: "MANUAL_PROMPT_TEST", totalQuestions: (payload as any).totalQuestions || 20 };
 
             await pool.query(
                 `INSERT INTO api_test_reports 
@@ -807,6 +807,44 @@ export async function failJob(jobInternalId: number, message: string) {
      WHERE id = $2`,
     [JSON.stringify({ error: message }), jobInternalId],
   );
+
+  try {
+    const jobResult = await pool.query(
+      `SELECT user_id, project_id, job_id, payload FROM evaluation_status WHERE id = $1`,
+      [jobInternalId]
+    );
+
+    if (jobResult.rows.length > 0) {
+      const { user_id, project_id, job_id, payload } = jobResult.rows[0];
+      const configToSave = payload?.config ? sanitizeConfig(payload.config) : {};
+      const totalPrompts = payload?.summary?.total || 0;
+      const failedPrompts = payload?.summary?.failed || totalPrompts;
+
+      await pool.query(
+        `INSERT INTO api_test_reports 
+         (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (job_id) DO UPDATE SET 
+           failure_count = EXCLUDED.failure_count,
+           results = EXCLUDED.results,
+           updated_at = NOW()`,
+        [
+          user_id,
+          project_id,
+          job_id,
+          totalPrompts,
+          0,
+          failedPrompts,
+          JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+          JSON.stringify({ error: message, failures: [{ prompt: "API Request", reason: message }] }),
+          JSON.stringify([{ prompt: "API Request", error: message }]),
+          JSON.stringify(configToSave)
+        ]
+      );
+    }
+  } catch (err) {
+    console.error("Failed to save failed job to api_test_reports:", err);
+  }
 }
 
 export type SecurityScanReport = {

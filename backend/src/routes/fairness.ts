@@ -71,6 +71,7 @@ const evaluatePromptsSchema = z.object({
         prompt: z.string().min(1),
         response: z.string().min(1),
     })).min(1, "At least one response is required"),
+    totalQuestions: z.number().optional(),
 });
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
@@ -403,7 +404,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
 // POST /fairness/evaluate-prompts - Create a job for manual prompt testing
 router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
     try {
-        const { projectId, responses } = evaluatePromptsSchema.parse(req.body);
+        const { projectId, responses, totalQuestions } = evaluatePromptsSchema.parse(req.body);
         const userId = req.user!.id;
 
         // Verify project belongs to user
@@ -424,6 +425,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
         // Create job payload with responses
         const jobPayload = {
             type: "FAIRNESS_PROMPTS",
+            totalQuestions: totalQuestions || 20,
             responses: responses.map(r => ({
                 category: r.category,
                 prompt: r.prompt,
@@ -952,6 +954,32 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
         const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
 
+        // Auto-backfill any failed jobs for this project from evaluation_status into api_test_reports
+        try {
+            await pool.query(
+                `INSERT INTO api_test_reports (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                 SELECT 
+                     e.user_id, 
+                     e.project_id, 
+                     e.job_id, 
+                     COALESCE((e.payload->'summary'->>'total')::int, 0) as total_prompts,
+                     COALESCE((e.payload->'summary'->>'successful')::int, 0) as success_count,
+                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, 0)) as failure_count,
+                     '{"averageOverallScore": 0}'::jsonb as average_scores,
+                     COALESCE(e.payload, '{}'::jsonb) as results,
+                     '[]'::jsonb as errors,
+                     COALESCE(e.payload->'config', '{}'::jsonb) as config,
+                     e.created_at
+                 FROM evaluation_status e
+                 LEFT JOIN api_test_reports r ON e.job_id = r.job_id
+                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status = 'failed' AND r.id IS NULL
+                 ON CONFLICT (job_id) DO NOTHING`,
+                [projectId, userId]
+            );
+        } catch (backfillErr) {
+            console.error("Backfill failed jobs error (non-fatal):", backfillErr);
+        }
+
         // Fetch reports for this project with pagination
         const countResult = await pool.query(
              `SELECT COUNT(*) as total
@@ -996,8 +1024,6 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
     try {
         const { reportId } = req.params;
         const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
-        
-        // Validate UUID format
 
         // Validate UUID format
         if (!UUID_REGEX.test(reportId)) {
@@ -1033,13 +1059,49 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
         const { jobId } = req.params;
         const userId = req.user!.id;
         
-        const result = await pool.query(
+        let result = await pool.query(
             `SELECT id FROM api_test_reports
              WHERE job_id = $1 AND user_id = $2`,
             [jobId, userId]
         );
         
         if (result.rows.length === 0) {
+            // Check evaluation_status for this job
+            const evalResult = await pool.query(
+                `SELECT id, user_id, project_id, job_id, status, payload, created_at 
+                 FROM evaluation_status 
+                 WHERE job_id = $1 AND user_id = $2`,
+                [jobId, userId]
+            );
+
+            if (evalResult.rows.length > 0) {
+                const evalRow = evalResult.rows[0];
+                const insertResult = await pool.query(
+                    `INSERT INTO api_test_reports 
+                     (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     ON CONFLICT (job_id) DO UPDATE SET updated_at = NOW()
+                     RETURNING id`,
+                    [
+                        evalRow.user_id,
+                        evalRow.project_id,
+                        evalRow.job_id,
+                        parseInt(evalRow.payload?.summary?.total || '0'),
+                        parseInt(evalRow.payload?.summary?.successful || '0'),
+                        parseInt(evalRow.payload?.summary?.failed || evalRow.payload?.summary?.total || '0'),
+                        JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                        JSON.stringify(evalRow.payload || {}),
+                        JSON.stringify(evalRow.payload?.errors || []),
+                        JSON.stringify(evalRow.payload?.config || {}),
+                        evalRow.created_at
+                    ]
+                );
+                return res.json({
+                    success: true,
+                    reportId: insertResult.rows[0].id
+                });
+            }
+
             return res.status(404).json({ error: "Report not found or access denied" });
         }
         

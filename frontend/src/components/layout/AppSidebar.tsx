@@ -42,6 +42,7 @@ import {
   IconCpu,
   IconLoader2,
   IconSearch,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -1270,6 +1271,17 @@ function SidebarContentComponent() {
                         >
                           <IconLayoutDashboard className="size-4 text-[var(--section-premium)] shrink-0" />
                           <span className="text-sm font-medium truncate">CRC Dashboard</span>
+                        </SidebarMenuButton>
+                        <SidebarMenuButton
+                          onClick={() => handleProjectNav("/crc/risks")}
+                          isActive={routeFlags.isRiskRegisterPage}
+                          className={cn(
+                            "h-8 px-2 transition-all",
+                            routeFlags.isRiskRegisterPage && "border-l-[3px] border-[var(--section-premium)] bg-[var(--section-premium)]/10 text-[var(--section-premium)] pl-1.5 font-semibold rounded-l-none rounded-r-md"
+                          )}
+                        >
+                          <IconAlertTriangle className="size-4 text-[var(--section-premium)] shrink-0" />
+                          <span className="text-sm font-medium truncate">AI Risk Register</span>
                         </SidebarMenuButton>
 
                         {/* Categories */}

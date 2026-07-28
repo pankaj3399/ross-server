@@ -87,9 +87,9 @@ export default function FairnessJobPage() {
     return () => clearInterval(refreshInterval);
   }, [jobStatus?.status, router]);
 
-  // Auto redirect when completed
+  // Auto redirect when completed or failed
   useEffect(() => {
-    const completedStatuses = ["completed", "success", "partial_success"];
+    const completedStatuses = ["completed", "success", "partial_success", "failed"];
     if (jobStatus?.status && completedStatuses.includes(jobStatus.status) && !redirectScheduled) {
       setRedirectScheduled(true);
 
@@ -383,7 +383,7 @@ export default function FairnessJobPage() {
                 }
               }
             }}
-            disabled={!jobStatus || !["completed", "success", "partial_success"].includes(jobStatus.status)}
+            disabled={!jobStatus || !FINAL_STATUSES.includes(jobStatus.status)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             View report

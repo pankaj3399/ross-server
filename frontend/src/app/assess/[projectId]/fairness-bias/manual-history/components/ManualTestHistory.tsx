@@ -216,7 +216,7 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                                         Manual Evaluation
                                                     </div>
                                                       <div className="text-xs text-muted-foreground">
-                                                          {report.total_prompts} of {(report as any).config?.totalQuestions || (report as any).config?.total_questions || report.total_prompts || 20} prompts answered
+                                                          {report.total_prompts} of {(report as any).config?.totalQuestions || (report as any).config?.total_questions || 20} prompts answered
                                                       </div>
                                                 </div>
                                             </div>

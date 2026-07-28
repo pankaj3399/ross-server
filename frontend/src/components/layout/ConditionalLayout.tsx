@@ -60,9 +60,9 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
       } as React.CSSProperties}
     >
       <AppSidebar />
-      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30 min-w-0 overflow-hidden">
+      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30 min-w-0 h-screen overflow-hidden flex flex-col">
         <TrialBanner />
-        <main className="flex-1 bg-background relative flex flex-col min-h-0 min-w-0 overflow-x-hidden">{children}</main>
+        <main className="flex-1 bg-background relative flex flex-col min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">{children}</main>
       </SidebarInset>
       {isAuthenticated && <AICopilot />}
     </SidebarProvider>

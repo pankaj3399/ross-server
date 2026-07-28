@@ -719,39 +719,41 @@ export default function AdminQuestions() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-4xl font-bold mb-2 text-primary">
-                AIMA Data Management
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Manage domains, practices, and questions for the AIMA assessment
-                framework.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <Button
-                onClick={handleDownloadWaitlistEmails}
-                isLoading={downloadingEmails}
-                disabled={downloadingEmails}
-                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-xl shadow-sm"
-              >
-                {!downloadingEmails && <IconDownload className="w-5 h-5 mr-2" />}
-                {downloadingEmails ? "Downloading..." : "Download Waitlist Emails"}
-              </Button>
-              <button
-                onClick={handleAddDomain}
-                className="inline-flex items-center px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-medium rounded-xl transition-all duration-200 transform hover:scale-105 shadow-sm"
-              >
-                <IconPlus className="w-5 h-5 mr-2" />
-                Add New Domain
-              </button>
-            </div>
+    <div className="min-h-screen bg-background flex flex-col w-full">
+      {/* Sticky Header */}
+      <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
+        <div className="w-full max-w-6xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-primary tracking-tight mb-1">
+              AIMA Data Management
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              Manage domains, practices, and questions for the AIMA assessment framework.
+            </p>
           </div>
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+          <div className="flex gap-3">
+            <Button
+              onClick={handleDownloadWaitlistEmails}
+              isLoading={downloadingEmails}
+              disabled={downloadingEmails}
+              className="bg-secondary hover:bg-secondary/80 text-secondary-foreground font-medium rounded-xl shadow-xs"
+            >
+              {!downloadingEmails && <IconDownload className="w-5 h-5 mr-2" />}
+              {downloadingEmails ? "Downloading..." : "Download Waitlist Emails"}
+            </Button>
+            <Button
+              onClick={handleAddDomain}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow-primary/20 transition-all duration-200"
+            >
+              <IconPlus className="w-5 h-5 mr-2" />
+              Add New Domain
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-6 w-full space-y-6">
+        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-card-foreground mb-4">
               Summary
             </h2>
@@ -782,8 +784,6 @@ export default function AdminQuestions() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* Industry Analytics Section */}
       <div className="my-8">
@@ -1521,6 +1521,7 @@ export default function AdminQuestions() {
           </div>
         )
       }
-    </div >
+      </div>
+    </div>
   );
 }

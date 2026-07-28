@@ -44,21 +44,37 @@ export async function getMembership(
     [projectId, userId],
   );
 
-  if (projectResult.rows.length === 0) {
-    return null;
+  if (projectResult.rows.length > 0) {
+    const project = projectResult.rows[0];
+    return {
+      id: `implicit-owner-${project.id}-${project.user_id}`,
+      project_id: project.id,
+      user_id: project.user_id,
+      role: "OWNER",
+      permissions: ["*"],
+      created_at: project.created_at,
+      updated_at: project.updated_at,
+    };
   }
 
-  const project = projectResult.rows[0];
+  // Fallback 2: Platform ADMIN users have full access to all projects
+  const userResult = await pool.query(
+    `SELECT role FROM users WHERE id = $1`,
+    [userId]
+  );
+  if (userResult.rows.length > 0 && userResult.rows[0].role === "ADMIN") {
+    return {
+      id: `admin-owner-${projectId}-${userId}`,
+      project_id: projectId,
+      user_id: userId,
+      role: "OWNER",
+      permissions: ["*"],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
 
-  return {
-    id: `implicit-owner-${project.id}-${project.user_id}`,
-    project_id: project.id,
-    user_id: project.user_id,
-    role: "OWNER",
-    permissions: [],
-    created_at: project.created_at,
-    updated_at: project.updated_at,
-  };
+  return null;
 }
 
 type DbClient = PoolClient | typeof pool;

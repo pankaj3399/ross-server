@@ -71,6 +71,19 @@ export const requireProjectRole =
           .json({ error: "Project identifier is missing for access check" });
       }
 
+      if (req.user.role === "ADMIN") {
+        req.projectMembership = {
+          id: `admin-${projectId}-${req.user.id}`,
+          project_id: projectId,
+          user_id: req.user.id,
+          role: "OWNER",
+          permissions: ["*"],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        return next();
+      }
+
       const membership = await getMembership(projectId, req.user.id);
 
       if (!membership) {
@@ -107,6 +120,19 @@ export const requireProjectPermission =
         return res
           .status(400)
           .json({ error: "Project identifier is missing for access check" });
+      }
+
+      if (req.user.role === "ADMIN") {
+        req.projectMembership = {
+          id: `admin-${projectId}-${req.user.id}`,
+          project_id: projectId,
+          user_id: req.user.id,
+          role: "OWNER",
+          permissions: ["*"],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        return next();
       }
 
       const membership =

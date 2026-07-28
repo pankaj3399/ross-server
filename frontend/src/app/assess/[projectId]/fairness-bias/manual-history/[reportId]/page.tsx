@@ -206,10 +206,10 @@ export default function ManualReportDetailPage() {
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Total Prompts</div>
                         <div className="text-2xl font-bold text-foreground">
-                            {report.total_prompts} <span className="text-base font-normal text-muted-foreground">/ 20</span>
+                            {report.total_prompts} <span className="text-base font-normal text-muted-foreground">/ {(report as any).config?.totalQuestions || (report as any).config?.total_questions || 20}</span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                            {report.total_prompts} of 20 prompts answered
+                            {report.total_prompts} of {(report as any).config?.totalQuestions || (report as any).config?.total_questions || 20} prompts answered
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">

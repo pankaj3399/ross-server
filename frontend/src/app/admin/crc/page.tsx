@@ -1402,34 +1402,37 @@ export default function CRCAdminPage() {
 
     // --- List View ---
     return (
-        <div className="flex flex-col h-full bg-background p-6">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">CRC Controls</h1>
-                    <p className="text-muted-foreground mt-2">Manage Compliance Readiness Controls (CRC) and requirements.</p>
-                </div>
-                <div className="flex gap-2">
-                    {selectedIds.size > 0 && (
-                        <Button variant="destructive" onClick={() => setShowBulkDeleteConfirm(true)} size="lg">
-                            <IconTrash className="mr-2 size-5" /> Delete Selected ({selectedIds.size})
+        <div className="flex flex-col min-h-screen bg-background w-full">
+            {/* Sticky Header */}
+            <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-5 flex-none sticky top-0 z-20 shadow-2xs w-full">
+                <div className="w-full flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight text-foreground">CRC Controls</h1>
+                        <p className="text-muted-foreground mt-1 text-sm">Manage Compliance Readiness Controls (CRC) and requirements.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        {selectedIds.size > 0 && (
+                            <Button variant="destructive" onClick={() => setShowBulkDeleteConfirm(true)} size="lg">
+                                <IconTrash className="mr-2 size-5" /> Delete Selected ({selectedIds.size})
+                            </Button>
+                        )}
+                        <Button variant="outline" onClick={() => setShowCategoryDialog(true)} size="lg">
+                            <IconFolder className="mr-2 size-5" /> Manage Categories
                         </Button>
-                    )}
-                    <Button variant="outline" onClick={() => setShowCategoryDialog(true)} size="lg">
-                        <IconFolder className="mr-2 size-5" /> Manage Categories
-                    </Button>
-                    <Button variant="outline" onClick={openBulkDialog} size="lg">
-                        <IconUpload className="mr-2 size-5" /> Bulk controls
-                    </Button>
-                    <Button variant="outline" onClick={() => setShowTemplateBulkDialog(true)} size="lg">
-                        <IconUpload className="mr-2 size-5" /> Bulk templates
-                    </Button>
-                    <Button onClick={handleCreate} size="lg">
-                        <IconPlus className="mr-2 size-5" /> Create Control
-                    </Button>
+                        <Button variant="outline" onClick={openBulkDialog} size="lg">
+                            <IconUpload className="mr-2 size-5" /> Bulk controls
+                        </Button>
+                        <Button variant="outline" onClick={() => setShowTemplateBulkDialog(true)} size="lg">
+                            <IconUpload className="mr-2 size-5" /> Bulk templates
+                        </Button>
+                        <Button onClick={handleCreate} size="lg">
+                            <IconPlus className="mr-2 size-5" /> Create Control
+                        </Button>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-col gap-4">
+            <div className="p-6 flex flex-col gap-4">
                 {/* Actions Bar */}
                 <div className="flex flex-wrap items-center gap-4 bg-card p-4 rounded-lg border shadow-sm">
                     <div className="flex items-center gap-2 flex-1 min-w-[300px]">

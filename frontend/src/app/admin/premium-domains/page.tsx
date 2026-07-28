@@ -675,22 +675,25 @@ export default function PremiumDomainsAdmin() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-6">
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-6">
+        <div className="min-h-screen bg-background flex flex-col w-full">
+            {/* Sticky Header */}
+            <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
+                <div className="w-full max-w-6xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <IconCrown className="w-8 h-8 text-primary shrink-0" />
                         <div>
-                            <div className="flex items-center gap-3">
-                                <IconCrown className="w-10 h-10 text-primary" />
-                                <h1 className="text-4xl font-bold text-primary">
-                                    Premium Domains
-                                </h1>
-                            </div>
-                            <p className="text-muted-foreground text-lg mt-2">
+                            <h1 className="text-3xl font-bold text-primary tracking-tight">
+                                Premium Domains
+                            </h1>
+                            <p className="text-muted-foreground text-sm mt-0.5">
                                 Manage premium domains, practices, and questions for the AIMA assessment framework.
                             </p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto p-6 w-full space-y-6">
                     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                         <h2 className="text-xl font-semibold text-card-foreground mb-4 flex items-center gap-2">
                             <IconCrown className="w-5 h-5 text-primary" />
@@ -724,7 +727,6 @@ export default function PremiumDomainsAdmin() {
                         </div>
                     </div>
                 </div>
-            </div>
 
             {aimaData.data.domains.length === 0 ? (
                 <div className="max-w-6xl mx-auto">
