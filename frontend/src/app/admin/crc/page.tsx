@@ -1405,12 +1405,12 @@ export default function CRCAdminPage() {
         <div className="flex flex-col min-h-screen bg-background w-full">
             {/* Sticky Header */}
             <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-5 flex-none sticky top-0 z-20 shadow-2xs w-full">
-                <div className="w-full flex items-center justify-between">
+                <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-foreground">CRC Controls</h1>
                         <p className="text-muted-foreground mt-1 text-sm">Manage Compliance Readiness Controls (CRC) and requirements.</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         {selectedIds.size > 0 && (
                             <Button variant="destructive" onClick={() => setShowBulkDeleteConfirm(true)} size="lg">
                                 <IconTrash className="mr-2 size-5" /> Delete Selected ({selectedIds.size})

@@ -371,7 +371,7 @@ export default function AdminChatbotSettings() {
     <div className="min-h-screen bg-background flex flex-col w-full">
       {/* Sticky Header */}
       <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
-        <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-4">
+        <div className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <IconMessageChatbot className="w-7 h-7 text-primary animate-pulse" />
@@ -383,7 +383,7 @@ export default function AdminChatbotSettings() {
               Manage custom rules and administrative instructions that extend the AI Copilot's system prompt dynamically.
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
+          <div className="flex flex-wrap gap-3">
             <Button
               onClick={() => setShowPromptPreview(!showPromptPreview)}
               variant="outline"

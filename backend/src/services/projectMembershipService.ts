@@ -57,21 +57,27 @@ export async function getMembership(
     };
   }
 
-  // Fallback 2: Platform ADMIN users have full access to all projects
-  const userResult = await pool.query(
-    `SELECT role FROM users WHERE id = $1`,
-    [userId]
+  // Fallback 2: Platform ADMIN users have full access to existing projects
+  const projectExists = await pool.query(
+    `SELECT id FROM projects WHERE id = $1`,
+    [projectId]
   );
-  if (userResult.rows.length > 0 && userResult.rows[0].role === "ADMIN") {
-    return {
-      id: `admin-owner-${projectId}-${userId}`,
-      project_id: projectId,
-      user_id: userId,
-      role: "OWNER",
-      permissions: ["*"],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+  if (projectExists.rows.length > 0) {
+    const userResult = await pool.query(
+      `SELECT role FROM users WHERE id = $1`,
+      [userId]
+    );
+    if (userResult.rows.length > 0 && userResult.rows[0].role === "ADMIN") {
+      return {
+        id: `admin-owner-${projectId}-${userId}`,
+        project_id: projectId,
+        user_id: userId,
+        role: "OWNER",
+        permissions: ["*"],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
   }
 
   return null;

@@ -81,7 +81,7 @@ const evaluatePromptsSchema = z.object({
         prompt: z.string().min(1),
         response: z.string().min(1),
     })).min(1, "At least one response is required"),
-    totalQuestions: z.number().optional(),
+    totalQuestions: z.number().int("totalQuestions must be an integer").positive("totalQuestions must be positive").optional(),
 });
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
@@ -934,13 +934,22 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.user_id, 
                      e.project_id, 
                      e.job_id, 
-                     COALESCE((e.payload->'summary'->>'total')::int, 0) as total_prompts,
+                     COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0)) as total_prompts,
                      COALESCE((e.payload->'summary'->>'successful')::int, 0) as success_count,
-                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, 0)) as failure_count,
-                     '{"averageOverallScore": 0}'::jsonb as average_scores,
-                     COALESCE(e.payload, '{}'::jsonb) as results,
-                     '[]'::jsonb as errors,
-                     COALESCE(e.payload->'config', '{}'::jsonb) as config,
+                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0))) as failure_count,
+                     '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb as average_scores,
+                     CASE 
+                       WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
+                       ELSE COALESCE(e.payload, '{}'::jsonb)
+                     END as results,
+                     CASE 
+                       WHEN e.payload ? 'error' THEN jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'error', e.payload->>'error'))
+                       ELSE COALESCE(e.payload->'errors', '[]'::jsonb)
+                     END as errors,
+                     CASE
+                       WHEN e.payload->>'type' = 'FAIRNESS_PROMPTS' THEN jsonb_build_object('testType', 'MANUAL_PROMPT_TEST', 'totalQuestions', COALESCE((e.payload->>'totalQuestions')::int, 20))
+                       ELSE COALESCE(e.payload->'config', '{}'::jsonb)
+                     END as config,
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
@@ -1048,6 +1057,10 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
 
             if (evalResult.rows.length > 0) {
                 const evalRow = evalResult.rows[0];
+                const terminalStatuses = ["failed", "completed", "success", "partial_success"];
+                if (!terminalStatuses.includes(evalRow.status)) {
+                    return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
+                }
                 const insertResult = await pool.query(
                     `INSERT INTO api_test_reports 
                      (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)

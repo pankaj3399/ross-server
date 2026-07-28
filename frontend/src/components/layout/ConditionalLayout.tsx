@@ -15,7 +15,7 @@ import { AssessmentProvider } from "../../contexts/AssessmentContext";
 import { useSidebarStore, getTotalSidebarWidth } from "../../store/sidebarStore";
 
 const getProjectIdFromPath = (pathname: string | null): string | null => {
-  const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
+  const match = pathname?.match(/\/assess\/([^/]+)/i);
   return match ? match[1] : null;
 };
 

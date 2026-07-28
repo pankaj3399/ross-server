@@ -52,7 +52,7 @@ function mapRowToAnswers(row: any): WizardAnswers {
 }
 
 // GET /wizard/:projectId/status - Check wizard status
-router.get("/:projectId/status", authenticateToken, loadProject, async (req, res) => {
+router.get("/:projectId/status", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
   try {
     const projectId = req.params.projectId;
 

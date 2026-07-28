@@ -722,7 +722,7 @@ export default function AdminQuestions() {
     <div className="min-h-screen bg-background flex flex-col w-full">
       {/* Sticky Header */}
       <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
-        <div className="w-full max-w-6xl mx-auto flex items-center justify-between">
+        <div className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-primary tracking-tight mb-1">
               AIMA Data Management
@@ -731,7 +731,7 @@ export default function AdminQuestions() {
               Manage domains, practices, and questions for the AIMA assessment framework.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               onClick={handleDownloadWaitlistEmails}
               isLoading={downloadingEmails}

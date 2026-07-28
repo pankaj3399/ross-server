@@ -1558,6 +1558,14 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
     try {
       await client.query("BEGIN");
 
+      // Ensure row exists so FOR UPDATE acquires a lock even when no wizard output row initially exists
+      await client.query(
+        `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
+         VALUES ($1, '{}'::jsonb, CURRENT_TIMESTAMP)
+         ON CONFLICT (project_id) DO NOTHING`,
+        [projectId]
+      );
+
       const wizardResult = await client.query(
         `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
         [projectId]

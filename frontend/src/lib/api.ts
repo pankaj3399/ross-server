@@ -924,7 +924,7 @@ class ApiService {
       prompt: string;
       response: string;
     }>;
-    totalQuestions?: number;
+    totalQuestions: number;
   }): Promise<{
     jobId: string;
     totalPrompts: number;

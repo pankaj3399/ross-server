@@ -111,10 +111,8 @@ export default function FairnessJobPage() {
           }
         }
 
-        // Fallback
-        setTimeout(() => {
-          router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
-        }, 1500);
+        // Fallback: stay on terminal job page so retryable state is accessible
+        console.warn("Report not available for redirect, remaining on job page.");
       };
 
       fetchAndRedirect();
