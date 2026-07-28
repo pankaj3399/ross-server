@@ -1,6 +1,7 @@
 import pool from "../config/database";
 import dns from "dns";
 import type { EvaluationPayload } from "../services/evaluateFairness";
+import { getMembership } from "../services/projectMembershipService";
 
 export const FAIRNESS_PASS_THRESHOLD = 0.6;
 import { sanitizeConfig } from "../utils/sanitize";
@@ -35,6 +36,7 @@ export type FairnessApiJobPayloadExtended = FairnessApiJobPayload & {
 
 export type FairnessPromptsJobPayloadExtended = FairnessPromptsJobPayload & {
   itemStatuses?: Record<string, "success" | "failed">;
+  totalQuestions?: number;
 };
 
 // Discriminated union of all possible payload shapes
@@ -768,12 +770,21 @@ export async function markJobCompleted(
             // For API tests, we sanitize the existing config
             const configToSave = payload.type === "FAIRNESS_API" 
                 ? (sanitizeConfig(payload.config) || {})
-                : { testType: "MANUAL_PROMPT_TEST" };
+                : { testType: "MANUAL_PROMPT_TEST", totalQuestions: payload.totalQuestions || 20 };
 
             await pool.query(
                 `INSERT INTO api_test_reports 
                  (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                 ON CONFLICT (job_id) DO UPDATE SET
+                   total_prompts = EXCLUDED.total_prompts,
+                   success_count = EXCLUDED.success_count,
+                   failure_count = EXCLUDED.failure_count,
+                   average_scores = EXCLUDED.average_scores,
+                   results = EXCLUDED.results,
+                   errors = EXCLUDED.errors,
+                   config = EXCLUDED.config,
+                   updated_at = NOW()`,
                 [
                     user_id,
                     project_id,
@@ -807,6 +818,48 @@ export async function failJob(jobInternalId: number, message: string) {
      WHERE id = $2`,
     [JSON.stringify({ error: message }), jobInternalId],
   );
+
+  try {
+    const jobResult = await pool.query(
+      `SELECT user_id, project_id, job_id, payload, total_prompts FROM evaluation_status WHERE id = $1`,
+      [jobInternalId]
+    );
+
+    if (jobResult.rows.length > 0) {
+      const { user_id, project_id, job_id, payload, total_prompts: dbTotalPrompts } = jobResult.rows[0];
+      if (payload?.type === "FAIRNESS_API" || payload?.type === "FAIRNESS_PROMPTS") {
+        const configToSave = payload?.type === "FAIRNESS_PROMPTS"
+          ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: payload?.totalQuestions || 20 }
+          : (payload?.config ? (sanitizeConfig(payload.config) || {}) : {});
+        const totalPrompts = payload?.summary?.total || dbTotalPrompts || 0;
+        const failedPrompts = payload?.summary?.failed || totalPrompts;
+
+        await pool.query(
+          `INSERT INTO api_test_reports 
+           (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (job_id) DO UPDATE SET 
+             failure_count = EXCLUDED.failure_count,
+             results = EXCLUDED.results,
+             updated_at = NOW()`,
+          [
+            user_id,
+            project_id,
+            job_id,
+            totalPrompts,
+            0,
+            failedPrompts,
+            JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+            JSON.stringify({ error: message, failures: [{ prompt: "API Request", reason: message }] }),
+            JSON.stringify([{ prompt: "API Request", error: message }]),
+            JSON.stringify(configToSave)
+          ]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Failed to save failed job to api_test_reports:", err);
+  }
 }
 
 export type SecurityScanReport = {
@@ -921,12 +974,8 @@ export async function processAutomatedApiTest(
   const config = normalizeFairnessApiJobConfig(payload.config);
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [config.projectId, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(config.projectId, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });
@@ -1144,12 +1193,8 @@ export async function processManualPromptTest(
   }
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [job.project_id, job.user_id],
-    );
-
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(job.project_id, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });
@@ -1229,11 +1274,8 @@ export async function processSecurityScan(
   }
 
   await step.run("verify-project", async () => {
-    const projectCheck = await pool.query(
-      "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-      [payload.config.projectId, job.user_id],
-    );
-    if (projectCheck.rowCount === 0) {
+    const membership = await getMembership(payload.config.projectId, job.user_id);
+    if (!membership) {
       throw new Error("Project not found or access denied for this job");
     }
   });

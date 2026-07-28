@@ -52,7 +52,7 @@ function mapRowToAnswers(row: any): WizardAnswers {
 }
 
 // GET /wizard/:projectId/status - Check wizard status
-router.get("/:projectId/status", authenticateToken, loadProject, async (req, res) => {
+router.get("/:projectId/status", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR", "VIEWER"]), async (req, res) => {
   try {
     const projectId = req.params.projectId;
 
@@ -252,6 +252,10 @@ router.post("/:projectId/complete", authenticateToken, loadProject, requireProje
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO wizard_engine_outputs (project_id) VALUES ($1) ON CONFLICT (project_id) DO NOTHING`,
+        [projectId]
+      );
       const existingEngineResult = await client.query(
         `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
         [projectId]

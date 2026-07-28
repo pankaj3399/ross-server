@@ -14,9 +14,14 @@ import AICopilot from "../shared/AICopilot";
 import { AssessmentProvider } from "../../contexts/AssessmentContext";
 import { useSidebarStore, getTotalSidebarWidth } from "../../store/sidebarStore";
 
+const RESERVED_ASSESS_ROUTES = new Set(["new", "create", "admin", "list"]);
+
 const getProjectIdFromPath = (pathname: string | null): string | null => {
-  const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
-  return match ? match[1] : null;
+  const match = pathname?.match(/\/assess\/([^/]+)/i);
+  if (!match) return null;
+  const segment = match[1].toLowerCase();
+  if (RESERVED_ASSESS_ROUTES.has(segment)) return null;
+  return match[1];
 };
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
@@ -60,9 +65,9 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
       } as React.CSSProperties}
     >
       <AppSidebar />
-      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30 min-w-0 overflow-hidden">
+      <SidebarInset className="shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.08)] dark:shadow-[inset_6px_0_12px_-8px_rgba(0,0,0,0.4)] border-l border-sidebar-border/30 min-w-0 h-screen overflow-hidden flex flex-col">
         <TrialBanner />
-        <main className="flex-1 bg-background relative flex flex-col min-h-0 min-w-0 overflow-x-hidden">{children}</main>
+        <main className="flex-1 bg-background relative flex flex-col min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">{children}</main>
       </SidebarInset>
       {isAuthenticated && <AICopilot />}
     </SidebarProvider>

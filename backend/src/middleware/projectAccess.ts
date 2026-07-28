@@ -74,6 +74,13 @@ export const requireProjectRole =
       const membership = await getMembership(projectId, req.user.id);
 
       if (!membership) {
+        const projectCheck = await pool.query(
+          "SELECT id FROM projects WHERE id = $1",
+          [projectId]
+        );
+        if (projectCheck.rows.length === 0) {
+          return res.status(404).json({ error: "Project not found" });
+        }
         return res
           .status(403)
           .json({ error: "Project not found or access denied" });
@@ -114,6 +121,13 @@ export const requireProjectPermission =
         (await getMembership(projectId, req.user.id));
 
       if (!membership) {
+        const projectCheck = await pool.query(
+          "SELECT id FROM projects WHERE id = $1",
+          [projectId]
+        );
+        if (projectCheck.rows.length === 0) {
+          return res.status(404).json({ error: "Project not found" });
+        }
         return res
           .status(403)
           .json({ error: "Project not found or access denied" });
@@ -123,7 +137,7 @@ export const requireProjectPermission =
         ? membership.permissions
         : [];
 
-      if (!permissions.includes(permission)) {
+      if (!permissions.includes("*") && !permissions.includes(permission)) {
         return res.status(403).json({ error: "Insufficient project permissions" });
       }
 

@@ -283,6 +283,7 @@ export default function FairnessBiasTest() {
       const result = await apiService.evaluatePrompts({
         projectId,
         responses: responsesArray,
+        totalQuestions: totalQuestions || 20,
       });
 
       router.push(`/assess/${projectId}/fairness-bias/job/${result.jobId}`);

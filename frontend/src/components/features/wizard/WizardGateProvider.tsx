@@ -78,9 +78,9 @@ export function WizardGateProvider({ projectId, featureName, children }: WizardG
   return (
     <>
       {!wizardCompleted && !isSkipped && (
-        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 border border-indigo-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+        <div className="mb-6 p-4 rounded-xl bg-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400 font-bold shrink-0">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary font-bold shrink-0">
               ⚡ AI Profile Setup
             </div>
             <div>
@@ -92,7 +92,7 @@ export function WizardGateProvider({ projectId, featureName, children }: WizardG
             <Button
               size="sm"
               onClick={() => setShowWizardModal(true)}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-xs"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3 rounded-lg shadow-xs"
             >
               Configure AI Profile &rarr;
             </Button>

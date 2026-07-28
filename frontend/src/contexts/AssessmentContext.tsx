@@ -393,10 +393,14 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
             } catch (error: any) {
                 if (controller.signal.aborted) return;
                 console.error("Failed to fetch data:", error);
-                if (error?.status === 400 || error?.status === 404 ||
-                    error?.response?.status === 400 || error?.response?.status === 404) {
+                const status = error?.status || error?.response?.status;
+                const msg = typeof error?.message === "string" ? error.message.toLowerCase() : "";
+                const isNotFound = status === 400 || status === 401 || status === 403 || status === 404 ||
+                    msg.includes("not found") || msg.includes("access denied") || msg.includes("invalid uuid") || msg.includes("forbidden");
+
+                if (isNotFound) {
                     setProjectNotFound(true);
-                    setError("No domains available for this project");
+                    setError("Project not found or access denied");
                 } else {
                     setError(error?.message || "Failed to load assessment data.");
                     showToast.error("Failed to load assessment data.");
@@ -410,8 +414,16 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                         setUserRole(project.role || null);
                         setProjectStatus(project.status || 'not_started');
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.error("Failed to fetch project for name and role:", e);
+                    const status = e?.status || e?.response?.status;
+                    if (status === 400 || status === 401 || status === 403 || status === 404) {
+                        setProjectNotFound(true);
+                        setError("Project not found or access denied");
+                    } else if (!controller.signal.aborted) {
+                        setError(e?.message || "Failed to load project details.");
+                        showToast.error("Failed to load project details.");
+                    }
                 }
 
                 if (!controller.signal.aborted) {

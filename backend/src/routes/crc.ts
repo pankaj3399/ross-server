@@ -1558,32 +1558,37 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
     try {
       await client.query("BEGIN");
 
+      // Ensure row exists so FOR UPDATE acquires a lock even when no wizard output row initially exists
+      await client.query(
+        `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
+         VALUES ($1, '{}'::jsonb, CURRENT_TIMESTAMP)
+         ON CONFLICT (project_id) DO NOTHING`,
+        [projectId]
+      );
+
       const wizardResult = await client.query(
         `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
         [projectId]
       );
 
       let controlFlags = wizardResult.rows[0]?.control_flags || {};
-      const existing = controlFlags[targetControlKey] || { flag: "OPTIONAL", reason: "Optional control based on profile." };
 
       if (mandate === "RESET") {
-        delete existing.is_manual_override;
-        if (existing.original_flag) {
-          existing.flag = existing.original_flag;
-        }
-        delete existing.reason;
-        delete existing.original_flag;
+        delete controlFlags[targetControlKey];
       } else {
         const targetFlag = String(mandate).toUpperCase();
-        existing.original_flag = existing.original_flag || existing.flag;
-        existing.flag = targetFlag;
-        existing.is_manual_override = true;
-        existing.reason = targetFlag === "MANDATORY" 
-          ? "Manually elevated to Mandatory by user."
-          : `Manually set to ${targetFlag} by user.`;
+        const existing = controlFlags[targetControlKey] || {};
+        const originalFlag = existing.original_flag || existing.flag || "OPTIONAL";
+        
+        controlFlags[targetControlKey] = {
+          flag: targetFlag,
+          original_flag: originalFlag,
+          is_manual_override: true,
+          reason: targetFlag === "MANDATORY" 
+            ? "Manually elevated to Mandatory by user."
+            : `Manually set to ${targetFlag} by user.`
+        };
       }
-
-      controlFlags[targetControlKey] = existing;
 
       await client.query(
         `INSERT INTO wizard_engine_outputs (project_id, control_flags, updated_at)
@@ -1603,13 +1608,13 @@ router.put("/control-mandate/:projectId/:controlId", authenticateToken, async (r
           action: "control_mandate_updated",
           objectType: "CRC_CONTROL",
           objectId: targetControlKey,
-          metadata: { controlId: targetControlKey, mandate, updatedFlag: existing.flag }
+          metadata: { controlId: targetControlKey, mandate, updatedFlag: controlFlags[targetControlKey]?.flag || "RESET" }
         });
       } catch (auditErr) {
         console.error("Failed to record audit log event for control mandate update:", auditErr);
       }
 
-      return res.json({ success: true, controlId: targetControlKey, flagInfo: existing, controlFlags });
+      return res.json({ success: true, controlId: targetControlKey, flagInfo: controlFlags[targetControlKey] || null, controlFlags });
     } catch (dbErr) {
       await client.query("ROLLBACK").catch(() => {});
       throw dbErr;

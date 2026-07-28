@@ -368,23 +368,22 @@ export default function AdminChatbotSettings() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header Hero Section */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border pb-6">
+    <div className="min-h-screen bg-background flex flex-col w-full">
+      {/* Sticky Header */}
+      <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
+        <div className="w-full max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <IconMessageChatbot className="w-6 h-6 text-primary animate-pulse" />
-              <h1 className="text-4xl font-extrabold text-foreground tracking-tight">
+            <div className="flex items-center gap-2 mb-1">
+              <IconMessageChatbot className="w-7 h-7 text-primary animate-pulse" />
+              <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
                 Chatbot Settings
               </h1>
             </div>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-muted-foreground text-sm">
               Manage custom rules and administrative instructions that extend the AI Copilot's system prompt dynamically.
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
+          <div className="flex flex-wrap gap-3">
             <Button
               onClick={() => setShowPromptPreview(!showPromptPreview)}
               variant="outline"
@@ -404,13 +403,16 @@ export default function AdminChatbotSettings() {
             </Button>
             <Button
               onClick={handleOpenAdd}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-xl shadow-lg hover:shadow-primary/20 transition-all duration-200"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow-primary/20 transition-all duration-200"
             >
               <IconPlus className="w-5 h-5 mr-2" />
               Add Instruction
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-6 w-full space-y-8">
 
         {/* Live prompt compiler preview panel */}
         {showPromptPreview && (

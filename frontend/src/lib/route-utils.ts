@@ -30,6 +30,7 @@ export const isLandingRoute = (pathname: string | null): boolean => {
 
 export const getRouteFlags = (pathname: string | null) => {
   const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/);
+  const isRiskRegisterPage = !!pathname?.match(/\/crc\/risks($|\/|\?)/);
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
   const isFairnessRootPage = !!pathname?.match(/\/fairness-bias($|\?|\/$)/);
   const isApiEndpointPage = !!pathname?.match(/\/fairness-bias\/(api-endpoint|api-history)($|\/|\?)/);
@@ -45,6 +46,7 @@ export const getRouteFlags = (pathname: string | null) => {
   const isAimaQuestionPage = isAimaPage && !!pathname?.match(/\/assess\/[^/]+\/[^/]+\/[^/]+/);
   return {
     isCrcPage,
+    isRiskRegisterPage,
     isFairnessPage,
     isFairnessRootPage,
     isManualPromptPage,

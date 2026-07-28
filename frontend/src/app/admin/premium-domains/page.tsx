@@ -675,22 +675,25 @@ export default function PremiumDomainsAdmin() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-6">
-            <div className="max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <div className="flex items-center justify-between mb-6">
+        <div className="min-h-screen bg-background flex flex-col w-full">
+            {/* Sticky Header */}
+            <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-6 flex-none sticky top-0 z-20 shadow-2xs w-full">
+                <div className="w-full max-w-6xl mx-auto flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <IconCrown className="w-8 h-8 text-primary shrink-0" />
                         <div>
-                            <div className="flex items-center gap-3">
-                                <IconCrown className="w-10 h-10 text-primary" />
-                                <h1 className="text-4xl font-bold text-primary">
-                                    Premium Domains
-                                </h1>
-                            </div>
-                            <p className="text-muted-foreground text-lg mt-2">
+                            <h1 className="text-3xl font-bold text-primary tracking-tight">
+                                Premium Domains
+                            </h1>
+                            <p className="text-muted-foreground text-sm mt-0.5">
                                 Manage premium domains, practices, and questions for the AIMA assessment framework.
                             </p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <div className="max-w-6xl mx-auto p-6 w-full space-y-6">
                     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                         <h2 className="text-xl font-semibold text-card-foreground mb-4 flex items-center gap-2">
                             <IconCrown className="w-5 h-5 text-primary" />
@@ -724,10 +727,9 @@ export default function PremiumDomainsAdmin() {
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {aimaData.data.domains.length === 0 ? (
-                <div className="max-w-6xl mx-auto">
+            <div className="max-w-6xl mx-auto p-6 w-full space-y-6">
+                {aimaData.data.domains.length === 0 ? (
                     <div className="bg-card backdrop-blur-sm border border-primary/20 rounded-2xl p-12 shadow-lg text-center">
                         <IconCrown className="w-16 h-16 text-primary mx-auto mb-4" />
                         <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -737,279 +739,254 @@ export default function PremiumDomainsAdmin() {
                             Mark domains as premium in the AIMA Data Management page to see them here.
                         </p>
                     </div>
-                </div>
-            ) : (
-                <div className="space-y-6 max-w-6xl mx-auto">
-                    {aimaData.data.domains.map((domain) => (
-                        <div
-                            key={domain.id}
-                            className="bg-card backdrop-blur-sm border border-primary/20 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
-                        >
-                            {/* Domain Header - Always Visible */}
+                ) : (
+                    <div className="space-y-6">
+                        {aimaData.data.domains.map((domain) => (
                             <div
-                                className="p-6 cursor-pointer hover:bg-muted/50 transition-all duration-200 rounded-2xl"
-                                onClick={() => toggleDomain(domain.id)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
-                                role="button"
-                                tabIndex={0}
-                                aria-expanded={expandedDomains.has(domain.id)}
+                                key={domain.id}
+                                className="bg-card backdrop-blur-sm border border-primary/20 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
                             >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <div className="flex items-center space-x-3">
-                                            <div className="flex-shrink-0">
-                                                {expandedDomains.has(domain.id) ? (
-                                                    <IconChevronDown className="w-5 h-5 text-primary transition-transform duration-200" />
-                                                ) : (
-                                                    <IconChevronRight className="w-5 h-5 text-muted-foreground transition-transform duration-200" />
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center space-x-2">
-                                                    <h2 className="text-xl font-semibold text-foreground">
-                                                        {domain.title}
-                                                    </h2>
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
-                                                        ⭐ Premium
-                                                    </span>
-                                                </div>
-                                                <p className="text-muted-foreground text-sm mt-1">
-                                                    {domain.description}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3">
-                                        <button
-                                            type="button"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                toggleDomainPremium(domain.id, domain.is_premium);
-                                            }}
-                                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-destructive/10 text-destructive hover:bg-destructive/20"
-                                            title="Click to remove premium status"
-                                        >
-                                            Remove Premium
-                                        </button>
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-warning/10 text-warning">
-                                            {domain.practices.length} practices
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Practices - Collapsible */}
-                            {expandedDomains.has(domain.id) && (
-                                <div className="border-t border-primary/20 dark:border-primary/30">
-                                    <div className="p-6 space-y-4">
-                                        {domain.practices.length === 0 ? (
-                                            <p className="text-muted-foreground italic">
-                                                No practices in this domain yet.
-                                            </p>
-                                        ) : (
-                                            domain.practices.map((practice) => (
-                                                <div
-                                                    key={practice.id}
-                                                    className="bg-muted/30 rounded-xl p-4"
-                                                >
-                                                    <div
-                                                        className="flex items-center justify-between cursor-pointer"
-                                                        onClick={() => togglePractice(practice.id)}
-                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePractice(practice.id); } }}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        aria-expanded={expandedPractices.has(practice.id)}
-                                                    >
-                                                        <div className="flex items-center space-x-2">
-                                                            <div className="flex-shrink-0">
-                                                                {expandedPractices.has(practice.id) ? (
-                                                                    <IconChevronDown className="w-4 h-4 text-primary" />
-                                                                ) : (
-                                                                    <IconChevronRight className="w-4 h-4 text-muted-foreground" />
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-medium text-foreground">
-                                                                    {practice.title}
-                                                                </h3>
-                                                                <p className="text-muted-foreground text-sm">
-                                                                    {practice.description}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-sm text-muted-foreground">
-                                                            {practice.questions.length} questions
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Questions */}
-                                                    {expandedPractices.has(practice.id) && (
-                                                        <div className="mt-4 space-y-3">
-                                                            {practice.questions.length === 0 ? (
-                                                                <p className="text-muted-foreground italic text-sm">
-                                                                    No questions in this practice yet.
-                                                                </p>
-                                                            ) : (
-                                                                practice.questions.map((question, idx) => (
-                                                                    <div
-                                                                        key={question.id}
-                                                                        className="bg-card rounded-lg p-4 shadow-sm border border-border"
-                                                                    >
-                                                                        <div className="flex items-start justify-between">
-                                                                            <div className="flex-1">
-                                                                                <div className="flex items-center space-x-2 mb-2">
-                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/10 text-warning">
-                                                                                        L{question.level}
-                                                                                    </span>
-                                                                                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/20 text-warning">
-                                                                                        {question.stream}
-                                                                                    </span>
-                                                                                    <span className="text-xs text-muted-foreground">
-                                                                                        Q{idx + 1}
-                                                                                    </span>
-                                                                                </div>
-                                                                                {editingQuestions[question.id] ? (
-                                                                                    <div className="space-y-2">
-                                                                                        <textarea
-                                                                                            value={questionTextEdits[question.id] ?? stripHTML(question.question_text)}
-                                                                                            onChange={(e) =>
-                                                                                                setQuestionTextEdits((prev) => ({
-                                                                                                    ...prev,
-                                                                                                    [question.id]: e.target.value,
-                                                                                                }))
-                                                                                            }
-                                                                                            className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-foreground text-sm resize-none focus:ring-2 focus:ring-ring focus:border-input"
-                                                                                            rows={3}
-                                                                                        />
-                                                                                        <div className="flex gap-2">
-                                                                                            <select
-                                                                                                value={questionLevelEdits[question.id] ?? question.level}
-                                                                                                onChange={(e) =>
-                                                                                                    setQuestionLevelEdits((prev) => ({
-                                                                                                        ...prev,
-                                                                                                        [question.id]: e.target.value,
-                                                                                                    }))
-                                                                                                }
-                                                                                                className="px-2 py-1 rounded border border-input bg-transparent text-foreground text-sm"
-                                                                                            >
-                                                                                                <option value="1">Level 1</option>
-                                                                                                <option value="2">Level 2</option>
-                                                                                                <option value="3">Level 3</option>
-                                                                                            </select>
-                                                                                            <select
-                                                                                                value={questionStreamEdits[question.id] ?? question.stream}
-                                                                                                onChange={(e) =>
-                                                                                                    setQuestionStreamEdits((prev) => ({
-                                                                                                        ...prev,
-                                                                                                        [question.id]: e.target.value,
-                                                                                                    }))
-                                                                                                }
-                                                                                                className="px-2 py-1 rounded border border-input bg-transparent text-foreground text-sm"
-                                                                                            >
-                                                                                                <option value="A">Stream A</option>
-                                                                                                <option value="B">Stream B</option>
-                                                                                            </select>
-                                                                                        </div>
-                                                                                        <div className="flex gap-2">
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={() => handleQuestionUpdate(question)}
-                                                                                                disabled={savingQuestionUpdates[question.id]}
-                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                                                                            >
-                                                                                                {savingQuestionUpdates[question.id] ? "Saving..." : "Save"}
-                                                                                            </button>
-                                                                                            <button
-                                                                                                type="button"
-                                                                                                onClick={() => cancelEditingQuestion(question.id)}
-                                                                                                className="px-3 py-1 text-xs font-medium rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                                                                                            >
-                                                                                                Cancel
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <button
-                                                                                        type="button"
-                                                                                        className="text-foreground text-sm cursor-pointer hover:text-primary text-left"
-                                                                                        onClick={() => startEditingQuestion(question)}
-                                                                                        dangerouslySetInnerHTML={{
-                                                                                            __html: safeRenderHTML(question.question_text),
-                                                                                        }}
-                                                                                    />
-                                                                                )}
-                                                                                {questionUpdateStatus[question.id] === "saved" && (
-                                                                                    <span className="text-xs text-success mt-1 block">
-                                                                                        ✓ Saved
-                                                                                    </span>
-                                                                                )}
-                                                                                {questionUpdateStatus[question.id] === "error" && (
-                                                                                    <span className="text-xs text-destructive mt-1 block">
-                                                                                        ✗ Error saving
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Description Editor */}
-                                                                        <div className="mt-3 pt-3 border-t border-border">
-                                                                            <label className="text-xs font-medium text-muted-foreground block mb-2">
-                                                                                Description / Notes
-                                                                            </label>
-                                                                            <RichTextEditor
-                                                                                value={getQuestionDescriptionValue(question)}
-                                                                                onChange={(value) => handleQuestionDescriptionChange(question.id, value)}
-                                                                                placeholder="Add description or notes..."
-                                                                                className="min-h-[100px]"
-                                                                            />
-                                                                            <div className="flex items-center gap-2 mt-2">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => handleQuestionDescriptionSave(question)}
-                                                                                    disabled={savingDescriptions[question.id]}
-                                                                                    className="px-3 py-1 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                                                                                >
-                                                                                    {savingDescriptions[question.id] ? "Saving..." : "Save Description"}
-                                                                                </button>
-                                                                                {descriptionStatus[question.id] === "saved" && (
-                                                                                    <span className="text-xs text-success">
-                                                                                        ✓ Saved
-                                                                                    </span>
-                                                                                )}
-                                                                                {descriptionStatus[question.id] === "error" && (
-                                                                                    <span className="text-xs text-destructive">
-                                                                                        ✗ Error
-                                                                                    </span>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ))
-                                                            )}
-                                                            <button
-                                                                onClick={() => handleAddQuestion(practice.id)}
-                                                                className="w-full py-2 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors"
-                                                            >
-                                                                + Add Question
-                                                            </button>
-                                                        </div>
+                                {/* Domain Header - Always Visible */}
+                                <div
+                                    className="p-6 cursor-pointer hover:bg-muted/50 transition-all duration-200 rounded-2xl"
+                                    onClick={() => toggleDomain(domain.id)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleDomain(domain.id); } }}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={expandedDomains.has(domain.id)}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="flex-shrink-0">
+                                                    {expandedDomains.has(domain.id) ? (
+                                                        <IconChevronDown className="w-5 h-5 text-primary transition-transform duration-200" />
+                                                    ) : (
+                                                        <IconChevronRight className="w-5 h-5 text-muted-foreground transition-transform duration-200" />
                                                     )}
                                                 </div>
-                                            ))
-                                        )}
-                                        <button
-                                            onClick={() => handleAddPractice(domain.id)}
-                                            className="w-full py-3 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors border border-dashed border-primary/50"
-                                        >
-                                            + Add Practice
-                                        </button>
+                                                <div>
+                                                    <div className="flex items-center space-x-2">
+                                                        <h2 className="text-xl font-semibold text-foreground">
+                                                            {domain.title}
+                                                        </h2>
+                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning text-warning-foreground shadow-sm">
+                                                            ⭐ Premium
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-muted-foreground text-sm mt-1">
+                                                        {domain.description}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center space-x-3">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleDomainPremium(domain.id, domain.is_premium);
+                                                }}
+                                                className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-destructive/10 text-destructive hover:bg-destructive/20"
+                                                title="Click to remove premium status"
+                                            >
+                                                Remove Premium
+                                            </button>
+                                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-warning/10 text-warning">
+                                                {domain.practices.length} practices
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
+
+                                {/* Practices - Collapsible */}
+                                {expandedDomains.has(domain.id) && (
+                                    <div className="border-t border-primary/20 dark:border-primary/30">
+                                        <div className="p-6 space-y-4">
+                                            {domain.practices.length === 0 ? (
+                                                <p className="text-muted-foreground italic">
+                                                    No practices in this domain yet.
+                                                </p>
+                                            ) : (
+                                                domain.practices.map((practice) => (
+                                                    <div
+                                                        key={practice.id}
+                                                        className="bg-muted/30 rounded-xl p-4"
+                                                    >
+                                                        <div
+                                                            className="flex items-center justify-between cursor-pointer"
+                                                            onClick={() => togglePractice(practice.id)}
+                                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePractice(practice.id); } }}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            aria-expanded={expandedPractices.has(practice.id)}
+                                                        >
+                                                            <div className="flex items-center space-x-2">
+                                                                <div className="flex-shrink-0">
+                                                                    {expandedPractices.has(practice.id) ? (
+                                                                        <IconChevronDown className="w-4 h-4 text-primary" />
+                                                                    ) : (
+                                                                        <IconChevronRight className="w-4 h-4 text-muted-foreground" />
+                                                                    )}
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-semibold text-foreground">
+                                                                        {practice.title}
+                                                                    </h3>
+                                                                    <p className="text-muted-foreground text-sm">
+                                                                        {practice.description}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-sm text-muted-foreground">
+                                                                {practice.questions.length} questions
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Questions */}
+                                                        {expandedPractices.has(practice.id) && (
+                                                            <div className="mt-4 space-y-3">
+                                                                {practice.questions.length === 0 ? (
+                                                                    <p className="text-muted-foreground italic text-sm">
+                                                                        No questions in this practice yet.
+                                                                    </p>
+                                                                ) : (
+                                                                    practice.questions.map((question, idx) => (
+                                                                        <div
+                                                                            key={question.id}
+                                                                            className="bg-card rounded-lg p-4 shadow-sm border border-border"
+                                                                        >
+                                                                            <div className="flex items-start justify-between">
+                                                                                <div className="flex-1">
+                                                                                    <div className="flex items-center space-x-2 mb-2">
+                                                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/10 text-warning">
+                                                                                            L{question.level}
+                                                                                        </span>
+                                                                                        <span className="text-xs font-medium px-2 py-0.5 rounded bg-warning/20 text-warning">
+                                                                                            {question.stream}
+                                                                                        </span>
+                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                            Q{idx + 1}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    {editingQuestions[question.id] ? (
+                                                                                        <div className="space-y-2">
+                                                                                            <textarea
+                                                                                                value={questionTextEdits[question.id] ?? stripHTML(question.question_text)}
+                                                                                                onChange={(e) =>
+                                                                                                    setQuestionTextEdits((prev) => ({
+                                                                                                        ...prev,
+                                                                                                        [question.id]: e.target.value,
+                                                                                                    }))
+                                                                                                }
+                                                                                                className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-foreground text-sm resize-none focus:ring-2 focus:ring-ring focus:border-input"
+                                                                                                rows={3}
+                                                                                            />
+                                                                                            <div className="flex gap-2">
+                                                                                                <select
+                                                                                                    value={questionLevelEdits[question.id] ?? question.level}
+                                                                                                    onChange={(e) =>
+                                                                                                        setQuestionLevelEdits((prev) => ({
+                                                                                                            ...prev,
+                                                                                                            [question.id]: e.target.value,
+                                                                                                        }))
+                                                                                                    }
+                                                                                                    className="px-2 py-1 rounded border border-input bg-transparent text-foreground text-sm"
+                                                                                                >
+                                                                                                    <option value="1">Level 1</option>
+                                                                                                    <option value="2">Level 2</option>
+                                                                                                    <option value="3">Level 3</option>
+                                                                                                </select>
+                                                                                                <select
+                                                                                                    value={questionStreamEdits[question.id] ?? question.stream}
+                                                                                                    onChange={(e) =>
+                                                                                                        setQuestionStreamEdits((prev) => ({
+                                                                                                            ...prev,
+                                                                                                            [question.id]: e.target.value,
+                                                                                                        }))
+                                                                                                    }
+                                                                                                    className="px-2 py-1 rounded border border-input bg-transparent text-foreground text-sm"
+                                                                                                >
+                                                                                                    <option value="A">Stream A</option>
+                                                                                                    <option value="B">Stream B</option>
+                                                                                                </select>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div
+                                                                                            dangerouslySetInnerHTML={{ __html: safeRenderHTML(question.question_text) }}
+                                                                                            className="text-foreground text-sm font-medium"
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                                <button
+                                                                                    onClick={() => editingQuestions[question.id] ? handleQuestionUpdate(question) : startEditingQuestion(question)}
+                                                                                    disabled={savingQuestionUpdates[question.id]}
+                                                                                    className="text-xs text-primary hover:underline ml-4 disabled:opacity-50"
+                                                                                >
+                                                                                    {savingQuestionUpdates[question.id] ? "Saving..." : editingQuestions[question.id] ? "Done" : "Edit Question"}
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                                                                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">
+                                                                                    Detailed Description
+                                                                                </label>
+                                                                                <textarea
+                                                                                    value={getQuestionDescriptionValue(question)}
+                                                                                    onChange={(e) => handleQuestionDescriptionChange(question.id, e.target.value)}
+                                                                                    placeholder="Add detailed description, context, or guidance for this question..."
+                                                                                    className="w-full px-3 py-2 rounded-lg border border-input bg-transparent text-foreground text-sm resize-none focus:ring-2 focus:ring-ring focus:border-input"
+                                                                                    rows={3}
+                                                                                />
+                                                                                <div className="flex items-center justify-between">
+                                                                                    <button
+                                                                                        onClick={() => handleQuestionDescriptionSave(question)}
+                                                                                        disabled={savingDescriptions[question.id]}
+                                                                                        className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                                                                                    >
+                                                                                        {savingDescriptions[question.id] ? "Saving..." : "Save Description"}
+                                                                                    </button>
+                                                                                    {descriptionStatus[question.id] === "saved" && (
+                                                                                        <span className="text-xs text-success">
+                                                                                            ✓ Saved
+                                                                                        </span>
+                                                                                    )}
+                                                                                    {descriptionStatus[question.id] === "error" && (
+                                                                                        <span className="text-xs text-destructive">
+                                                                                            ✗ Error
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                                <button
+                                                                    onClick={() => handleAddQuestion(practice.id)}
+                                                                    className="w-full py-2 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors"
+                                                                >
+                                                                    + Add Question
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            )}
+                                            <button
+                                                onClick={() => handleAddPractice(domain.id)}
+                                                className="w-full py-3 text-sm font-medium text-primary hover:text-primary/80 hover:bg-primary/10 rounded-lg transition-colors border border-dashed border-primary/50"
+                                            >
+                                                + Add Practice
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Practice Modal */}
             {showPracticeModal && (

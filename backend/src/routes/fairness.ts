@@ -29,8 +29,26 @@ import {
 } from "../shared/responseKeyRegex";
 
 import { isPublicApiUrl } from "../utils/validateUrl";
+import { getMembership } from "../services/projectMembershipService";
 
 const router = Router();
+
+/**
+ * Verifies that a user has access to a project (owner, member, or platform ADMIN).
+ * Returns true if access is granted, false otherwise.
+ */
+async function verifyProjectAccess(
+    projectId: string,
+    userId: string,
+    allowedRoles?: ("OWNER" | "EDITOR" | "VIEWER")[]
+): Promise<boolean> {
+    const membership = await getMembership(projectId, userId);
+    if (!membership) return false;
+    if (allowedRoles && allowedRoles.length > 0) {
+        return allowedRoles.includes(membership.role as any);
+    }
+    return true;
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -71,6 +89,7 @@ const evaluatePromptsSchema = z.object({
         prompt: z.string().min(1),
         response: z.string().min(1),
     })).min(1, "At least one response is required"),
+    totalQuestions: z.number().int("totalQuestions must be an integer").positive("totalQuestions must be positive").optional(),
 });
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
@@ -129,13 +148,8 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -403,16 +417,11 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
 // POST /fairness/evaluate-prompts - Create a job for manual prompt testing
 router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
     try {
-        const { projectId, responses } = evaluatePromptsSchema.parse(req.body);
+        const { projectId, responses, totalQuestions } = evaluatePromptsSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -424,6 +433,7 @@ router.post("/evaluate-prompts", authenticateToken, async (req, res) => {
         // Create job payload with responses
         const jobPayload = {
             type: "FAIRNESS_PROMPTS",
+            totalQuestions: totalQuestions || 20,
             responses: responses.map(r => ({
                 category: r.category,
                 prompt: r.prompt,
@@ -485,13 +495,8 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         const { projectId, apiUrl, responseKey, requestTemplate, apiKey, apiKeyPlacement, apiKeyFieldName } = evaluateApiSchema.parse(req.body);
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -584,11 +589,8 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
             });
         }
 
-        const projectCheck = await pool.query(
-            "SELECT id, version_id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(404).json({ error: "Project not found" });
         }
 
@@ -733,13 +735,8 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
@@ -801,13 +798,8 @@ router.get("/evaluations/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
 
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
@@ -862,13 +854,8 @@ router.get("/dataset-reports/:projectId", authenticateToken, async (req, res) =>
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         
@@ -938,19 +925,49 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         
         // Parse pagination params
         const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
         const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
+
+        // Auto-backfill any failed jobs for this project from evaluation_status into api_test_reports
+        try {
+            await pool.query(
+                `INSERT INTO api_test_reports (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                 SELECT 
+                     e.user_id, 
+                     e.project_id, 
+                     e.job_id, 
+                     COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0)) as total_prompts,
+                     COALESCE((e.payload->'summary'->>'successful')::int, 0) as success_count,
+                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0))) as failure_count,
+                     '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb as average_scores,
+                     CASE 
+                       WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
+                       ELSE COALESCE(e.payload, '{}'::jsonb)
+                     END as results,
+                     CASE 
+                       WHEN e.payload ? 'error' THEN jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'error', e.payload->>'error'))
+                       ELSE COALESCE(e.payload->'errors', '[]'::jsonb)
+                     END as errors,
+                     CASE
+                       WHEN e.payload->>'type' = 'FAIRNESS_PROMPTS' THEN jsonb_build_object('testType', 'MANUAL_PROMPT_TEST', 'totalQuestions', COALESCE((e.payload->>'totalQuestions')::int, 20))
+                       ELSE COALESCE(e.payload->'config', '{}'::jsonb)
+                     END as config,
+                     e.created_at
+                 FROM evaluation_status e
+                 LEFT JOIN api_test_reports r ON e.job_id = r.job_id
+                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status = 'failed' AND r.id IS NULL
+                 ON CONFLICT (job_id) DO NOTHING`,
+                [projectId, userId]
+            );
+        } catch (backfillErr) {
+            console.error("Backfill failed jobs error (non-fatal):", backfillErr);
+        }
 
         // Fetch reports for this project with pagination
         const countResult = await pool.query(
@@ -996,8 +1013,6 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
     try {
         const { reportId } = req.params;
         const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
-        
-        // Validate UUID format
 
         // Validate UUID format
         if (!UUID_REGEX.test(reportId)) {
@@ -1033,13 +1048,58 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
         const { jobId } = req.params;
         const userId = req.user!.id;
         
-        const result = await pool.query(
+        let result = await pool.query(
             `SELECT id FROM api_test_reports
              WHERE job_id = $1 AND user_id = $2`,
             [jobId, userId]
         );
         
         if (result.rows.length === 0) {
+            // Check evaluation_status for this job
+            const evalResult = await pool.query(
+                `SELECT id, user_id, project_id, job_id, status, payload, total_prompts, created_at 
+                 FROM evaluation_status 
+                 WHERE job_id = $1 AND user_id = $2`,
+                [jobId, userId]
+            );
+
+            if (evalResult.rows.length > 0) {
+                const evalRow = evalResult.rows[0];
+                const terminalStatuses = ["failed", "completed", "success", "partial_success"];
+                if (!terminalStatuses.includes(evalRow.status)) {
+                    return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
+                }
+                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || '0');
+                const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
+                    ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
+                    : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+
+                const insertResult = await pool.query(
+                    `INSERT INTO api_test_reports 
+                     (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     ON CONFLICT (job_id) DO UPDATE SET updated_at = NOW()
+                     RETURNING id`,
+                    [
+                        evalRow.user_id,
+                        evalRow.project_id,
+                        evalRow.job_id,
+                        totalPrompts,
+                        parseInt(evalRow.payload?.summary?.successful || '0'),
+                        parseInt(evalRow.payload?.summary?.failed || totalPrompts.toString() || '0'),
+                        JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                        JSON.stringify(evalRow.payload || {}),
+                        JSON.stringify(evalRow.payload?.errors || []),
+                        JSON.stringify(configToSave),
+                        evalRow.created_at
+                    ]
+                );
+                return res.json({
+                    success: true,
+                    reportId: insertResult.rows[0].id
+                });
+            }
+
             return res.status(404).json({ error: "Report not found or access denied" });
         }
         
@@ -1088,13 +1148,8 @@ router.get("/manual-reports/:projectId", authenticateToken, async (req, res) => 
         const { projectId } = req.params;
         const userId = req.user!.id;
         
-        // Verify project belongs to user
-        const projectCheck = await pool.query(
-            "SELECT id FROM projects WHERE id = $1 AND user_id = $2",
-            [projectId, userId]
-        );
-        
-        if (projectCheck.rows.length === 0) {
+        // Verify project access (owner, member, or platform ADMIN)
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
         

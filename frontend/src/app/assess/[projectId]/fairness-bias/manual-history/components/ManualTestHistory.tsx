@@ -11,6 +11,7 @@ type ManualReport = {
     total_prompts: number;
     success_count: number;
     failure_count: number;
+    config?: { testType?: string; totalQuestions?: number; total_questions?: number } | null;
     average_scores?: {
         total: number;
         successful: number;
@@ -215,9 +216,9 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
                                                     <div className="font-medium text-foreground truncate max-w-[200px]">
                                                         Manual Evaluation
                                                     </div>
-                                                      <div className="text-xs text-muted-foreground">
-                                                          {report.total_prompts} of {(report as any).config?.totalQuestions || (report as any).config?.total_questions || report.total_prompts || 20} prompts answered
-                                                      </div>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {report.total_prompts} of {report.config?.totalQuestions || report.config?.total_questions || 20} prompts answered
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>

@@ -21,10 +21,12 @@ import {
   IconCalendar,
   IconUser,
   IconShield,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
+import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { apiService, type CRCRisk } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -364,17 +366,19 @@ export default function CRCRiskRegisterPage() {
     );
   }
 
+  const projectBreadcrumbHref = `/assess/${projectId}/crc/dashboard`;
+
   return (
-    <div className="flex-1 bg-background overflow-y-auto h-screen pb-16">
-      <div className="w-full px-4 sm:px-6 py-6 space-y-8">
-        
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="flex-1 flex flex-col w-full bg-background pb-16">
+      {/* Sticky Header */}
+      <div className="bg-background/95 backdrop-blur-md border-b border-border/40 px-8 py-5 flex-none sticky top-0 z-20 shadow-2xs w-full">
+        <div className="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
+            <Breadcrumb projectName={projectName || "Project"} projectHref={projectBreadcrumbHref} items={[{ label: "CRC Dashboard", href: projectBreadcrumbHref }, { label: "AI Risk Register" }]} />
             <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
               CRC Compliance Feature
             </p>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">
               AI Risk Register
             </h1>
             {projectName && (
@@ -394,6 +398,9 @@ export default function CRCRiskRegisterPage() {
             </Button>
           </div>
         </div>
+      </div>
+
+      <div className="w-full px-4 sm:px-6 py-6 space-y-8">
 
         {/* KPI Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
