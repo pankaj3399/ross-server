@@ -973,6 +973,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      END as errors,
                      CASE
                        WHEN e.payload->>'type' = 'FAIRNESS_PROMPTS' THEN jsonb_build_object('testType', 'MANUAL_PROMPT_TEST', 'totalQuestions', COALESCE((e.payload->>'totalQuestions')::int, 20))
+                       WHEN e.payload->>'type' = 'SECURITY_SCAN' THEN COALESCE(e.payload->'config', '{}'::jsonb) || jsonb_build_object('testType', 'SECURITY_SCAN')
                        ELSE COALESCE(e.payload->'config', '{}'::jsonb)
                      END as config,
                      e.created_at
@@ -1089,7 +1090,9 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                 const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || '0');
                 const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
                     ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
-                    : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+                    : evalRow.payload?.type === "SECURITY_SCAN"
+                        ? { ...(evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {}), testType: "SECURITY_SCAN" }
+                        : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
 
                 const hasSummarySuccess = evalRow.payload?.summary?.successful !== undefined && evalRow.payload?.summary?.successful !== null;
                 const hasSummaryFailed = evalRow.payload?.summary?.failed !== undefined && evalRow.payload?.summary?.failed !== null;
