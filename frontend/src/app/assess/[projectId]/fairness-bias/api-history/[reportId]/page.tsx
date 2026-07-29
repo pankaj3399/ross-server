@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJson, Download, Loader2, Shield } from "lucide-react";
 import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
+import { Breadcrumb } from "@/components/shared/Breadcrumb";
 
 type SecurityReportPayload = {
     overall_score: number;
@@ -61,6 +62,7 @@ export default function ApiReportDetailPage() {
     const reportRef = useRef<HTMLDivElement>(null);
 
     const [report, setReport] = useState<ApiReportDetail | null>(null);
+    const [projectName, setProjectName] = useState<string>("Project");
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +87,6 @@ export default function ApiReportDetailPage() {
 
         const fetchReport = async () => {
             try {
-                // Similarly using direct fetch as we assumed for the list
                 const res = await fetch(`${API_BASE_URL}/fairness/api-reports/detail/${reportId}`, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
@@ -110,8 +111,30 @@ export default function ApiReportDetailPage() {
             }
         };
 
+        const fetchProject = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
+                    },
+                    signal: controller.signal
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.project?.name) {
+                        setProjectName(data.project.name);
+                    }
+                }
+            } catch {
+                // Ignore fallback
+            }
+        };
+
         if (reportId) {
             fetchReport();
+        }
+        if (projectId) {
+            fetchProject();
         }
 
         return () => {
@@ -166,54 +189,73 @@ export default function ApiReportDetailPage() {
 
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
-            {/* Header / Meta */}
-            <header className="px-8 py-10 border-b border-border bg-white dark:bg-slate-900 break-inside-avoid pdf-break-safe">
-                <div className="w-full">
-                    <div className="flex items-center gap-4 mb-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors hide-in-pdf"
-                            type="button"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </button>
-                        <div className="h-6 w-px bg-border hide-in-pdf" />
-                        <div>
-                            <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed flex items-center gap-2">
+            {/* Header */}
+            <div className="bg-sidebar border-b border-sidebar-border px-6 md:px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full hide-in-pdf">
+                <div className="w-full flex flex-col gap-2">
+                    {/* Top: Breadcrumb */}
+                    <div className="flex items-center justify-between text-xs">
+                        <Breadcrumb
+                            projectName={projectName || "Project"}
+                            projectHref={`/assess/${projectId}`}
+                            items={[
+                                {
+                                    label: isSecurityReport ? "AI Vulnerability Assessment" : "API Automated Testing",
+                                    href: `/assess/${projectId}/fairness-bias/api-endpoint`
+                                },
+                                { label: "Report Details" }
+                            ]}
+                        />
+                    </div>
+
+                    {/* Bottom: Main row */}
+                    <div className="flex items-center justify-between gap-4 mt-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <button
+                                onClick={() => router.back()}
+                                type="button"
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-border/60 hover:bg-muted text-xs text-foreground/80 hover:text-foreground transition-all shadow-2xs shrink-0"
+                            >
+                                <ArrowLeft className="w-3.5 h-3.5" />
+                                Back
+                            </button>
+                            <div className="h-5 w-px bg-border shrink-0" />
+                            <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                                 {isSecurityReport ? (
-                                    <> <Shield className="w-6 h-6 pdf-icon" /> Security Scan Report </>
+                                    <Shield className="w-4 h-4 shrink-0 text-primary" />
                                 ) : (
-                                    "API Report Details"
+                                    <Server className="w-4 h-4 shrink-0 text-primary" />
                                 )}
-                            </h1>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
-                                <span className="flex items-center gap-1.5">
-                                    <Server className="w-3.5 h-3.5" />
-                                    {report.config?.apiUrl}
-                                </span>
+                                <h1 className="text-sm font-bold text-foreground truncate">
+                                    {isSecurityReport ? "Security Scan Report" : "API Report Details"}
+                                </h1>
+                                {report.config?.apiUrl && (
+                                    <span className="text-xs text-muted-foreground bg-muted/60 px-2.5 py-0.5 rounded-full border border-border/40 font-mono truncate max-w-[320px]">
+                                        {String(report.config.apiUrl)}
+                                    </span>
+                                )}
                             </div>
                         </div>
-                    </div>
-                    <div className="flex justify-end hide-in-pdf">
-                        <button
-                            onClick={exportPdf}
-                            disabled={isExporting}
-                            className="flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg transition-colors"
-                            type="button"
-                        >
-                            {isExporting ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Download className="w-4 h-4" />
-                            )}
-                            <span className="text-sm font-medium hidden sm:inline">{isExporting ? "Exporting..." : "PDF"}</span>
-                        </button>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                onClick={exportPdf}
+                                disabled={isExporting}
+                                className="flex items-center gap-2 px-3.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-semibold transition-colors"
+                                type="button"
+                            >
+                                {isExporting ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <Download className="w-3.5 h-3.5" />
+                                )}
+                                <span>{isExporting ? "Exporting..." : "Export PDF"}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </header>
+            </div>
 
-            <div className={`w-full px-0 py-8 ${isSecurityReport ? "space-y-8" : "space-y-6"}`}>
+            <div className={`w-full px-6 md:px-8 py-8 ${isSecurityReport ? "space-y-8" : "space-y-6"}`}>
                 {((report.results as any)?.error || (report.results as any)?.status === "failed") && (
                     <div className="mx-8 bg-destructive/10 border border-destructive/30 rounded-2xl p-6 flex items-start gap-4 shadow-xs">
                         <AlertTriangle className="w-6 h-6 text-destructive shrink-0 mt-0.5" />

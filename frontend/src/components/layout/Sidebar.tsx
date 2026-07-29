@@ -153,7 +153,8 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
     items.forEach(item => {
       allSidebarItemsMap.set(item.id, item);
     });
-    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-aima")) {
+    const isAdmin = Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN");
+    if (isAdmin && !allSidebarItemsMap.has("admin-aima")) {
       allSidebarItemsMap.set("admin-aima", {
         id: "admin-aima",
         label: "Manage AIMA Data",
@@ -162,7 +163,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         activePatterns: ["/admin/aima-data"],
       });
     }
-    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-crc")) {
+    if (isAdmin && !allSidebarItemsMap.has("admin-crc")) {
       allSidebarItemsMap.set("admin-crc", {
         id: "admin-crc",
         label: "CRC Controls",
@@ -171,7 +172,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
         activePatterns: ["/admin/crc"],
       });
     }
-    if (user?.role === ROLES.ADMIN && !allSidebarItemsMap.has("admin-chatbot")) {
+    if (isAdmin && !allSidebarItemsMap.has("admin-chatbot")) {
       allSidebarItemsMap.set("admin-chatbot", {
         id: "admin-chatbot",
         label: "Chatbot Settings",

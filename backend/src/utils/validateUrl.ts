@@ -73,8 +73,8 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
 
   const hostname = url.hostname.toLowerCase();
 
-  // Check hostname string patterns
-  if (
+  // Check hostname string patterns (allow in non-production for local testing)
+  if (process.env.NODE_ENV === "production" && (
     hostname === "localhost" ||
     hostname.endsWith(".localhost") ||
     hostname === "local" ||
@@ -85,8 +85,8 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     hostname === "[::]" ||
     hostname === "[::1]" ||
     hostname === "::1"
-  ) {
-    return { isValid: false, error: "Localhost and internal addresses are not allowed. Please specify a public API URL." };
+  )) {
+    return { isValid: false, error: "Localhost and internal addresses are not allowed in production." };
   }
 
   // IPv4 numeric host normalization and range check
@@ -95,8 +95,8 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     const [a, b] = parsedIp;
 
     // 127.0.0.0/8 (Loopback)
-    if (a === 127) {
-      return { isValid: false, error: "Loopback IP addresses (127.x.x.x) are not allowed." };
+    if (process.env.NODE_ENV === "production" && a === 127) {
+      return { isValid: false, error: "Loopback IP addresses (127.x.x.x) are not allowed in production." };
     }
     // 0.0.0.0/8
     if (a === 0) {

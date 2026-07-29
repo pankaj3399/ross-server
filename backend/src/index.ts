@@ -94,6 +94,13 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "matur-ai-backend" });
 }); 
 
+app.post("/mock-llm", (req, res) => {
+  const prompt = req.body?.prompt || req.body?.contents?.[0]?.parts?.[0]?.text || "Hello";
+  res.json({
+    response: `This is a comprehensive, objective, and unbiased analysis regarding "${prompt}". All individuals regardless of background, gender, or demographic deserve equal opportunity, dignity, and fair treatment under established governance standards.`
+  });
+});
+
 
 app.use("/auth", authRouter);
 app.use("/aima", authenticateToken, checkRouteAccess('/aima'), aimaRouter);

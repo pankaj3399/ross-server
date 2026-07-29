@@ -934,7 +934,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
         const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
 
-        // Auto-backfill any failed jobs for this project from evaluation_status into api_test_reports
+        // Auto-backfill any completed/failed jobs for this project from evaluation_status into api_test_reports
         try {
             await pool.query(
                 `INSERT INTO api_test_reports (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
@@ -943,9 +943,12 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.project_id, 
                      e.job_id, 
                      COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0)) as total_prompts,
-                     COALESCE((e.payload->'summary'->>'successful')::int, 0) as success_count,
-                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0))) as failure_count,
-                     '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb as average_scores,
+                     COALESCE((e.payload->'summary'->>'successful')::int, CASE WHEN e.status = 'success' THEN COALESCE(e.total_prompts, 0) ELSE 0 END) as success_count,
+                     COALESCE((e.payload->'summary'->>'failed')::int, CASE WHEN e.status = 'failed' THEN COALESCE(e.total_prompts, 0) ELSE 0 END) as failure_count,
+                     COALESCE(
+                       e.payload->'summary',
+                       '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb
+                     ) as average_scores,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
                        ELSE COALESCE(e.payload, '{}'::jsonb)
@@ -961,12 +964,12 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
-                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status = 'failed' AND r.id IS NULL
+                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status IN ('success', 'partial_success', 'failed') AND r.id IS NULL
                  ON CONFLICT (job_id) DO NOTHING`,
                 [projectId, userId]
             );
         } catch (backfillErr) {
-            console.error("Backfill failed jobs error (non-fatal):", backfillErr);
+            console.error("Backfill completed jobs error (non-fatal):", backfillErr);
         }
 
         // Fetch reports for this project with pagination

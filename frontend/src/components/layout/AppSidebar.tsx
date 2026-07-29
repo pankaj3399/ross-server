@@ -422,11 +422,12 @@ function SidebarContentComponent() {
     if (flags.isTeamPage || flags.isSettingsPage || flags.isWizardSettingsPage) {
       return "settings";
     }
-    if (path.startsWith("/admin")) {
+    const isAdmin = Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN");
+    if (path.startsWith("/admin") && isAdmin) {
       return "admin";
     }
     return "dashboard";
-  }, []);
+  }, [user?.role]);
 
   const [activeTab, setActiveTab] = useState<"dashboard" | "aima" | "premium" | "settings" | "admin">(() => getTabFromPathname(pathname));
 
@@ -844,7 +845,8 @@ function SidebarContentComponent() {
   }, []);
 
   const adminNavItems: SidebarItem[] = useMemo(() => {
-    if (user?.role !== ROLES.ADMIN) return [];
+    const isAdmin = Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN");
+    if (!isAdmin) return [];
     return [
       { id: "admin-aima", label: "Manage AIMA Data", href: "/admin/aima-data", icon: IconDatabase, activePatterns: ["/admin/aima-data"] },
       { id: "admin-crc", label: "CRC Controls", href: "/admin/crc", icon: IconShieldCheck, activePatterns: ["/admin/crc"] },
@@ -947,7 +949,7 @@ function SidebarContentComponent() {
                   iconColorClass="text-[var(--section-settings)]"
                   onClick={() => handleTabClick("settings")}
                 />
-                {user?.role === ROLES.ADMIN && (
+                {Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN") && (
                   <ActivityBarButton
                     icon={IconShieldLock}
                     label="Admin Panel"
@@ -1469,7 +1471,7 @@ function SidebarContentComponent() {
                     </div>
                   )}
 
-                  {activeTab === "admin" && user?.role === ROLES.ADMIN && (
+                  {activeTab === "admin" && Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN") && (
                     <div className="flex flex-col gap-1">
                       <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-[var(--section-admin)]">
                         Admin Tools
