@@ -934,7 +934,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 50); 
         const offset = Math.max(parseInt(req.query.offset as string) || 0, 0); 
 
-        // Auto-backfill any failed jobs for this project from evaluation_status into api_test_reports
+        // Auto-backfill any completed/failed jobs for this project from evaluation_status into api_test_reports
         try {
             await pool.query(
                 `INSERT INTO api_test_reports (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
@@ -943,12 +943,29 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.project_id, 
                      e.job_id, 
                      COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0)) as total_prompts,
-                     COALESCE((e.payload->'summary'->>'successful')::int, 0) as success_count,
-                     COALESCE((e.payload->'summary'->>'failed')::int, COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0))) as failure_count,
-                     '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb as average_scores,
+                     COALESCE(
+                       (e.payload->'summary'->>'successful')::int, 
+                       CASE 
+                         WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results')
+                         WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) 
+                         ELSE 0 
+                       END
+                     ) as success_count,
+                     COALESCE(
+                       (e.payload->'summary'->>'failed')::int, 
+                       CASE 
+                         WHEN e.payload ? 'errors' AND jsonb_typeof(e.payload->'errors') = 'array' THEN jsonb_array_length(e.payload->'errors')
+                         WHEN e.payload ? 'error' OR e.status = 'failed' THEN COALESCE(e.total_prompts, 0) 
+                         ELSE GREATEST(0, COALESCE(e.total_prompts, 0) - CASE WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results') WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) ELSE 0 END)
+                       END
+                     ) as failure_count,
+                     COALESCE(
+                       e.payload->'summary',
+                       '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb
+                     ) as average_scores,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
-                       ELSE COALESCE(e.payload, '{}'::jsonb)
+                       ELSE COALESCE(e.payload->'results', '[]'::jsonb)
                      END as results,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'error', e.payload->>'error'))
@@ -961,12 +978,12 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
-                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status = 'failed' AND r.id IS NULL
+                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status IN ('success', 'partial_success', 'failed', 'completed') AND r.id IS NULL
                  ON CONFLICT (job_id) DO NOTHING`,
                 [projectId, userId]
             );
         } catch (backfillErr) {
-            console.error("Backfill failed jobs error (non-fatal):", backfillErr);
+            console.error("Backfill completed jobs error (non-fatal):", backfillErr);
         }
 
         // Fetch reports for this project with pagination
@@ -1074,6 +1091,21 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                     ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
                     : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
 
+                const hasSummarySuccess = evalRow.payload?.summary?.successful !== undefined && evalRow.payload?.summary?.successful !== null;
+                const hasSummaryFailed = evalRow.payload?.summary?.failed !== undefined && evalRow.payload?.summary?.failed !== null;
+
+                const successCount = hasSummarySuccess
+                    ? parseInt(evalRow.payload.summary.successful)
+                    : (Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0
+                        ? evalRow.payload.results.length
+                        : (["success", "completed"].includes(evalRow.status) ? totalPrompts : 0));
+
+                const failureCount = hasSummaryFailed
+                    ? parseInt(evalRow.payload.summary.failed)
+                    : (Array.isArray(evalRow.payload?.errors) && evalRow.payload.errors.length > 0
+                        ? evalRow.payload.errors.length
+                        : (evalRow.payload?.error || evalRow.status === "failed" ? totalPrompts : Math.max(0, totalPrompts - successCount)));
+
                 const insertResult = await pool.query(
                     `INSERT INTO api_test_reports 
                      (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
@@ -1085,10 +1117,10 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                         evalRow.project_id,
                         evalRow.job_id,
                         totalPrompts,
-                        parseInt(evalRow.payload?.summary?.successful || '0'),
-                        parseInt(evalRow.payload?.summary?.failed || totalPrompts.toString() || '0'),
-                        JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
-                        JSON.stringify(evalRow.payload || {}),
+                        successCount,
+                        failureCount,
+                        JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                        JSON.stringify(evalRow.payload?.error ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] } : (Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0 ? evalRow.payload.results : [])),
                         JSON.stringify(evalRow.payload?.errors || []),
                         JSON.stringify(configToSave),
                         evalRow.created_at

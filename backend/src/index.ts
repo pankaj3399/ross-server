@@ -95,6 +95,8 @@ app.get("/health", (_req, res) => {
 }); 
 
 
+
+
 app.use("/auth", authRouter);
 app.use("/aima", authenticateToken, checkRouteAccess('/aima'), aimaRouter);
 app.use("/projects", authenticateToken, checkRouteAccess('/projects'), projectsRouter);

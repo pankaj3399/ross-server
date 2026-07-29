@@ -547,7 +547,7 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
     });
     headers["Host"] = originalHost;
   } catch (err: any) {
-    throw new Error("Secure pinned transport (undici) is unavailable: " + (err.message || String(err)));
+    throw new Error(`Secure pinned transport setup failed: ${err?.message || String(err)}`);
   }
 
   const controller = new AbortController();

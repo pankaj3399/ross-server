@@ -240,9 +240,10 @@ export default function ManualPromptJobPage() {
             )}
           </div>
 
-          {jobStatus.status === "failed" && jobStatus.errorMessage && (
-            <div className="mt-4 bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive">
-              {jobStatus.errorMessage}
+          {jobStatus.status === "failed" && (
+            <div className="mt-4 bg-destructive/10 border border-destructive/20 rounded-xl p-4 text-sm text-destructive font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-destructive" />
+              <span>{jobStatus.errorMessage || (jobStatus as any)?.payload?.error || "Job failed during execution. Please retry or contact support."}</span>
             </div>
           )}
         </motion.div>

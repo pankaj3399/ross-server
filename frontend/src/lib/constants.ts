@@ -20,6 +20,10 @@ export const ROLES = {
   PREMIUM_USER: "PREMIUM_USER",
 } as const;
 
+export const isAdminRole = (role?: string | null): boolean => {
+  return Boolean(role && role.trim().toUpperCase() === ROLES.ADMIN);
+};
+
 // Auth routes
 export const AUTH_LOGIN_URL = "/auth?isLogin=true";
 

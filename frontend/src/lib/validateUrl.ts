@@ -77,7 +77,7 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     hostname === "[::1]" ||
     hostname === "::1"
   ) {
-    return { isValid: false, error: "Localhost and internal addresses are not allowed. Please specify a public API URL." };
+    return { isValid: false, error: "Localhost and internal addresses are not allowed." };
   }
 
   // IPv4 numeric host normalization and range check
@@ -141,11 +141,7 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
       if (parsedEmbedded) {
         const [a, b] = parsedEmbedded;
         if (
-          a === 127 ||
-          a === 0 ||
-          a === 10 ||
-          (a === 172 && b >= 16 && b <= 31) ||
-          (a === 192 && b === 168) ||
+          (a === 127 || a === 0 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) ||
           (a === 169 && b === 254) ||
           (a === 100 && b >= 64 && b <= 127)
         ) {
@@ -158,7 +154,12 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
   if (
     cleanHostname === "::" ||
     cleanHostname === "::1" ||
-    cleanHostname === "0:0:0:0:0:0:0:1" ||
+    cleanHostname === "0:0:0:0:0:0:0:1"
+  ) {
+    return { isValid: false, error: "Loopback and unspecified IPv6 addresses are not allowed." };
+  }
+
+  if (
     cleanHostname.startsWith("fe80:") ||
     /^f[cd][0-9a-f]{0,4}:/i.test(cleanHostname) ||
     cleanHostname.startsWith("fc00:") ||
