@@ -40,6 +40,34 @@ test.use({ storageState: STORAGE_STATE });
 
 const PROJECT_NAME = "bias test";
 
+// Deletes any pre-existing project named `name` via a direct API call,
+// bypassing the dashboard's kebab-menu delete flow entirely. That UI flow is
+// confirmed broken for never-started projects (still showing "Start
+// Assessment"): its "Delete" menu item opens the project's own "Choose Your
+// Path" modal instead of the delete-confirmation dialog (see
+// project-lifecycle.spec.js and the e2e README). PROJECT_NAME is fixed
+// (this is a kept project, like premium-feature.spec.js's "Full Premium
+// Feature") and this spec never drives the project to "completed" status
+// (unlike premium-feature.spec.js, which is why *that* spec's
+// dashboard.deleteProjectIfPresent works — its kept project is always
+// "completed" by run's end, so the kebab menu behaves). Without this, every
+// run after the first fails at project creation: the backend rejects the
+// duplicate name and createProject()'s `res.status() === 201` wait never
+// resolves, timing out at 20s (confirmed live).
+async function deleteProjectByNameViaApi(page, name) {
+  const token = await page.evaluate(() => localStorage.getItem("auth_token"));
+  const listResponse = await page.request.get(`${API_BASE_URL}/projects`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!listResponse.ok()) return;
+  const { projects } = await listResponse.json();
+  const existing = projects.find((p) => p.name === name);
+  if (!existing) return;
+  await page.request.delete(`${API_BASE_URL}/projects/${existing.id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 test.describe("AI Bias & Fairness Testing", () => {
   test("manual prompt, API automated, and dataset testing paths end-to-end", async ({ page }) => {
     const dashboard = new DashboardPage(page);
@@ -56,6 +84,10 @@ test.describe("AI Bias & Fairness Testing", () => {
     let projectId;
 
     await test.step("create the 'bias test' project", async () => {
+      // Navigate once first so localStorage (and the auth token in it) is
+      // reachable — a fresh page has no origin/localStorage context yet.
+      await dashboard.goto();
+      await deleteProjectByNameViaApi(page, PROJECT_NAME);
       await dashboard.createProject(PROJECT_NAME, "Bias & fairness testing QA pass.");
       projectId = await dashboard.startAssessment(PROJECT_NAME);
       expect(projectId).toBeTruthy();
