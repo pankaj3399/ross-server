@@ -943,15 +943,29 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.project_id, 
                      e.job_id, 
                      COALESCE((e.payload->'summary'->>'total')::int, COALESCE(e.total_prompts, 0)) as total_prompts,
-                     COALESCE((e.payload->'summary'->>'successful')::int, CASE WHEN e.status = 'success' THEN COALESCE(e.total_prompts, 0) ELSE 0 END) as success_count,
-                     COALESCE((e.payload->'summary'->>'failed')::int, CASE WHEN e.status = 'failed' THEN COALESCE(e.total_prompts, 0) ELSE 0 END) as failure_count,
+                     COALESCE(
+                       (e.payload->'summary'->>'successful')::int, 
+                       CASE 
+                         WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results')
+                         WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) 
+                         ELSE 0 
+                       END
+                     ) as success_count,
+                     COALESCE(
+                       (e.payload->'summary'->>'failed')::int, 
+                       CASE 
+                         WHEN e.payload ? 'errors' AND jsonb_typeof(e.payload->'errors') = 'array' THEN jsonb_array_length(e.payload->'errors')
+                         WHEN e.status = 'failed' THEN COALESCE(e.total_prompts, 0) 
+                         ELSE GREATEST(0, COALESCE(e.total_prompts, 0) - CASE WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results') WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) ELSE 0 END)
+                       END
+                     ) as failure_count,
                      COALESCE(
                        e.payload->'summary',
                        '{"averageOverallScore": 0, "averageBiasScore": 0, "averageToxicityScore": 0}'::jsonb
                      ) as average_scores,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
-                       ELSE COALESCE(e.payload, '{}'::jsonb)
+                       ELSE COALESCE(e.payload->'results', '[]'::jsonb)
                      END as results,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'error', e.payload->>'error'))
@@ -964,7 +978,7 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
-                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status IN ('success', 'partial_success', 'failed') AND r.id IS NULL
+                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status IN ('success', 'partial_success', 'failed', 'completed') AND r.id IS NULL
                  ON CONFLICT (job_id) DO NOTHING`,
                 [projectId, userId]
             );
@@ -1088,10 +1102,10 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                         evalRow.project_id,
                         evalRow.job_id,
                         totalPrompts,
-                        parseInt(evalRow.payload?.summary?.successful || '0'),
-                        parseInt(evalRow.payload?.summary?.failed || totalPrompts.toString() || '0'),
-                        JSON.stringify({ averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
-                        JSON.stringify(evalRow.payload || {}),
+                        parseInt(evalRow.payload?.summary?.successful || (Array.isArray(evalRow.payload?.results) ? evalRow.payload.results.length : 0).toString()),
+                        parseInt(evalRow.payload?.summary?.failed || (Array.isArray(evalRow.payload?.errors) ? evalRow.payload.errors.length : 0).toString()),
+                        JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                        JSON.stringify(evalRow.payload?.results || (evalRow.payload?.error ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] } : [])),
                         JSON.stringify(evalRow.payload?.errors || []),
                         JSON.stringify(configToSave),
                         evalRow.created_at

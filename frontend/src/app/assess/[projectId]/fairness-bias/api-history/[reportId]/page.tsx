@@ -77,7 +77,7 @@ export default function ApiReportDetailPage() {
         reportRef,
         fileName: isSecurityReport ? `security-scan-report-${reportId}.pdf` : `api-fairness-report-${reportId}.pdf`,
         reportTitle: isSecurityReport ? "Security Scan Report" : "API Fairness & Bias Report",
-        projectName: projectId,
+        projectName: projectName || projectId,
         generatedAt: normalizedGeneratedAt,
         sectionSelector: ".pdf-section"
     });
@@ -140,7 +140,7 @@ export default function ApiReportDetailPage() {
         return () => {
             controller.abort();
         };
-    }, [reportId]);
+    }, [reportId, projectId]);
 
     const getScoreColor = (score: number) => {
         if (score >= 0.8) return "text-green-500";

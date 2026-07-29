@@ -21,7 +21,7 @@ import {
 } from "@tabler/icons-react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuth } from "../../contexts/AuthContext";
-import { AUTH_LOGIN_URL, ROLES } from "../../lib/constants";
+import { AUTH_LOGIN_URL, ROLES, isAdminRole } from "../../lib/constants";
 import {
   Sidebar,
   SidebarContent,
@@ -153,7 +153,7 @@ function SidebarContentComponent({ items = defaultSidebarItems }: AppSidebarProp
     items.forEach(item => {
       allSidebarItemsMap.set(item.id, item);
     });
-    const isAdmin = Boolean(user?.role && user.role.trim().toUpperCase() === "ADMIN");
+    const isAdmin = isAdminRole(user?.role);
     if (isAdmin && !allSidebarItemsMap.has("admin-aima")) {
       allSidebarItemsMap.set("admin-aima", {
         id: "admin-aima",

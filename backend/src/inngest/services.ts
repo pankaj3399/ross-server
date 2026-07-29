@@ -439,7 +439,12 @@ export async function validateTargetHostname(apiUrl: string): Promise<string[]> 
     for (const addr of addresses) {
       const formattedHost = addr.address.includes(":") ? `[${addr.address}]` : addr.address;
       const ipCheck = isPublicApiUrl(`http://${formattedHost}`);
-      if (process.env.NODE_ENV === "production" && !ipCheck.isValid) {
+      const isLocalOptIn =
+        process.env.ALLOW_LOCAL_DEV_SSRF === "true" ||
+        process.env.ALLOW_LOCAL_DEV_SSRF === "1" ||
+        process.env.NEXT_PUBLIC_ALLOW_LOCAL_DEV_SSRF === "true" ||
+        process.env.NEXT_PUBLIC_ALLOW_LOCAL_DEV_SSRF === "1";
+      if (!isLocalOptIn && !ipCheck.isValid) {
         throw new Error(`Forbidden API host address (${addr.address}): ${ipCheck.error}`);
       }
       validIps.push(addr.address);
@@ -547,7 +552,7 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
     });
     headers["Host"] = originalHost;
   } catch (err: any) {
-    dispatcher = undefined;
+    throw new Error(`Secure pinned transport setup failed: ${err?.message || String(err)}`);
   }
 
   const controller = new AbortController();

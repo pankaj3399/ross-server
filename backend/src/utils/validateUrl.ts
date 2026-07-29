@@ -73,8 +73,14 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
 
   const hostname = url.hostname.toLowerCase();
 
-  // Check hostname string patterns (allow in non-production for local testing)
-  if (process.env.NODE_ENV === "production" && (
+  const allowLocal = 
+    process.env.ALLOW_LOCAL_DEV_SSRF === "true" ||
+    process.env.ALLOW_LOCAL_DEV_SSRF === "1" ||
+    process.env.NEXT_PUBLIC_ALLOW_LOCAL_DEV_SSRF === "true" ||
+    process.env.NEXT_PUBLIC_ALLOW_LOCAL_DEV_SSRF === "1";
+
+  // Check hostname string patterns (allow only when explicit local dev opt-in is enabled)
+  if (!allowLocal && (
     hostname === "localhost" ||
     hostname.endsWith(".localhost") ||
     hostname === "local" ||
@@ -86,7 +92,7 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     hostname === "[::1]" ||
     hostname === "::1"
   )) {
-    return { isValid: false, error: "Localhost and internal addresses are not allowed in production." };
+    return { isValid: false, error: "Localhost and internal addresses are not allowed." };
   }
 
   // IPv4 numeric host normalization and range check
@@ -95,23 +101,23 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     const [a, b] = parsedIp;
 
     // 127.0.0.0/8 (Loopback)
-    if (process.env.NODE_ENV === "production" && a === 127) {
-      return { isValid: false, error: "Loopback IP addresses (127.x.x.x) are not allowed in production." };
+    if (!allowLocal && a === 127) {
+      return { isValid: false, error: "Loopback IP addresses (127.x.x.x) are not allowed." };
     }
     // 0.0.0.0/8
-    if (a === 0) {
+    if (!allowLocal && a === 0) {
       return { isValid: false, error: "Invalid IP address (0.x.x.x)." };
     }
     // 10.0.0.0/8 (Private Class A)
-    if (a === 10) {
+    if (!allowLocal && a === 10) {
       return { isValid: false, error: "Private network IP addresses (10.x.x.x) are not allowed." };
     }
     // 172.16.0.0/12 (Private Class B)
-    if (a === 172 && b >= 16 && b <= 31) {
+    if (!allowLocal && a === 172 && b >= 16 && b <= 31) {
       return { isValid: false, error: "Private network IP addresses (172.16-31.x.x) are not allowed." };
     }
     // 192.168.0.0/16 (Private Class C)
-    if (a === 192 && b === 168) {
+    if (!allowLocal && a === 192 && b === 168) {
       return { isValid: false, error: "Private network IP addresses (192.168.x.x) are not allowed." };
     }
     // 169.254.0.0/16 (Link-local / AWS metadata)
@@ -150,11 +156,7 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
       if (parsedEmbedded) {
         const [a, b] = parsedEmbedded;
         if (
-          a === 127 ||
-          a === 0 ||
-          a === 10 ||
-          (a === 172 && b >= 16 && b <= 31) ||
-          (a === 192 && b === 168) ||
+          (!allowLocal && (a === 127 || a === 0 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168))) ||
           (a === 169 && b === 254) ||
           (a === 100 && b >= 64 && b <= 127)
         ) {
@@ -164,10 +166,15 @@ export function isPublicApiUrl(urlString: string): { isValid: boolean; error?: s
     }
   }
 
-  if (
+  if (!allowLocal && (
     cleanHostname === "::" ||
     cleanHostname === "::1" ||
-    cleanHostname === "0:0:0:0:0:0:0:1" ||
+    cleanHostname === "0:0:0:0:0:0:0:1"
+  )) {
+    return { isValid: false, error: "Loopback and unspecified IPv6 addresses are not allowed." };
+  }
+
+  if (
     cleanHostname.startsWith("fe80:") ||
     /^f[cd][0-9a-f]{0,4}:/i.test(cleanHostname) ||
     cleanHostname.startsWith("fc00:") ||
