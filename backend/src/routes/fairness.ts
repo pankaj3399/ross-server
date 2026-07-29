@@ -1091,6 +1091,21 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                     ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
                     : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
 
+                const hasSummarySuccess = evalRow.payload?.summary?.successful !== undefined && evalRow.payload?.summary?.successful !== null;
+                const hasSummaryFailed = evalRow.payload?.summary?.failed !== undefined && evalRow.payload?.summary?.failed !== null;
+
+                const successCount = hasSummarySuccess
+                    ? parseInt(evalRow.payload.summary.successful)
+                    : (Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0
+                        ? evalRow.payload.results.length
+                        : (["success", "completed"].includes(evalRow.status) ? totalPrompts : 0));
+
+                const failureCount = hasSummaryFailed
+                    ? parseInt(evalRow.payload.summary.failed)
+                    : (Array.isArray(evalRow.payload?.errors) && evalRow.payload.errors.length > 0
+                        ? evalRow.payload.errors.length
+                        : (evalRow.payload?.error || evalRow.status === "failed" ? totalPrompts : Math.max(0, totalPrompts - successCount)));
+
                 const insertResult = await pool.query(
                     `INSERT INTO api_test_reports 
                      (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
@@ -1102,8 +1117,8 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
                         evalRow.project_id,
                         evalRow.job_id,
                         totalPrompts,
-                        parseInt(evalRow.payload?.summary?.successful || (Array.isArray(evalRow.payload?.results) ? evalRow.payload.results.length : 0).toString()),
-                        parseInt(evalRow.payload?.summary?.failed || (Array.isArray(evalRow.payload?.errors) ? evalRow.payload.errors.length : 0).toString()),
+                        successCount,
+                        failureCount,
                         JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
                         JSON.stringify(evalRow.payload?.results || (evalRow.payload?.error ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] } : [])),
                         JSON.stringify(evalRow.payload?.errors || []),

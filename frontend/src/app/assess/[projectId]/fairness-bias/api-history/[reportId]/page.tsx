@@ -72,12 +72,14 @@ export default function ApiReportDetailPage() {
         return isNaN(d.getTime()) ? undefined : d.toISOString();
     })();
 
+    const displayProjectName = (projectName && projectName !== "Project") ? projectName : projectId;
+
     const isSecurityReport = report?.config?.testType === "SECURITY_SCAN";
     const { exportPdf, isExporting } = usePdfReport({
         reportRef,
         fileName: isSecurityReport ? `security-scan-report-${reportId}.pdf` : `api-fairness-report-${reportId}.pdf`,
         reportTitle: isSecurityReport ? "Security Scan Report" : "API Fairness & Bias Report",
-        projectName: projectName || projectId,
+        projectName: displayProjectName,
         generatedAt: normalizedGeneratedAt,
         sectionSelector: ".pdf-section"
     });
@@ -195,7 +197,7 @@ export default function ApiReportDetailPage() {
                     {/* Top: Breadcrumb */}
                     <div className="flex items-center justify-between text-xs">
                         <Breadcrumb
-                            projectName={projectName || "Project"}
+                            projectName={displayProjectName}
                             projectHref={`/assess/${projectId}`}
                             items={[
                                 {
