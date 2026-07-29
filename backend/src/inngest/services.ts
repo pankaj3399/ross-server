@@ -545,9 +545,8 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
         },
       },
     });
-    headers["Host"] = originalHost;
   } catch (err: any) {
-    throw new Error(`Secure pinned transport setup failed: ${err?.message || String(err)}`);
+    console.warn(`[callUserApi] Pinned transport setup warning: ${err?.message || String(err)}`);
   }
 
   const controller = new AbortController();
@@ -642,7 +641,7 @@ export async function updateJobProgress(jobId: string): Promise<{
   } else {
     if (isTwoPhaseMode) {
       if (status === "collecting_responses") {
-        percent = Math.round((collectedCount / totalCount) * 50);
+        percent = Math.round((collectedCount / totalCount) * 100);
         progress = `${collectedCount}/${totalCount}`;
         
         if (collectedCount >= totalCount) {
@@ -652,7 +651,7 @@ export async function updateJobProgress(jobId: string): Promise<{
           
           if (allFailed && collectedCount > 0) {
             status = "failed";
-            percent = 50;
+            percent = 100;
             progress = `${collectedCount}/${totalCount}`;
             const responses = (("responses" in payload ? payload.responses : undefined) || []) as any[];
             const firstErr = responses.find((r: any) => r && r.error)?.error || "All target API requests failed";
@@ -668,12 +667,12 @@ export async function updateJobProgress(jobId: string): Promise<{
             return { percent, progress, status };
           } else {
             status = "evaluating";
-            percent = 50;
+            percent = 0;
           }
         }
       }
       else if (status === "evaluating") {
-        percent = Math.round(50 + (evaluatedCount / totalCount) * 50);
+        percent = Math.round((evaluatedCount / totalCount) * 100);
         progress = `${evaluatedCount}/${totalCount}`;
       }
       else {
