@@ -20,6 +20,9 @@ import {
   IconBriefcase,
   IconLayoutDashboard,
   IconTable,
+  IconApi,
+  IconTerminal2,
+  IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
@@ -701,46 +704,92 @@ const AssessmentTreeNavigation: React.FC<AssessmentTreeNavigationProps> = ({
                                       className="overflow-hidden"
                                     >
                                       {isFairness && (
-                                        <SidebarMenuSub className="mt-1 gap-1">
+                                        <SidebarMenuSub className="mt-1 gap-1.5 pl-3 border-l border-sidebar-border/50">
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias`) : openSubscriptionModal("Unlock Premium to Access Manual Prompt Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="group/fairness h-8 px-2"
-                                               isActive={(isFairnessRootPage || isFairnessPage) && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage}
-                                             >
-                                               <span className={cn(
-                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                 (isFairnessRootPage || (isFairnessPage && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage)) ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
-                                               )}>
-                                                Manual Prompt Testing
+                                              className={cn(
+                                                "group/fairness h-8.5 px-2.5 rounded-lg transition-all flex items-center justify-between",
+                                                ((isFairnessRootPage || isFairnessPage) && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage)
+                                                  ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary"
+                                                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                              )}
+                                              isActive={(isFairnessRootPage || isFairnessPage) && !isApiEndpointPage && !isDatasetTestingPage && !isFairnessOptionsPage}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <IconTerminal2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                                                <span className="text-xs truncate">
+                                                  Manual Prompt Testing
+                                                </span>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 shrink-0 ml-1">
+                                                Manual
                                               </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/api-endpoint`) : openSubscriptionModal("Unlock Premium to Access API Automated Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="group/fairness h-8 px-2"
-                                               isActive={isApiEndpointPage}
-                                             >
-                                               <span className={cn(
-                                                 "text-[13px] truncate ml-2 transition-colors",
-                                                 isApiEndpointPage ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
-                                               )}>
-                                                API Automated Testing
+                                              className={cn(
+                                                "group/fairness h-8.5 px-2.5 rounded-lg transition-all flex items-center justify-between",
+                                                isApiEndpointPage
+                                                  ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary"
+                                                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                              )}
+                                              isActive={isApiEndpointPage}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <IconApi className="h-4 w-4 text-blue-500 shrink-0" />
+                                                <span className="text-xs truncate">
+                                                  API Automated Testing
+                                                </span>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 shrink-0 ml-1">
+                                                Auto
                                               </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>
                                           <SidebarMenuSubItem>
                                             <SidebarMenuSubButton 
                                               onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/dataset-testing`) : openSubscriptionModal("Unlock Premium to Access Dataset Testing", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
-                                              className="group/fairness h-8 px-2"
-                                               isActive={isDatasetTestingPage}
+                                              className={cn(
+                                                "group/fairness h-8.5 px-2.5 rounded-lg transition-all flex items-center justify-between",
+                                                isDatasetTestingPage
+                                                  ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary"
+                                                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                              )}
+                                              isActive={isDatasetTestingPage}
                                             >
-                                              <span className={cn(
-                                                "text-[13px] truncate ml-2 transition-colors",
-                                                isDatasetTestingPage ? "text-foreground font-medium" : "text-foreground/70 group-hover/fairness:text-foreground"
-                                              )}>
-                                                Dataset Testing
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <IconTable className="h-4 w-4 text-purple-500 shrink-0" />
+                                                <span className="text-xs truncate">
+                                                  Dataset Testing
+                                                </span>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded border border-purple-500/20 shrink-0 ml-1">
+                                                CSV
+                                              </span>
+                                            </SidebarMenuSubButton>
+                                          </SidebarMenuSubItem>
+                                          <SidebarMenuSubItem>
+                                            <SidebarMenuSubButton 
+                                              onClick={() => premiumStatus ? router.push(`/assess/${projectId}/fairness-bias/options`) : openSubscriptionModal("Unlock Premium to Access Testing Options & Hub", "Upgrade to premium to unlock this feature and many more advanced capabilities.")} 
+                                              className={cn(
+                                                "group/fairness h-8.5 px-2.5 rounded-lg transition-all flex items-center justify-between",
+                                                isFairnessOptionsPage
+                                                  ? "bg-primary/10 text-primary font-semibold border-l-2 border-primary"
+                                                  : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                                              )}
+                                              isActive={isFairnessOptionsPage}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <IconAdjustmentsHorizontal className="h-4 w-4 text-amber-500 shrink-0" />
+                                                <span className="text-xs truncate">
+                                                  Testing Options & Hub
+                                                </span>
+                                              </div>
+                                              <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0 ml-1">
+                                                Hub
                                               </span>
                                             </SidebarMenuSubButton>
                                           </SidebarMenuSubItem>

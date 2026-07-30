@@ -42,7 +42,8 @@ export async function evaluateFairnessResponse(
     userId: string,
     category: string,
     questionText: string,
-    rawUserResponse: string
+    rawUserResponse: string,
+    options?: { forceProvider?: "anthropic" | "gemini" }
 ): Promise<EvaluationPayload> {
     if (!isAnthropicConfigured()) {
         throw new Error("Anthropic (Claude) is not configured");
@@ -170,6 +171,7 @@ IMPORTANT: Respond ONLY in valid JSON format without markdown formatting. Provid
                 userPrompt,
                 maxTokens: 1024,
                 label: "Fairness All Metrics",
+                forceProvider: options?.forceProvider,
             });
 
             // Validate and normalize all scores

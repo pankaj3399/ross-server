@@ -118,7 +118,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
             const jsPDFConstructor = jsPDFModule.default;
             const html2canvas = html2canvasModule.default;
 
-            const pdf = new jsPDFConstructor({ orientation: "p", unit: "mm", format: "a4" });
+            const pdf = new jsPDFConstructor({ orientation: "p", unit: "mm", format: "a4", compress: true });
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
             const { margin, headerHeight, footerHeight } = PDF_CONFIG;

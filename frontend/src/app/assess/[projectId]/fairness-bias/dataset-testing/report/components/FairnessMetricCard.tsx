@@ -167,19 +167,18 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                         </div>
                     </div>
                     {unavailableExplanation.length > 0 && (
-                        <div className="mt-1 p-3 bg-[#f8fafc] dark:bg-muted rounded-lg border border-border">
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                                <HelpCircle className="w-3 h-3" />
+                        <div className="mt-2 p-2.5 bg-slate-50 dark:bg-muted/50 rounded-lg border border-border/60">
+                            <p className="text-[11px] font-semibold text-muted-foreground mb-1.5 flex items-center gap-1">
+                                <HelpCircle className="w-3 h-3 shrink-0" />
                                 Why
                             </p>
-                            <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                            <ul className="text-xs text-muted-foreground space-y-1.5 leading-normal pl-3.5 list-disc marker:text-muted-foreground/70">
                                 {unavailableExplanation.map((line, i) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                        <span className="text-muted-foreground mt-0.5">•</span>
-                                        <span>{line}</span>
-                                    </div>
+                                    <li key={i} className="pl-0.5 break-words">
+                                        {line}
+                                    </li>
                                 ))}
-                            </div>
+                            </ul>
                         </div>
                     )}
                 </CardContent>
@@ -227,19 +226,18 @@ export const FairnessMetricCard = ({ title, data }: FairnessMetricCardProps) => 
                     if (explanationItems.length === 0) return null;
 
                     return (
-                        <div className="mt-1 p-3 bg-[#f8fafc] dark:bg-muted rounded-lg border border-border">
-                            <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3 h-3 text-primary" />
+                        <div className="mt-2 p-2.5 bg-slate-50 dark:bg-muted/50 rounded-lg border border-border/60">
+                            <p className="text-[11px] font-semibold text-foreground/80 mb-1.5 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
                                 Analysis
                             </p>
-                            <div className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+                            <ul className="text-xs text-muted-foreground space-y-1.5 leading-normal pl-3.5 list-disc marker:text-muted-foreground/70">
                                 {explanationItems.map((line, i) => (
-                                    <div key={i} className="flex items-start gap-2">
-                                        <span className="text-muted-foreground mt-0.5">•</span>
-                                        <span>{line}</span>
-                                    </div>
+                                    <li key={i} className="pl-0.5 break-words">
+                                        {line}
+                                    </li>
                                 ))}
-                            </div>
+                            </ul>
                         </div>
                     );
                 })()}

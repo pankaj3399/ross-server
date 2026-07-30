@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle, XCircle, AlertTriangle, ChevronRight, Server, Terminal, Trash2, Search, Shield, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ApiReport = {
     id: string;
@@ -122,8 +128,8 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (hasError || (success === 0 && failure > 0) || (total === 0 && hasError)) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
-                    <XCircle className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20 whitespace-nowrap">
+                    <XCircle className="w-3.5 h-3.5 shrink-0" />
                     Failed {total > 0 ? `(${failure}/${total})` : ""}
                 </span>
             );
@@ -131,8 +137,8 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (total === 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border whitespace-nowrap">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                     Pending
                 </span>
             );
@@ -140,15 +146,15 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (failure === 0 && success > 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
-                    <CheckCircle className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20 whitespace-nowrap">
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                     Success ({success}/{total})
                 </span>
             );
         } else {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                    <CheckCircle className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap">
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                     Completed ({success}/{total})
                 </span>
             );
@@ -191,121 +197,135 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                     </p>
                 </div>
             ) : (
-                <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 border-b border-border">
-                                <tr>
-                                    <th className="px-6 py-3 font-medium">Date</th>
-                                    <th className="px-6 py-3 font-medium">Test Config</th>
-                                    <th className="px-6 py-3 font-medium">Status</th>
-                                    <th className="px-6 py-3 font-medium">Score</th>
-                                    <th className="px-6 py-3 font-medium text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {displayedReports.map((report) => (
-                                    <tr
-                                        key={report.id}
-                                        className="bg-card hover:bg-secondary/20 transition-colors group cursor-pointer"
-                                        onClick={() => handleViewReport(report)}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                                            <div>{parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
-                                            {/* <div className="text-xs opacity-70">{parseBackendDate(report.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "numeric" })}</div> */}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                                    <Server className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-foreground flex items-center gap-2 max-w-[300px] sm:max-w-[400px] md:max-w-[500px]">
-                                                        <span className="truncate">{report.config?.apiUrl || "Unknown Endpoint"}</span>
-                                                        {report.config?.testType === "SECURITY_SCAN" && (
-                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
-                                                                <Shield className="w-3 h-3" />
-                                                                Security scan
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-xs text-muted-foreground">
-                                                        {report.total_prompts} prompts
-                                                    </div>
-                                                </div>
+                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+                    <table className="w-full text-sm text-left table-fixed">
+                        <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 border-b border-border">
+                            <tr>
+                                <th className="px-5 py-3.5 font-semibold w-[15%]">Date</th>
+                                <th className="px-5 py-3.5 font-semibold w-[36%]">Test Config</th>
+                                <th className="px-5 py-3.5 font-semibold w-[24%]">Status</th>
+                                <th className="px-5 py-3.5 font-semibold w-[11%]">Score</th>
+                                <th className="px-5 py-3.5 font-semibold text-right w-[14%]">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {displayedReports.map((report) => (
+                                <tr
+                                    key={report.id}
+                                    className="bg-card hover:bg-secondary/20 transition-colors group cursor-pointer"
+                                    onClick={() => handleViewReport(report)}
+                                >
+                                    <td className="px-5 py-4 whitespace-nowrap text-muted-foreground font-medium align-middle">
+                                        {parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                    </td>
+                                    <td className="px-5 py-4 align-middle min-w-0">
+                                        <div className="flex items-center gap-2.5 min-w-0">
+                                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors shrink-0">
+                                                <Server className="w-4 h-4" />
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {getStatusBadge(report)}
-                                        </td>
-                                        <td className="px-6 py-4 font-medium">
-                                            {report.config?.testType === "SECURITY_SCAN"
-                                                ? (report.results?.overall_score != null
-                                                    ? `${report.results.overall_score}%`
-                                                    : "N/A")
-                                                : (report.average_scores?.averageOverallScore != null
-                                                    ? `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%`
-                                                    : "N/A")}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleViewReport(report);
-                                                    }}
-                                                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                                                    type="button"
-                                                >
-                                                    View Details
-                                                    <ChevronRight className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={async (e) => {
-                                                        e.stopPropagation();
-                                                        if (confirm("Are you sure you want to delete this report?")) {
-                                                            try {
-                                                                const res = await fetch(`${API_BASE_URL}/fairness/api-reports/${report.id}`, {
-                                                                    method: 'DELETE',
-                                                                    headers: {
-                                                                        "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
-                                                                    }
-                                                                });
-                                                                if (res.ok) {
-                                                                    setReports(prev => prev.filter(r => r.id !== report.id));
-                                                                } else {
-                                                                    // Show feedback for failure
-                                                                    alert("Failed to delete report. Please try again.");
+                                            <div className="min-w-0 flex-1">
+                                                <TooltipProvider delayDuration={150}>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                tabIndex={0}
+                                                                aria-label={`Full API Endpoint URL: ${report.config?.apiUrl || "Unknown Endpoint"}`}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="font-mono text-sm font-medium text-foreground truncate max-w-full hover:text-primary transition-colors cursor-pointer underline decoration-dotted decoration-border underline-offset-4 text-left focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+                                                            >
+                                                                {report.config?.apiUrl || "Unknown Endpoint"}
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="top" className="max-w-md p-3.5 bg-slate-900 dark:bg-slate-950 text-slate-100 border border-slate-700/80 shadow-2xl rounded-xl space-y-2">
+                                                            <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Full API Endpoint URL</span>
+                                                                <span className="text-[10px] font-mono text-slate-500">Hover Details</span>
+                                                            </div>
+                                                            <p className="font-mono text-xs break-all select-all text-emerald-400 bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80 leading-relaxed max-h-40 overflow-y-auto">
+                                                                {report.config?.apiUrl || "Unknown Endpoint"}
+                                                            </p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
+                                                {report.config?.testType === "SECURITY_SCAN" && (
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 mt-1">
+                                                        <Shield className="w-3 h-3" />
+                                                        Security scan
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap align-middle">
+                                        {getStatusBadge(report)}
+                                    </td>
+                                    <td className="px-5 py-4 font-medium whitespace-nowrap align-middle text-foreground">
+                                        {report.config?.testType === "SECURITY_SCAN"
+                                            ? (report.results?.overall_score != null
+                                                ? `${report.results.overall_score}%`
+                                                : "N/A")
+                                            : (report.average_scores?.averageOverallScore != null
+                                                ? `${(report.average_scores.averageOverallScore * 100).toFixed(1)}%`
+                                                : "N/A")}
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap text-right align-middle">
+                                        <div className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleViewReport(report);
+                                                }}
+                                                className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+                                                type="button"
+                                            >
+                                                View Details
+                                                <ChevronRight className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    if (confirm("Are you sure you want to delete this report?")) {
+                                                        try {
+                                                            const res = await fetch(`${API_BASE_URL}/fairness/api-reports/${report.id}`, {
+                                                                method: 'DELETE',
+                                                                headers: {
+                                                                    "Authorization": `Bearer ${localStorage.getItem("auth_token")}`
                                                                 }
-                                                            } catch (err) {
-                                                                console.error("Failed to delete report:", err);
-                                                                alert("An error occurred while deleting the report.");
+                                                            });
+                                                            if (res.ok) {
+                                                                setReports(prev => prev.filter(r => r.id !== report.id));
+                                                            } else {
+                                                                alert("Failed to delete report. Please try again.");
                                                             }
+                                                        } catch (err) {
+                                                            console.error("Failed to delete report:", err);
+                                                            alert("An error occurred while deleting the report.");
                                                         }
-                                                    }}
-                                                    className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                                    title="Delete report"
-                                                    type="button"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                                    }
+                                                }}
+                                                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                title="Delete report"
+                                                type="button"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
 
                     {!isExpanded && hasMore && (
-                        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card to-transparent pointer-events-none flex items-end justify-center pb-4">
+                        <div className="border-t border-border bg-muted/20 p-3 flex items-center justify-center">
                             <button
                                 onClick={() => setIsExpanded(true)}
-                                className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                                 type="button"
                             >
                                 <ChevronRight className="w-4 h-4 rotate-90" />
-                                Show complete history ({reports.length})
+                                Show complete history ({reports.length} reports)
                             </button>
                         </div>
                     )}

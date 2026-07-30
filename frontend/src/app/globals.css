@@ -1110,5 +1110,10 @@ body.sidebar-resizing *,
   user-select: none !important;
 }
 
+/* Fix native browser textarea resizer handle rendering white box in dark mode */
+textarea::-webkit-resizer {
+  background: transparent;
+}
+
 
 

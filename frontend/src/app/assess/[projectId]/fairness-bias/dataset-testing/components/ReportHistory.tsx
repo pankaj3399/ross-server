@@ -191,69 +191,66 @@ export const ReportHistory = ({ projectId, projectName, aiSystemType }: ReportHi
                     <p>No reports found. Run a new evaluation to see it here.</p>
                 </div>
             ) : (
-                <div className="relative rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 border-b border-border">
-                                <tr>
-                                    <th className="px-6 py-3 font-medium">Date</th>
-                                    <th className="px-6 py-3 font-medium">Dataset</th>
-                                    <th className="px-6 py-3 font-medium">Verdict</th>
-                                    <th className="px-6 py-3 font-medium text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {displayedReports.map((report) => (
-                                    <tr
-                                        key={report.id}
-                                        className="bg-card hover:bg-secondary/20 transition-colors group cursor-pointer"
-                                        onClick={() => handleViewReport(report)}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap text-muted-foreground">
-                                            <div>{parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
-                                            <div className="text-xs opacity-70">{parseBackendDate(report.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "numeric" })}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
-                                                    <FileText className="w-4 h-4" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-medium text-foreground">{report.file_name}</div>
-                                                    <div className="text-xs text-muted-foreground">{formatFileSize(report.file_size)}</div>
-                                                </div>
+                <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+                    <table className="w-full text-sm text-left table-fixed">
+                        <thead className="text-xs text-muted-foreground uppercase bg-secondary/30 border-b border-border">
+                            <tr>
+                                <th className="px-5 py-3.5 font-semibold w-[20%]">Date</th>
+                                <th className="px-5 py-3.5 font-semibold w-[45%]">Dataset</th>
+                                <th className="px-5 py-3.5 font-semibold w-[20%]">Verdict</th>
+                                <th className="px-5 py-3.5 font-semibold text-right w-[15%]">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {displayedReports.map((report) => (
+                                <tr
+                                    key={report.id}
+                                    className="bg-card hover:bg-secondary/20 transition-colors group cursor-pointer"
+                                    onClick={() => handleViewReport(report)}
+                                >
+                                    <td className="px-5 py-4 whitespace-nowrap text-muted-foreground font-medium align-middle">
+                                        <div>{parseBackendDate(report.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                                    </td>
+                                    <td className="px-5 py-4 align-middle min-w-0">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors shrink-0">
+                                                <FileText className="w-4 h-4" />
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {getVerdictBadge(report.fairness_data?.overallVerdict ?? 'insufficient')}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleViewReport(report);
-                                                }}
-                                                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                                            >
-                                                View Report
-                                                <ChevronRight className="w-4 h-4" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="font-medium text-foreground truncate font-mono text-sm">{report.file_name}</div>
+                                                <div className="text-xs text-muted-foreground">{formatFileSize(report.file_size)}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-5 py-4 whitespace-nowrap align-middle">
+                                        {getVerdictBadge(report.fairness_data?.overallVerdict ?? 'insufficient')}
+                                    </td>
+                                    <td className="px-5 py-4 text-right whitespace-nowrap align-middle">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleViewReport(report);
+                                            }}
+                                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+                                        >
+                                            View Report
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
 
-                    {/* Expand Overlay */}
                     {!isExpanded && hasMore && (
-                        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-card to-transparent pointer-events-none flex items-end justify-center pb-4">
+                        <div className="border-t border-border bg-muted/20 p-3 flex items-center justify-center">
                             <button
                                 onClick={() => setIsExpanded(true)}
-                                className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                                type="button"
                             >
                                 <ChevronRight className="w-4 h-4 rotate-90" />
-                                Show complete history ({reports.length})
+                                Show complete history ({reports.length} reports)
                             </button>
                         </div>
                     )}

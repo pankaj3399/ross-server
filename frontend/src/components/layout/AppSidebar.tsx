@@ -385,6 +385,10 @@ const ActivityBarButton = ({
   </Tooltip>
 );
 
+const getDefaultProjectRoute = (premiumStatus?: boolean): string => {
+  return premiumStatus ? "/crc/dashboard" : "";
+};
+
 // ─── Main Sidebar Content Component ───────────────────────────────────────────
 
 function SidebarContentComponent() {
@@ -432,7 +436,10 @@ function SidebarContentComponent() {
 
   useEffect(() => {
     setActiveTab(getTabFromPathname(pathname));
-  }, [pathname, getTabFromPathname]);
+    if (pathname && (pathname.includes("/fairness-bias") || pathname.includes("/crc") || pathname.includes("/vulnerability-assessment") || pathname.includes("/vulnerability") || pathname.includes("/inventory"))) {
+      setIsSecondaryOpen(false);
+    }
+  }, [pathname, getTabFromPathname, setIsSecondaryOpen]);
 
   const handleTabClick = (tab: "dashboard" | "aima" | "premium" | "settings" | "admin") => {
     if (activeTab === tab) {
@@ -501,8 +508,13 @@ function SidebarContentComponent() {
   const handleProjectNav = useCallback((route: string) => {
     if (handleProjectAction(route)) return;
     const pid = getProjectIdFromPath(pathname);
-    if (pid) router.push(`/assess/${pid}${route}`);
-  }, [handleProjectAction, pathname, router]);
+    if (pid) {
+      if (route.startsWith("/fairness-bias") || route.startsWith("/crc") || route.startsWith("/vulnerability") || route.startsWith("/inventory")) {
+        setIsSecondaryOpen(false);
+      }
+      router.push(`/assess/${pid}${route}`);
+    }
+  }, [handleProjectAction, pathname, router, setIsSecondaryOpen]);
 
   // ─── Determine project context ──────────────────────────────────────────────
 
@@ -1191,7 +1203,10 @@ function SidebarContentComponent() {
                                 <button
                                   key={p.id}
                                   type="button"
-                                  onClick={() => router.push(`/assess/${p.id}`)}
+                                  onClick={() => {
+                                    const defaultRoute = getDefaultProjectRoute(premiumStatus);
+                                    router.push(`/assess/${p.id}${defaultRoute}`);
+                                  }}
                                   className={cn(
                                     "flex flex-col gap-1 p-2 rounded-lg border transition-all text-left cursor-pointer group",
                                     isSelected
@@ -1552,7 +1567,8 @@ function SidebarContentComponent() {
         onOpenChange={setShowProjectModal}
         onSelectProject={(selectedId) => {
           setShowProjectModal(false);
-          router.push(`/assess/${selectedId}${pendingDestinationRoute}`);
+          const targetRoute = pendingDestinationRoute || getDefaultProjectRoute(premiumStatus);
+          router.push(`/assess/${selectedId}${targetRoute}`);
         }}
       />
       </TooltipProvider>
