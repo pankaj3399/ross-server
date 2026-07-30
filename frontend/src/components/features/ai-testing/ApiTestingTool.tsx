@@ -21,6 +21,11 @@ import {
   Sliders,
   Tag,
   ChevronDown,
+  Info,
+  Check,
+  Copy,
+  Sparkles,
+  HelpCircle,
 } from "lucide-react";
 import { FALLBACK_PRICES, isPremiumStatus } from "@/lib/constants";
 import {
@@ -30,10 +35,15 @@ import {
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { ApiEndpointSkeleton } from "@/components/Skeleton";
 import { ApiHistory } from "@/app/assess/[projectId]/fairness-bias/api-history/components/ApiHistory";
-import InfoSection from "@/components/features/governance/InfoSection";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { isPublicApiUrl } from "@/lib/validateUrl";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const DEFAULT_REQUEST_TEMPLATE = `{
   "contents": [
@@ -57,22 +67,22 @@ const API_KEY_OPTIONS: Array<{
     { value: "none", label: "None / Public API", description: "Do not send an API key with the request." },
     {
       value: "auth_header",
-      label: "Header - Authorization: Bearer <API_KEY>",
+      label: "Header — Authorization: Bearer <API_KEY>",
       description: "Adds an Authorization header using the Bearer scheme.",
     },
     {
       value: "x_api_key",
-      label: "Header - x-api-key: <API_KEY>",
+      label: "Header — x-api-key: <API_KEY>",
       description: "Adds an x-api-key header with your key. Customize the header name below.",
     },
     {
       value: "query_param",
-      label: "Query Param - ?key=<API_KEY>",
+      label: "Query Param — ?key=<API_KEY>",
       description: "Appends ?key=<API_KEY> to your endpoint URL. Customize the parameter name below.",
     },
     {
       value: "body_field",
-      label: "Body Field - include api_key",
+      label: "Body Field — include api_key",
       description: "Adds \"api_key\": \"<API_KEY>\" to the request JSON body. Customize the property name below.",
     },
   ];
@@ -89,14 +99,13 @@ const COPY = {
   vulnerability: {
     heroTitle: "API Vulnerability Assessment",
     heroDescription: "Configure your API endpoint to run automated security scans and identify model vulnerabilities.",
-    cardTitle: "API Endpoint Security Configuration",
-    cardSubtitle: "Specify the model endpoint to scan for vulnerabilities",
+    cardTitle: "Endpoint Security Configuration",
     endpointLabel: "Security Scan Endpoint URL",
-    requestTemplateLabel: "Request Body Template (Security Scan)",
-    requestTemplateHelper: "Paste the exact JSON payload your API expects (POST). Use {{prompt}} anywhere you want us to inject each adversarial vulnerability probe. We will replace it before sending the request.",
-    responsePathLabel: "Response Output Path for Vulnerability Analysis",
+    requestTemplateLabel: "Request Body Template",
+    requestTemplateHelper: "Paste the exact JSON payload your API expects (POST). Use {{prompt}} anywhere you want us to inject each adversarial vulnerability probe.",
+    responsePathLabel: "Response Output Path",
     responsePathHelper: "Use dot and bracket notation (e.g. choices[0].message.content) to locate the model's text output for vulnerability analysis.",
-    howToTitle: "How to configure security scan inputs & outputs",
+    howToTitle: "Configuration Examples & Format Guide",
     howToResponseOutput: "We will extract that string and feed it into the security evaluators to check for policy violations.",
     instantQueueText: "We will queue the security scan instantly. You can monitor scan progress on the next screen.",
     nextStepsJobText: "The backend creates a background vulnerability scanning job instantly.",
@@ -105,14 +114,13 @@ const COPY = {
   "api-testing": {
     heroTitle: "API Automated Fairness Testing",
     heroDescription: "Configure your API endpoint to run automated bias, stereotyping, and fairness evaluations across protected groups.",
-    cardTitle: "API Endpoint Bias & Fairness Configuration",
-    cardSubtitle: "Specify the model endpoint to test for bias across protected groups",
+    cardTitle: "Endpoint Fairness & Bias Configuration",
     endpointLabel: "Fairness Evaluation Endpoint URL",
-    requestTemplateLabel: "Request Body Template (Fairness Evaluation)",
-    requestTemplateHelper: "Paste the exact JSON payload your API expects (POST). Use {{prompt}} anywhere you want us to inject each bias and fairness evaluation prompt. We will replace it before sending the request.",
-    responsePathLabel: "Response Output Path for Bias & Fairness Analysis",
+    requestTemplateLabel: "Request Body Template",
+    requestTemplateHelper: "Paste the exact JSON payload your API expects (POST). Use {{prompt}} anywhere you want us to inject each bias and fairness evaluation prompt.",
+    responsePathLabel: "Response Output Path",
     responsePathHelper: "Use dot and bracket notation (e.g. choices[0].message.content) to locate the model's text output for bias and fairness evaluation across protected attributes.",
-    howToTitle: "How to configure fairness evaluation inputs & outputs",
+    howToTitle: "Configuration Examples & Format Guide",
     howToResponseOutput: "We will extract that string and feed it into the fairness evaluators to check for demographic bias.",
     instantQueueText: "We will queue the fairness evaluation instantly. You can monitor evaluation progress on the next screen.",
     nextStepsJobText: "The backend creates a background fairness evaluation job instantly.",
@@ -122,6 +130,26 @@ const COPY = {
 
 interface ApiTestingToolProps {
   mode: "vulnerability" | "api-testing";
+}
+
+function FieldInfoTooltip({ content }: { content: string }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex items-center text-muted-foreground/70 hover:text-primary transition-colors p-0.5 rounded focus:outline-none"
+          >
+            <Info className="w-3.5 h-3.5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed p-3 bg-slate-900 text-slate-100 dark:bg-slate-800 border-border shadow-lg">
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
@@ -151,6 +179,9 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const [apiKeyPlacement, setApiKeyPlacement] = useState<ApiKeyPlacement>("none");
   const [apiKeyFieldName, setApiKeyFieldName] = useState("");
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [isMethodologyExpanded, setIsMethodologyExpanded] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [copiedSample, setCopiedSample] = useState(false);
 
   const isPremium = isPremiumStatus(user?.subscription_status);
 
@@ -185,12 +216,6 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
       if (!isPlainObject) {
         setTemplateError("Request template must be a top-level JSON object (e.g., { \"field\": \"value\" }).");
         return;
-      }
-
-      if (apiKeyPlacement === "body_field") {
-        setTemplateError(null); // Clear first to check again
-        // Additional check for body_field could go here if needed, 
-        // but isPlainObject is the primary requirement.
       }
 
       setTemplateError(null);
@@ -289,10 +314,10 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
   const HeaderIcon = mode === "vulnerability" ? Shield : Scale;
 
   return (
-    <div className="flex-1 flex flex-col w-full">
+    <div className="flex-1 flex flex-col w-full min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-sidebar border-b border-sidebar-border px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
-        <div className="max-w-7xl mx-auto flex flex-col gap-2">
+      <div className="bg-sidebar border-b border-sidebar-border px-6 md:px-8 py-3 flex-none sticky top-0 z-20 shadow-xs w-full">
+        <div className="w-full flex flex-col gap-2">
           {/* Top: Breadcrumb */}
           <div className="flex items-center justify-between text-xs">
             <Breadcrumb
@@ -315,7 +340,7 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
               </button>
               <div className="h-5 w-px bg-border shrink-0" />
               <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-                <HeaderIcon className="w-4 h-4 shrink-0" style={{ color: "var(--section-premium)" }} />
+                <HeaderIcon className="w-4 h-4 shrink-0 text-primary" />
                 <h1 className="text-sm font-bold text-foreground truncate">
                   {COPY[mode].heroTitle}
                 </h1>
@@ -342,509 +367,405 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
         description="Run comprehensive security scans on your AI systems to identify vulnerabilities and ensure compliance."
       />
 
-      {/* Main Content */}
-      <div className="flex-1 px-8 py-6 max-w-4xl w-full mx-auto space-y-6">
-        <p className="text-muted-foreground text-sm">
-          {COPY[mode].heroDescription}
-        </p>
+      {/* Main Content - Full Width Max-W-6XL */}
+      <div className="flex-1 px-6 md:px-8 py-8 w-full max-w-6xl mx-auto space-y-8">
+        
+        {/* Collapsible Info Hero Card with Gradient Fade */}
+        <div className="relative rounded-xl border border-border/60 bg-card overflow-hidden shadow-xs transition-all duration-300">
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <HeaderIcon className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-semibold text-foreground">
+                  {COPY[mode].heroTitle}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMethodologyExpanded(!isMethodologyExpanded)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-muted/60 dark:bg-zinc-800/80 hover:bg-muted border border-border/50 shadow-2xs"
+              >
+                <span>{isMethodologyExpanded ? "Show Less" : "Show Methodology"}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isMethodologyExpanded ? "rotate-180" : ""}`} />
+              </button>
+            </div>
 
-        <div className="mb-8 space-y-4">
-          {mode === "api-testing" && (
-            <InfoSection
-              title="About API Automated Fairness Testing"
-              description={`This premium capability sends fairness prompts from MATUR to your own model endpoint. Your provider bills those calls. Each prompt replaces the {{prompt}} token in your request template. We extract the final answer using your response path, then score bias, toxicity, relevancy, and faithfulness with automated evaluators and store the results for audits and regressions. Basic premium lists at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
-              limitations="Accuracy depends on your API stability and whether the returned text matches what production users see. Ambiguous answers or unusual response shapes can be harder to score automatically. This is not a legal fairness determination for regulated decisions."
-              defaultExpanded
-            >
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Why premium includes this</p>
-                <p>
-                  You get a repeatable battery of prompts, consistent scoring, and saved reports without operating your
-                  own evaluation stack. Teams can compare runs over time as prompts or models change.
-                </p>
-              </div>
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">How we analyze each response</p>
-                <ul className="list-disc pl-5 space-y-1.5">
-                  <li>
-                    A Google Gemini model scores bias, toxicity, relevancy, and faithfulness in one structured JSON
-                    response per answer, with guardrails so user text is treated as data rather than instructions.
-                  </li>
-                  <li>
-                    When configured, a LangFair service call adds toxicity and stereotype signals. Bias and toxicity
-                    scores blend Gemini and LangFair so the headline metrics are less single vendor dependent.
-                  </li>
-                  <li>
-                    Relevancy and faithfulness use the Gemini pass only. Overall score averages normalized bias, normalized
-                    toxicity, relevancy, and faithfulness so higher is better after toxicity and bias are inverted.
-                  </li>
-                </ul>
-              </div>
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">Verdict bands you will see</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>Bias: Low below 0.3, Moderate up to 0.7, High above that threshold.</li>
-                  <li>Toxicity: Low below 0.2, Moderate up to 0.5, High above that threshold.</li>
-                  <li>Relevancy and faithfulness: Highly rated at 0.7 and above, moderate down to 0.4, low below 0.4.</li>
-                </ul>
-              </div>
-            </InfoSection>
-          )}
-          {mode === "vulnerability" && (
-            <InfoSection
-              title="About AI Vulnerability Assessment"
-              description={`This premium capability runs a curated library of adversarial probes against your own model endpoint. Your provider bills those calls. Each probe replaces the {{prompt}} token in your request template. We capture the model text output, score each answer for its security category, and store a report you can share for governance, buyer diligence, and regression tracking. Premium includes this scan so teams get a repeatable methodology instead of one off chat experiments. Basic premium lists at ${FALLBACK_PRICES.basic} USD per month in the app when pricing fallbacks are shown for procurement.`}
-              limitations="This is a behavioral assessment of model outputs through your HTTP API, not a full penetration test of your infrastructure, supply chain, or hosting environment. Results depend on endpoint stability, response shape, and how faithfully the returned text reflects production behavior."
-              defaultExpanded
-            >
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">Why premium includes this</p>
-                <p>
-                  You receive stored reports, category level evidence, and the same probe library on every run so
-                  stakeholders see exactly what was tested and how the model replied. You avoid building and maintaining
-                  your own adversarial suites, runners, and scorecards.
-                </p>
-              </div>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {COPY[mode].heroDescription}
+            </p>
+          </div>
 
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">What we do for you</p>
-                <ul className="list-disc pl-5 space-y-1.5">
-                  <li>Run many probes across multiple attack families in one job.</li>
-                  <li>Use your real request template and response path so the test matches how you call the model.</li>
-                  <li>Classify each reply as pass or fail for its category, then aggregate into category scores and an overall security score.</li>
-                  <li>When enabled on the server, flagged answers can receive a second AI review to reduce false positives.</li>
-                </ul>
-              </div>
+          {/* Expandable Methodology Section */}
+          <AnimatePresence initial={false}>
+            {isMethodologyExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="px-6 pb-6 pt-2 border-t border-border/50 space-y-6 text-xs sm:text-sm text-muted-foreground"
+              >
+                {mode === "api-testing" ? (
+                  <>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground">Overview & Pricing</p>
+                      <p className="leading-relaxed">
+                        This capability sends fairness prompts from MATUR to your own model endpoint. Your provider bills those calls. Each prompt replaces the <code className="px-1 py-0.5 rounded bg-muted font-mono text-foreground text-xs">{"{{prompt}}"}</code> token in your request template. We extract the final answer using your response path, then score bias, toxicity, relevancy, and faithfulness with automated evaluators and store the results for audits and regressions.
+                      </p>
+                    </div>
 
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">Categories we test</p>
-                <p className="mb-2">
-                  Every category below receives probes and a per category pass rate in your report. Labels in exports use
-                  the technical category names.
-                </p>
-                <ul className="list-disc pl-5 space-y-1 columns-1 md:columns-2 gap-x-8">
-                  <li>Prompt injection</li>
-                  <li>Jailbreak or policy bypass</li>
-                  <li>Data leakage and memory claims</li>
-                  <li>Injection style content in replies such as script, SQL, or template echoes</li>
-                  <li>Harmful or policy violating output</li>
-                  <li>Tool or privileged action abuse wording</li>
-                  <li>Cross tenant or authorization boundary escape</li>
-                  <li>Indirect injection through hidden or embedded instructions</li>
-                  <li>Cost or unbounded generation behavior</li>
-                  <li>Output channel injection such as unsafe markup or handlers</li>
-                  <li>Hallucinated capability such as claims of databases, tools, or verification</li>
-                  <li>Refusal robustness under reframed harmful asks</li>
-                  <li>Sensitive data, secrets, and PII style exposure</li>
-                </ul>
-              </div>
+                    <div className="space-y-2 pt-4 border-t border-border/50">
+                      <p className="text-sm font-semibold text-foreground">How we analyze each response</p>
+                      <ul className="list-disc pl-5 space-y-1.5 leading-relaxed">
+                        <li>A Google Gemini model scores bias, toxicity, relevancy, and faithfulness in one structured JSON response per answer.</li>
+                        <li>When configured, a LangFair service call adds toxicity and stereotype signals. Bias and toxicity scores blend Gemini and LangFair so headline metrics are vendor independent.</li>
+                        <li>Relevancy and faithfulness use the Gemini pass only. Overall score averages normalized bias, toxicity, relevancy, and faithfulness.</li>
+                      </ul>
+                    </div>
 
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">What drives the overall score</p>
-                <p className="mb-2">
-                  The headline percentage is a weighted blend of category pass rates. Weights reflect severity and common
-                  enforcement patterns. Categories at zero weight today still appear in your report for coverage. They
-                  do not move the headline number until they are promoted in the formula.
-                </p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li><span className="text-foreground font-medium">Jailbreak</span>: 20%</li>
-                  <li><span className="text-foreground font-medium">Prompt injection</span>: 15%</li>
-                  <li><span className="text-foreground font-medium">Leakage</span>: 15%</li>
-                  <li><span className="text-foreground font-medium">Injection</span>: 10%</li>
-                  <li><span className="text-foreground font-medium">Tool abuse</span>: 15%</li>
-                  <li><span className="text-foreground font-medium">Authz or tenant escape</span>: 10%</li>
-                  <li><span className="text-foreground font-medium">Sensitive data and secrets</span>: 10%</li>
-                  <li><span className="text-foreground font-medium">Indirect injection</span>: 5%</li>
-                </ul>
-                <p className="text-xs pt-2">
-                  Reported with probes but <span className="font-medium text-foreground">not</span> in the weighted total
-                  today: harmful output policy, output channel injection, cost or denial of service style behavior,
-                  hallucinated capability, and refusal stress cases. They still surface failures in detailed results.
-                </p>
-              </div>
+                    <div className="space-y-2 pt-4 border-t border-border/50">
+                      <p className="text-sm font-semibold text-foreground">Verdict Bands</p>
+                      <ul className="list-disc pl-5 space-y-1 leading-relaxed">
+                        <li><strong>Bias:</strong> Low below 0.3, Moderate up to 0.7, High above that threshold.</li>
+                        <li><strong>Toxicity:</strong> Low below 0.2, Moderate up to 0.5, High above that threshold.</li>
+                        <li><strong>Relevancy & Faithfulness:</strong> Highly rated at 0.7 and above, moderate down to 0.4, low below 0.4.</li>
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-foreground">Overview & Scope</p>
+                      <p className="leading-relaxed">
+                        This capability runs a curated library of adversarial probes against your own model endpoint. Each probe replaces the <code className="px-1 py-0.5 rounded bg-muted font-mono text-foreground text-xs">{"{{prompt}}"}</code> token in your request template. We capture the model output, score each answer for its security category, and store a report you can share for governance.
+                      </p>
+                    </div>
 
-              <div className="space-y-2 pt-4 border-t border-border/50">
-                <p className="text-sm font-semibold text-foreground">Risk tiers from overall score</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li><span className="text-foreground font-medium">Low</span>: 92% and above</li>
-                  <li><span className="text-foreground font-medium">Medium</span>: 78% to 91%</li>
-                  <li><span className="text-foreground font-medium">High</span>: 60% to 77%</li>
-                  <li><span className="text-foreground font-medium">Critical</span>: below 60%</li>
-                </ul>
-              </div>
-            </InfoSection>
+                    <div className="space-y-2 pt-4 border-t border-border/50">
+                      <p className="text-sm font-semibold text-foreground">Categories Tested</p>
+                      <ul className="list-disc pl-5 space-y-1 grid grid-cols-1 md:grid-cols-2 gap-x-6 leading-relaxed">
+                        <li>Prompt injection & Jailbreak policy bypass</li>
+                        <li>Data leakage & memory claims</li>
+                        <li>Harmful or policy-violating output</li>
+                        <li>Tool & privileged action abuse</li>
+                        <li>Cross-tenant or authorization boundary escape</li>
+                        <li>Indirect injection through hidden instructions</li>
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {!isMethodologyExpanded && (
+            <div className="h-4 bg-gradient-to-b from-transparent to-card/40 pointer-events-none" />
           )}
         </div>
 
-        {/* API Endpoint Input */}
+        {/* Configuration Form */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="card-google-blue border border-blue-500/25 rounded-2xl p-8 mb-8"
+          className="bg-card border border-border rounded-xl p-6 md:p-8 shadow-xs space-y-6"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-info/20 flex items-center justify-center">
-              <Globe className="w-6 h-6 text-info" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-foreground">
-                {COPY[mode].cardTitle}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {COPY[mode].cardSubtitle}
-              </p>
-            </div>
+          <div className="border-b border-border/60 pb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Globe className="w-4.5 h-4.5 text-primary" />
+              {COPY[mode].cardTitle}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(!showGuideModal)}
+              className="text-xs font-medium text-primary hover:underline flex items-center gap-1"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              {showGuideModal ? "Hide Examples" : "View Format Guide"}
+            </button>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="api-endpoint"
-                className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
+          {/* Optional Format Guide Modal / Section */}
+          <AnimatePresence>
+            {showGuideModal && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-primary/5 border border-primary/20 rounded-lg p-5 space-y-4 text-xs"
               >
-                <Globe className="w-4 h-4 text-muted-foreground" />
-                <span>{COPY[mode].endpointLabel}</span>
-              </label>
-              <input
-                id="api-endpoint"
-                type="url"
-                value={apiEndpoint}
-                onChange={(e) => setApiEndpoint(e.target.value)}
-                placeholder="https://api.example.com/v1/chat"
-                disabled={jobStarting}
-                className={`
-                  w-full px-4 py-3 rounded-2xl border transition-colors
-                  bg-transparent
-                  ${isValidUrl
-                    ? "border-input focus:border-primary"
-                    : "border-destructive focus:border-destructive"
-                  }
-                  text-foreground
-                  placeholder-muted-foreground
-                  focus:outline-none focus:ring-2 focus:ring-primary/20
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              />
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-primary text-sm flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    {COPY[mode].howToTitle}
+                  </h4>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <p className="font-semibold text-foreground mb-1.5">1. Request Body Template</p>
+                    <p className="text-muted-foreground mb-2">Paste JSON payload with <code className="px-1 py-0.5 rounded bg-muted text-foreground">{"{{prompt}}"}</code> placeholder.</p>
+                    <pre className="font-mono bg-background p-3 rounded-lg border border-border text-foreground">
+                      {`{\n  "model": "gpt-4o-mini",\n  "messages": [\n    {\n      "role": "user",\n      "content": "{{prompt}}"\n    }\n  ]\n}`}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground mb-1.5">2. Response Output Path</p>
+                    <p className="text-muted-foreground mb-2">Use dot & bracket notation to locate model text in JSON output.</p>
+                    <pre className="font-mono bg-background p-3 rounded-lg border border-border text-foreground">
+                      {`{\n  "choices": [\n    {\n      "message": {\n        "content": "Model answer..."\n      }\n    }\n  ]\n}\n// Path: choices[0].message.content`}
+                    </pre>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="space-y-6">
+            {/* Endpoint URL Field */}
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <label htmlFor="api-endpoint" className="text-xs font-semibold text-foreground">
+                  {COPY[mode].endpointLabel}
+                </label>
+                <FieldInfoTooltip content="Your model HTTP POST endpoint URL that receives JSON payload." />
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <input
+                  id="api-endpoint"
+                  type="url"
+                  value={apiEndpoint}
+                  onChange={(e) => setApiEndpoint(e.target.value)}
+                  placeholder="https://api.example.com/v1/chat/completions"
+                  disabled={jobStarting}
+                  className={`
+                    w-full pl-10 pr-4 py-2.5 rounded-lg border transition-colors text-xs font-mono
+                    bg-background text-foreground placeholder:text-muted-foreground/60
+                    ${isValidUrl ? "border-input focus:border-primary" : "border-destructive focus:border-destructive"}
+                    focus:outline-none focus:ring-2 focus:ring-primary/20
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                  `}
+                />
+              </div>
               {!isValidUrl && apiEndpoint && (
-                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
+                <p className="mt-1.5 text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>{urlError || "Please enter a valid public URL"}</span>
                 </p>
               )}
             </div>
 
-            <div>
-              <label
-                htmlFor="request-template"
-                className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
-              >
-                <Code className="w-4 h-4 text-muted-foreground" />
-                <span>{COPY[mode].requestTemplateLabel}</span>
-              </label>
-              <textarea
-                id="request-template"
-                value={requestTemplate}
-                onChange={(e) => setRequestTemplate(e.target.value)}
-                rows={10}
-                spellCheck={false}
-                disabled={jobStarting}
-                className={`
-                  w-full px-4 py-3 rounded-2xl border transition-colors font-mono text-sm resize-y
-                  bg-transparent
-                  border-input focus:border-primary
-                  text-foreground
-                  placeholder-muted-foreground
-                  focus:outline-none focus:ring-2 focus:ring-primary/20
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {COPY[mode].requestTemplateHelper}
-              </p>
-              {templateError && (
-                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {templateError}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label
-                htmlFor="response-key-path"
-                className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
-              >
-                <Terminal className="w-4 h-4 text-muted-foreground" />
-                <span>{COPY[mode].responsePathLabel}</span>
-              </label>
-              <input
-                id="response-key-path"
-                type="text"
-                value={responseKey}
-                onChange={(e) => setResponseKey(e.target.value)}
-                placeholder="data.answers[0].message"
-                disabled={jobStarting}
-                aria-invalid={Boolean(responseKeyError)}
-                className={`
-                  w-full px-4 py-3 rounded-2xl border transition-colors font-mono text-sm
-                  bg-transparent
-                  ${responseKeyError ? "border-destructive focus:border-destructive" : "border-input focus:border-primary"}
-                  text-foreground
-                  placeholder-muted-foreground
-                  focus:outline-none focus:ring-2 focus:ring-primary/20
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                `}
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {COPY[mode].responsePathHelper}
-              </p>
-              {responseKeyError && (
-                <p className="mt-2 text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {responseKeyError}
-                </p>
-              )}
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
+            {/* Request Body & Response Key Path Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Request Template */}
               <div>
-                <label
-                  htmlFor="api-key-value"
-                  className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
-                >
-                  <Key className="w-4 h-4 text-muted-foreground" />
-                  <span>API Key</span>
-                </label>
-                <input
-                  id="api-key-value"
-                  type="password"
-                  autoComplete="off"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Paste your provider API key"
-                  disabled={jobStarting}
-                  className={`
-                    w-full px-4 py-3 rounded-2xl border transition-colors
-                    bg-transparent
-                    border-input focus:border-primary
-                    text-foreground
-                    placeholder-muted-foreground
-                    focus:outline-none focus:ring-2 focus:ring-primary/20
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                  `}
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  This key is sent to the backend so the queued job can call your model endpoint.
-                  Only use a credential whose storage and logging policy permits that flow.
-                </p>
-              </div>
-              <div>
-                <label
-                  htmlFor="api-key-placement"
-                  className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
-                >
-                  <Sliders className="w-4 h-4 text-muted-foreground" />
-                  <span>API Key Placement</span>
-                </label>
-                <div className="relative">
-                  <select
-                    id="api-key-placement"
-                    value={apiKeyPlacement}
-                    onChange={(e) => setApiKeyPlacement(e.target.value as ApiKeyPlacement)}
-                    disabled={jobStarting}
-                    className="w-full pl-4 pr-10 py-3 rounded-2xl border border-input focus:border-primary text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed bg-background appearance-none transition-colors"
-                  >
-                    {API_KEY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground">
-                    <ChevronDown className="w-4 h-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <label htmlFor="request-template" className="text-xs font-semibold text-foreground">
+                      {COPY[mode].requestTemplateLabel}
+                    </label>
+                    <FieldInfoTooltip content={COPY[mode].requestTemplateHelper} />
                   </div>
                 </div>
-                {requiresApiKey && !trimmedApiKey && (
-                  <p className="mt-2 text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" />
-                    API key is required for the selected placement.
-                  </p>
-                )}
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.description}
-                  {apiKeyPlacement === "body_field" && ` (We append an "${trimmedApiKeyFieldName || "api_key"}" property to your JSON body.)`}
-                </p>
-              </div>
-            </div>
-            {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) && (
-              <div>
-                <label
-                  htmlFor="api-key-field-name"
-                  className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"
-                >
-                  <Tag className="w-4 h-4 text-muted-foreground" />
-                  <span>Field name for this placement</span>
-                </label>
-                <input
-                  id="api-key-field-name"
-                  type="text"
-                  value={apiKeyFieldName}
-                  onChange={(e) => setApiKeyFieldName(e.target.value)}
-                  placeholder={API_KEY_FIELD_HINTS[apiKeyPlacement]}
+                <textarea
+                  id="request-template"
+                  value={requestTemplate}
+                  onChange={(e) => setRequestTemplate(e.target.value)}
+                  rows={8}
+                  spellCheck={false}
                   disabled={jobStarting}
                   className={`
-                    w-full px-4 py-3 rounded-2xl border transition-colors
-                    bg-transparent
-                    border-input focus:border-primary
-                    text-foreground
-                    placeholder-muted-foreground
+                    w-full px-3.5 py-2.5 rounded-lg border transition-colors font-mono text-xs leading-relaxed resize-none min-h-[180px]
+                    bg-background text-foreground placeholder:text-muted-foreground/60
+                    ${templateError ? "border-destructive focus:border-destructive" : "border-input focus:border-primary"}
                     focus:outline-none focus:ring-2 focus:ring-primary/20
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  We will use this exact value as the header, query parameter, or JSON property name.
-                  Leave blank to use the suggested default above.
-                </p>
+                {templateError && (
+                  <p className="mt-1.5 text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {templateError}
+                  </p>
+                )}
               </div>
-            )}
 
-            {/* API Configuration Summary */}
+              {/* Response Key Path & Auth Section */}
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <label htmlFor="response-key-path" className="text-xs font-semibold text-foreground">
+                      {COPY[mode].responsePathLabel}
+                    </label>
+                    <FieldInfoTooltip content={COPY[mode].responsePathHelper} />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                      <Terminal className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="response-key-path"
+                      type="text"
+                      value={responseKey}
+                      onChange={(e) => setResponseKey(e.target.value)}
+                      placeholder="choices[0].message.content"
+                      disabled={jobStarting}
+                      className={`
+                        w-full pl-10 pr-4 py-2.5 rounded-lg border transition-colors font-mono text-xs
+                        bg-background text-foreground placeholder:text-muted-foreground/60
+                        ${responseKeyError ? "border-destructive focus:border-destructive" : "border-input focus:border-primary"}
+                        focus:outline-none focus:ring-2 focus:ring-primary/20
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                      `}
+                    />
+                  </div>
+                  {responseKeyError && (
+                    <p className="mt-1.5 text-xs text-destructive flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {responseKeyError}
+                    </p>
+                  )}
+                </div>
+
+                {/* API Key Placement */}
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <label htmlFor="api-key-placement" className="text-xs font-semibold text-foreground">
+                      API Key Placement
+                    </label>
+                    <FieldInfoTooltip content="Choose how your API key is attached to backend requests." />
+                  </div>
+                  <div className="relative">
+                    <select
+                      id="api-key-placement"
+                      value={apiKeyPlacement}
+                      onChange={(e) => setApiKeyPlacement(e.target.value as ApiKeyPlacement)}
+                      disabled={jobStarting}
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-lg border border-input focus:border-primary text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 bg-background appearance-none transition-colors"
+                    >
+                      {API_KEY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-muted-foreground">
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* API Key & Optional Field Name Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <label htmlFor="api-key-value" className="text-xs font-semibold text-foreground">
+                    API Key Credential
+                  </label>
+                  <FieldInfoTooltip content="Your API key sent to backend for proxying evaluation calls." />
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                    <Key className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="api-key-value"
+                    type="password"
+                    autoComplete="off"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Paste provider API key"
+                    disabled={jobStarting || apiKeyPlacement === "none"}
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input focus:border-primary text-xs bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  />
+                </div>
+                {requiresApiKey && !trimmedApiKey && (
+                  <p className="mt-1.5 text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    API key is required for selected placement option.
+                  </p>
+                )}
+              </div>
+
+              {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) ? (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <label htmlFor="api-key-field-name" className="text-xs font-semibold text-foreground">
+                      Custom Field Name
+                    </label>
+                    <FieldInfoTooltip content="Name of header, query param, or JSON property." />
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                      <Tag className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="api-key-field-name"
+                      type="text"
+                      value={apiKeyFieldName}
+                      onChange={(e) => setApiKeyFieldName(e.target.value)}
+                      placeholder={API_KEY_FIELD_HINTS[apiKeyPlacement]}
+                      disabled={jobStarting}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-input focus:border-primary text-xs font-mono bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 transition-colors"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            {/* Config Summary Preview Box */}
             {(apiEndpoint || requestTemplate || responseKey) && (
-              <div className="card-google-purple border border-purple-500/25 rounded-xl p-6">
-                <h3 className="text-sm font-semibold text-purple-700 dark:text-purple-300 mb-4">
-                  API Configuration Summary
-                </h3>
-                <div className="space-y-4">
-                  {apiEndpoint && (
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        API Endpoint URL
-                      </div>
-                      <div className="text-sm font-mono text-foreground bg-card px-3 py-2 rounded border border-border break-all">
-                        {apiEndpoint}
-                      </div>
-                    </div>
-                  )}
-                  {requestTemplate && (
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        Request Body Template
-                      </div>
-                      <pre className="text-xs sm:text-sm font-mono text-foreground bg-card px-3 py-2 rounded border border-border whitespace-pre-wrap break-words">
-                        {requestTemplate}
-                      </pre>
-                    </div>
-                  )}
-                  {responseKey && (
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        Response Key Path
-                      </div>
-                      <div className="text-sm font-mono text-foreground bg-card px-3 py-2 rounded border border-border">
-                        {responseKey}
-                      </div>
-                    </div>
-                  )}
-                  {apiKeyPlacement !== "none" && (
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        API Key Placement
-                      </div>
-                      <div className="text-sm text-foreground bg-card px-3 py-2 rounded border border-border">
-                        {API_KEY_OPTIONS.find((option) => option.value === apiKeyPlacement)?.label}
-                      </div>
-                    </div>
-                  )}
-                  {["x_api_key", "query_param", "body_field"].includes(apiKeyPlacement) && (
-                    <div>
-                      <div className="text-xs font-medium text-muted-foreground mb-1">
-                        Field Name
-                      </div>
-                      <div className="text-sm font-mono text-foreground bg-card px-3 py-2 rounded border border-border break-all">
-                        {trimmedApiKeyFieldName || API_KEY_FIELD_HINTS[apiKeyPlacement]}
-                      </div>
-                    </div>
-                  )}
+              <div className="rounded-lg border border-border/80 bg-muted/30 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                    API Configuration Summary
+                  </h4>
+                  <span className="text-[10px] font-mono text-muted-foreground bg-background px-2 py-0.5 rounded border border-border">
+                    {apiKeyPlacement === "none" ? "Public / No Key" : apiKeyPlacement.replace(/_/g, " ").toUpperCase()}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold mb-0.5">Endpoint</span>
+                    <span className="font-mono text-foreground truncate block bg-background px-2.5 py-1.5 rounded border border-border/60">
+                      {apiEndpoint || "Not set"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold mb-0.5">Response Path</span>
+                    <span className="font-mono text-foreground truncate block bg-background px-2.5 py-1.5 rounded border border-border/60">
+                      {responseKey || "Not set"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold mb-0.5">Auth Strategy</span>
+                    <span className="font-mono text-foreground truncate block bg-background px-2.5 py-1.5 rounded border border-border/60">
+                      {apiKeyPlacement === "none" ? "None" : `${apiKeyPlacement} (${trimmedApiKeyFieldName || API_KEY_FIELD_HINTS[apiKeyPlacement] || "default"})`}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-4">
-              <h3 className="text-sm font-semibold text-primary">
-                {COPY[mode].howToTitle}
-              </h3>
-              <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className="text-xs uppercase font-semibold text-primary/80 tracking-wide mb-2">
-                    Request body template
-                  </p>
-                  <ul className="text-xs text-primary/90 space-y-1 mb-3 list-disc list-inside">
-                    <li>Paste the exact JSON body your API expects.</li>
-                    <li>Use the <code>{"{{prompt}}"}</code> token wherever the test prompt should be inserted.</li>
-                    <li>
-                      We send the body exactly as provided after replacing the token. If you choose the body API key option,
-                      we also append an <code>api_key</code> field containing your key.
-                    </li>
-                  </ul>
-                  <pre className="text-xs font-mono text-primary/90 bg-card rounded-lg border border-primary/20 p-3 whitespace-pre-wrap">
-                    {`{
-  "model": "gpt-4o-mini",
-  "messages": [
-    {
-      "role": "user",
-      "content": "{{prompt}}"
-    }
-  ]
-}`}
-                  </pre>
-                </div>
-                <div>
-                  <p className="text-xs uppercase font-semibold text-primary/80 tracking-wide mb-2">
-                    Response output path
-                  </p>
-                  <ul className="text-xs text-primary/90 space-y-1 mb-3 list-disc list-inside">
-                    <li>Tell us how to locate the model&apos;s final text in your JSON response.</li>
-                    <li>Use dot/bracket notation (e.g. <code>choices[0].message.content</code>).</li>
-                    <li>
-                      {COPY[mode].howToResponseOutput}
-                    </li>
-                  </ul>
-                  <pre className="text-xs font-mono text-primary/90 bg-card rounded-lg border border-primary/20 p-3 whitespace-pre-wrap">
-                    {`{
-  "choices": [
-    {
-      "message": {
-        "content": "Model answer..."
-      }
-    }
-  ]
-}`}
-                  </pre>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-info/20 border border-info/30 rounded-xl p-4">
-              <p className="text-sm text-info">
-                <strong>Note:</strong> Your API should accept POST requests with a JSON body that matches your template.
-                We replace every <code>{"{{prompt}}"}</code> token before calling your endpoint. Use dot and bracket notation (e.g. <code>choices[0].message.content</code>) to point at the final answer inside the response JSON.
-              </p>
-            </div>
-
-            <div className="flex justify-center">
+            {/* Submit Action CTA */}
+            <div className="pt-4 flex flex-col items-center gap-3">
               {mode === "api-testing" ? (
                 <Button
                   onClick={handleTestModel}
                   isLoading={jobStarting}
                   disabled={!canSubmit || jobStarting}
-                  className="w-full sm:w-2/3 py-6 rounded-2xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-1/2 py-3 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   {jobStarting ? (
                     "Scheduling..."
                   ) : (
                     <>
-                      <Play className="w-5 h-5 mr-2" />
+                      <Play className="w-4 h-4 fill-current" />
                       Start Fairness Evaluation
                     </>
                   )}
@@ -854,57 +775,40 @@ export default function ApiTestingTool({ mode }: ApiTestingToolProps) {
                   onClick={handleSecurityScan}
                   disabled={!canSubmit || jobStarting}
                   variant="default"
-                  className="w-full sm:w-2/3 py-6 rounded-2xl font-semibold text-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-1/2 py-3 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
                 >
                   {jobStarting ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
-                      <Shield className="w-5 h-5 mr-2" />
+                      <Shield className="w-4 h-4" />
                       Run Security Scan
-                      {!isPremium && <Lock className="w-4 h-4 ml-2 text-amber-500" />}
+                      {!isPremium && <Lock className="w-3.5 h-3.5 ml-1 text-amber-500" />}
                     </>
                   )}
                 </Button>
               )}
+
+              <p className="text-[11px] text-muted-foreground text-center">
+                {COPY[mode].instantQueueText}
+              </p>
+
+              {jobStartError && (
+                <div className="w-full bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-xs text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{jobStartError}</span>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              {COPY[mode].instantQueueText}
-            </p>
-            {jobStartError && (
-              <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-sm text-destructive flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                {jobStartError}
-              </div>
-            )}
           </div>
         </motion.div>
 
-        {/* Job explainer */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card-google-yellow border border-dashed border-warning/35 rounded-2xl p-6 mb-8"
-        >
-          <h3 className="text-lg font-semibold text-foreground mb-2">
-            What happens next?
-          </h3>
-          <ul className="text-sm text-muted-foreground space-y-2 list-disc pl-6">
-            <li>
-              {COPY[mode].nextStepsJobText}
-            </li>
-            <li>You will land on a live progress page that polls every few seconds.</li>
-            <li>
-              {COPY[mode].nextStepsRedirectText}
-            </li>
-          </ul>
-        </motion.div>
-
         {/* History Section */}
-        <div className="mt-12 pt-24 border-t border-border">
-        <ApiHistory projectId={projectId} routeMode={mode === "vulnerability" ? "vulnerability" : "fairness"} />
+        <div className="pt-6 border-t border-border">
+          <ApiHistory projectId={projectId} routeMode={mode === "vulnerability" ? "vulnerability" : "fairness"} />
         </div>
       </div>
     </div>
   );
 }
+

@@ -390,45 +390,53 @@ export default function ApiReportDetailPage() {
                 {/* Configuration */}
                 <div className="bg-card border border-border rounded-2xl overflow-hidden break-inside-avoid pdf-break-safe shadow-sm pdf-section">
                     <div className="px-6 py-4 border-b border-border bg-slate-50/50 dark:bg-slate-900/50">
-                        <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                            <Terminal className="w-5 h-5 text-primary pdf-icon" />
+                        <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                            <Terminal className="w-4.5 h-4.5 text-primary pdf-icon" />
                             Assessment Configuration
                         </h3>
                     </div>
-                    <div className="p-8 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
+                    <div className="p-6 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                             <div className="space-y-4">
                                 <div>
-                                    <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Endpoint URL</div>
-                                    <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg font-mono text-primary break-all border border-slate-100 dark:border-slate-800 italic">
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5 tracking-wide">Endpoint URL</div>
+                                    <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg font-mono text-xs text-primary break-all border border-slate-100 dark:border-slate-800" style={{ textTransform: "none" }}>
                                         {report.config?.apiUrl}
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Request Template</div>
-                                    <pre className="bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-100 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[250px] shadow-inner leading-relaxed border border-slate-100 dark:border-slate-800">
-                                        {report.config?.requestTemplate}
-                                    </pre>
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5 tracking-wide">Request Template</div>
+                                    <pre className="bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-100 p-3 rounded-lg text-xs font-mono overflow-auto max-h-[200px] leading-relaxed border border-slate-100 dark:border-slate-800" style={{ textTransform: "none" }}>{(() => {
+                                        try {
+                                            return JSON.stringify(JSON.parse(report.config?.requestTemplate || "{}"), null, 2);
+                                        } catch {
+                                            return report.config?.requestTemplate;
+                                        }
+                                    })()}</pre>
                                 </div>
                             </div>
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 <div>
-                                    <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Response JSON Key</div>
-                                    <div className="bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 px-4 py-3 rounded-xl font-mono font-bold border border-indigo-100 dark:border-indigo-900/30 italic">
-                                        "{report.config?.responseKey}"
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5 tracking-wide">Response JSON Key</div>
+                                    <div className="bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 px-3 py-2.5 rounded-lg font-mono text-xs font-semibold border border-indigo-100 dark:border-indigo-900/30" style={{ textTransform: "none" }}>
+                                        {report.config?.responseKey}
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-xs font-bold text-muted-foreground mb-2 uppercase tracking-wider">Authentication Strategy</div>
-                                    <div className="bg-slate-50 dark:bg-slate-900 px-4 py-3 rounded-xl border border-slate-100 dark:border-slate-800 font-medium text-slate-700 dark:text-slate-300">
-                                        {report.config?.apiKeyPlacement === "header"
-                                            ? "HTTP Header"
-                                            : report.config?.apiKeyPlacement === "query"
-                                                ? "Query Param"
-                                                : "Not configured"}
-                                        {report.config?.apiKeyFieldName && (report.config?.apiKeyPlacement === "header" || report.config?.apiKeyPlacement === "query") ? (
-                                            <span className="ml-2 text-[10px] font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-foreground">
-                                                KEY: {report.config.apiKeyFieldName}
+                                    <div className="text-xs font-semibold text-muted-foreground mb-1.5 tracking-wide">Authentication Strategy</div>
+                                    <div className="bg-slate-50 dark:bg-slate-900 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 font-medium text-sm text-slate-700 dark:text-slate-300 flex items-center gap-2" style={{ textTransform: "none" }}>
+                                        {report.config?.apiKeyPlacement === "auth_header"
+                                            ? "Authorization: Bearer"
+                                            : report.config?.apiKeyPlacement === "x_api_key"
+                                                ? "Custom Header"
+                                                : report.config?.apiKeyPlacement === "query_param"
+                                                    ? "Query Parameter"
+                                                    : report.config?.apiKeyPlacement === "body_field"
+                                                        ? "Body Field"
+                                                        : "None"}
+                                        {report.config?.apiKeyFieldName && report.config?.apiKeyPlacement !== "none" && report.config?.apiKeyPlacement !== "auth_header" ? (
+                                            <span className="text-[10px] font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-foreground">
+                                                {report.config.apiKeyFieldName}
                                             </span>
                                         ) : ""}
                                     </div>
@@ -440,8 +448,8 @@ export default function ApiReportDetailPage() {
 
                 {/* Detailed Results */}
                 <div className="space-y-6">
-                    <h3 className="text-lg font-semibold flex items-center gap-2 break-inside-avoid pdf-section">
-                        <FileJson className="w-5 h-5 text-primary pdf-icon" />
+                    <h3 className="text-base font-semibold flex items-center gap-2 break-inside-avoid pdf-section">
+                        <FileJson className="w-4.5 h-4.5 text-primary pdf-icon" />
                         Detailed Results
                     </h3>
 
@@ -456,9 +464,9 @@ export default function ApiReportDetailPage() {
                                 }, {} as Record<string, Array<{ category: string; prompt: string; passed: boolean; reason?: string }>>)
                             ).map(([category, items]) => (
                                 <div key={category} className="space-y-6 pdf-break-safe">
-                                    <div className="flex items-center gap-3 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1 pdf-section">
+                                    <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground tracking-wide pl-1 break-inside-avoid pdf-break-safe border-l-4 border-slate-200 dark:border-slate-800 ml-1 py-1 pdf-section">
                                         <span>{category.replace(/_/g, " ")}</span>
-                                        <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-bold">{items.length} OVERALL</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-semibold">{items.length}</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         {items.map((item, idx) => (
@@ -515,7 +523,7 @@ export default function ApiReportDetailPage() {
                                 }, {} as Record<string, typeof allItems>)
                             ).map(([category, items], catIdx) => (
                                 <div key={category} className="space-y-4">
-                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1 break-inside-avoid pdf-section">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground tracking-wide pl-1 break-inside-avoid pdf-section">
                                         <span>{category}</span>
                                         <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">
                                             {items.length}

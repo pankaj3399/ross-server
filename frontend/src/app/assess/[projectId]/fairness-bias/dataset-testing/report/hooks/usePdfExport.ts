@@ -741,7 +741,7 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
 
                     for (const section of validSections) {
                         try {
-                            const scale = section.scale || 2;
+                            const scale = section.scale || 3;
                             let canvas = await html2canvas(section.element, {
                                 scale,
                                 useCORS: true,
@@ -867,10 +867,10 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                             0, 0, tempCanvas.width, adjustedSliceHeightPx
                                         );
 
-                                        const sliceImgData = tempCanvas.toDataURL("image/jpeg", 0.92);
+                                        const sliceImgData = tempCanvas.toDataURL("image/png");
                                         const slicePdfHeight = (adjustedSliceHeightPx * imgWidth) / canvas.width * scaleFactor;
 
-                                        pdf.addImage(sliceImgData, "JPEG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
+                                        pdf.addImage(sliceImgData, "PNG", margin + xOffset, currentY, scaledWidth, slicePdfHeight);
 
                                         sourceY += adjustedSliceHeightPx;
                                         remainingHeightPx -= adjustedSliceHeightPx;
@@ -891,14 +891,14 @@ export const usePdfExport = ({ reportRef, payload }: UsePdfExportProps) => {
                                         currentY = contentTop;
                                     }
 
-                                    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-                                    pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
+                                    const imgData = canvas.toDataURL("image/png");
+                                    pdf.addImage(imgData, "PNG", margin + xOffset, currentY, scaledWidth, scaledHeight);
                                     currentY += scaledHeight + PDF_CONFIG.contentGap;
                                 }
                             } else {
                                 // Fits on current page
-                                const imgData = canvas.toDataURL("image/jpeg", 0.92);
-                                pdf.addImage(imgData, "JPEG", margin + xOffset, currentY, scaledWidth, scaledHeight);
+                                const imgData = canvas.toDataURL("image/png");
+                                pdf.addImage(imgData, "PNG", margin + xOffset, currentY, scaledWidth, scaledHeight);
                                 currentY += scaledHeight + PDF_CONFIG.contentGap;
                             }
                         } catch (sectionError) {

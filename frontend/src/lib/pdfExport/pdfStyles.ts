@@ -192,27 +192,32 @@ export const styleTypography = (root: HTMLElement) => {
 
     root.querySelectorAll("h1, h2, h3, h4, h5").forEach((el) => {
         const elem = el as HTMLElement;
-        elem.style.setProperty("font-weight", "900", "important");
+        elem.style.setProperty("font-weight", "700", "important");
         elem.style.setProperty("color", "#020617", "important");
         elem.style.setProperty("line-height", "1.2", "important");
-        elem.style.setProperty("margin", "24px 0 16px 0", "important");
-        elem.style.setProperty("display", "block", "important");
+        elem.style.setProperty("margin", "16px 0 12px 0", "important");
         
-        if (elem.tagName === "H3") elem.style.setProperty("font-size", "24px", "important");
-        if (elem.tagName === "H4") elem.style.setProperty("font-size", "18px", "important");
+        const hasSvg = elem.querySelector("svg") !== null;
+        if (elem.classList.contains("flex") || hasSvg) {
+            elem.style.setProperty("display", "flex", "important");
+            elem.style.setProperty("align-items", "center", "important");
+            elem.style.setProperty("gap", "10px", "important");
+        } else {
+            elem.style.setProperty("display", "block", "important");
+        }
+        
+        if (elem.tagName === "H3") elem.style.setProperty("font-size", "20px", "important");
+        if (elem.tagName === "H4") elem.style.setProperty("font-size", "16px", "important");
         if (elem.tagName === "H5") elem.style.setProperty("font-size", "14px", "important");
     });
 
     // Handle small labels (often used above input/data boxes)
     // Scope to avoid restyling contextual semantic labels like status badges
-    root.querySelectorAll(".pdf-prompt-box ~ label, .pdf-reason-box ~ label, .grid label, .space-y-4 > label, .text-\\[10px\\]:not(.rounded-md):not(.rounded-full):not(.pdf-badge):not(.status):not(.severity)").forEach((el) => {
+    root.querySelectorAll("label, .pdf-label").forEach((el) => {
         const elem = el as HTMLElement;
         elem.style.setProperty("font-size", "11px", "important");
-        elem.style.setProperty("letter-spacing", "0.05em", "important");
-        elem.style.setProperty("margin-top", "24px", "important"); // Increase space from content above
-        elem.style.setProperty("margin-bottom", "12px", "important"); // Increase space to box below
-        elem.style.setProperty("font-weight", "800", "important");
-        elem.style.setProperty("text-transform", "uppercase", "important");
+        elem.style.setProperty("letter-spacing", "0.03em", "important");
+        elem.style.setProperty("font-weight", "700", "important");
         elem.style.setProperty("color", "#475569", "important");
         elem.classList.add("pdf-label-processed");
     });
@@ -618,16 +623,15 @@ export const styleBadges = (root: HTMLElement) => {
         }
     });
 
-    root.querySelectorAll(".rounded-lg.text-sm.font-semibold, .inline-flex.rounded-lg, .rounded-md.text-\\[10px\\], .pdf-badge, .rounded-xl:not(.w-12)").forEach(el => {
+    root.querySelectorAll(".pdf-badge, [data-badge], [data-pdf-badge]").forEach(el => {
         const badge = el as HTMLElement;
         badge.style.setProperty("display", "inline-flex", "important");
         badge.style.setProperty("align-items", "center", "important");
         badge.style.setProperty("justify-content", "center", "important");
-        badge.style.setProperty("padding", "6px 12px 8px 12px", "important"); 
+        badge.style.setProperty("padding", "6px 12px", "important"); 
         badge.style.setProperty("border-radius", "8px", "important");
-        badge.style.setProperty("font-weight", "900", "important");
+        badge.style.setProperty("font-weight", "700", "important");
         badge.style.setProperty("font-size", "12px", "important"); 
-        badge.style.setProperty("text-transform", "uppercase", "important");
         badge.style.setProperty("line-height", "1", "important");
     });
 };

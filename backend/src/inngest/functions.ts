@@ -68,12 +68,22 @@ export const evaluateSingleResponse = inngest.createFunction(
 
     const evaluation = await step.run("evaluate-fairness", async () => {
       try {
+        // Determine AI provider based on user subscription tier
+        const userResult = await pool.query(
+          `SELECT subscription_status FROM users WHERE id = $1`,
+          [userId]
+        );
+        const subscriptionStatus = userResult.rows[0]?.subscription_status || "free";
+        const isPremium = ["basic_premium", "pro_premium", "trial"].includes(subscriptionStatus);
+        const forceProvider = isPremium ? undefined : ("gemini" as const);
+
         return await evaluateFairnessResponse(
           projectId,
           userId,
           category,
           questionText,
           userResponse,
+          { forceProvider },
         );
       } catch (error: any) {
         throw new Error(`Failed to evaluate fairness: ${error.message}`);

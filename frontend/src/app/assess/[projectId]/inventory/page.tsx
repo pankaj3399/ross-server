@@ -117,38 +117,38 @@ const getRiskCardTheme = (tier: string) => {
 const getControlStatusTheme = (value: number | undefined) => {
   if (value === 1) {
     return {
-      cardClass: "bg-emerald-500/10 hover:bg-emerald-500/15 border-emerald-500/25 text-emerald-100",
-      pillClass: "text-emerald-400 bg-emerald-500/20 border border-emerald-500/30",
-      badgeClass: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
+      cardClass: "bg-emerald-50 dark:bg-emerald-500/10 hover:bg-emerald-100 dark:hover:bg-emerald-500/15 border-emerald-200 dark:border-emerald-500/25 text-emerald-900 dark:text-emerald-100",
+      pillClass: "text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-500/30",
+      badgeClass: "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30",
       statusText: "Yes",
-      iconClass: "text-emerald-400"
+      iconClass: "text-emerald-600 dark:text-emerald-400"
     };
   }
   if (value === 0.5) {
     return {
-      cardClass: "bg-amber-500/10 hover:bg-amber-500/15 border-amber-500/25 text-amber-100",
-      pillClass: "text-amber-400 bg-amber-500/20 border border-amber-500/30",
-      badgeClass: "bg-amber-500/20 text-amber-400 border border-amber-500/30",
-      statusText: "Partially",
-      iconClass: "text-amber-400"
+      cardClass: "bg-amber-50 dark:bg-amber-500/10 hover:bg-amber-100 dark:hover:bg-amber-500/15 border-amber-200 dark:border-amber-500/25 text-amber-900 dark:text-amber-100",
+      pillClass: "text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-500/20 border border-amber-200 dark:border-amber-500/30",
+      badgeClass: "bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30",
+      statusText: "Partial",
+      iconClass: "text-amber-600 dark:text-amber-400"
     };
   }
   if (value === 0) {
     return {
-      cardClass: "bg-rose-500/10 hover:bg-rose-500/15 border-rose-500/25 text-rose-100",
-      pillClass: "text-rose-400 bg-rose-500/20 border border-rose-500/30",
-      badgeClass: "bg-rose-500/20 text-rose-400 border border-rose-500/30",
+      cardClass: "bg-rose-50 dark:bg-rose-500/10 hover:bg-rose-100 dark:hover:bg-rose-500/15 border-rose-200 dark:border-rose-500/25 text-rose-900 dark:text-rose-100",
+      pillClass: "text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30",
+      badgeClass: "bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30",
       statusText: "No",
-      iconClass: "text-rose-400"
+      iconClass: "text-rose-600 dark:text-rose-400"
     };
   }
   if (value === 2) {
     return {
-      cardClass: "bg-slate-500/10 hover:bg-slate-500/15 border-slate-500/25 text-slate-200",
-      pillClass: "text-slate-300 bg-slate-500/20 border border-slate-500/30",
-      badgeClass: "bg-slate-500/20 text-slate-300 border border-slate-500/30",
+      cardClass: "bg-slate-50 dark:bg-slate-500/10 hover:bg-slate-100 dark:hover:bg-slate-500/15 border-slate-200 dark:border-slate-500/25 text-slate-900 dark:text-slate-200",
+      pillClass: "text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-500/20 border border-slate-200 dark:border-slate-500/30",
+      badgeClass: "bg-slate-100 dark:bg-slate-500/20 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-500/30",
       statusText: "N/A",
-      iconClass: "text-slate-400"
+      iconClass: "text-slate-500 dark:text-slate-400"
     };
   }
   return {
@@ -165,7 +165,7 @@ export default function ComponentInventoryPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const { user, loading: authLoading } = useAuth();
-  const { isPremium, projectName, crcResponses, loading: contextLoading } = useAssessmentContext();
+  const { isPremium, projectName, crcResponses, crcControls, loading: contextLoading } = useAssessmentContext();
 
   const projectBreadcrumbHref = isPremium
     ? `/assess/${projectId}/crc/dashboard`
@@ -1080,16 +1080,20 @@ export default function ComponentInventoryPage() {
                     <span className="text-xs text-muted-foreground italic">No linkages mapping defined</span>
                   ) : (
                     (CRC_CONTROL_LINKAGES[selectedComponent.componentType] || []).map((controlId) => {
-                      const matched = controlsList.find(c => c.control_id === controlId);
+                      const allControls = (crcControls && crcControls.length > 0) ? crcControls : controlsList;
+                      const matched = allControls.find(c => c.control_id === controlId || c.id === controlId);
                       const controlTitle = matched?.control_title || "Compliance Control";
-                      const response = crcResponses?.[controlId] || (matched?.id ? crcResponses?.[matched.id] : undefined);
+                      const response = 
+                        (matched?.id ? crcResponses?.[matched.id] : undefined) ||
+                        (matched?.control_id ? crcResponses?.[matched.control_id] : undefined) ||
+                        crcResponses?.[controlId];
                       const theme = getControlStatusTheme(response?.value);
                       return (
                         <div
                           key={controlId}
                           onClick={() => {
                             setIsDetailOpen(false);
-                            router.push(`/assess/${projectId}/crc?controlId=${controlId}`);
+                            router.push(`/assess/${projectId}/crc?controlId=${matched?.control_id || controlId}`);
                           }}
                           className={`flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer transition-colors border ${theme.cardClass}`}
                         >
