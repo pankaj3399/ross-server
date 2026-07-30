@@ -385,6 +385,10 @@ const ActivityBarButton = ({
   </Tooltip>
 );
 
+const getDefaultProjectRoute = (premiumStatus?: boolean): string => {
+  return premiumStatus ? "/crc/dashboard" : "";
+};
+
 // ─── Main Sidebar Content Component ───────────────────────────────────────────
 
 function SidebarContentComponent() {
@@ -432,7 +436,7 @@ function SidebarContentComponent() {
 
   useEffect(() => {
     setActiveTab(getTabFromPathname(pathname));
-    if (pathname && (pathname.includes("/fairness-bias") || pathname.includes("/crc") || pathname.includes("/vulnerability-assessment"))) {
+    if (pathname && (pathname.includes("/fairness-bias") || pathname.includes("/crc") || pathname.includes("/vulnerability-assessment") || pathname.includes("/vulnerability") || pathname.includes("/inventory"))) {
       setIsSecondaryOpen(false);
     }
   }, [pathname, getTabFromPathname, setIsSecondaryOpen]);
@@ -505,7 +509,7 @@ function SidebarContentComponent() {
     if (handleProjectAction(route)) return;
     const pid = getProjectIdFromPath(pathname);
     if (pid) {
-      if (route.startsWith("/fairness-bias") || route.startsWith("/crc") || route.startsWith("/vulnerability")) {
+      if (route.startsWith("/fairness-bias") || route.startsWith("/crc") || route.startsWith("/vulnerability") || route.startsWith("/inventory")) {
         setIsSecondaryOpen(false);
       }
       router.push(`/assess/${pid}${route}`);
@@ -1200,7 +1204,7 @@ function SidebarContentComponent() {
                                   key={p.id}
                                   type="button"
                                   onClick={() => {
-                                    const defaultRoute = premiumStatus ? "/crc/dashboard" : "";
+                                    const defaultRoute = getDefaultProjectRoute(premiumStatus);
                                     router.push(`/assess/${p.id}${defaultRoute}`);
                                   }}
                                   className={cn(
@@ -1563,7 +1567,7 @@ function SidebarContentComponent() {
         onOpenChange={setShowProjectModal}
         onSelectProject={(selectedId) => {
           setShowProjectModal(false);
-          const targetRoute = pendingDestinationRoute || (premiumStatus ? "/crc/dashboard" : "");
+          const targetRoute = pendingDestinationRoute || getDefaultProjectRoute(premiumStatus);
           router.push(`/assess/${selectedId}${targetRoute}`);
         }}
       />

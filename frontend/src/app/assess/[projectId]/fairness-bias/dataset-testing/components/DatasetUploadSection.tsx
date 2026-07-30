@@ -107,7 +107,7 @@ export const DatasetUploadSection = ({
                             </div>
 
                             <div className="space-y-2 pt-4 border-t border-border/50">
-                                <p className="text-sm font-semibold text-foreground font-medium text-amber-600 dark:text-amber-400">Limitations & Scope</p>
+                                <p className="text-sm font-semibold text-amber-600 dark:text-amber-400">Limitations & Scope</p>
                                 <p className="leading-relaxed">
                                     Results only reflect the file you uploaded. They cannot predict new bias introduced during training or behavior on data that was not in the file.
                                 </p>

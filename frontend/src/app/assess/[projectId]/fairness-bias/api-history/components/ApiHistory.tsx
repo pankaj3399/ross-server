@@ -227,12 +227,15 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                                                 <TooltipProvider delayDuration={150}>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <div
+                                                            <button
+                                                                type="button"
+                                                                tabIndex={0}
+                                                                aria-label={`Full API Endpoint URL: ${report.config?.apiUrl || "Unknown Endpoint"}`}
                                                                 onClick={(e) => e.stopPropagation()}
-                                                                className="font-mono text-sm font-medium text-foreground truncate max-w-full hover:text-primary transition-colors cursor-pointer underline decoration-dotted decoration-border underline-offset-4"
+                                                                className="font-mono text-sm font-medium text-foreground truncate max-w-full hover:text-primary transition-colors cursor-pointer underline decoration-dotted decoration-border underline-offset-4 text-left focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
                                                             >
                                                                 {report.config?.apiUrl || "Unknown Endpoint"}
-                                                            </div>
+                                                            </button>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top" className="max-w-md p-3.5 bg-slate-900 dark:bg-slate-950 text-slate-100 border border-slate-700/80 shadow-2xl rounded-xl space-y-2">
                                                             <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">

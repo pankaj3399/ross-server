@@ -139,7 +139,7 @@ function FieldInfoTooltip({ content }: { content: string }) {
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="inline-flex items-center text-muted-foreground/70 hover:text-primary transition-colors p-0.5 rounded focus:outline-none"
+            className="inline-flex items-center text-muted-foreground/70 hover:text-primary transition-colors p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
           >
             <Info className="w-3.5 h-3.5" />
           </button>

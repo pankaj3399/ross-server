@@ -1093,7 +1093,7 @@ export default function ComponentInventoryPage() {
                           key={controlId}
                           onClick={() => {
                             setIsDetailOpen(false);
-                            router.push(`/assess/${projectId}/crc?controlId=${matched?.control_id || controlId}`);
+                            router.push(`/assess/${projectId}/crc?controlId=${matched?.id || controlId}`);
                           }}
                           className={`flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer transition-colors border ${theme.cardClass}`}
                         >

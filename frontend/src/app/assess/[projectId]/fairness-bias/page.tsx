@@ -43,6 +43,8 @@ interface CategoryNode {
   totalPrompts: number;
 }
 
+const CATEGORY_ICONS = [Users, Brain, Globe, Scale];
+
 export default function FairnessBiasTest() {
   const params = useParams();
   const router = useRouter();
@@ -372,16 +374,16 @@ export default function FairnessBiasTest() {
                 const answeredInCat = category.prompts.filter((_, idx) => getQuestionStatus(catIdx, idx)).length;
                 const isCatComplete = answeredInCat === category.totalPrompts && category.totalPrompts > 0;
 
-                let CategoryIcon = FileText;
-                if (catIdx === 0) CategoryIcon = Users;
-                else if (catIdx === 1) CategoryIcon = Brain;
-                else if (catIdx === 2) CategoryIcon = Globe;
-                else if (catIdx === 3) CategoryIcon = Scale;
+                const CategoryIcon = CATEGORY_ICONS[catIdx] || FileText;
 
                 return (
                   <div key={category.id} className="select-none space-y-1">
                     <div
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer transition-all ${isCurrentCategory
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={isExpanded}
+                      aria-label={`Toggle ${category.label}`}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-lg cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${isCurrentCategory
                         ? "bg-primary/10 text-primary font-semibold"
                         : "hover:bg-muted/60 text-foreground/80 hover:text-foreground"
                         }`}
@@ -389,6 +391,15 @@ export default function FairnessBiasTest() {
                         toggleCategory(category.id);
                         if (!isCurrentCategory) {
                           navigateToQuestion(catIdx, 0);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleCategory(category.id);
+                          if (!isCurrentCategory) {
+                            navigateToQuestion(catIdx, 0);
+                          }
                         }
                       }}
                     >
@@ -422,13 +433,23 @@ export default function FairnessBiasTest() {
                               <div
                                 key={prompt.id}
                                 ref={isCurrentQuestion ? currentQuestionRef : null}
-                                className={`flex items-start gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-all ${isCurrentQuestion
+                                role="button"
+                                tabIndex={0}
+                                aria-label={`Prompt: ${prompt.text}`}
+                                className={`flex items-start gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 ${isCurrentQuestion
                                   ? "bg-primary/15 text-primary font-semibold"
                                   : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigateToQuestion(catIdx, promptIdx);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    navigateToQuestion(catIdx, promptIdx);
+                                  }
                                 }}
                               >
                                 {isAnswered ? (
