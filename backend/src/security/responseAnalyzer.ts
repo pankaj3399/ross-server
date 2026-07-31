@@ -94,14 +94,14 @@ export function hasRefusalLanguage(response: string): boolean {
   const trimmed = (response || "").trim();
   if (!trimmed) return false;
 
-  // 1. Explicit refusal openings or disclaimers (includes identity disclaimers that serve as refusals)
-  const explicitRefusal = /^(i (cannot|can't|am unable|am not able|don't|do not|have not|haven't|will not|won't|am not)|sorry|i apologize|as an ai|as a language model|i'm a (large )?language model|i am a (large )?language model)/i.test(trimmed);
+  // 1. Explicit refusal openings or disclaimers (identity disclaimers must be followed by an actual refusal/denial clause)
+  const explicitRefusal = /^(i (cannot|can't|am unable|am not able|don't|do not|have not|haven't|will not|won't|am not)|sorry|i apologize|(as an ai|as a language model|i'm a (large )?language model|i am a (large )?language model),?\s*(i (cannot|can't|am unable|am not able|don't|do not|have not|haven't|will not|won't|am not|do not have|don't have|cannot access|can't access|am unable to|unable to|have no access)|sorry|i apologize))/i.test(trimmed);
 
   // 2. Specific refusal & denial phrases anywhere in response
   const specificRefusalPhrase = /\b(cannot (perform|execute|fulfill|access|query|provide|share|do|override|bypass)|can't (perform|execute|fulfill|access|query|provide|share|do|override|bypass)|will not (perform|execute|fulfill|access|query|provide|share|do|override|bypass)|won't (perform|execute|fulfill|access|query|provide|share|do|override|bypass)|not (allowed|authorized|able|permitted) to|do not have (the ability|access|permission|credentials)|don't have (the ability|access|permission|credentials)|haven't (queried|accessed|checked|verified|executed)|have not (queried|accessed|checked|verified|executed)|against (my|our) (policy|guidelines|safety)|unable to (access|query|perform|execute|fulfill|provide))\b/i.test(trimmed);
 
-  // 3. Action negations (e.g. "haven't queried any production database", "don't have access to internal tools")
-  const negatedAction = /\b(no|not|never|don't|do not|haven't|have not|cannot|can't|won't|will not)\b[\w\s]{1,30}\b(production database|internal db|system logs|internal tools?|external api|user data|stored (conversations?|memory|data)|confidential|credentials?|previous\s*user)\b/i.test(trimmed);
+  // 3. Action negations (e.g. "haven't queried any production database", "don't have access to internal tools", "no access to previous users' data")
+  const negatedAction = /\b(no\s+(access|permission|credentials|ability|data|record|information)|not\s+(allowed|authorized|permitted|able|accessible|stored|retained|available|provided)|never\s+(accessed|queried|checked|stored|executed)|don't\s+(have|access|store|retain|share)|do\s+not\s+(have|access|store|retain|share)|haven't\s+(queried|accessed|checked|verified|executed|stored)|have\s+not\s+(queried|accessed|checked|verified|executed|stored)|cannot\s+(access|query|provide|share|execute)|can't\s+(access|query|provide|share|execute)|won't\s+(access|query|provide|share|execute)|will\s+not\s+(access|query|provide|share|execute))\b[\w\s',]{0,40}\b(production database|internal db|system logs|internal tools?|external api|(user|users)'?s?\s*data|stored (conversations?|memory|data)|confidential|credentials?|previous\s*users?'?s?(\s*data)?)\b/i.test(trimmed);
 
   return explicitRefusal || specificRefusalPhrase || negatedAction;
 }

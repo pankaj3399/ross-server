@@ -1203,8 +1203,15 @@ export function validateEvidenceUrl(url: string): { valid: boolean; error?: stri
   };
 }
 
+const controlIdSchema = z.string().trim().min(1).refine((val) => {
+  if (!val) return false;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+  const isShortCode = /^[A-Z0-9_-]{2,64}$/i.test(val);
+  return isUuid || isShortCode;
+}, { message: "controlId must be a valid UUID or short control code" });
+
 const crcResponseSchema = z.object({
-  controlId: z.string().uuid(),
+  controlId: controlIdSchema,
   value: z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
   notes: z.string().max(5000).optional().default(""),
   evidenceStatus: z.enum(["No Evidence", "Template Downloaded", "Evidence in Progress", "Evidence Complete"]).optional(),
@@ -1249,15 +1256,42 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
       const targetControlCode = controlCheck.rows[0].control_id;
       const targetUuid = String(controlCheck.rows[0].id);
 
-      // Fetch existing response to handle partial updates or merge fields
+      // Lock existing responses for this project & control (canonical targetUuid or legacy control_id)
       const currentResponseQuery = await client.query(
-        `SELECT evidence_status, evidence_url, audit_ready 
+        `SELECT id, control_id::text as raw_control_id, value, notes, evidence_status, evidence_url, audit_ready 
          FROM crc_assessment_responses 
-         WHERE project_id = $1 AND (control_id = $2 OR control_id = $3 OR control_id = $4)
+         WHERE project_id = $1 AND (control_id = $2 OR control_id::text = $3)
          FOR UPDATE`,
-        [projectId, data.controlId, targetControlCode, targetUuid]
+        [projectId, targetUuid, targetControlCode]
       );
-      const existing = currentResponseQuery.rows[0];
+
+      const existingRows = currentResponseQuery.rows;
+      let existing = existingRows.find((r: any) => r.raw_control_id === targetUuid) || existingRows[0];
+
+      // Handle duplicate/legacy row migration with field precedence merging
+      if (existingRows.length > 1) {
+        const canonicalRow = existingRows.find((r: any) => r.raw_control_id === targetUuid);
+        const legacyRow = existingRows.find((r: any) => r.raw_control_id !== targetUuid);
+
+        if (canonicalRow && legacyRow) {
+          existing = {
+            ...legacyRow,
+            ...canonicalRow,
+            value: canonicalRow.value !== undefined && canonicalRow.value !== null ? canonicalRow.value : legacyRow.value,
+            notes: (canonicalRow.notes && canonicalRow.notes.trim()) ? canonicalRow.notes : (legacyRow.notes || ""),
+            evidence_status: (canonicalRow.evidence_status && canonicalRow.evidence_status !== 'No Evidence') ? canonicalRow.evidence_status : (legacyRow.evidence_status || 'No Evidence'),
+            evidence_url: canonicalRow.evidence_url || legacyRow.evidence_url || null,
+            audit_ready: canonicalRow.audit_ready || legacyRow.audit_ready || false,
+          };
+          await client.query("DELETE FROM crc_assessment_responses WHERE id = $1", [legacyRow.id]);
+        }
+      } else if (existingRows.length === 1 && existingRows[0].raw_control_id !== targetUuid) {
+        await client.query(
+          "UPDATE crc_assessment_responses SET control_id = $1 WHERE id = $2",
+          [targetUuid, existingRows[0].id]
+        );
+        existing = existingRows[0];
+      }
 
       let currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
       
