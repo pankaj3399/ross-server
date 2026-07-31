@@ -1238,7 +1238,7 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
 
       // Verify control exists and is published
       const controlCheck = await client.query(
-        "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
+        "SELECT id, control_id FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
         [data.controlId]
       );
       if (controlCheck.rows.length === 0) {
@@ -1246,13 +1246,16 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         return res.status(404).json({ success: false, error: "Control not found or not published" });
       }
 
+      const targetControlCode = controlCheck.rows[0].control_id;
+      const targetUuid = String(controlCheck.rows[0].id);
+
       // Fetch existing response to handle partial updates or merge fields
       const currentResponseQuery = await client.query(
         `SELECT evidence_status, evidence_url, audit_ready 
          FROM crc_assessment_responses 
-         WHERE project_id = $1 AND control_id = $2
+         WHERE project_id = $1 AND (control_id = $2 OR control_id = $3 OR control_id = $4)
          FOR UPDATE`,
-        [projectId, data.controlId]
+        [projectId, data.controlId, targetControlCode, targetUuid]
       );
       const existing = currentResponseQuery.rows[0];
 
@@ -1302,21 +1305,21 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         });
       }
 
-      // Upsert response
+      // Upsert response using canonical UUID
       const result = await client.query(
         `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (project_id, control_id)
          DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
          RETURNING *`,
-        [projectId, data.controlId, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
+        [projectId, targetUuid, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
       );
 
       await client.query("COMMIT");
 
       // Sync risk row for this control (fire-and-forget; non-blocking)
-      syncRiskFromResponse(projectId, data.controlId).catch((err) =>
-        console.error("Risk sync failed for control", data.controlId, err)
+      syncRiskFromResponse(projectId, targetUuid).catch((err) =>
+        console.error("Risk sync failed for control", targetUuid, err)
       );
 
       const saved = result.rows[0];
@@ -1487,9 +1490,11 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT control_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis, updated_at
-       FROM crc_assessment_responses
-       WHERE project_id = $1`,
+      `SELECT r.control_id::text as raw_control_id, c.control_id as code_control_id, c.id::text as uuid_control_id,
+              r.value, r.notes, r.evidence_status, r.evidence_url, r.audit_ready, r.evidence_analysis, r.updated_at
+       FROM crc_assessment_responses r
+       LEFT JOIN crc_controls c ON (r.control_id = c.id OR r.control_id::text = c.control_id)
+       WHERE r.project_id = $1`,
       [projectId]
     );
 
@@ -1511,7 +1516,7 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
       updatedAt: string 
     }> = {};
     result.rows.forEach((row: any) => {
-      responses[row.control_id] = {
+      const respObj = {
         value: parseFloat(row.value),
         notes: row.notes || "",
         evidenceStatus: row.evidence_status,
@@ -1520,6 +1525,15 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
         evidenceAnalysis: row.evidence_analysis || undefined,
         updatedAt: row.updated_at,
       };
+      if (row.raw_control_id) {
+        responses[row.raw_control_id] = respObj;
+      }
+      if (row.code_control_id) {
+        responses[row.code_control_id] = respObj;
+      }
+      if (row.uuid_control_id) {
+        responses[row.uuid_control_id] = respObj;
+      }
     });
 
     res.json({ success: true, responses, controlFlags, count: result.rowCount });
