@@ -68,10 +68,12 @@ class PremiumFeaturesPage {
   // display name.
   async completeSystemProfileWizard(projectId, systemName) {
     await this.goto(projectId);
-    await Promise.race([
-      this.wizard.configureButton.waitFor({ timeout: 30_000 }).catch(() => {}),
-      this.hubHeading.waitFor({ timeout: 30_000 }).catch(() => {}),
-    ]);
+    // Don't race this against hubHeading: the hub renders immediately
+    // regardless of wizard state (see class-level comment), so racing it in
+    // would resolve the wait before the banner/button ever gets a chance to
+    // render and cause a false "already applied/skipped" result. Wait on the
+    // button itself for the full timeout instead.
+    await this.wizard.configureButton.waitFor({ timeout: 30_000 }).catch(() => {});
     if (!(await this.wizard.configureButton.isVisible().catch(() => false))) return false; // banner not shown: already applied or skipped
     await this.wizard.complete(systemName);
     return true;

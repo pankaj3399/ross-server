@@ -56,16 +56,22 @@ const PROJECT_NAME = "bias test";
 // resolves, timing out at 20s (confirmed live).
 async function deleteProjectByNameViaApi(page, name) {
   const token = await page.evaluate(() => localStorage.getItem("auth_token"));
+  if (!token) throw new Error("deleteProjectByNameViaApi: no auth_token in localStorage");
   const listResponse = await page.request.get(`${API_BASE_URL}/projects`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!listResponse.ok()) return;
+  if (!listResponse.ok()) {
+    throw new Error(`deleteProjectByNameViaApi: GET /projects failed (${listResponse.status()})`);
+  }
   const { projects } = await listResponse.json();
   const existing = projects.find((p) => p.name === name);
   if (!existing) return;
-  await page.request.delete(`${API_BASE_URL}/projects/${existing.id}`, {
+  const deleteResponse = await page.request.delete(`${API_BASE_URL}/projects/${existing.id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (!deleteResponse.ok()) {
+    throw new Error(`deleteProjectByNameViaApi: DELETE /projects/${existing.id} failed (${deleteResponse.status()})`);
+  }
 }
 
 test.describe("AI Bias & Fairness Testing", () => {
