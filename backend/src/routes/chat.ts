@@ -10,11 +10,11 @@ const router = Router();
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().min(1).max(2000),
+  content: z.string().min(1),
 });
 
 const chatRequestSchema = z.object({
-  messages: z.array(chatMessageSchema).min(1).max(40),
+  messages: z.array(chatMessageSchema).min(1).max(100),
   controlId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
 });
@@ -92,6 +92,13 @@ router.post("/", async (req: Request, res: Response) => {
     if (lastMessage.role !== "user") {
       return res.status(400).json({
         error: "The last message must be from the user",
+      });
+    }
+
+    // Validate user message length (assistant responses can be long)
+    if (lastMessage.content.length > 4000) {
+      return res.status(400).json({
+        error: "Message must be at most 4000 characters",
       });
     }
 

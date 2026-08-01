@@ -7,6 +7,7 @@ import {
   IconMessageChatbot,
   IconX,
   IconSend2,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { apiService } from "@/lib/api";
 import "./AICopilot.css";
@@ -119,10 +120,10 @@ export default function AICopilot() {
   // ─── Auto-scroll ────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (isOpen && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isOpen]);
 
   // ─── Auto-resize textarea ──────────────────────────────────────────────
 
@@ -307,14 +308,27 @@ export default function AICopilot() {
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                className="copilot-close-btn"
-                onClick={togglePanel}
-                aria-label="Close Mira"
-              >
-                <IconX size={16} />
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    className="copilot-close-btn"
+                    onClick={() => setMessages([])}
+                    aria-label="New chat"
+                    title="New chat"
+                  >
+                    <IconRefresh size={15} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="copilot-close-btn"
+                  onClick={togglePanel}
+                  aria-label="Close Mira"
+                >
+                  <IconX size={16} />
+                </button>
+              </div>
             </div>
 
             {/* Messages or Starters */}
@@ -396,7 +410,7 @@ export default function AICopilot() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Mira about AI compliance..."
                 rows={1}
-                maxLength={2000}
+                maxLength={4000}
                 disabled={isLoading}
               />
               <button
