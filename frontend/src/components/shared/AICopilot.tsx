@@ -91,9 +91,18 @@ export default function AICopilot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const conversationGenerationRef = useRef(0);
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // ─── Reset Conversation ───────────────────────────────────────────────
+
+  const handleNewChat = useCallback(() => {
+    conversationGenerationRef.current += 1;
+    setMessages([]);
+    setIsLoading(false);
+  }, []);
 
   // ─── Context Awareness ──────────────────────────────────────────────────
 
@@ -156,6 +165,8 @@ export default function AICopilot() {
     async (content: string) => {
       if (!content.trim() || isLoading) return;
 
+      const currentGen = ++conversationGenerationRef.current;
+
       const userMessage: ChatMessage = {
         id: `msg-${Date.now()}-user`,
         role: "user",
@@ -182,6 +193,8 @@ export default function AICopilot() {
           projectId: projectContext?.projectId || undefined,
         });
 
+        if (conversationGenerationRef.current !== currentGen) return;
+
         const assistantMessage: ChatMessage = {
           id: `msg-${Date.now()}-assistant`,
           role: "assistant",
@@ -195,6 +208,8 @@ export default function AICopilot() {
           setHasUnread(true);
         }
       } catch (error: any) {
+        if (conversationGenerationRef.current !== currentGen) return;
+
         const errorText =
           error?.message || "Something went wrong. Please try again.";
         const errorMessage: ChatMessage = {
@@ -205,7 +220,9 @@ export default function AICopilot() {
         };
         setMessages((prev) => [...prev, errorMessage]);
       } finally {
-        setIsLoading(false);
+        if (conversationGenerationRef.current === currentGen) {
+          setIsLoading(false);
+        }
       }
     },
     [messages, isLoading, crcContext, projectContext, isOpen]
@@ -313,7 +330,7 @@ export default function AICopilot() {
                   <button
                     type="button"
                     className="copilot-close-btn"
-                    onClick={() => setMessages([])}
+                    onClick={handleNewChat}
                     aria-label="New chat"
                     title="New chat"
                   >

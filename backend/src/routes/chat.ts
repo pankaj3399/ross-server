@@ -8,15 +8,39 @@ const router = Router();
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
+const USER_MESSAGE_MAX_CHARS = 4000;
+const ASSISTANT_MESSAGE_MAX_CHARS = 15000;
+const MAX_TOTAL_CHAT_CHARS = 50000;
+
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
-  content: z.string().min(1),
+  content: z.string().min(1, "Message content cannot be empty"),
+}).superRefine((msg, ctx) => {
+  if (msg.role === "user" && msg.content.length > USER_MESSAGE_MAX_CHARS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `User message content must be at most ${USER_MESSAGE_MAX_CHARS} characters`,
+    });
+  } else if (msg.role === "assistant" && msg.content.length > ASSISTANT_MESSAGE_MAX_CHARS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Assistant message content must be at most ${ASSISTANT_MESSAGE_MAX_CHARS} characters`,
+    });
+  }
 });
 
 const chatRequestSchema = z.object({
   messages: z.array(chatMessageSchema).min(1).max(100),
   controlId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
+}).superRefine((req, ctx) => {
+  const totalLength = req.messages.reduce((sum, m) => sum + m.content.length, 0);
+  if (totalLength > MAX_TOTAL_CHAT_CHARS) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Total chat history exceeds character budget of ${MAX_TOTAL_CHAT_CHARS} characters`,
+    });
+  }
 });
 
 // ─── Rate Limiting ──────────────────────────────────────────────────────────
