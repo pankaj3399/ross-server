@@ -436,10 +436,7 @@ function SidebarContentComponent() {
 
   useEffect(() => {
     setActiveTab(getTabFromPathname(pathname));
-    if (pathname && (pathname.includes("/fairness-bias") || pathname.includes("/crc") || pathname.includes("/vulnerability-assessment") || pathname.includes("/vulnerability") || pathname.includes("/inventory"))) {
-      setIsSecondaryOpen(false);
-    }
-  }, [pathname, getTabFromPathname, setIsSecondaryOpen]);
+  }, [pathname, getTabFromPathname]);
 
   const handleTabClick = (tab: "dashboard" | "aima" | "premium" | "settings" | "admin") => {
     if (activeTab === tab) {
@@ -509,12 +506,9 @@ function SidebarContentComponent() {
     if (handleProjectAction(route)) return;
     const pid = getProjectIdFromPath(pathname);
     if (pid) {
-      if (route.startsWith("/fairness-bias") || route.startsWith("/crc") || route.startsWith("/vulnerability") || route.startsWith("/inventory")) {
-        setIsSecondaryOpen(false);
-      }
       router.push(`/assess/${pid}${route}`);
     }
-  }, [handleProjectAction, pathname, router, setIsSecondaryOpen]);
+  }, [handleProjectAction, pathname, router]);
 
   // ─── Determine project context ──────────────────────────────────────────────
 

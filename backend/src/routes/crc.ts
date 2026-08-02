@@ -226,6 +226,75 @@ const validateCategoryId = async (client: any, categoryId: number) => {
   return res.rows.length > 0;
 };
 
+/**
+ * Shared transaction helper to reconcile canonical (UUID) and legacy (short control_id) response rows.
+ * Locks existing rows for update, merges fields (preferring canonical values when present, retaining legacy analysis/fields if missing),
+ * persists the merged canonical row, and deletes legacy rows so no duplicates remain.
+ */
+export async function reconcileCrcResponse(
+  client: any,
+  projectId: string,
+  targetUuid: string,
+  targetControlCode: string
+) {
+  const currentResponseQuery = await client.query(
+    `SELECT id, control_id::text as raw_control_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis 
+     FROM crc_assessment_responses 
+     WHERE project_id = $1 AND (control_id = $2 OR control_id::text = $3)
+     FOR UPDATE`,
+    [projectId, targetUuid, targetControlCode]
+  );
+
+  const existingRows = currentResponseQuery.rows;
+  let existing = existingRows.find((r: any) => r.raw_control_id === targetUuid) || existingRows[0] || null;
+
+  if (existingRows.length > 1) {
+    const canonicalRow = existingRows.find((r: any) => r.raw_control_id === targetUuid);
+    const legacyRow = existingRows.find((r: any) => r.raw_control_id !== targetUuid);
+
+    if (canonicalRow && legacyRow) {
+      existing = {
+        ...legacyRow,
+        ...canonicalRow,
+        value: canonicalRow.value !== undefined && canonicalRow.value !== null ? canonicalRow.value : legacyRow.value,
+        notes: (canonicalRow.notes && canonicalRow.notes.trim()) ? canonicalRow.notes : (legacyRow.notes || ""),
+        evidence_status: (canonicalRow.evidence_status && canonicalRow.evidence_status !== 'No Evidence') ? canonicalRow.evidence_status : (legacyRow.evidence_status || 'No Evidence'),
+        evidence_url: canonicalRow.evidence_url || legacyRow.evidence_url || null,
+        audit_ready: canonicalRow.audit_ready || legacyRow.audit_ready || false,
+        evidence_analysis: canonicalRow.evidence_analysis || legacyRow.evidence_analysis || null,
+      };
+
+      await client.query(
+        `UPDATE crc_assessment_responses 
+         SET value = $1, notes = $2, evidence_status = $3, evidence_url = $4, audit_ready = $5, evidence_analysis = $6::jsonb, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $7`,
+        [
+          existing.value,
+          existing.notes,
+          existing.evidence_status,
+          existing.evidence_url,
+          existing.audit_ready,
+          existing.evidence_analysis ? JSON.stringify(existing.evidence_analysis) : null,
+          canonicalRow.id
+        ]
+      );
+      await client.query("DELETE FROM crc_assessment_responses WHERE id = $1", [legacyRow.id]);
+    }
+  } else if (existingRows.length === 1 && existingRows[0].raw_control_id !== targetUuid) {
+    await client.query(
+      "UPDATE crc_assessment_responses SET control_id = $1 WHERE id = $2",
+      [targetUuid, existingRows[0].id]
+    );
+    existing = {
+      ...existingRows[0],
+      raw_control_id: targetUuid,
+      control_id: targetUuid,
+    };
+  }
+
+  return existing;
+}
+
 // --- Routes ---
 
 // GET /crc/categories - List all categories
@@ -1203,8 +1272,15 @@ export function validateEvidenceUrl(url: string): { valid: boolean; error?: stri
   };
 }
 
+const controlIdSchema = z.string().trim().min(1).refine((val) => {
+  if (!val) return false;
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+  const isShortCode = /^[A-Z0-9_-]{2,64}$/i.test(val);
+  return isUuid || isShortCode;
+}, { message: "controlId must be a valid UUID or short control code" });
+
 const crcResponseSchema = z.object({
-  controlId: z.string().uuid(),
+  controlId: controlIdSchema,
   value: z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(2), z.literal(3)]),
   notes: z.string().max(5000).optional().default(""),
   evidenceStatus: z.enum(["No Evidence", "Template Downloaded", "Evidence in Progress", "Evidence Complete"]).optional(),
@@ -1238,7 +1314,7 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
 
       // Verify control exists and is published
       const controlCheck = await client.query(
-        "SELECT id FROM crc_controls WHERE id = $1 AND status = 'Published'",
+        "SELECT id, control_id FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
         [data.controlId]
       );
       if (controlCheck.rows.length === 0) {
@@ -1246,15 +1322,10 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         return res.status(404).json({ success: false, error: "Control not found or not published" });
       }
 
-      // Fetch existing response to handle partial updates or merge fields
-      const currentResponseQuery = await client.query(
-        `SELECT evidence_status, evidence_url, audit_ready 
-         FROM crc_assessment_responses 
-         WHERE project_id = $1 AND control_id = $2
-         FOR UPDATE`,
-        [projectId, data.controlId]
-      );
-      const existing = currentResponseQuery.rows[0];
+      const targetControlCode = controlCheck.rows[0].control_id;
+      const targetUuid = String(controlCheck.rows[0].id);
+
+      const existing = await reconcileCrcResponse(client, projectId, targetUuid, targetControlCode);
 
       let currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
       
@@ -1302,21 +1373,21 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         });
       }
 
-      // Upsert response
+      // Upsert response using canonical UUID
       const result = await client.query(
         `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          ON CONFLICT (project_id, control_id)
          DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
          RETURNING *`,
-        [projectId, data.controlId, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
+        [projectId, targetUuid, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
       );
 
       await client.query("COMMIT");
 
       // Sync risk row for this control (fire-and-forget; non-blocking)
-      syncRiskFromResponse(projectId, data.controlId).catch((err) =>
-        console.error("Risk sync failed for control", data.controlId, err)
+      syncRiskFromResponse(projectId, targetUuid).catch((err) =>
+        console.error("Risk sync failed for control", targetUuid, err)
       );
 
       const saved = result.rows[0];
@@ -1427,26 +1498,40 @@ router.post(
       const evidenceUrl = uploadedUrl;
       const status = analysis.isValidTemplate ? "Evidence Complete" : "Evidence in Progress";
 
-      const saveRes = await pool.query(
-        `INSERT INTO crc_assessment_responses 
-           (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
-         VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 3), COALESCE((SELECT notes FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), ''), $4, $5, COALESCE((SELECT audit_ready FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), false), $6::jsonb)
-         ON CONFLICT (project_id, control_id)
-         DO UPDATE SET 
-           user_id = $3,
-           evidence_status = $4,
-           evidence_url = $5,
-           evidence_analysis = $6::jsonb,
-           updated_at = CURRENT_TIMESTAMP
-         RETURNING *`,
-        [projectId, actualControlUuid, userId, status, evidenceUrl, JSON.stringify(analysis)]
-      );
+      const client = await pool.connect();
+      let saved: any;
+      try {
+        await client.query("BEGIN");
+
+        await reconcileCrcResponse(client, projectId, actualControlUuid, control.control_id);
+
+        const saveRes = await client.query(
+          `INSERT INTO crc_assessment_responses 
+             (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
+           VALUES ($1, $2, $3, COALESCE((SELECT value FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), 3), COALESCE((SELECT notes FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), ''), $4, $5, COALESCE((SELECT audit_ready FROM crc_assessment_responses WHERE project_id = $1 AND control_id = $2), false), $6::jsonb)
+           ON CONFLICT (project_id, control_id)
+           DO UPDATE SET 
+             user_id = $3,
+             evidence_status = $4,
+             evidence_url = $5,
+             evidence_analysis = $6::jsonb,
+             updated_at = CURRENT_TIMESTAMP
+           RETURNING *`,
+          [projectId, actualControlUuid, userId, status, evidenceUrl, JSON.stringify(analysis)]
+        );
+
+        await client.query("COMMIT");
+        saved = saveRes.rows[0];
+      } catch (dbErr) {
+        await client.query("ROLLBACK");
+        throw dbErr;
+      } finally {
+        client.release();
+      }
 
       syncRiskFromResponse(projectId, actualControlUuid).catch((err) =>
         console.error("Risk sync failed after evidence upload:", err)
       );
-
-      const saved = saveRes.rows[0];
       return res.json({
         success: true,
         data: {
@@ -1487,9 +1572,11 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT control_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis, updated_at
-       FROM crc_assessment_responses
-       WHERE project_id = $1`,
+      `SELECT r.control_id::text as raw_control_id, c.control_id as code_control_id, c.id::text as uuid_control_id,
+              r.value, r.notes, r.evidence_status, r.evidence_url, r.audit_ready, r.evidence_analysis, r.updated_at
+       FROM crc_assessment_responses r
+       LEFT JOIN crc_controls c ON (r.control_id = c.id OR r.control_id::text = c.control_id)
+       WHERE r.project_id = $1`,
       [projectId]
     );
 
@@ -1511,7 +1598,7 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
       updatedAt: string 
     }> = {};
     result.rows.forEach((row: any) => {
-      responses[row.control_id] = {
+      const respObj = {
         value: parseFloat(row.value),
         notes: row.notes || "",
         evidenceStatus: row.evidence_status,
@@ -1520,6 +1607,15 @@ router.get("/assess/:projectId", authenticateToken, async (req, res) => {
         evidenceAnalysis: row.evidence_analysis || undefined,
         updatedAt: row.updated_at,
       };
+      if (row.raw_control_id) {
+        responses[row.raw_control_id] = respObj;
+      }
+      if (row.code_control_id) {
+        responses[row.code_control_id] = respObj;
+      }
+      if (row.uuid_control_id) {
+        responses[row.uuid_control_id] = respObj;
+      }
     });
 
     res.json({ success: true, responses, controlFlags, count: result.rowCount });
