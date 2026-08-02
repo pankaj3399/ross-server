@@ -48,64 +48,45 @@ class TokenService {
     email: string,
     otp: string,
   ): Promise<{ userId: string; valid: boolean }> {
+    const client = await pool.connect();
     try {
-      console.log(`[OTP] Verifying OTP for email: ${email}, otp: ${otp}`);
+      await client.query("BEGIN");
 
-      // Debug: check what's in the DB for this user
-      const debugResult = await pool.query(
-        `SELECT evt.otp, evt.expires_at, evt.used, u.email,
-                NOW() as db_now,
-                (evt.expires_at > NOW()) as is_valid
-         FROM email_verification_tokens evt
-         JOIN users u ON u.id = evt.user_id
-         WHERE u.email = $1`,
-        [email],
-      );
-      console.log(`[OTP] All tokens for ${email}:`, debugResult.rows.map(r => ({
-        otp: r.otp,
-        expires_at: r.expires_at,
-        used: r.used,
-        db_now: r.db_now,
-        is_valid: r.is_valid,
-        node_now: new Date().toISOString(),
-      })));
-
-      const result = await pool.query(
-        `SELECT evt.user_id, evt.used, evt.expires_at
-         FROM email_verification_tokens evt
-         JOIN users u ON u.id = evt.user_id
-         WHERE u.email = $1 AND evt.otp = $2 AND evt.expires_at > NOW() AND evt.used = FALSE`,
+      // Atomically mark token as used if valid, unexpired, and unused
+      const updateResult = await client.query(
+        `UPDATE email_verification_tokens evt
+         SET used = TRUE
+         FROM users u
+         WHERE u.id = evt.user_id
+           AND u.email = $1
+           AND evt.otp = $2
+           AND evt.expires_at > NOW()
+           AND evt.used = FALSE
+         RETURNING evt.user_id`,
         [email, otp],
       );
 
-      console.log("[OTP] Query Result Rows:", result.rows.length);
-      if (result.rows.length > 0) {
-        console.log("[OTP] First Row:", result.rows[0]);
-      }
-
-      if (result.rows.length === 0) {
-        console.log("[OTP] No matching OTP found or expired");
+      if (updateResult.rows.length === 0) {
+        await client.query("ROLLBACK");
         return { userId: "", valid: false };
       }
 
-      const { user_id: userId, used } = result.rows[0];
+      const userId = updateResult.rows[0].user_id;
 
-      // Mark token as used and verify the email
-      await pool.query(
-        "UPDATE email_verification_tokens SET used = TRUE WHERE user_id = $1 AND otp = $2",
-        [userId, otp],
-      );
-
-      await pool.query(
+      // Mark user email as verified
+      await client.query(
         "UPDATE users SET email_verified = TRUE WHERE id = $1",
         [userId],
       );
 
-      console.log(`[OTP] Successfully verified OTP for user ${userId}`);
+      await client.query("COMMIT");
       return { userId, valid: true };
     } catch (error) {
-      console.error("[OTP] Error verifying email OTP:", error);
+      await client.query("ROLLBACK");
+      console.error("Error verifying email OTP:", error);
       return { userId: "", valid: false };
+    } finally {
+      client.release();
     }
   }
 
