@@ -309,43 +309,54 @@ export default function AuthPage() {
                         className="h-[50px] text-sm input-auth"
                       />
                       <AnimatePresence>
-                        {showRequirements && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -5 }}
-                            className="absolute right-0 z-50 mt-1 w-[280px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xl text-xs space-y-2"
-                          >
-                            <h4 className="font-semibold text-foreground">Password requirements:</h4>
-                            <ul className="space-y-1.5 text-muted-foreground">
-                              <li className="flex items-center gap-1.5">
-                                <span className={formData.password.length >= 8 ? "text-green-500 font-semibold" : ""}>
-                                  ✓ At least 8 characters
-                                </span>
-                              </li>
-                              <li className="flex items-center gap-1.5">
-                                <span className={/[A-Z]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One uppercase letter (A-Z)
-                                </span>
-                              </li>
-                              <li className="flex items-center gap-1.5">
-                                <span className={/[a-z]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One lowercase letter (a-z)
-                                </span>
-                              </li>
-                              <li className="flex items-center gap-1.5">
-                                <span className={/[0-9]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One number (0-9)
-                                </span>
-                              </li>
-                              <li className="flex items-center gap-1.5">
-                                <span className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One special character
-                                </span>
-                              </li>
-                            </ul>
-                          </motion.div>
-                        )}
+                        {showRequirements && (() => {
+                          const emailUsername = formData.email ? formData.email.split("@")[0].toLowerCase() : "";
+                          const containsEmailUser = emailUsername && emailUsername.length >= 3 && formData.password.toLowerCase().includes(emailUsername);
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -5 }}
+                              className="absolute right-0 z-50 mt-1 w-[280px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xl text-xs space-y-2"
+                            >
+                              <h4 className="font-semibold text-foreground">Password requirements:</h4>
+                              <ul className="space-y-1.5 text-muted-foreground">
+                                <li className="flex items-center gap-1.5">
+                                  <span className={formData.password.length >= 8 ? "text-green-500 font-semibold" : ""}>
+                                    ✓ At least 8 characters
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className={/[A-Z]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
+                                    ✓ One uppercase letter (A-Z)
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className={/[a-z]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
+                                    ✓ One lowercase letter (a-z)
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className={/[0-9]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
+                                    ✓ One number (0-9)
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-1.5">
+                                  <span className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
+                                    ✓ One special character
+                                  </span>
+                                </li>
+                                {emailUsername && emailUsername.length >= 3 && (
+                                  <li className="flex items-center gap-1.5">
+                                    <span className={containsEmailUser ? "text-destructive font-semibold" : "text-green-500 font-semibold"}>
+                                      {containsEmailUser ? "✕ Cannot contain email username" : "✓ Cannot contain email username"}
+                                    </span>
+                                  </li>
+                                )}
+                              </ul>
+                            </motion.div>
+                          );
+                        })()}
                       </AnimatePresence>
                     </div>
                   </div>

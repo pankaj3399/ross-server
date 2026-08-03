@@ -173,9 +173,10 @@ export function validatePassword(
     const lowerEmail = userInfo.email?.toLowerCase() || "";
     const lowerName = userInfo.name?.toLowerCase() || "";
 
-    if (lowerEmail && lowerPassword.includes(lowerEmail.split("@")[0])) {
+    const emailUsername = lowerEmail.split("@")[0];
+    if (emailUsername && emailUsername.length >= 3 && lowerPassword.includes(emailUsername)) {
       errors.push("Password cannot contain your email username");
-    } else if (lowerName && lowerPassword.includes(lowerName.toLowerCase())) {
+    } else if (lowerName && lowerName.length >= 3 && lowerPassword.includes(lowerName)) {
       errors.push("Password cannot contain your name");
     } else {
       score += 10;
@@ -189,6 +190,10 @@ export function validatePassword(
   // Length bonus
   if (password.length >= 12) score += 5;
   if (password.length >= 16) score += 5;
+
+  if (errors.length > 0) {
+    score = Math.min(score, 40);
+  }
 
   return {
     isValid: errors.length === 0,
