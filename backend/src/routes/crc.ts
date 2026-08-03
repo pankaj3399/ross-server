@@ -2024,27 +2024,50 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
 
     const targetDate = data.target_date ? new Date(data.target_date) : null;
 
-    const result = await pool.query(
-      `INSERT INTO crc_risks (
-        project_id, control_id, title, category, rating, status, description,
-        mitigation_plan, owner, target_date, review_frequency, source
-      )
-      VALUES ($1, NULL, $2, $3, $4, 'Open', $5, $6, $7, $8, $9, 'Manual')
-      RETURNING *`,
-      [
-        projectId,
-        data.title,
-        data.category,
-        data.rating,
-        data.description,
-        data.mitigation_plan,
-        data.owner,
-        targetDate,
-        data.review_frequency
-      ]
-    );
+    // Use a transaction to sync the sequence and insert with collision retry
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+      // Sync crc_risks_seq to avoid risk_code collisions (same pattern as wizard)
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('crc_risks_seq_sync'))");
+      await client.query(`
+        SELECT setval('crc_risks_seq', max_val)
+        FROM (
+          SELECT COALESCE(MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint), 0) AS max_val
+          FROM crc_risks
+        ) m
+        WHERE max_val > (SELECT last_value FROM crc_risks_seq)
+      `);
+
+      const result = await client.query(
+        `INSERT INTO crc_risks (
+          project_id, control_id, title, category, rating, status, description,
+          mitigation_plan, owner, target_date, review_frequency, source
+        )
+        VALUES ($1, NULL, $2, $3, $4, 'Open', $5, $6, $7, $8, $9, 'Manual')
+        RETURNING *`,
+        [
+          projectId,
+          data.title,
+          data.category,
+          data.rating,
+          data.description,
+          data.mitigation_plan,
+          data.owner,
+          targetDate,
+          data.review_frequency
+        ]
+      );
+
+      await client.query("COMMIT");
+      res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (txError: any) {
+      await client.query("ROLLBACK");
+      throw txError;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error("Error creating manual risk:", error);
     if (error instanceof z.ZodError) {

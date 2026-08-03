@@ -506,7 +506,10 @@ class ApiService {
         .json()
         .catch(() => ({ error: "Network error" }));
       let errorMessage = error.error || `HTTP ${response.status}`;
-      if (typeof errorMessage === "object") {
+      if (Array.isArray(error.details) && error.details.length > 0) {
+        const detailStr = error.details.join(". ");
+        errorMessage = errorMessage.includes(detailStr) ? errorMessage : `${errorMessage}: ${detailStr}`;
+      } else if (typeof errorMessage === "object") {
         errorMessage = JSON.stringify(errorMessage);
       }
       const errorWithStatus = new Error(errorMessage) as Error & {

@@ -224,8 +224,8 @@ export default function ResetPasswordPage() {
                                 </span>
                               </li>
                               <li className="flex items-center gap-1.5">
-                                <span className={/[!@#$%^&*]/.test(password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One special character (!@#$%^&*)
+                                <span className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password) ? "text-green-500 font-semibold" : ""}>
+                                  ✓ One special character
                                 </span>
                               </li>
                             </ul>

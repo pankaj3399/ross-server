@@ -60,8 +60,8 @@ const COMMON_PASSWORDS = [
   "qwertyuiop",
 ];
 
-// Only allow safe special characters (no quotes, semicolons, or SQL injection characters)
-export const ALLOWED_SPECIAL_CHARS = "!@#$%^&*";
+// Allow all standard safe special characters
+export const ALLOWED_SPECIAL_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?/~`";
 const SPECIAL_CHARS = ALLOWED_SPECIAL_CHARS;
 
 export const DEFAULT_PASSWORD_REQUIREMENTS: PasswordRequirements = {

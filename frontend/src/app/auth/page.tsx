@@ -8,7 +8,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { PasswordStrengthIndicator } from "../../components/auth/PasswordStrengthIndicator";
 import { IconEye, IconEyeOff, IconLoader2, IconUser, IconBuilding, IconMail, IconLock, IconArrowRight, IconInfoCircle } from "@tabler/icons-react";
-import { ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
+import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +71,13 @@ export default function AuthPage() {
       } else {
         if (formData.password !== formData.confirmPassword) {
           setError("Passwords do not match");
+          setLoading(false);
+          return;
+        }
+
+        const passwordValidation = validatePassword(formData.password, { email: formData.email, name: formData.name });
+        if (!passwordValidation.isValid) {
+          setError(passwordValidation.errors.join(". "));
           setLoading(false);
           return;
         }
@@ -332,8 +339,8 @@ export default function AuthPage() {
                                 </span>
                               </li>
                               <li className="flex items-center gap-1.5">
-                                <span className={/[!@#$%^&*]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
-                                  ✓ One special character (!@#$%^&*)
+                                <span className={/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(formData.password) ? "text-green-500 font-semibold" : ""}>
+                                  ✓ One special character
                                 </span>
                               </li>
                             </ul>
