@@ -183,6 +183,17 @@ export default function TeamManagementPage() {
         }
     };
 
+    // Fix Radix UI Dialog pointer-events lock bug when modal states close
+    useEffect(() => {
+        if (typeof document === "undefined") return;
+        if (!memberToRemove && !memberToEdit && !invitationToRevoke && !showSubscriptionModal) {
+            const timer = setTimeout(() => {
+                document.body.style.pointerEvents = "";
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [memberToRemove, memberToEdit, invitationToRevoke, showSubscriptionModal]);
+
     const handleUpdateRole = async () => {
         if (!memberToEdit) return;
         setProcessing(true);
@@ -195,21 +206,36 @@ export default function TeamManagementPage() {
             showToast.error(err.message || "Failed to update role");
         } finally {
             setProcessing(false);
+            if (typeof document !== "undefined") {
+                setTimeout(() => {
+                    document.body.style.pointerEvents = "";
+                }, 100);
+            }
         }
     };
 
     const handleRemoveMember = async () => {
         if (!memberToRemove) return;
+        const isSelf = String(memberToRemove.canonicalId) === String(user?.id) || (user?.email && memberToRemove.email === user?.email);
         setProcessing(true);
         try {
             await apiService.removeProjectMember(projectId, memberToRemove.canonicalId);
-            showToast.success("Member removed");
+            showToast.success(isSelf ? "You left the project" : "Member removed");
             setMemberToRemove(null);
-            fetchData(true);
+            if (isSelf) {
+                router.push("/dashboard");
+            } else {
+                fetchData(true);
+            }
         } catch (err: any) {
             showToast.error(err.message || "Failed to remove member");
         } finally {
             setProcessing(false);
+            if (typeof document !== "undefined") {
+                setTimeout(() => {
+                    document.body.style.pointerEvents = "";
+                }, 100);
+            }
         }
     };
 
@@ -225,6 +251,11 @@ export default function TeamManagementPage() {
             showToast.error(err.message || "Failed to process invitation");
         } finally {
             setProcessing(false);
+            if (typeof document !== "undefined") {
+                setTimeout(() => {
+                    document.body.style.pointerEvents = "";
+                }, 100);
+            }
         }
     };
 
