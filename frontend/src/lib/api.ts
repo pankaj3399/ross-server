@@ -592,6 +592,12 @@ class ApiService {
     localStorage.removeItem("auth_token");
   }
 
+  public notifyProjectsUpdated(): void {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("projects-updated"));
+    }
+  }
+
   // Projects
   async getProjects(): Promise<Project[]> {
     const response = await this.request<{ projects: Project[] }>("/projects");
@@ -604,10 +610,12 @@ class ApiService {
     aiSystemType?: string;
     industry?: string;
   }): Promise<{ project: Project }> {
-    return this.request<{ project: Project }>("/projects", {
+    const res = await this.request<{ project: Project }>("/projects", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    this.notifyProjectsUpdated();
+    return res;
   }
 
   async getProject(id: string): Promise<Project> {
@@ -626,16 +634,20 @@ class ApiService {
       pathChoice?: string;
     },
   ): Promise<{ project: Project }> {
-    return this.request<{ project: Project }>(`/projects/${id}`, {
+    const res = await this.request<{ project: Project }>(`/projects/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    this.notifyProjectsUpdated();
+    return res;
   }
 
   async deleteProject(id: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/projects/${id}`, {
+    const res = await this.request<{ message: string }>(`/projects/${id}`, {
       method: "DELETE",
     });
+    this.notifyProjectsUpdated();
+    return res;
   }
 
   async getDeletedProjects(): Promise<{ projects: Project[] }> {
@@ -643,9 +655,11 @@ class ApiService {
   }
 
   async restoreProject(id: string): Promise<{ message: string; project: Project }> {
-    return this.request<{ message: string; project: Project }>(`/projects/${id}/restore`, {
+    const res = await this.request<{ message: string; project: Project }>(`/projects/${id}/restore`, {
       method: "POST",
     });
+    this.notifyProjectsUpdated();
+    return res;
   }
 
   async submitProject(id: string, changedDomainIds?: string[]): Promise<{ message: string; project: Project; results: any; capabilities?: { premiumInsights?: boolean; canGenerateInsights?: boolean } }> {

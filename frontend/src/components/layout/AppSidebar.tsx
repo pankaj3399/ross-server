@@ -450,13 +450,13 @@ function SidebarContentComponent() {
   const [userProjects, setUserProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
-  useEffect(() => {
+  const fetchSidebarProjects = useCallback(() => {
     if (!isAuthenticated) return;
-    let active = true;
     setIsLoadingProjects(true);
-    apiService.getProjects()
+    apiService
+      .getProjects()
       .then((data) => {
-        if (active && Array.isArray(data)) {
+        if (Array.isArray(data)) {
           setUserProjects(data);
         }
       })
@@ -464,13 +464,22 @@ function SidebarContentComponent() {
         console.error("Failed to fetch projects in sidebar:", err);
       })
       .finally(() => {
-        if (active) setIsLoadingProjects(false);
+        setIsLoadingProjects(false);
       });
-
-    return () => {
-      active = false;
-    };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    fetchSidebarProjects();
+
+    const handleProjectsUpdated = () => {
+      fetchSidebarProjects();
+    };
+
+    window.addEventListener("projects-updated", handleProjectsUpdated);
+    return () => {
+      window.removeEventListener("projects-updated", handleProjectsUpdated);
+    };
+  }, [fetchSidebarProjects]);
 
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
 
