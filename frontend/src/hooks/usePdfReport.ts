@@ -456,6 +456,7 @@ export const usePdfReport = ({
                             while (sourceY < canvas.height) {
                                 const remainingPagePx = (contentBottom - pdfY) * pxPerMm;
                                 const sliceHeightPx = Math.min(canvas.height - sourceY, remainingPagePx);
+                                if (sliceHeightPx <= 0) break;
                                 
                                 await addSliceToPdf(pdf, canvas, sourceY, sliceHeightPx, margin, pdfY, usableWidth, sliceHeightPx / pxPerMm);
                                 

@@ -260,10 +260,9 @@ export default function QuestionView() {
         listItems.forEach((li) => {
             const bolds = li.querySelectorAll("strong, b");
             bolds.forEach((bold) => {
-                while (bold.firstChild) {
-                    bold.parentNode?.insertBefore(bold.firstChild, bold);
+                if (bold.parentNode) {
+                    bold.replaceWith(...Array.from(bold.childNodes));
                 }
-                bold.parentNode?.removeChild(bold);
             });
         });
         setDescriptionCache({ key: questionKey, html: container.innerHTML });
@@ -302,7 +301,10 @@ export default function QuestionView() {
 
     const handleSubmitClick = () => {
         if (isReadOnly || submitting) return;
-        const missing = getMissingQuestions(domains, answers);
+        // Only check AIMA domains for completeness — premium (PAC) domains
+        // have their own submission flow and should not block AIMA submission.
+        const aimaDomains = domains.filter(d => !d.is_premium);
+        const missing = getMissingQuestions(aimaDomains, answers);
         if (missing.length > 0) {
             setMissingQuestions(missing);
             setMissingDialogOpen(true);

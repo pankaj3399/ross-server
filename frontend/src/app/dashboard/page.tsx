@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
@@ -353,24 +353,7 @@ export default function DashboardPage() {
     }
   }, [deletingProjectId, editingProject, showCreateForm, showPathSelection, showSubscriptionModal, showFilterModal]);
 
-  useEffect(() => {
-    if (authLoading) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      return;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get('success');
-    const canceled = urlParams.get('canceled');
-
-    loadProjects();
-    handleStripeReturn(success, canceled);
-  }, [isAuthenticated, authLoading, router, refreshUser]);
-
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       // Fetch both projects and pending invitations concurrently
       const [projectsData] = await Promise.all([
@@ -387,7 +370,29 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [fetchInvitations, clearInvitations]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const canceled = urlParams.get('canceled');
+
+    loadProjects();
+    handleStripeReturn(success, canceled);
+
+    const handleProjectsUpdated = () => {
+      loadProjects();
+    };
+
+    window.addEventListener("projects-updated", handleProjectsUpdated);
+    return () => {
+      window.removeEventListener("projects-updated", handleProjectsUpdated);
+    };
+  }, [isAuthenticated, authLoading, router, refreshUser, loadProjects]);
 
   const handleDeclineInvitation = async (token: string) => {
     if (decliningTokensRef.current.has(token)) return;
