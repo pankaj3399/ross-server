@@ -18,7 +18,7 @@ import {
 
 import { addMember } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
-import { passwordHistoryService } from "../services/passwordHistoryService";
+
 
 
 const router = Router();
@@ -170,9 +170,6 @@ router.post("/register", async (req, res) => {
     );
 
     const user = result.rows[0];
-
-    // Record initial password history entry
-    await passwordHistoryService.recordPasswordHistory(user.id, passwordHash);
 
     // Create email verification OTP
     const otp = await tokenService.createEmailVerificationOTP(user.id);
@@ -500,23 +497,6 @@ router.post("/reset-password", async (req, res) => {
       });
     }
 
-    // Check if password has been used recently (last 3 passwords)
-    const isReused = await passwordHistoryService.isPasswordReused(userId, password);
-    if (isReused) {
-      return res.status(400).json({
-        error: "You cannot reuse any of your last 3 passwords",
-      });
-    }
-
-    // Fetch user's current password hash to archive it to history
-    const userRes = await pool.query(
-      "SELECT password_hash FROM users WHERE id = $1",
-      [userId]
-    );
-    if (userRes.rows.length > 0 && userRes.rows[0].password_hash) {
-      await passwordHistoryService.recordPasswordHistory(userId, userRes.rows[0].password_hash);
-    }
-
     // Hash new password
     const saltRounds = 12;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -575,17 +555,6 @@ router.post("/change-password", authenticateToken, async (req, res) => {
         score: passwordValidation.score,
       });
     }
-
-    // Check if password has been used recently (last 3 passwords)
-    const isReused = await passwordHistoryService.isPasswordReused(req.user!.id, newPassword);
-    if (isReused) {
-      return res.status(400).json({
-        error: "You cannot reuse any of your last 3 passwords",
-      });
-    }
-
-    // Archive current password hash to history before updating
-    await passwordHistoryService.recordPasswordHistory(req.user!.id, user.password_hash);
 
     // Hash new password
     const saltRounds = 12;
