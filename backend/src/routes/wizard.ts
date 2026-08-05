@@ -787,4 +787,79 @@ router.get("/:projectId/engine-output", authenticateToken, loadProject, requireP
   }
 });
 
+// DELETE /wizard/:projectId/reset - Reset wizard (delete profile + engine outputs, re-gate dashboard)
+router.delete("/:projectId/reset", authenticateToken, loadProject, requireProjectRole(["OWNER"]), async (req, res) => {
+  const projectId = req.params.projectId;
+  const userId = req.user!.id;
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Acquire advisory lock to prevent concurrent operations
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
+
+    // 1. Snapshot current state for audit log
+    const profileResult = await client.query(
+      "SELECT id FROM wizard_profiles WHERE project_id = $1",
+      [projectId]
+    );
+    const engineResult = await client.query(
+      "SELECT id, eu_risk_tier, applied_at FROM wizard_engine_outputs WHERE project_id = $1",
+      [projectId]
+    );
+
+    if (profileResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, error: "No wizard profile found for this project" });
+    }
+
+    const snapshot = {
+      profileId: profileResult.rows[0]?.id,
+      engineOutputId: engineResult.rows[0]?.id,
+      euRiskTier: engineResult.rows[0]?.eu_risk_tier,
+      wasApplied: !!engineResult.rows[0]?.applied_at,
+    };
+
+    // 2. Delete wizard engine outputs
+    await client.query(
+      "DELETE FROM wizard_engine_outputs WHERE project_id = $1",
+      [projectId]
+    );
+
+    // 3. Delete wizard profile
+    await client.query(
+      "DELETE FROM wizard_profiles WHERE project_id = $1",
+      [projectId]
+    );
+
+    // 4. Reset project-level wizard flags
+    await client.query(
+      "UPDATE projects SET wizard_completed = FALSE, wizard_profile_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [projectId]
+    );
+
+    // 5. Record audit log
+    await recordEvent({
+      projectId,
+      actorId: userId,
+      action: "wizard_reset",
+      objectType: "WIZARD_PROFILE",
+      objectId: snapshot.profileId || projectId,
+      metadata: { before_snapshot: snapshot },
+      client,
+    });
+
+    await client.query("COMMIT");
+    res.json({ success: true, message: "Wizard profile reset successfully. You can now reconfigure from scratch." });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("Error resetting wizard profile:", error);
+    res.status(500).json({ success: false, error: "Failed to reset wizard profile" });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 export default router;

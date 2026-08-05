@@ -2282,6 +2282,12 @@ class ApiService {
   async getWizardEngineOutput(projectId: string): Promise<WizardOutputsResponse> {
     return this.request<WizardOutputsResponse>(`/wizard/${projectId}/engine-output`);
   }
+
+  async resetWizard(projectId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    return this.request<{ success: boolean; message?: string; error?: string }>(`/wizard/${projectId}/reset`, {
+      method: "DELETE",
+    });
+  }
 }
 
 export interface NotificationHistoryItem {

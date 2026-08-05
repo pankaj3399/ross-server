@@ -126,11 +126,27 @@ export default function AICopilot() {
     return projectContext ? PROJECT_STARTER_PROMPTS : GENERIC_STARTER_PROMPTS;
   }, [projectContext]);
 
+  // ─── Reset chat on project change ────────────────────────────────────────
+
+  const currentProjectId = projectContext?.projectId;
+  const prevProjectIdRef = useRef(currentProjectId);
+
+  useEffect(() => {
+    if (prevProjectIdRef.current && currentProjectId && prevProjectIdRef.current !== currentProjectId) {
+      handleNewChat();
+    }
+    prevProjectIdRef.current = currentProjectId;
+  }, [currentProjectId, handleNewChat]);
+
   // ─── Auto-scroll ────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (isOpen && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      // Use setTimeout to ensure DOM has rendered before scrolling
+      const timer = setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [messages, isLoading, isOpen]);
 

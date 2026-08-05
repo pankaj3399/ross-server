@@ -187,7 +187,7 @@ export default function ProjectSettingsPage() {
             <div className="px-8 w-full pb-12 space-y-6">
                 <ProjectSettingsTabs projectId={projectId} />
 
-                <Card className="border-primary/20 shadow-md ring-1 ring-primary/5">
+                <Card className="border-primary/20 shadow-md ring-1 ring-primary/5 overflow-hidden">
                     <CardHeader className="bg-primary/5 border-b border-primary/10 pb-4">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <IconSettings className="w-5 h-5 text-primary" />
@@ -214,7 +214,7 @@ export default function ProjectSettingsPage() {
 
                 {/* Danger Zone - Owner Only */}
                 {user?.id && project?.user_id && user.id === project.user_id && (
-                    <Card className="border-destructive/20 shadow-md ring-1 ring-destructive/5 mt-8">
+                    <Card className="border-destructive/20 shadow-md ring-1 ring-destructive/5 mt-8 overflow-hidden">
                         <CardHeader className="bg-destructive/5 border-b border-destructive/10 pb-4">
                             <CardTitle className="text-lg flex items-center gap-2 text-destructive">
                                 <IconTrash className="w-5 h-5 text-destructive" />

@@ -429,7 +429,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
               })}
             </div>
             {eu_risk_tier === "UNACCEPTABLE" && (
-              <p className="text-[11px] text-red-300/80 leading-snug mt-2 p-2 bg-red-500/5 rounded border border-red-500/20">
+              <p className="text-[11px] text-red-900 dark:text-red-300 leading-snug mt-2 p-2 bg-red-500/10 dark:bg-red-500/10 rounded border border-red-500/20">
                 <strong>Compliance Note:</strong> You are <strong>not blocked from using MATUR.ai</strong>, but blocked from claiming EU AI Act compliance until you edit answers or document a legal review.
               </p>
             )}
@@ -659,23 +659,23 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
 
       {/* Prohibited practice acknowledgment banner if unacceptable */}
       {eu_risk_tier === "UNACCEPTABLE" && (
-        <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 shadow-lg flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mt-6">
+        <div className="p-4 rounded-xl border border-red-500/40 bg-red-500/10 dark:bg-red-500/10 shadow-md flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mt-6">
           <div className="flex gap-3 items-start md:items-center">
-            <ShieldAlert className="h-5 w-5 text-red-400 flex-shrink-0" />
+            <ShieldAlert className="h-5 w-5 text-red-700 dark:text-red-400 flex-shrink-0" />
             <div>
-              <p className="text-sm font-bold text-red-200">Prohibited AI Practice detected</p>
-              <p className="text-xs text-red-300/80 leading-relaxed mt-0.5">
+              <p className="text-sm font-bold text-red-950 dark:text-red-200">Prohibited AI Practice detected</p>
+              <p className="text-xs text-red-900 dark:text-red-300/90 leading-relaxed mt-0.5">
                 This system engages in a practice prohibited under Article 5. Proceeding requires acknowledging these compliance risks.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-red-500/10 border border-red-500/20 w-full md:w-auto">
+          <div className="flex items-center gap-2 p-2 rounded bg-red-500/15 dark:bg-red-500/20 border border-red-500/30 w-full md:w-auto">
             <Checkbox 
               id="ack-unacceptable-bottom" 
               checked={acknowledgedUnacceptable} 
               onCheckedChange={(checked) => setAcknowledgedUnacceptable(!!checked)}
             />
-            <Label htmlFor="ack-unacceptable-bottom" className="text-xs text-red-200 font-semibold cursor-pointer select-none">
+            <Label htmlFor="ack-unacceptable-bottom" className="text-xs text-red-950 dark:text-red-100 font-semibold cursor-pointer select-none">
               Acknowledge compliance risks
             </Label>
           </div>

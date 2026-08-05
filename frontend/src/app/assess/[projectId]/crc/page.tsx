@@ -26,6 +26,13 @@ import {
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { SecureTextarea } from "@/components/shared/SecureTextarea";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -459,96 +466,96 @@ export default function CRCAssessmentPage() {
                     const currentFlag = flagInfo.flag || "OPTIONAL";
                     const isManualOverride = flagInfo.is_manual_override === true;
 
-                    if (currentFlag === "MANDATORY" && isManualOverride) {
-                      return (
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold">
-                            Elevated to Mandatory (Manual)
-                          </Badge>
-                          {!isReadOnly && (
-                            <button
-                              type="button"
-                              disabled={saving}
-                              onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
-                              className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Revert to Profile Default
-                            </button>
-                          )}
-                        </div>
-                      );
-                    }
+                    const getBadgeStyle = () => {
+                      if (currentFlag === "MANDATORY") {
+                        return "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30 hover:bg-red-500/25";
+                      }
+                      if (currentFlag === "RECOMMENDED") {
+                        return "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/25";
+                      }
+                      return "bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30 hover:bg-slate-500/25";
+                    };
 
-                    if (currentFlag === "MANDATORY") {
+                    const getLabel = () => {
+                      if (currentFlag === "MANDATORY") return isManualOverride ? "Mandatory (Manual)" : "Mandatory";
+                      if (currentFlag === "RECOMMENDED") return isManualOverride ? "Recommended (Manual)" : "Recommended";
+                      return isManualOverride ? "Optional (Manual)" : "Optional";
+                    };
+
+                    if (isReadOnly) {
                       return (
-                        <Badge className="bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 text-xs font-semibold">
-                          Mandatory
+                        <Badge className={`${getBadgeStyle()} text-xs font-semibold border`}>
+                          {getLabel()}
                         </Badge>
-                      );
-                    }
-
-                    if (currentFlag === "RECOMMENDED") {
-                      return (
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-semibold">
-                            Recommended {isManualOverride && "(Manual)"}
-                          </Badge>
-                          {!isReadOnly && (
-                            <>
-                              {isManualOverride ? (
-                                <button
-                                  type="button"
-                                  disabled={saving}
-                                  onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
-                                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Revert to Profile Default
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={saving}
-                                  onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                                  className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Mark as Mandatory
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
                       );
                     }
 
                     return (
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 text-xs font-semibold">
-                          Optional based on your profile {isManualOverride && "(Manual)"}
-                        </Badge>
-                        {!isReadOnly && (
-                          <>
-                            {isManualOverride ? (
-                              <button
-                                type="button"
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={saving}
+                            className="inline-flex items-center gap-1.5 focus:outline-none cursor-pointer disabled:opacity-50"
+                            title="Click to change control mandate"
+                          >
+                            <Badge className={`${getBadgeStyle()} text-xs font-semibold border transition-all inline-flex items-center gap-1 py-1 px-2.5 shadow-xs`}>
+                              <span>{getLabel()}</span>
+                              <IconChevronDown className="w-3.5 h-3.5 opacity-75" />
+                            </Badge>
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48 z-50">
+                          <DropdownMenuItem
+                            disabled={saving}
+                            onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
+                            className="flex items-center justify-between text-xs font-semibold cursor-pointer text-red-600 dark:text-red-400"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-red-500" />
+                              Mandatory
+                            </span>
+                            {currentFlag === "MANDATORY" && <IconCheck className="w-3.5 h-3.5" />}
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            disabled={saving}
+                            onClick={() => updateControlMandate(currentControl.control_id, "RECOMMENDED")}
+                            className="flex items-center justify-between text-xs font-semibold cursor-pointer text-blue-600 dark:text-blue-400"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-blue-500" />
+                              Recommended
+                            </span>
+                            {currentFlag === "RECOMMENDED" && <IconCheck className="w-3.5 h-3.5" />}
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            disabled={saving}
+                            onClick={() => updateControlMandate(currentControl.control_id, "OPTIONAL")}
+                            className="flex items-center justify-between text-xs font-semibold cursor-pointer text-slate-600 dark:text-slate-400"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-slate-500" />
+                              Optional
+                            </span>
+                            {currentFlag === "OPTIONAL" && <IconCheck className="w-3.5 h-3.5" />}
+                          </DropdownMenuItem>
+
+                          {isManualOverride && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
                                 disabled={saving}
                                 onClick={() => updateControlMandate(currentControl.control_id, "RESET")}
-                                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer"
                               >
-                                Revert to Profile Default
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={saving}
-                                onClick={() => updateControlMandate(currentControl.control_id, "MANDATORY")}
-                                className="text-xs font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                Mark as Mandatory
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
+                                🔄 Revert to Profile Default
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     );
                   })()}
 
