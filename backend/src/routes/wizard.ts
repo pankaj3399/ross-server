@@ -225,16 +225,24 @@ router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRo
 
 // POST /wizard/:projectId/complete - Run engine and show outputs
 router.post("/:projectId/complete", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR"]), async (req, res) => {
+  const projectId = req.params.projectId;
+  let client;
+
   try {
-    const projectId = req.params.projectId;
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Acquire project-level advisory lock
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
 
     // Fetch complete answers from database
-    const profileResult = await pool.query(
+    const profileResult = await client.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
 
     if (profileResult.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: "No wizard answers found. Please save progress first." });
     }
 
@@ -242,99 +250,94 @@ router.post("/:projectId/complete", authenticateToken, loadProject, requireProje
     const answers = mapRowToAnswers(profileRow);
 
     // Fetch all controls from database to run the mapping engine
-    const controlsResult = await pool.query("SELECT id, control_id, compliance_mapping FROM crc_controls WHERE status = 'Published'");
+    const controlsResult = await client.query("SELECT id, control_id, compliance_mapping FROM crc_controls WHERE status = 'Published'");
     const controls = controlsResult.rows;
 
     // Run rules engine
     const outputs = runRulesEngine(answers, controls);
 
-    // Preserve manual control mandate overrides if wizard_engine_outputs already exists (atomic transaction with lock)
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        `INSERT INTO wizard_engine_outputs (project_id) VALUES ($1) ON CONFLICT (project_id) DO NOTHING`,
-        [projectId]
-      );
-      const existingEngineResult = await client.query(
-        `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
-        [projectId]
-      );
-      const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
-      for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
-        if (flagInfo?.is_manual_override) {
-          outputs.control_flags[cid] = flagInfo;
-        }
+    // Preserve manual control mandate overrides if wizard_engine_outputs already exists
+    await client.query(
+      `INSERT INTO wizard_engine_outputs (project_id) VALUES ($1) ON CONFLICT (project_id) DO NOTHING`,
+      [projectId]
+    );
+    const existingEngineResult = await client.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
+      [projectId]
+    );
+    const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+    for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+      if (flagInfo?.is_manual_override) {
+        outputs.control_flags[cid] = flagInfo;
       }
-
-      // Save outputs to database
-      await client.query(
-        `INSERT INTO wizard_engine_outputs (
-          project_id, eu_risk_tier, internal_risk_tier, eu_risk_reason, applicable_frameworks,
-          control_flags, suggested_risks, suggested_components, vulnerability_scope,
-          bias_scope, template_variables, copilot_context, article5_warning,
-          article50_note, gpai_warning, informational_notes, updated_at
-        ) VALUES (
-          $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
-          $10::jsonb, $11::jsonb, $12, $13, $14, $15, $16::jsonb, CURRENT_TIMESTAMP
-        )
-        ON CONFLICT (project_id) DO UPDATE SET
-          eu_risk_tier = EXCLUDED.eu_risk_tier,
-          internal_risk_tier = EXCLUDED.internal_risk_tier,
-          eu_risk_reason = EXCLUDED.eu_risk_reason,
-          applicable_frameworks = EXCLUDED.applicable_frameworks,
-          control_flags = EXCLUDED.control_flags,
-          suggested_risks = EXCLUDED.suggested_risks,
-          suggested_components = EXCLUDED.suggested_components,
-          vulnerability_scope = EXCLUDED.vulnerability_scope,
-          bias_scope = EXCLUDED.bias_scope,
-          template_variables = EXCLUDED.template_variables,
-          copilot_context = EXCLUDED.copilot_context,
-          article5_warning = EXCLUDED.article5_warning,
-          article50_note = EXCLUDED.article50_note,
-          gpai_warning = EXCLUDED.gpai_warning,
-          informational_notes = EXCLUDED.informational_notes,
-          updated_at = CURRENT_TIMESTAMP`,
-        [
-          projectId,
-          outputs.eu_risk_tier,
-          outputs.internal_risk_tier,
-          outputs.eu_risk_reason,
-          JSON.stringify(outputs.applicable_frameworks),
-          JSON.stringify(outputs.control_flags),
-          JSON.stringify(outputs.suggested_risks),
-          JSON.stringify(outputs.suggested_components),
-          JSON.stringify(outputs.vulnerability_scope),
-          JSON.stringify(outputs.bias_scope),
-          JSON.stringify(outputs.template_variables),
-          outputs.copilot_context,
-          outputs.article5_warning,
-          outputs.article50_note,
-          outputs.gpai_warning,
-          JSON.stringify(outputs.informational_notes),
-        ]
-      );
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      throw err;
-    } finally {
-      client.release();
     }
 
-    // Mark profile status as completed
-    await pool.query(
+    // Save outputs to database
+    await client.query(
+      `INSERT INTO wizard_engine_outputs (
+        project_id, eu_risk_tier, internal_risk_tier, eu_risk_reason, applicable_frameworks,
+        control_flags, suggested_risks, suggested_components, vulnerability_scope,
+        bias_scope, template_variables, copilot_context, article5_warning,
+        article50_note, gpai_warning, informational_notes, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb,
+        $10::jsonb, $11::jsonb, $12, $13, $14, $15, $16::jsonb, CURRENT_TIMESTAMP
+      )
+      ON CONFLICT (project_id) DO UPDATE SET
+        eu_risk_tier = EXCLUDED.eu_risk_tier,
+        internal_risk_tier = EXCLUDED.internal_risk_tier,
+        eu_risk_reason = EXCLUDED.eu_risk_reason,
+        applicable_frameworks = EXCLUDED.applicable_frameworks,
+        control_flags = EXCLUDED.control_flags,
+        suggested_risks = EXCLUDED.suggested_risks,
+        suggested_components = EXCLUDED.suggested_components,
+        vulnerability_scope = EXCLUDED.vulnerability_scope,
+        bias_scope = EXCLUDED.bias_scope,
+        template_variables = EXCLUDED.template_variables,
+        copilot_context = EXCLUDED.copilot_context,
+        article5_warning = EXCLUDED.article5_warning,
+        article50_note = EXCLUDED.article50_note,
+        gpai_warning = EXCLUDED.gpai_warning,
+        informational_notes = EXCLUDED.informational_notes,
+        updated_at = CURRENT_TIMESTAMP`,
+      [
+        projectId,
+        outputs.eu_risk_tier,
+        outputs.internal_risk_tier,
+        outputs.eu_risk_reason,
+        JSON.stringify(outputs.applicable_frameworks),
+        JSON.stringify(outputs.control_flags),
+        JSON.stringify(outputs.suggested_risks),
+        JSON.stringify(outputs.suggested_components),
+        JSON.stringify(outputs.vulnerability_scope),
+        JSON.stringify(outputs.bias_scope),
+        JSON.stringify(outputs.template_variables),
+        outputs.copilot_context,
+        outputs.article5_warning,
+        outputs.article50_note,
+        outputs.gpai_warning,
+        JSON.stringify(outputs.informational_notes),
+      ]
+    );
+
+    // Mark profile status as completed inside the same transaction
+    await client.query(
       "UPDATE wizard_profiles SET wizard_status = 'completed', completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE project_id = $1",
       [projectId]
     );
+
+    await client.query("COMMIT");
 
     res.json({
       success: true,
       outputs,
     });
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("Error completing wizard run:", error);
     res.status(500).json({ success: false, error: "Failed to complete wizard rules engine run" });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -599,34 +602,43 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
 });
 
 // PUT /wizard/:projectId/answers - Edit answers in Settings and re-run engine
+// PUT /wizard/:projectId/answers - Edit saved answers & re-run engine
 router.put("/:projectId/answers", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR"]), async (req, res) => {
   const projectId = req.params.projectId;
   const userId = req.user!.id;
+  const body = req.body;
+  let client;
 
   try {
-    const body = saveAnswersSchema.parse(req.body);
+    client = await pool.connect();
+    await client.query("BEGIN");
 
-    // 1. Fetch current answers to log diff
-    const currentResult = await pool.query(
+    // Acquire project-level advisory lock
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
+
+    // 1. Fetch current profile
+    const checkResult = await client.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
 
-    if (currentResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: "No profile found for project" });
+    if (checkResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, error: "No wizard profile found for this project" });
     }
 
-    const currentAnswers = currentResult.rows[0];
+    const existingProfile = checkResult.rows[0];
+    const currentAnswers = mapRowToAnswers(existingProfile);
 
-    // 2. Perform updates
+    // 2. Dynamic profile updates
     const updates: string[] = [];
-    const values: any[] = [projectId];
+    const values: any[] = [existingProfile.id];
     let valIdx = 2;
 
     const fields = [
       "name", "description", "governance_scope", "use_case", "regulatory_role", "scale", 
       "uses_third_party_models", "automation_level", "biometric_use", 
-      "affects_children", "public_url"
+      "affects_children", "public_url", "wizard_step"
     ];
 
     for (const field of fields) {
@@ -651,88 +663,78 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     }
 
     if (updates.length > 0) {
-      await pool.query(
-        `UPDATE wizard_profiles SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE project_id = $1`,
+      await client.query(
+        `UPDATE wizard_profiles SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
         values
       );
     }
 
-    // 3. Re-run rules engine
-    const profileResult = await pool.query(
+    // 3. Re-run rules engine inside the locked transaction
+    const profileResult = await client.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
     const answers = mapRowToAnswers(profileResult.rows[0]);
 
     // Fetch controls
-    const controlsResult = await pool.query("SELECT id, control_id, compliance_mapping FROM crc_controls WHERE status = 'Published'");
+    const controlsResult = await client.query("SELECT id, control_id, compliance_mapping FROM crc_controls WHERE status = 'Published'");
     const controls = controlsResult.rows;
 
     const outputs = runRulesEngine(answers, controls);
 
-    // Preserve manual control mandate overrides (atomic transaction with lock)
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-      const existingEngineResult = await client.query(
-        `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
-        [projectId]
-      );
-      const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
-      for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
-        if (flagInfo?.is_manual_override) {
-          outputs.control_flags[cid] = flagInfo;
-        }
+    // Preserve manual control mandate overrides
+    const existingEngineResult = await client.query(
+      `SELECT control_flags FROM wizard_engine_outputs WHERE project_id = $1 FOR UPDATE`,
+      [projectId]
+    );
+    const existingFlags = existingEngineResult.rows[0]?.control_flags || {};
+    for (const [cid, flagInfo] of Object.entries(existingFlags as Record<string, any>)) {
+      if (flagInfo?.is_manual_override) {
+        outputs.control_flags[cid] = flagInfo;
       }
-
-      // Save updated outputs
-      await client.query(
-        `UPDATE wizard_engine_outputs SET
-          eu_risk_tier = $1,
-          internal_risk_tier = $2,
-          eu_risk_reason = $3,
-          applicable_frameworks = $4::jsonb,
-          control_flags = $5::jsonb,
-          suggested_risks = $6::jsonb,
-          suggested_components = $7::jsonb,
-          vulnerability_scope = $8::jsonb,
-          bias_scope = $9::jsonb,
-          template_variables = $10::jsonb,
-          copilot_context = $11,
-          article5_warning = $12,
-          article50_note = $13,
-          gpai_warning = $14,
-          informational_notes = $15::jsonb,
-          updated_at = CURRENT_TIMESTAMP
-         WHERE project_id = $16`,
-        [
-          outputs.eu_risk_tier,
-          outputs.internal_risk_tier,
-          outputs.eu_risk_reason,
-          JSON.stringify(outputs.applicable_frameworks),
-          JSON.stringify(outputs.control_flags),
-          JSON.stringify(outputs.suggested_risks),
-          JSON.stringify(outputs.suggested_components),
-          JSON.stringify(outputs.vulnerability_scope),
-          JSON.stringify(outputs.bias_scope),
-          JSON.stringify(outputs.template_variables),
-          outputs.copilot_context,
-          outputs.article5_warning,
-          outputs.article50_note,
-          outputs.gpai_warning,
-          JSON.stringify(outputs.informational_notes),
-          projectId,
-        ]
-      );
-      await client.query("COMMIT");
-    } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
-      throw err;
-    } finally {
-      client.release();
     }
 
-    // 4. Log audit log diff
+    // Save updated outputs
+    await client.query(
+      `UPDATE wizard_engine_outputs SET
+        eu_risk_tier = $1,
+        internal_risk_tier = $2,
+        eu_risk_reason = $3,
+        applicable_frameworks = $4::jsonb,
+        control_flags = $5::jsonb,
+        suggested_risks = $6::jsonb,
+        suggested_components = $7::jsonb,
+        vulnerability_scope = $8::jsonb,
+        bias_scope = $9::jsonb,
+        template_variables = $10::jsonb,
+        copilot_context = $11,
+        article5_warning = $12,
+        article50_note = $13,
+        gpai_warning = $14,
+        informational_notes = $15::jsonb,
+        updated_at = CURRENT_TIMESTAMP
+       WHERE project_id = $16`,
+      [
+        outputs.eu_risk_tier,
+        outputs.internal_risk_tier,
+        outputs.eu_risk_reason,
+        JSON.stringify(outputs.applicable_frameworks),
+        JSON.stringify(outputs.control_flags),
+        JSON.stringify(outputs.suggested_risks),
+        JSON.stringify(outputs.suggested_components),
+        JSON.stringify(outputs.vulnerability_scope),
+        JSON.stringify(outputs.bias_scope),
+        JSON.stringify(outputs.template_variables),
+        outputs.copilot_context,
+        outputs.article5_warning,
+        outputs.article50_note,
+        outputs.gpai_warning,
+        JSON.stringify(outputs.informational_notes),
+        projectId,
+      ]
+    );
+
+    // 4. Log audit log diff inside transaction
     const diff = {
       before: currentAnswers,
       after: profileResult.rows[0],
@@ -744,19 +746,25 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
       action: "answers_edited",
       objectType: "WIZARD_PROFILE",
       objectId: profileResult.rows[0].id,
-      metadata: { diff }
+      metadata: { diff },
+      client,
     });
+
+    await client.query("COMMIT");
 
     res.json({
       success: true,
       outputs,
     });
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("Error editing wizard answers:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: error.errors });
     }
     res.status(500).json({ success: false, error: "Failed to edit wizard answers" });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -784,6 +792,81 @@ router.get("/:projectId/engine-output", authenticateToken, loadProject, requireP
   } catch (error) {
     console.error("Error fetching engine outputs:", error);
     res.status(500).json({ success: false, error: "Failed to fetch engine outputs" });
+  }
+});
+
+// DELETE /wizard/:projectId/reset - Reset wizard (delete profile + engine outputs, re-gate dashboard)
+router.delete("/:projectId/reset", authenticateToken, loadProject, requireProjectRole(["OWNER"]), async (req, res) => {
+  const projectId = req.params.projectId;
+  const userId = req.user!.id;
+  let client;
+
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+
+    // Acquire advisory lock to prevent concurrent operations
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
+
+    // 1. Snapshot current state for audit log
+    const profileResult = await client.query(
+      "SELECT id FROM wizard_profiles WHERE project_id = $1",
+      [projectId]
+    );
+    const engineResult = await client.query(
+      "SELECT id, eu_risk_tier, applied_at FROM wizard_engine_outputs WHERE project_id = $1",
+      [projectId]
+    );
+
+    if (profileResult.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, error: "No wizard profile found for this project" });
+    }
+
+    const snapshot = {
+      profileId: profileResult.rows[0]?.id,
+      engineOutputId: engineResult.rows[0]?.id,
+      euRiskTier: engineResult.rows[0]?.eu_risk_tier,
+      wasApplied: !!engineResult.rows[0]?.applied_at,
+    };
+
+    // 2. Delete wizard engine outputs
+    await client.query(
+      "DELETE FROM wizard_engine_outputs WHERE project_id = $1",
+      [projectId]
+    );
+
+    // 3. Delete wizard profile
+    await client.query(
+      "DELETE FROM wizard_profiles WHERE project_id = $1",
+      [projectId]
+    );
+
+    // 4. Reset project-level wizard flags
+    await client.query(
+      "UPDATE projects SET wizard_completed = FALSE, wizard_profile_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [projectId]
+    );
+
+    // 5. Record audit log
+    await recordEvent({
+      projectId,
+      actorId: userId,
+      action: "wizard_reset",
+      objectType: "WIZARD_PROFILE",
+      objectId: snapshot.profileId || projectId,
+      metadata: { before_snapshot: snapshot },
+      client,
+    });
+
+    await client.query("COMMIT");
+    res.json({ success: true, message: "Wizard profile reset successfully. You can now reconfigure from scratch." });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    console.error("Error resetting wizard profile:", error);
+    res.status(500).json({ success: false, error: "Failed to reset wizard profile" });
+  } finally {
+    if (client) client.release();
   }
 });
 

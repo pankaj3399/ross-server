@@ -16,7 +16,7 @@ import { WizardSection3 } from "@/components/features/wizard/sections/WizardSect
 import { WizardSection4 } from "@/components/features/wizard/sections/WizardSection4";
 import { WizardSection5 } from "@/components/features/wizard/sections/WizardSection5";
 import { WizardSection6 } from "@/components/features/wizard/sections/WizardSection6";
-import { IconLoader2, IconSettings, IconShieldCheck, IconAlertTriangle, IconRefresh, IconArrowLeft } from "@tabler/icons-react";
+import { IconLoader2, IconSettings, IconShieldCheck, IconAlertTriangle, IconRefresh, IconArrowLeft, IconTrash } from "@tabler/icons-react";
 import { motion } from "framer-motion";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { isPremiumStatus } from "@/lib/constants";
@@ -38,6 +38,8 @@ export default function ProjectWizardSettingsPage() {
 
   const [activeSection, setActiveSection] = useState<number>(1);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -273,6 +275,85 @@ export default function ProjectWizardSettingsPage() {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Danger Zone — Reset AI Profile */}
+      <Card className="border border-red-500/30 bg-red-500/5 dark:bg-red-500/5 mt-8">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+            <IconAlertTriangle className="w-4 h-4" />
+            Danger Zone
+          </CardTitle>
+          <CardDescription className="text-xs text-red-800/70 dark:text-red-300/70">
+            Destructive actions that cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Reset AI System Profile</h4>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-lg">
+                Permanently delete all wizard answers and engine outputs for this project.
+                The CRC dashboard will be re-gated and you will need to reconfigure the AI profile from scratch.
+                Existing manually-created risks, components, and assessment responses will not be affected.
+              </p>
+            </div>
+            {!showResetConfirm ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowResetConfirm(true)}
+                className="border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300 font-bold text-xs shrink-0"
+              >
+                <IconTrash className="h-3.5 w-3.5 mr-1.5" />
+                Reset AI Profile
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={resetting}
+                  className="text-xs font-semibold"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={resetting}
+                  onClick={async () => {
+                    setResetting(true);
+                    try {
+                      const res = await apiService.resetWizard(projectId);
+                      if (res?.success) {
+                        showToast.success("AI Profile reset successfully. Redirecting to dashboard...");
+                        router.push(`/assess/${projectId}/crc/dashboard`);
+                      } else {
+                        showToast.error(res?.error || "Failed to reset AI profile.");
+                      }
+                    } catch (err: any) {
+                      showToast.error(err?.message || "Failed to reset AI profile.");
+                    } finally {
+                      setResetting(false);
+                      setShowResetConfirm(false);
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs"
+                >
+                  {resetting ? (
+                    <>
+                      <IconLoader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                      Resetting...
+                    </>
+                  ) : (
+                    "Yes, Reset Everything"
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
     </div>
   );

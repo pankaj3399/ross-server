@@ -19,19 +19,6 @@ export function WizardGateProvider({ projectId, featureName, children }: WizardG
   const { user } = useAuth();
   const { loading, wizardCompleted, wizardApplied, refreshWizardStatus } = useWizardGate(projectId);
   const [showWizardModal, setShowWizardModal] = useState(false);
-  const [isSkipped, setIsSkipped] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(`wizard_skipped_${projectId}`) === "true";
-    }
-    return false;
-  });
-
-  const handleSkip = () => {
-    setIsSkipped(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(`wizard_skipped_${projectId}`, "true");
-    }
-  };
 
   // Free users never see the wizard gate
   const isPremium = user && ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
@@ -46,7 +33,7 @@ export function WizardGateProvider({ projectId, featureName, children }: WizardG
     );
   }
 
-  // Free users or skipped users render children directly
+  // Free users render children directly
   if (!isPremium) {
     return <>{children}</>;
   }
@@ -74,50 +61,28 @@ export function WizardGateProvider({ projectId, featureName, children }: WizardG
     );
   }
 
-  // Main feature content with non-blocking AI Profile Setup Banner if wizard is pending
-  return (
-    <>
-      {!wizardCompleted && !isSkipped && (
-        <div className="mb-6 p-4 rounded-xl bg-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary font-bold shrink-0">
-              ⚡ AI Profile Setup
-            </div>
-            <div>
-              <span className="font-bold text-foreground block">Enhance {featureName} with Automated Profile Seeding</span>
-              <span className="text-muted-foreground">Configure your system profile to auto-classify EU AI Act risk tiers and tailor CRC flags. You can also prepopulate manual data directly below.</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              onClick={() => setShowWizardModal(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3 rounded-lg shadow-xs"
-            >
-              Configure AI Profile &rarr;
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleSkip}
-              className="text-xs h-8 text-muted-foreground hover:text-foreground"
-            >
-              Dismiss
-            </Button>
-          </div>
-        </div>
-      )}
-      {children}
-      {showWizardModal && (
-        <SystemProfileWizard
-          projectId={projectId}
-          isOpen={showWizardModal}
-          onClose={() => {
-            setShowWizardModal(false);
-            refreshWizardStatus();
-          }}
+  // Wizard not completed — strictly gate access behind the onboarding screen
+  if (!wizardCompleted) {
+    return (
+      <>
+        <PreWizardScreen
+          featureName={featureName}
+          onStart={() => setShowWizardModal(true)}
         />
-      )}
-    </>
-  );
+        {showWizardModal && (
+          <SystemProfileWizard
+            projectId={projectId}
+            isOpen={showWizardModal}
+            onClose={() => {
+              setShowWizardModal(false);
+              refreshWizardStatus();
+            }}
+          />
+        )}
+      </>
+    );
+  }
+
+  // Wizard completed and applied — render feature content
+  return <>{children}</>;
 }
