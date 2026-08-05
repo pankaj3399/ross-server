@@ -18,7 +18,11 @@ class TeamPage {
 
   async goto(projectId) {
     await this.page.goto(`/assess/${projectId}/team`, { waitUntil: "domcontentloaded" });
-    await this.inviteHeading.or(this.membersHeading).waitFor({ timeout: 30_000 });
+    // Both headings render simultaneously on a real team page (an "Invite
+    // New Member" form alongside the "Project Members" list, not mutually
+    // exclusive states) — .first() resolves the resulting strict-mode
+    // ambiguity instead of erroring when both are already visible.
+    await this.inviteHeading.or(this.membersHeading).first().waitFor({ timeout: 30_000 });
   }
 
   // `email` is caller-supplied dynamic data, not UI copy — Playwright's role

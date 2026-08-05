@@ -1,3 +1,4 @@
+const { errors } = require("@playwright/test");
 const { WizardPage } = require("./wizard.page");
 
 class PremiumFeaturesPage {
@@ -72,9 +73,13 @@ class PremiumFeaturesPage {
     // regardless of wizard state (see class-level comment), so racing it in
     // would resolve the wait before the banner/button ever gets a chance to
     // render and cause a false "already applied/skipped" result. Wait on the
-    // button itself for the full timeout instead.
-    await this.wizard.configureButton.waitFor({ timeout: 30_000 }).catch(() => {});
-    if (!(await this.wizard.configureButton.isVisible().catch(() => false))) return false; // banner not shown: already applied or skipped
+    // button itself for the full timeout instead. Only a timeout means "banner
+    // genuinely never showed" — any other error (selector drift, detached
+    // frame, etc.) must propagate instead of being misread as that state.
+    await this.wizard.configureButton.waitFor({ timeout: 30_000 }).catch((err) => {
+      if (!(err instanceof errors.TimeoutError)) throw err;
+    });
+    if (!(await this.wizard.configureButton.isVisible())) return false; // banner not shown: already applied or skipped
     await this.wizard.complete(systemName);
     return true;
   }
