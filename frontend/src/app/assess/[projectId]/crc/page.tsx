@@ -496,7 +496,7 @@ export default function CRCAssessmentPage() {
                           <button
                             type="button"
                             disabled={saving}
-                            className="inline-flex items-center gap-1.5 focus:outline-none cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-md cursor-pointer disabled:opacity-50"
                             title="Click to change control mandate"
                           >
                             <Badge className={`${getBadgeStyle()} text-xs font-semibold border transition-all inline-flex items-center gap-1 py-1 px-2.5 shadow-xs`}>

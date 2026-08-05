@@ -22,19 +22,23 @@ export class PasswordHistoryService {
         hashesToCheck.push(userRes.rows[0].password_hash);
       }
 
-      // 2. Fetch recent password hashes from password_history
-      const historyRes = await pool.query(
-        `SELECT password_hash 
-         FROM password_history 
-         WHERE user_id = $1 
-         ORDER BY created_at DESC 
-         LIMIT $2`,
-        [userId, this.historyLimit],
-      );
+      // 2. Fetch remaining password slots from password_history to stay within historyLimit (3 total)
+      const remainingSlots = Math.max(0, this.historyLimit - hashesToCheck.length);
 
-      for (const row of historyRes.rows) {
-        if (row.password_hash && !hashesToCheck.includes(row.password_hash)) {
-          hashesToCheck.push(row.password_hash);
+      if (remainingSlots > 0) {
+        const historyRes = await pool.query(
+          `SELECT password_hash 
+           FROM password_history 
+           WHERE user_id = $1 
+           ORDER BY created_at DESC 
+           LIMIT $2`,
+          [userId, remainingSlots],
+        );
+
+        for (const row of historyRes.rows) {
+          if (row.password_hash && !hashesToCheck.includes(row.password_hash)) {
+            hashesToCheck.push(row.password_hash);
+          }
         }
       }
 

@@ -101,6 +101,8 @@ export default function AICopilot() {
   const handleNewChat = useCallback(() => {
     conversationGenerationRef.current += 1;
     setMessages([]);
+    setInput("");
+    setHasUnread(false);
     setIsLoading(false);
   }, []);
 
@@ -130,12 +132,19 @@ export default function AICopilot() {
 
   const currentProjectId = projectContext?.projectId;
   const prevProjectIdRef = useRef(currentProjectId);
+  const isInitialRenderRef = useRef(true);
 
   useEffect(() => {
-    if (prevProjectIdRef.current && currentProjectId && prevProjectIdRef.current !== currentProjectId) {
-      handleNewChat();
+    if (isInitialRenderRef.current) {
+      isInitialRenderRef.current = false;
+      prevProjectIdRef.current = currentProjectId;
+      return;
     }
-    prevProjectIdRef.current = currentProjectId;
+
+    if (prevProjectIdRef.current !== currentProjectId) {
+      handleNewChat();
+      prevProjectIdRef.current = currentProjectId;
+    }
   }, [currentProjectId, handleNewChat]);
 
   // ─── Auto-scroll ────────────────────────────────────────────────────────
