@@ -345,7 +345,7 @@ export default function SubscriptionModal({
                         transition={{ delay: 0.5 + index * 0.05 }}
                         className="flex items-start gap-3"
                       >
-                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                           <IconCircleCheck className="w-4 h-4 text-primary" />
                         </div>
                         <span className="text-sm font-medium leading-normal">
@@ -439,7 +439,7 @@ export default function SubscriptionModal({
                         transition={{ delay: 0.6 + index * 0.05 }}
                         className="flex items-start gap-3"
                       >
-                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                           <IconCircleCheck className="w-4 h-4 text-primary" />
                         </div>
                         <span className="text-sm font-medium leading-normal">

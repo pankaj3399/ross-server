@@ -10,6 +10,7 @@ import {
   IconRefresh,
 } from "@tabler/icons-react";
 import { apiService } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import "./AICopilot.css";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -96,38 +97,81 @@ export default function AICopilot() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // ─── Project-Scoped Chat History Persistence ──────────────────────────────────────────
+  const { user } = useAuth();
+  const userId = user?.id;
 
-  const getStorageKey = useCallback((projId?: string | null) => {
-    return `ross_chat_history_${projId || "global"}`;
-  }, []);
+  // Helper to validate structured chat message objects
+  const isValidMessage = (item: any): item is ChatMessage => {
+    return (
+      item &&
+      typeof item === "object" &&
+      typeof item.id === "string" &&
+      (item.role === "user" || item.role === "assistant") &&
+      typeof item.content === "string" &&
+      (item.isError === undefined || typeof item.isError === "boolean")
+    );
+  };
 
-  const loadChatHistory = useCallback((projId?: string | null): ChatMessage[] => {
-    if (typeof window === "undefined") return [];
-    try {
-      const data = localStorage.getItem(getStorageKey(projId));
-      if (!data) return [];
-      const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (err) {
-      console.error("Failed to load chat history:", err);
-      return [];
-    }
-  }, [getStorageKey]);
+  // ─── Project-Scoped & User-Scoped Chat History Persistence ─────────────────────────
 
-  const saveChatHistory = useCallback((projId: string | null | undefined, msgs: ChatMessage[]) => {
-    if (typeof window === "undefined") return;
-    try {
-      const validMsgs = msgs.filter((m) => !m.isError).slice(-50);
-      if (validMsgs.length === 0) {
-        localStorage.removeItem(getStorageKey(projId));
-      } else {
-        localStorage.setItem(getStorageKey(projId), JSON.stringify(validMsgs));
+  const getStorageKey = useCallback(
+    (projId?: string | null) => {
+      const uKey = userId ? `u_${userId}` : "anon";
+      return `ross_chat_history_${uKey}_${projId || "global"}`;
+    },
+    [userId]
+  );
+
+  const loadChatHistory = useCallback(
+    (projId?: string | null): ChatMessage[] => {
+      if (typeof window === "undefined") return [];
+      try {
+        const data = localStorage.getItem(getStorageKey(projId));
+        if (!data) return [];
+        const parsed = JSON.parse(data);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.filter(isValidMessage);
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+        return [];
       }
-    } catch (err) {
-      console.error("Failed to save chat history:", err);
+    },
+    [getStorageKey]
+  );
+
+  // Helper to extract a character-bounded tail within maxChars budget
+  const getCharacterBoundedTail = (msgs: ChatMessage[], maxChars = 80000): ChatMessage[] => {
+    const validMsgs = msgs.filter((m) => !m.isError);
+    let totalLength = 0;
+    const result: ChatMessage[] = [];
+    for (let i = validMsgs.length - 1; i >= 0; i--) {
+      const msg = validMsgs[i];
+      const msgLen = msg.content.length;
+      if (totalLength + msgLen > maxChars && result.length > 0) {
+        break;
+      }
+      totalLength += msgLen;
+      result.unshift(msg);
     }
-  }, [getStorageKey]);
+    return result;
+  };
+
+  const saveChatHistory = useCallback(
+    (projId: string | null | undefined, msgs: ChatMessage[]) => {
+      if (typeof window === "undefined") return;
+      try {
+        const boundedMsgs = getCharacterBoundedTail(msgs, 80000);
+        if (boundedMsgs.length === 0) {
+          localStorage.removeItem(getStorageKey(projId));
+        } else {
+          localStorage.setItem(getStorageKey(projId), JSON.stringify(boundedMsgs));
+        }
+      } catch (err) {
+        console.error("Failed to save chat history:", err);
+      }
+    },
+    [getStorageKey]
+  );
 
   // ─── Reset Conversation ───────────────────────────────────────────────
 
@@ -249,13 +293,11 @@ export default function AICopilot() {
       setIsLoading(true);
 
       try {
-        // Build the messages payload (strip local IDs and error flags)
-        const apiMessages = updatedMessages
-          .filter((m) => !m.isError)
-          .map((m) => ({
-            role: m.role,
-            content: m.content,
-          }));
+        // Build the messages payload bounded to 80k chars (reserving 20k for prompt)
+        const apiMessages = getCharacterBoundedTail(updatedMessages, 80000).map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
 
         const response = await apiService.sendChatMessage({
           messages: apiMessages,
@@ -497,7 +539,7 @@ export default function AICopilot() {
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Mira about AI compliance..."
                 rows={1}
-                maxLength={4000}
+                maxLength={20000}
                 disabled={isLoading}
               />
               <button

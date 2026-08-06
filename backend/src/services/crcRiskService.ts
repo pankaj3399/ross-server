@@ -74,6 +74,7 @@ export async function syncRiskFromResponse(
 
         const { key1, key2 } = hashToTwoInts(`${projectId}:${controlId}`);
         await client.query("SELECT pg_advisory_xact_lock($1, $2)", [key1, key2]);
+        await client.query("SELECT pg_advisory_xact_lock(hashtext('crc_risks_seq_sync'))");
 
         // Re-read latest response within transaction
         const responseResult = await client.query(

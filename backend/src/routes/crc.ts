@@ -2037,7 +2037,11 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
         FROM crc_risks
       `);
       const maxVal = Number(maxValRes.rows[0]?.max_val || 0);
-      await client.query(`SELECT setval('crc_risks_seq', GREATEST($1, 1))`, [maxVal]);
+      if (maxVal === 0) {
+        await client.query(`SELECT setval('crc_risks_seq', 1, false)`);
+      } else {
+        await client.query(`SELECT setval('crc_risks_seq', $1, true)`, [maxVal]);
+      }
 
       let insertedRow = null;
       let attempts = 0;
@@ -2094,7 +2098,7 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: error.errors });
     }
-    res.status(500).json({ success: false, error: error.message || "Failed to create manual risk" });
+    res.status(500).json({ success: false, error: "Failed to create manual risk" });
   }
 });
 

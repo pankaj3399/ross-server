@@ -16,47 +16,43 @@ export interface ProjectMembership {
 export async function getMembership(
   projectId: string,
   userId: string,
+  client?: PoolClient,
 ): Promise<ProjectMembership | null> {
-  // First, verify project exists and is active (not soft-deleted)
-  const projectCheck = await pool.query(
-    `SELECT id, user_id, created_at, updated_at
-     FROM projects
-     WHERE id = $1 AND deleted_at IS NULL`,
-    [projectId],
-  );
-
-  if (projectCheck.rows.length === 0) {
-    return null;
-  }
-
-  const project = projectCheck.rows[0];
-
-  // Next, look for an explicit membership row
-  const result = await pool.query(
-    `SELECT id, project_id, user_id, role, permissions, created_at, updated_at
-     FROM project_members
-     WHERE project_id = $1 AND user_id = $2`,
+  const db = client || pool;
+  const result = await db.query(
+    `SELECT p.id as project_id, p.user_id as owner_id, pm.id as member_id, pm.role, pm.permissions, pm.created_at, pm.updated_at
+     FROM projects p
+     LEFT JOIN project_members pm ON p.id = pm.project_id AND pm.user_id = $2
+     WHERE p.id = $1 AND p.deleted_at IS NULL`,
     [projectId, userId],
   );
 
-  if (result.rows.length > 0) {
-    const row = result.rows[0];
+  if (result.rows.length === 0) {
+    return null;
+  }
+
+  const row = result.rows[0];
+  if (row.member_id) {
     return {
-      ...row,
+      id: row.member_id,
+      project_id: row.project_id,
+      user_id: userId,
+      role: row.role,
       permissions: Array.isArray(row.permissions) ? row.permissions : [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
     };
   }
 
-  // Fallback: treat the project owner as an implicit OWNER member.
-  if (project.user_id === userId) {
+  if (row.owner_id === userId) {
     return {
-      id: `implicit-owner-${project.id}-${project.user_id}`,
-      project_id: project.id,
-      user_id: project.user_id,
+      id: `implicit-owner-${row.project_id}-${row.owner_id}`,
+      project_id: row.project_id,
+      user_id: userId,
       role: "OWNER",
       permissions: ["*"],
-      created_at: project.created_at,
-      updated_at: project.updated_at,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
   }
 
