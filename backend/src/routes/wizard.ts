@@ -616,18 +616,55 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     // Acquire project-level advisory lock
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
 
-    // 1. Fetch current profile
+    // 1. Fetch current profile or create if starting from scratch in Settings
     const checkResult = await client.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
 
-    if (checkResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ success: false, error: "No wizard profile found for this project" });
-    }
+    let existingProfile: any;
 
-    const existingProfile = checkResult.rows[0];
+    if (checkResult.rows.length === 0) {
+      // Create new profile row if created directly from Settings
+      const insertResult = await client.query(
+        `INSERT INTO wizard_profiles (
+          project_id, name, description, governance_scope, use_case, regulatory_role, data_categories,
+          geographic_scope, scale, uses_third_party_models, third_party_providers,
+          automation_level, existing_certifications, annex_iii_domains, biometric_use,
+          affects_children, public_url, wizard_status, wizard_step
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12, $13::jsonb,
+          $14::jsonb, $15, $16, $17, 'completed', $18
+        ) RETURNING *`,
+        [
+          projectId,
+          body.name || null,
+          body.description || null,
+          body.governance_scope || null,
+          body.use_case || null,
+          body.regulatory_role || null,
+          JSON.stringify(body.data_categories || []),
+          JSON.stringify(body.geographic_scope || []),
+          body.scale || null,
+          body.uses_third_party_models || null,
+          JSON.stringify(body.third_party_providers || []),
+          body.automation_level || null,
+          JSON.stringify(body.existing_certifications || []),
+          JSON.stringify(body.annex_iii_domains || []),
+          body.biometric_use || null,
+          body.affects_children || null,
+          body.public_url || null,
+          body.wizard_step || 6,
+        ]
+      );
+      existingProfile = insertResult.rows[0];
+      await client.query(
+        "UPDATE projects SET wizard_completed = TRUE, wizard_profile_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [existingProfile.id, projectId]
+      );
+    } else {
+      existingProfile = checkResult.rows[0];
+    }
     const currentAnswers = mapRowToAnswers(existingProfile);
 
     // 2. Dynamic profile updates

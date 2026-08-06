@@ -17,7 +17,21 @@ export async function getMembership(
   projectId: string,
   userId: string,
 ): Promise<ProjectMembership | null> {
-  // First, look for an explicit membership row
+  // First, verify project exists and is active (not soft-deleted)
+  const projectCheck = await pool.query(
+    `SELECT id, user_id, created_at, updated_at
+     FROM projects
+     WHERE id = $1 AND deleted_at IS NULL`,
+    [projectId],
+  );
+
+  if (projectCheck.rows.length === 0) {
+    return null;
+  }
+
+  const project = projectCheck.rows[0];
+
+  // Next, look for an explicit membership row
   const result = await pool.query(
     `SELECT id, project_id, user_id, role, permissions, created_at, updated_at
      FROM project_members
@@ -34,18 +48,7 @@ export async function getMembership(
   }
 
   // Fallback: treat the project owner as an implicit OWNER member.
-  // This covers:
-  // - Legacy projects created before project_members existed
-  // - Rare cases where membership creation failed but the project row exists
-  const projectResult = await pool.query(
-    `SELECT id, user_id, created_at, updated_at
-     FROM projects
-     WHERE id = $1 AND user_id = $2`,
-    [projectId, userId],
-  );
-
-  if (projectResult.rows.length > 0) {
-    const project = projectResult.rows[0];
+  if (project.user_id === userId) {
     return {
       id: `implicit-owner-${project.id}-${project.user_id}`,
       project_id: project.id,
@@ -57,27 +60,21 @@ export async function getMembership(
     };
   }
 
-  // Fallback 2: Platform ADMIN users have full access to existing projects
-  const projectExists = await pool.query(
-    `SELECT id FROM projects WHERE id = $1`,
-    [projectId]
+  // Fallback 2: Platform ADMIN users have full access to existing active projects
+  const userResult = await pool.query(
+    `SELECT role FROM users WHERE id = $1`,
+    [userId]
   );
-  if (projectExists.rows.length > 0) {
-    const userResult = await pool.query(
-      `SELECT role FROM users WHERE id = $1`,
-      [userId]
-    );
-    if (userResult.rows.length > 0 && userResult.rows[0].role === "ADMIN") {
-      return {
-        id: `admin-owner-${projectId}-${userId}`,
-        project_id: projectId,
-        user_id: userId,
-        role: "OWNER",
-        permissions: ["*"],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
+  if (userResult.rows.length > 0 && userResult.rows[0].role === "ADMIN") {
+    return {
+      id: `admin-owner-${projectId}-${userId}`,
+      project_id: projectId,
+      user_id: userId,
+      role: "OWNER",
+      permissions: ["*"],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
   }
 
   return null;

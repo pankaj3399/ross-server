@@ -96,7 +96,48 @@ export default function AICopilot() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // ─── Project-Scoped Chat History Persistence ──────────────────────────────────────────
+
+  const getStorageKey = useCallback((projId?: string | null) => {
+    return `ross_chat_history_${projId || "global"}`;
+  }, []);
+
+  const loadChatHistory = useCallback((projId?: string | null): ChatMessage[] => {
+    if (typeof window === "undefined") return [];
+    try {
+      const data = localStorage.getItem(getStorageKey(projId));
+      if (!data) return [];
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
+      return [];
+    }
+  }, [getStorageKey]);
+
+  const saveChatHistory = useCallback((projId: string | null | undefined, msgs: ChatMessage[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      const validMsgs = msgs.filter((m) => !m.isError).slice(-50);
+      if (validMsgs.length === 0) {
+        localStorage.removeItem(getStorageKey(projId));
+      } else {
+        localStorage.setItem(getStorageKey(projId), JSON.stringify(validMsgs));
+      }
+    } catch (err) {
+      console.error("Failed to save chat history:", err);
+    }
+  }, [getStorageKey]);
+
   // ─── Reset Conversation ───────────────────────────────────────────────
+
+  const projectContext = useMemo(() => {
+    // Extract project UUID from URL path if present (e.g. /assess/[projectId]/...)
+    const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
+    return match ? { projectId: match[1] } : null;
+  }, [pathname]);
+
+  const currentProjectId = projectContext?.projectId;
 
   const handleNewChat = useCallback(() => {
     conversationGenerationRef.current += 1;
@@ -104,7 +145,10 @@ export default function AICopilot() {
     setInput("");
     setHasUnread(false);
     setIsLoading(false);
-  }, []);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(getStorageKey(currentProjectId));
+    }
+  }, [currentProjectId, getStorageKey]);
 
   // ─── Context Awareness ──────────────────────────────────────────────────
 
@@ -118,46 +162,47 @@ export default function AICopilot() {
     return { controlId };
   }, [pathname, searchParams]);
 
-  const projectContext = useMemo(() => {
-    // Extract project UUID from URL path if present (e.g. /assess/[projectId]/...)
-    const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
-    return match ? { projectId: match[1] } : null;
-  }, [pathname]);
-
   const starterPrompts = useMemo(() => {
     return projectContext ? PROJECT_STARTER_PROMPTS : GENERIC_STARTER_PROMPTS;
   }, [projectContext]);
 
-  // ─── Reset chat on project change ────────────────────────────────────────
-
-  const currentProjectId = projectContext?.projectId;
-  const prevProjectIdRef = useRef(currentProjectId);
-  const isInitialRenderRef = useRef(true);
+  // ─── Auto-load and auto-save chat history per project ──────────────────────
 
   useEffect(() => {
-    if (isInitialRenderRef.current) {
-      isInitialRenderRef.current = false;
-      prevProjectIdRef.current = currentProjectId;
-      return;
-    }
-
-    if (prevProjectIdRef.current !== currentProjectId) {
-      handleNewChat();
-      prevProjectIdRef.current = currentProjectId;
-    }
-  }, [currentProjectId, handleNewChat]);
-
-  // ─── Auto-scroll ────────────────────────────────────────────────────────
+    const saved = loadChatHistory(currentProjectId);
+    setMessages(saved);
+    conversationGenerationRef.current += 1;
+    setIsLoading(false);
+  }, [currentProjectId, loadChatHistory]);
 
   useEffect(() => {
-    if (isOpen && messagesEndRef.current) {
-      // Use setTimeout to ensure DOM has rendered before scrolling
-      const timer = setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 50);
-      return () => clearTimeout(timer);
+    saveChatHistory(currentProjectId, messages);
+  }, [messages, currentProjectId, saveChatHistory]);
+
+  // ─── Auto-scroll to latest prompt/response ─────────────────────────────
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: smooth ? "smooth" : "auto",
+      });
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
     }
-  }, [messages, isLoading, isOpen]);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      scrollToBottom(false);
+      const t1 = setTimeout(() => scrollToBottom(true), 60);
+      const t2 = setTimeout(() => scrollToBottom(true), 250);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [isOpen, messages, isLoading, scrollToBottom]);
 
   // ─── Auto-resize textarea ──────────────────────────────────────────────
 
