@@ -35,9 +35,9 @@ export function ManageSubscriptionSkeleton() {
                     {/* Left Column */}
                     <div className="lg:col-span-2 space-y-6">
                         {/* Four Cards Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                             {[1, 2, 3, 4].map((i) => (
-                                <div key={i} className="bg-card rounded-xl p-6 border border-border space-y-3">
+                                <div key={i} className="bg-card rounded-xl p-6 border border-border space-y-3 overflow-hidden">
                                     <Skeleton variant="rounded" width="1.5rem" height="1.5rem" />
                                     <Skeleton height="0.75rem" width="100px" />
                                     <Skeleton height="1.5rem" width="120px" />

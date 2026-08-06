@@ -384,14 +384,14 @@ export async function handleChatMessage(
 ): Promise<string> {
   // Validate individual user messages & total content length
   for (const m of messages) {
-    if (m.role === "user" && m.content && m.content.length > 4000) {
-      throw new Error("User message exceeds maximum length of 4000 characters");
+    if (m.role === "user" && m.content && m.content.length > 20000) {
+      throw new Error("User message exceeds maximum length of 20000 characters");
     }
   }
 
   const totalContentLength = messages.reduce((sum, m) => sum + (m.content ? m.content.length : 0), 0);
-  if (totalContentLength > 50000) {
-    throw new Error("Total chat history exceeds character budget of 50000 characters");
+  if (totalContentLength > 100000) {
+    throw new Error("Total chat history exceeds character budget of 100000 characters");
   }
 
   // Trim history to last N messages

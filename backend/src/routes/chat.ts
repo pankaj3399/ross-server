@@ -8,9 +8,9 @@ const router = Router();
 
 // ─── Validation ─────────────────────────────────────────────────────────────
 
-const USER_MESSAGE_MAX_CHARS = 4000;
-const ASSISTANT_MESSAGE_MAX_CHARS = 15000;
-const MAX_TOTAL_CHAT_CHARS = 50000;
+const USER_MESSAGE_MAX_CHARS = 20000;
+const ASSISTANT_MESSAGE_MAX_CHARS = 40000;
+const MAX_TOTAL_CHAT_CHARS = 100000;
 
 const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),

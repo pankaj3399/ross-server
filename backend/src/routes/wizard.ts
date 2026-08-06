@@ -117,11 +117,16 @@ router.get("/:projectId/answers", authenticateToken, loadProject, requireProject
 
 // POST /wizard/:projectId/save - Save partial wizard progress
 router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR"]), async (req, res) => {
+  let client;
   try {
     const projectId = req.params.projectId;
     const body = saveAnswersSchema.parse(req.body);
 
-    const checkResult = await pool.query(
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
+
+    const checkResult = await client.query(
       "SELECT id FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
@@ -129,8 +134,8 @@ router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRo
     let profileId: string;
 
     if (checkResult.rows.length === 0) {
-      // Create new profile row
-      const insertResult = await pool.query(
+      // Create new profile row with ON CONFLICT safety
+      const insertResult = await client.query(
         `INSERT INTO wizard_profiles (
           project_id, name, description, governance_scope, use_case, regulatory_role, data_categories,
           geographic_scope, scale, uses_third_party_models, third_party_providers,
@@ -139,7 +144,9 @@ router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRo
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12, $13::jsonb,
           $14::jsonb, $15, $16, $17, 'in_progress', $18
-        ) RETURNING id`,
+        )
+        ON CONFLICT (project_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+        RETURNING id`,
         [
           projectId,
           body.name || null,
@@ -200,7 +207,7 @@ router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRo
       }
 
       if (updates.length > 0) {
-        await pool.query(
+        await client.query(
           `UPDATE wizard_profiles SET ${updates.join(", ")}, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
           values
         );
@@ -208,18 +215,27 @@ router.post("/:projectId/save", authenticateToken, loadProject, requireProjectRo
     }
 
     // Update the project-level link if not set
-    await pool.query(
+    await client.query(
       "UPDATE projects SET wizard_profile_id = $1 WHERE id = $2 AND wizard_profile_id IS NULL",
       [profileId, projectId]
     );
 
-    res.json({ success: true, profileId });
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      profileId,
+      message: "Wizard progress saved successfully",
+    });
   } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
     console.error("Error saving wizard progress:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ success: false, error: error.errors });
     }
     res.status(500).json({ success: false, error: "Failed to save wizard progress" });
+  } finally {
+    if (client) client.release();
   }
 });
 
@@ -601,12 +617,11 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
   }
 });
 
-// PUT /wizard/:projectId/answers - Edit answers in Settings and re-run engine
 // PUT /wizard/:projectId/answers - Edit saved answers & re-run engine
 router.put("/:projectId/answers", authenticateToken, loadProject, requireProjectRole(["OWNER", "EDITOR"]), async (req, res) => {
   const projectId = req.params.projectId;
   const userId = req.user!.id;
-  const body = req.body;
+  const body = saveAnswersSchema.parse(req.body);
   let client;
 
   try {
@@ -616,19 +631,59 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     // Acquire project-level advisory lock
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [projectId]);
 
-    // 1. Fetch current profile
+    // 1. Fetch current profile or create if starting from scratch in Settings
     const checkResult = await client.query(
       "SELECT * FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
 
-    if (checkResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ success: false, error: "No wizard profile found for this project" });
-    }
+    const wasCreated = checkResult.rows.length === 0;
+    const currentAnswers = wasCreated ? null : mapRowToAnswers(checkResult.rows[0]);
+    let existingProfile: any;
 
-    const existingProfile = checkResult.rows[0];
-    const currentAnswers = mapRowToAnswers(existingProfile);
+    if (wasCreated) {
+      // Create new profile row if created directly from Settings
+      const insertResult = await client.query(
+        `INSERT INTO wizard_profiles (
+          project_id, name, description, governance_scope, use_case, regulatory_role, data_categories,
+          geographic_scope, scale, uses_third_party_models, third_party_providers,
+          automation_level, existing_certifications, annex_iii_domains, biometric_use,
+          affects_children, public_url, wizard_status, wizard_step, completed_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11::jsonb, $12, $13::jsonb,
+          $14::jsonb, $15, $16, $17, 'completed', $18, CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+        RETURNING *`,
+        [
+          projectId,
+          body.name || null,
+          body.description || null,
+          body.governance_scope || null,
+          body.use_case || null,
+          body.regulatory_role || null,
+          JSON.stringify(body.data_categories || []),
+          JSON.stringify(body.geographic_scope || []),
+          body.scale || null,
+          body.uses_third_party_models || null,
+          JSON.stringify(body.third_party_providers || []),
+          body.automation_level || null,
+          JSON.stringify(body.existing_certifications || []),
+          JSON.stringify(body.annex_iii_domains || []),
+          body.biometric_use || null,
+          body.affects_children || null,
+          body.public_url || null,
+          body.wizard_step || 6,
+        ]
+      );
+      existingProfile = insertResult.rows[0];
+      await client.query(
+        "UPDATE projects SET wizard_completed = TRUE, wizard_profile_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [existingProfile.id, projectId]
+      );
+    } else {
+      existingProfile = checkResult.rows[0];
+    }
 
     // 2. Dynamic profile updates
     const updates: string[] = [];
@@ -681,6 +736,14 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     const controls = controlsResult.rows;
 
     const outputs = runRulesEngine(answers, controls);
+
+    // Ensure default wizard_engine_outputs row exists for project
+    await client.query(
+      `INSERT INTO wizard_engine_outputs (project_id, eu_risk_tier, internal_risk_tier, eu_risk_reason, applicable_frameworks, control_flags, suggested_risks, suggested_components, vulnerability_scope, bias_scope, template_variables, informational_notes)
+       VALUES ($1, 'MINIMAL', 'MINIMAL', 'Initial default profile', '[]'::jsonb, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb)
+       ON CONFLICT (project_id) DO NOTHING`,
+      [projectId]
+    );
 
     // Preserve manual control mandate overrides
     const existingEngineResult = await client.query(
@@ -743,7 +806,7 @@ router.put("/:projectId/answers", authenticateToken, loadProject, requireProject
     await recordEvent({
       projectId,
       actorId: userId,
-      action: "answers_edited",
+      action: wasCreated ? "profile_created" : "answers_edited",
       objectType: "WIZARD_PROFILE",
       objectId: profileResult.rows[0].id,
       metadata: { diff },

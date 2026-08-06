@@ -215,7 +215,15 @@ export default function SubscriptionModal({
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl p-0 overflow-y-auto max-h-[90vh] border-0 bg-transparent [&>button]:hidden">
-        <div className="bg-card rounded-3xl p-8 shadow-xl border border-border">
+        <div className="bg-card rounded-3xl p-8 shadow-xl border border-border relative">
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            aria-label="Close subscription modal"
+            className="absolute top-6 right-6 p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors z-50 cursor-pointer"
+          >
+            <IconX className="w-6 h-6" />
+          </button>
           {/* Header */}
           <DialogHeader className="text-center sm:text-center mb-8 flex flex-col items-center">
             <motion.div
@@ -322,12 +330,12 @@ export default function SubscriptionModal({
                       </div>
                     )}
                   </div>
-                  <CardDescription className="mt-2 text-wrap h-14">
+                  <CardDescription className="mt-2 text-wrap min-h-[4rem] text-sm leading-relaxed text-muted-foreground flex items-center justify-center text-center">
                     Designed for organizations that need continuous monitoring, automation, and deeper governance insights across multiple AI systems.
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="flex-1">
+                <CardContent className="flex-1 pt-2">
                   <div className="space-y-3">
                     {basicFeatures.map((feature, index) => (
                       <motion.div
@@ -335,12 +343,12 @@ export default function SubscriptionModal({
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.5 + index * 0.05 }}
-                        className="flex items-center gap-3"
+                        className="flex items-start gap-3"
                       >
-                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                           <IconCircleCheck className="w-4 h-4 text-primary" />
                         </div>
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium leading-normal">
                           {feature}
                         </span>
                       </motion.div>
@@ -416,12 +424,12 @@ export default function SubscriptionModal({
                       </div>
                     )}
                   </div>
-                  <CardDescription className="mt-2 text-wrap h-14">
+                  <CardDescription className="mt-2 text-wrap min-h-[4rem] text-sm leading-relaxed text-muted-foreground flex items-center justify-center text-center">
                     Ideal for organizations requiring expert involvement and professional guidance on Responsible AI, governance, compliance, and implementation strategies.
                   </CardDescription>
                 </CardHeader>
 
-                <CardContent className="flex-1">
+                <CardContent className="flex-1 pt-2">
                   <div className="space-y-3">
                     {proFeatures.map((feature, index) => (
                       <motion.div
@@ -429,12 +437,12 @@ export default function SubscriptionModal({
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.6 + index * 0.05 }}
-                        className="flex items-center gap-3"
+                        className="flex items-start gap-3"
                       >
-                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                           <IconCircleCheck className="w-4 h-4 text-primary" />
                         </div>
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium leading-normal">
                           {feature}
                         </span>
                       </motion.div>
