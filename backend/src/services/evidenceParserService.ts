@@ -409,34 +409,63 @@ export async function fetchAndParseEvidenceFromUrl(
     };
   }
 
-  const cleanUrl = url.trim();
-  const ssrfCheck = await validateUrlForSsrf(cleanUrl);
-  if (!ssrfCheck.safe) {
-    return {
-      success: false,
-      extractedTextLength: 0,
-      extractedSnippet: "",
-      unfilledPlaceholders: [],
-      isValidTemplate: false,
-      missingRequirements: evidenceRequirements,
-      matchedRequirements: [],
-      validationErrors: [ssrfCheck.error || "Forbidden Evidence URL host."],
-      validationWarnings: [],
-      score: 0,
-    };
-  }
+  let currentUrl = url.trim();
+  let response: Response | null = null;
+  let redirectsRemaining = 3;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
 
   try {
-    const response = await fetch(cleanUrl, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 MATUR.ai EvidenceValidator/1.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*",
-      },
-    });
+    while (true) {
+      const ssrfCheck = await validateUrlForSsrf(currentUrl);
+      if (!ssrfCheck.safe) {
+        return {
+          success: false,
+          extractedTextLength: 0,
+          extractedSnippet: "",
+          unfilledPlaceholders: [],
+          isValidTemplate: false,
+          missingRequirements: evidenceRequirements,
+          matchedRequirements: [],
+          validationErrors: [ssrfCheck.error || "Forbidden Evidence URL host."],
+          validationWarnings: [],
+          score: 0,
+        };
+      }
+
+      response = await fetch(currentUrl, {
+        signal: controller.signal,
+        redirect: "manual",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 MATUR.ai EvidenceValidator/1.0",
+          "Accept": "text/html,application/xhtml+xml,application/xml,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,*/*",
+        },
+      });
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location || redirectsRemaining <= 0) {
+          return {
+            success: false,
+            extractedTextLength: 0,
+            extractedSnippet: "",
+            unfilledPlaceholders: [],
+            isValidTemplate: false,
+            missingRequirements: evidenceRequirements,
+            matchedRequirements: [],
+            validationErrors: ["Too many redirects or invalid redirect target."],
+            validationWarnings: [],
+            score: 0,
+          };
+        }
+        redirectsRemaining--;
+        currentUrl = new URL(location, currentUrl).toString();
+        continue;
+      }
+
+      break;
+    }
 
     if (!response.ok) {
       return {
@@ -470,8 +499,8 @@ export async function fetchAndParseEvidenceFromUrl(
     }
 
     const contentType = response.headers.get("content-type") || "";
-    const isDocx = /\.docx/i.test(cleanUrl) || /officedocument\.wordprocessingml/i.test(contentType);
-    const isPdf = /\.pdf/i.test(cleanUrl) || /application\/pdf/i.test(contentType);
+    const isDocx = /\.docx/i.test(currentUrl) || /officedocument\.wordprocessingml/i.test(contentType);
+    const isPdf = /\.pdf/i.test(currentUrl) || /application\/pdf/i.test(contentType);
 
     if (isDocx || isPdf) {
       const arrayBuffer = await response.arrayBuffer();
