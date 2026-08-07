@@ -1,8 +1,12 @@
 const { expect } = require("@playwright/test");
 
-// HTTPS, not on the backend's evidence-URL blocklist (google.com, example.com,
-// localhost, etc.), so it validates as a real evidence link.
-const EVIDENCE_URL = "https://docs.com";
+// HTTPS, on the backend's VALID_EVIDENCE_DOMAINS allowlist (backend/src/routes/
+// crc.ts's validateEvidenceUrl) with a real path — as of the 2026-07-26
+// upstream merge this validation tightened from "anything not on a
+// blocklist" to "recognized evidence platform + non-homepage path, OR a
+// document-extension/subpath match", so the old bare "https://docs.com"
+// (no path, not an allowlisted host) no longer passes.
+const EVIDENCE_URL = "https://docs.google.com/document/d/abc123/edit";
 
 class CrcPage {
   constructor(page) {
@@ -32,20 +36,39 @@ class CrcPage {
     // Sonner toasts (see frontend/src/lib/toast.ts) render their message as
     // plain text; Playwright's getByText is already a case-insensitive
     // substring match on a plain string, so no regex is needed to match
-    // against the backend's longer exact error copy.
-    this.blockedEvidenceUrlToast = page.getByText("does not appear to be a real evidence document");
+    // against the backend's longer exact error copy. Wording changed in the
+    // 2026-07-26 upstream merge — was "does not appear to be a real evidence
+    // document", now "appears to be a generic domain rather than a specific
+    // evidence document" (validateEvidenceUrl in backend/src/routes/crc.ts).
+    this.blockedEvidenceUrlToast = page.getByText("appears to be a generic domain");
     this.evidenceUrlSavedToast = page.getByText("Evidence URL saved", { exact: true });
 
     this.reportSummaryHeading = page.getByText("Compliance Readiness Summary", { exact: true });
     this.reportOverallReadiness = page.getByText("Overall compliance readiness", { exact: true });
     this.reportByCategory = page.getByText("By Category", { exact: true });
-    // "Strong"/"Moderate"/"Developing"/"Needs Attention" maturity badge on
-    // /score-report-crc, next to the overall % (getMaturityTier()'s labels).
+    // "Ready"/"Partially Ready"/"Not Ready"/"Not Started" maturity badge on
+    // /score-report-crc (getMaturityLabel()'s labels). As of the 2026-07-26
+    // upstream merge (af35378) this vocabulary was unified with the
+    // dashboard's getReadinessTier — same four labels, same ≥75/≥30
+    // thresholds — replacing the old "Strong"/"Moderate"/"Developing"/
+    // "Needs Attention"/"Insufficient data" wording that used to disagree
+    // with the dashboard at the same score (see
+    // [[ross-server-readiness-dashboard-qa]]).
+    // Scoped to <main> (ConditionalLayout.tsx's boundary between the app
+    // shell and page content): the secondary sidebar's project-switcher list
+    // shows each project's own status pill using this identical vocabulary
+    // ("Ready"/"Not Started"/...), driven by AIMA status rather than CRC —
+    // an unscoped page-wide getByText().first() can match a stale/unrelated
+    // sidebar entry instead of the report's own summary card. Confirmed live:
+    // a 100%-Ready CRC report matched a sidebar-list "Not Started" pill for
+    // the same project (whose AIMA assessment was never started) before this
+    // was scoped.
     this.reportMaturityLabel = page
-      .getByText("Strong", { exact: true })
-      .or(page.getByText("Moderate", { exact: true }))
-      .or(page.getByText("Developing", { exact: true }))
-      .or(page.getByText("Needs Attention", { exact: true }))
+      .locator("main")
+      .getByText("Ready", { exact: true })
+      .or(page.locator("main").getByText("Partially Ready", { exact: true }))
+      .or(page.locator("main").getByText("Not Ready", { exact: true }))
+      .or(page.locator("main").getByText("Not Started", { exact: true }))
       .first();
     // title attribute interpolates live counts ("Answer all controls (3/138)
     // before submitting"), so this stays a substring match, just without the
@@ -110,8 +133,23 @@ class CrcPage {
       const index = match ? Number(match[1]) - 1 : i;
       const label = typeof labelOrFn === "function" ? labelOrFn(index, total) : labelOrFn;
 
-      await this.answerOption(label).click();
-      await this.page.waitForTimeout(400); // let the answer persist
+      // Wait on the actual POST /crc/assess/:projectId save response instead
+      // of a fixed sleep: AssessmentContext.handleCrcAnswerChange does an
+      // optimistic local update immediately on click, so a fixed timeout can
+      // let the loop race ahead to the next control before a slow/failed
+      // save resolves — confirmed live to silently drop one answer out of
+      // 138 (progress reads 137/138 with no error toast ever surfaced) when
+      // paced only by a 400ms sleep. A rejected/erroring save here still
+      // rolls back client-side per handleCrcAnswerChange, so failing loudly
+      // on a non-200 is the correct behavior, not over-strictness.
+      const [saveResponse] = await Promise.all([
+        this.page.waitForResponse(
+          (res) => res.request().method() === "POST" && res.url().includes(`/crc/assess/${projectId}`),
+          { timeout: 15_000 }
+        ),
+        this.answerOption(label).click(),
+      ]);
+      expect(saveResponse.ok(), `answer save for control ${index + 1} returned ${saveResponse.status()}`).toBeTruthy();
 
       if (withEvidence) await this.fillEvidenceTracker();
 

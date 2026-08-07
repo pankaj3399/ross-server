@@ -1,6 +1,10 @@
-// AI Component Inventory (/assess/<id>/inventory) — wizard-gated premium
-// route (layout.tsx's isPremiumRoute set, same gate as CRC/vulnerability-
-// assessment; see [[ross-server-vuln-assessment-qa]]). Covers the core
+// AI Component Inventory (/assess/<id>/inventory) — one of layout.tsx's
+// isPremiumRoute set (same as CRC/vulnerability-assessment). The AI System
+// Profile wizard is completed as setup here for parity with the other
+// premium specs, but as of the 2026-07-26 upstream merge it's no longer a
+// hard gate blocking this page — WizardGateProvider renders a dismissible
+// nudge banner over the real content instead (see
+// [[ross-server-vuln-assessment-qa]]). Covers the core
 // add -> appears in table with the right risk badge -> delete loop; filters,
 // the vendor catalog dropdown, and the vendor-risk-assessment sub-flow
 // ("Feature C") are out of scope for this pass.
