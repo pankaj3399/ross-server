@@ -697,7 +697,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
         setSaving(true);
         try {
-            await apiService.saveCRCResponse(projectId, {
+            const res = await apiService.saveCRCResponse(projectId, {
                 controlId,
                 value,
                 notes,
@@ -705,6 +705,20 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 evidenceUrl: finalUrl,
                 auditReady: finalAuditReady
             });
+            if (res && res.data) {
+                setCrcResponses(prev => ({
+                    ...prev,
+                    [controlId]: {
+                        value: res.data.value,
+                        notes: res.data.notes || "",
+                        evidenceStatus: res.data.evidenceStatus,
+                        evidenceUrl: res.data.evidenceUrl,
+                        auditReady: res.data.auditReady,
+                        evidenceAnalysis: res.data.evidenceAnalysis,
+                        updatedAt: res.data.updatedAt || new Date().toISOString()
+                    }
+                }));
+            }
         } catch (error: any) {
             console.error("Failed to save evidence status:", error);
             // Rollback optimistic update

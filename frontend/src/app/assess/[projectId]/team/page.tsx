@@ -97,11 +97,24 @@ export default function TeamManagementPage() {
     const [editRole, setEditRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER' | string>("");
     const [memberToRemove, setMemberToRemove] = useState<ProjectMember | null>(null);
     const [invitationToRevoke, setInvitationToRevoke] = useState<Invitation | null>(null);
+    const [resendingId, setResendingId] = useState<string | null>(null);
 
     const [processing, setProcessing] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
     const isPremium = isPremiumStatus(user?.subscription_status);
+
+    const handleResendInvitation = async (invitationId: string) => {
+        setResendingId(invitationId);
+        try {
+            const res = await apiService.resendProjectInvitation(projectId, invitationId);
+            showToast.success(res.message || "Invitation email resent successfully");
+        } catch (err: any) {
+            showToast.error(err.message || "Failed to resend invitation email");
+        } finally {
+            setResendingId(null);
+        }
+    };
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -547,14 +560,30 @@ export default function TeamManagementPage() {
                                                         <IconTrash className="w-4 h-4 mr-1" /> Dismiss
                                                     </Button>
                                                 ) : (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-destructive hover:bg-destructive/10"
-                                                        onClick={() => setInvitationToRevoke(inv)}
-                                                    >
-                                                        <IconX className="w-4 h-4 mr-1" /> Revoke
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="h-8 text-xs gap-1.5"
+                                                            disabled={resendingId === inv.id}
+                                                            onClick={() => handleResendInvitation(inv.id)}
+                                                        >
+                                                            {resendingId === inv.id ? (
+                                                                <IconLoader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <IconSend className="w-3.5 h-3.5" />
+                                                            )}
+                                                            Resend Email
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => setInvitationToRevoke(inv)}
+                                                        >
+                                                            <IconX className="w-4 h-4 mr-1" /> Revoke
+                                                        </Button>
+                                                    </div>
                                                 )}
                                             </TableCell>
                                         </TableRow>

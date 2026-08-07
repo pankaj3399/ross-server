@@ -13,6 +13,7 @@ import {
   revokeInvitation,
 } from "../services/projectInvitationService";
 import { emailService } from "../services/emailService";
+import { notificationService } from "../services/notificationService";
 import { recordEvent } from "../services/auditLogService";
 
 // Initialize Gemini client only if configured
@@ -856,14 +857,42 @@ router.post(
         return res.status(400).json({ error: "A pending invitation already exists for this email." });
       }
 
-      // Send email (best-effort)
-      const inviteUrl = `${process.env.FRONTEND_URL}/invite/accept?token=${invitation.token}`;
+      // Send email (best-effort with queue fallback)
+      const frontendBase =
+        process.env.FRONTEND_URL ||
+        process.env.PUBLIC_URL ||
+        process.env.APP_URL ||
+        "http://localhost:3000";
+      const cleanBase = frontendBase.replace(/\/$/, "");
+      const inviteUrl = `${cleanBase}/invite/accept?token=${invitation.token}`;
       const inviterName = req.user!.email;
-      emailService
-        .sendProjectInvitation(email, project.name, inviterName, inviteUrl)
-        .catch((err) => {
-          console.error("Failed to send project invitation email:", err);
-        });
+
+      let emailSent = false;
+      try {
+        emailSent = await emailService.sendProjectInvitation(
+          email,
+          project.name,
+          inviterName,
+          inviteUrl,
+        );
+      } catch (err) {
+        console.error("Failed to send project invitation email:", err);
+      }
+
+      if (!emailSent) {
+        console.warn(`[Invitation] Direct email send failed for ${email}. Queueing notification for background retry.`);
+        await notificationService.queueNotification(
+          inviterId,
+          project.id,
+          "project_invitation",
+          {
+            to: email,
+            subject: `You've been invited to a MATUR.ai project: ${project.name}`,
+            html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
+            text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
+          }
+        ).catch((err) => console.error("Failed to queue invitation notification:", err));
+      }
 
       await recordEvent({
         projectId: project.id,
@@ -871,7 +900,7 @@ router.post(
         action: "project.invitation.created",
         objectType: "INVITATION",
         objectId: invitation.id,
-        metadata: { email, role },
+        metadata: { email, role, emailSent },
       });
 
       res.status(201).json({
@@ -949,6 +978,82 @@ router.delete(
     } catch (error) {
       console.error("Error revoking project invitation:", error);
       res.status(500).json({ error: "Failed to revoke invitation" });
+    }
+  },
+);
+
+// Resend invitation email
+router.post(
+  "/:projectId/invitations/:invitationId/resend",
+  authenticateToken,
+  loadProject,
+  requireActiveProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { projectId, invitationId } = req.params;
+      const project = req.project as { id: string; name: string };
+      const inviterName = req.user!.email;
+
+      const inviteResult = await pool.query(
+        `SELECT id, email, token, status, expires_at 
+         FROM project_invitations 
+         WHERE id = $1 AND project_id = $2`,
+        [invitationId, projectId]
+      );
+
+      if (inviteResult.rows.length === 0) {
+        return res.status(404).json({ error: "Invitation not found." });
+      }
+
+      const inv = inviteResult.rows[0];
+      if (!["pending", "sent"].includes(inv.status)) {
+        return res.status(400).json({ error: "Invitation is no longer pending." });
+      }
+
+      const frontendBase =
+        process.env.FRONTEND_URL ||
+        process.env.PUBLIC_URL ||
+        process.env.APP_URL ||
+        "http://localhost:3000";
+      const cleanBase = frontendBase.replace(/\/$/, "");
+      const inviteUrl = `${cleanBase}/invite/accept?token=${inv.token}`;
+
+      let emailSent = false;
+      try {
+        emailSent = await emailService.sendProjectInvitation(
+          inv.email,
+          project.name,
+          inviterName,
+          inviteUrl
+        );
+      } catch (err) {
+        console.error("Error sending project invitation email:", err);
+      }
+
+      if (!emailSent) {
+        await notificationService.queueNotification(
+          req.user!.id,
+          project.id,
+          "project_invitation",
+          {
+            to: inv.email,
+            subject: `You've been invited to a MATUR.ai project: ${project.name}`,
+            html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
+            text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
+          }
+        ).catch(() => {});
+      }
+
+      res.json({
+        message: emailSent
+          ? "Invitation email sent successfully"
+          : "Invitation email queued for retry",
+        emailSent,
+      });
+    } catch (error) {
+      console.error("Error resending project invitation:", error);
+      res.status(500).json({ error: "Failed to resend invitation email" });
     }
   },
 );

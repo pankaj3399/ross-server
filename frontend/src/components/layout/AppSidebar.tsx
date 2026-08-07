@@ -1309,6 +1309,14 @@ function SidebarContentComponent() {
                           const isCatExpanded = !!expandedCrcCategories[categoryName];
                           const catControls = controlsByCategory[categoryName] || [];
                           const isCatActive = currentCategory === categoryName;
+
+                          // Compute answered controls count for this category
+                          const catAnsweredCount = catControls.filter((ctrl: CRCControl) => {
+                            const r = crcResponses[ctrl.id] || crcResponses[ctrl.control_id];
+                            return r !== undefined && r.value !== null && r.value !== undefined;
+                          }).length;
+                          const isCatComplete = catControls.length > 0 && catAnsweredCount === catControls.length;
+
                           return (
                             <div key={categoryKey} className="flex flex-col">
                               <button
@@ -1326,7 +1334,19 @@ function SidebarContentComponent() {
                               >
                                 <IconChevronRight className={cn("size-3.5 text-muted-foreground transition-transform shrink-0", isCatExpanded && "rotate-90")} />
                                 <span className="truncate flex-1">{categoryName}</span>
-                                <span className="text-xs text-muted-foreground/70 font-mono">{catControls.length}</span>
+                                {isCatComplete ? (
+                                  <span className="inline-flex items-center gap-0.5 text-[10px] font-mono font-semibold text-emerald-500 bg-emerald-500/15 px-1.5 py-0.5 rounded border border-emerald-500/30 shrink-0">
+                                    <IconCircleCheck className="size-3 shrink-0" />
+                                    <span>{catAnsweredCount}/{catControls.length}</span>
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "text-xs font-mono px-1.5 py-0.5 rounded text-muted-foreground/70 bg-muted/40 shrink-0",
+                                    catAnsweredCount > 0 && "text-amber-500 font-semibold bg-amber-500/10 border border-amber-500/20"
+                                  )}>
+                                    {catAnsweredCount}/{catControls.length}
+                                  </span>
+                                )}
                               </button>
 
                               <AnimatePresence>
@@ -1339,6 +1359,9 @@ function SidebarContentComponent() {
                                   >
                                     {catControls.map((ctrl: CRCControl) => {
                                       const isCtrlActive = currentControlId === ctrl.id;
+                                      const resp = crcResponses[ctrl.id] || crcResponses[ctrl.control_id];
+                                      const isAnswered = resp !== undefined && resp.value !== null && resp.value !== undefined;
+
                                       return (
                                         <button
                                           key={ctrl.id}
@@ -1349,7 +1372,11 @@ function SidebarContentComponent() {
                                             isCtrlActive ? "text-[var(--section-premium)] font-semibold bg-[var(--section-premium)]/15 border-l-[3px] border-[var(--section-premium)] pl-1 rounded-l-none rounded-r-md" : "text-muted-foreground hover:text-foreground"
                                           )}
                                         >
-                                          <IconShieldCheck className="size-3 shrink-0 text-[var(--section-premium)]" />
+                                          {isAnswered ? (
+                                            <IconCircleCheck className="size-3.5 shrink-0 text-emerald-500 fill-emerald-500/20" />
+                                          ) : (
+                                            <IconCircle className="size-3 shrink-0 text-muted-foreground/40" />
+                                          )}
                                           <span className="truncate">{ctrl.control_id} - {ctrl.control_title}</span>
                                         </button>
                                       );

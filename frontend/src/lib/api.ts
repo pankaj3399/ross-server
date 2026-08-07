@@ -1692,8 +1692,8 @@ class ApiService {
       evidenceUrl?: string | null;
       auditReady?: boolean;
     }
-  ): Promise<{ success: boolean }> {
-    return this.request<{ success: boolean }>(`/crc/assess/${projectId}`, {
+  ): Promise<any> {
+    return this.request<any>(`/crc/assess/${projectId}`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -2013,6 +2013,12 @@ class ApiService {
   public async revokeProjectInvitation(projectId: string, invitationId: string): Promise<any> {
     return this.request(`/projects/${projectId}/invitations/${invitationId}`, {
       method: "DELETE",
+    });
+  }
+
+  public async resendProjectInvitation(projectId: string, invitationId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations/${invitationId}/resend`, {
+      method: "POST",
     });
   }
 

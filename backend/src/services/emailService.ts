@@ -20,13 +20,25 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
+    if (process.env.SMTP_HOST) {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587", 10),
+        secure: process.env.SMTP_SECURE === "true" || process.env.SMTP_PORT === "465",
+        auth: {
+          user: process.env.SMTP_USER || process.env.GMAIL_USER,
+          pass: process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD,
+        },
+      });
+    } else {
+      this.transporter = nodemailer.createTransport({
+        service: process.env.EMAIL_SERVICE || "gmail",
+        auth: {
+          user: process.env.GMAIL_USER || process.env.EMAIL_USER,
+          pass: process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD,
+        },
+      });
+    }
   }
 
   /**
@@ -34,8 +46,15 @@ class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      const fromEmail =
+        process.env.SMTP_FROM ||
+        process.env.GMAIL_USER ||
+        process.env.EMAIL_USER ||
+        "noreply@matur.ai";
+      const fromName = process.env.EMAIL_FROM_NAME || "MATUR.ai";
+
       const mailOptions = {
-        from: `"MATUR.ai" <${process.env.GMAIL_USER}>`,
+        from: `"${fromName}" <${fromEmail}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,

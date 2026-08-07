@@ -14,7 +14,7 @@ import { syncRiskFromResponse } from "../services/crcRiskService";
 import crypto from "crypto";
 import { inngest } from "../inngest/client";
 import { UTApi } from "uploadthing/server";
-import { parseAndValidateEvidence } from "../services/evidenceParserService";
+import { parseAndValidateEvidence, fetchAndParseEvidenceFromUrl } from "../services/evidenceParserService";
 
 const router = Router();
 
@@ -1343,21 +1343,8 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         currentAuditReady = false;
       }
 
-      // Validate evidence fields
-      if (currentStatus === 'Evidence Complete') {
-        if (!currentUrl) {
-          await client.query("ROLLBACK");
-          return res.status(400).json({ 
-            success: false, 
-            error: "A valid evidence URL is required to set Evidence Status to 'Evidence Complete'." 
-          });
-        }
-        const validation = validateEvidenceUrl(currentUrl);
-        if (!validation.valid) {
-          await client.query("ROLLBACK");
-          return res.status(400).json({ success: false, error: validation.error });
-        }
-      } else if (currentUrl) {
+      // Validate evidence URL format if provided
+      if (currentUrl) {
         const validation = validateEvidenceUrl(currentUrl);
         if (!validation.valid) {
           await client.query("ROLLBACK");
@@ -1373,14 +1360,35 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         });
       }
 
+      // Auto-parse Evidence URL content if an evidenceUrl is provided or updated
+      let evidenceAnalysis: any = existing ? existing.evidence_analysis : null;
+      if (currentUrl) {
+        try {
+          const reqsRes = await client.query(
+            "SELECT evidence_requirements FROM crc_controls WHERE id = $1",
+            [targetUuid]
+          );
+          const controlReqs: string[] = reqsRes.rows[0]?.evidence_requirements || [];
+          const parsedFromUrl = await fetchAndParseEvidenceFromUrl(currentUrl, controlReqs);
+          if (parsedFromUrl) {
+            evidenceAnalysis = parsedFromUrl;
+            if (currentStatus === "No Evidence" || currentStatus === "Template Downloaded") {
+              currentStatus = "Evidence Complete";
+            }
+          }
+        } catch (urlErr) {
+          console.error("[crc-assess] Error auto-parsing evidence URL:", urlErr);
+        }
+      }
+
       // Upsert response using canonical UUID
       const result = await client.query(
-        `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO crc_assessment_responses (project_id, control_id, user_id, value, notes, evidence_status, evidence_url, audit_ready, evidence_analysis)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
          ON CONFLICT (project_id, control_id)
-         DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, updated_at = CURRENT_TIMESTAMP
+         DO UPDATE SET value = $4, notes = $5, user_id = $3, evidence_status = $6, evidence_url = $7, audit_ready = $8, evidence_analysis = $9::jsonb, updated_at = CURRENT_TIMESTAMP
          RETURNING *`,
-        [projectId, targetUuid, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady]
+        [projectId, targetUuid, userId, data.value, data.notes, currentStatus, currentUrl, currentAuditReady, evidenceAnalysis ? JSON.stringify(evidenceAnalysis) : null]
       );
 
       await client.query("COMMIT");
@@ -1496,7 +1504,7 @@ router.post(
       }
 
       const evidenceUrl = uploadedUrl;
-      const status = analysis.isValidTemplate ? "Evidence Complete" : "Evidence in Progress";
+      const status = "Evidence Complete";
 
       const client = await pool.connect();
       let saved: any;
