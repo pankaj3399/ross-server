@@ -108,7 +108,7 @@ interface AssessmentContextType {
         status: CRCEvidenceStatus, 
         url?: string | null, 
         auditReady?: boolean
-    ) => Promise<void>;
+    ) => Promise<any>;
     uploadEvidenceFile: (controlId: string, file: File) => Promise<{ success: boolean; error?: string; analysis?: EvidenceAnalysis }>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
@@ -706,18 +706,20 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 auditReady: finalAuditReady
             });
             if (res && res.data) {
+                const savedData = res.data;
                 setCrcResponses(prev => ({
                     ...prev,
                     [controlId]: {
-                        value: res.data.value,
-                        notes: res.data.notes || "",
-                        evidenceStatus: res.data.evidenceStatus,
-                        evidenceUrl: res.data.evidenceUrl,
-                        auditReady: res.data.auditReady,
-                        evidenceAnalysis: res.data.evidenceAnalysis,
-                        updatedAt: res.data.updatedAt || new Date().toISOString()
+                        value: savedData.value,
+                        notes: savedData.notes || "",
+                        evidenceStatus: savedData.evidenceStatus,
+                        evidenceUrl: savedData.evidenceUrl,
+                        auditReady: savedData.auditReady,
+                        evidenceAnalysis: savedData.evidenceAnalysis,
+                        updatedAt: savedData.updatedAt || new Date().toISOString()
                     }
                 }));
+                return savedData;
             }
         } catch (error: any) {
             console.error("Failed to save evidence status:", error);

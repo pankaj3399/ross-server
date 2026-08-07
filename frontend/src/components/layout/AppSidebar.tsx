@@ -89,7 +89,7 @@ import { showToast } from "@/lib/toast";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useOptionalAssessmentContext } from "../../contexts/AssessmentContext";
 import { apiService, CRCControl, Project } from "../../lib/api";
-import { cn, getDomainIcon } from "@/lib/utils";
+import { cn, getDomainIcon, isControlAnswered } from "@/lib/utils";
 import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import { ProjectSelectionModal } from "./ProjectSelectionModal";
 import { useSidebarStore, getTotalSidebarWidth, ACTIVITY_BAR_WIDTH, MIN_WIDTH, MAX_WIDTH_RATIO } from "../../store/sidebarStore";
@@ -1311,10 +1311,7 @@ function SidebarContentComponent() {
                           const isCatActive = currentCategory === categoryName;
 
                           // Compute answered controls count for this category
-                          const catAnsweredCount = catControls.filter((ctrl: CRCControl) => {
-                            const r = crcResponses[ctrl.id] || crcResponses[ctrl.control_id];
-                            return r !== undefined && r.value !== null && r.value !== undefined;
-                          }).length;
+                          const catAnsweredCount = catControls.filter((ctrl: CRCControl) => isControlAnswered(crcResponses, ctrl)).length;
                           const isCatComplete = catControls.length > 0 && catAnsweredCount === catControls.length;
 
                           return (
@@ -1359,8 +1356,7 @@ function SidebarContentComponent() {
                                   >
                                     {catControls.map((ctrl: CRCControl) => {
                                       const isCtrlActive = currentControlId === ctrl.id;
-                                      const resp = crcResponses[ctrl.id] || crcResponses[ctrl.control_id];
-                                      const isAnswered = resp !== undefined && resp.value !== null && resp.value !== undefined;
+                                      const isAnswered = isControlAnswered(crcResponses, ctrl);
 
                                       return (
                                         <button

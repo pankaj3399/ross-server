@@ -879,8 +879,13 @@ router.post(
         console.error("Failed to send project invitation email:", err);
       }
 
-      if (!emailSent) {
-        console.warn(`[Invitation] Direct email send failed for ${email}. Queueing notification for background retry.`);
+      if (emailSent) {
+        await pool.query(
+          "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
+          [invitation.id]
+        );
+      } else {
+        console.warn(`[Invitation] Direct email send failed for invitationId ${invitation.id} in project ${project.id}. Queueing notification for background retry.`);
         await notificationService.queueNotification(
           inviterId,
           project.id,
@@ -891,7 +896,7 @@ router.post(
             html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
             text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
           }
-        ).catch((err) => console.error("Failed to queue invitation notification:", err));
+        );
       }
 
       await recordEvent({
@@ -1007,8 +1012,9 @@ router.post(
       }
 
       const inv = inviteResult.rows[0];
-      if (!["pending", "sent"].includes(inv.status)) {
-        return res.status(400).json({ error: "Invitation is no longer pending." });
+      const isExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
+      if (!["pending", "sent"].includes(inv.status) || isExpired) {
+        return res.status(400).json({ error: "Invitation is no longer pending or has expired." });
       }
 
       const frontendBase =
@@ -1031,7 +1037,12 @@ router.post(
         console.error("Error sending project invitation email:", err);
       }
 
-      if (!emailSent) {
+      if (emailSent) {
+        await pool.query(
+          "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
+          [inv.id]
+        );
+      } else {
         await notificationService.queueNotification(
           req.user!.id,
           project.id,
@@ -1042,7 +1053,7 @@ router.post(
             html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
             text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
           }
-        ).catch(() => {});
+        );
       }
 
       res.json({

@@ -1308,31 +1308,50 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         .json({ success: false, error: "Insufficient project role" });
     }
 
+    // Verify control exists and is published (outside transaction to avoid holding DB lock during HTTP fetch)
+    const controlCheck = await pool.query(
+      "SELECT id, control_id, evidence_requirements FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
+      [data.controlId]
+    );
+    if (controlCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Control not found or not published" });
+    }
+
+    const targetControlCode = controlCheck.rows[0].control_id;
+    const targetUuid = String(controlCheck.rows[0].id);
+    const controlReqs: string[] = controlCheck.rows[0].evidence_requirements || [];
+
+    let inputUrl = data.evidenceUrl;
+    if (inputUrl === "") {
+      inputUrl = null;
+    }
+
+    // Perform URL evidence fetching/parsing BEFORE opening DB transaction
+    let preParsedAnalysis: any = null;
+    let urlPromoteStatus = false;
+    if (inputUrl) {
+      const validation = validateEvidenceUrl(inputUrl);
+      if (!validation.valid) {
+        return res.status(400).json({ success: false, error: validation.error });
+      }
+      try {
+        const parsedFromUrl = await fetchAndParseEvidenceFromUrl(inputUrl, controlReqs);
+        if (parsedFromUrl && parsedFromUrl.success && parsedFromUrl.isValidTemplate) {
+          preParsedAnalysis = parsedFromUrl;
+          urlPromoteStatus = true;
+        }
+      } catch (urlErr) {
+        console.error("[crc-assess] Error auto-parsing evidence URL:", urlErr);
+      }
+    }
+
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      // Verify control exists and is published
-      const controlCheck = await client.query(
-        "SELECT id, control_id FROM crc_controls WHERE (id::text = $1 OR control_id = $1) AND status = 'Published'",
-        [data.controlId]
-      );
-      if (controlCheck.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ success: false, error: "Control not found or not published" });
-      }
-
-      const targetControlCode = controlCheck.rows[0].control_id;
-      const targetUuid = String(controlCheck.rows[0].id);
-
       const existing = await reconcileCrcResponse(client, projectId, targetUuid, targetControlCode);
 
       let currentStatus = data.evidenceStatus !== undefined ? data.evidenceStatus : (existing ? existing.evidence_status : 'No Evidence');
-      
-      let inputUrl = data.evidenceUrl;
-      if (inputUrl === "") {
-        inputUrl = null;
-      }
       let currentUrl = inputUrl !== undefined ? inputUrl : (existing ? existing.evidence_url : null);
       let currentAuditReady = data.auditReady !== undefined ? data.auditReady : (existing ? existing.audit_ready : false);
 
@@ -1343,15 +1362,6 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         currentAuditReady = false;
       }
 
-      // Validate evidence URL format if provided
-      if (currentUrl) {
-        const validation = validateEvidenceUrl(currentUrl);
-        if (!validation.valid) {
-          await client.query("ROLLBACK");
-          return res.status(400).json({ success: false, error: validation.error });
-        }
-      }
-
       if (currentAuditReady && !currentUrl) {
         await client.query("ROLLBACK");
         return res.status(400).json({
@@ -1360,25 +1370,9 @@ router.post("/assess/:projectId", authenticateToken, async (req, res) => {
         });
       }
 
-      // Auto-parse Evidence URL content if an evidenceUrl is provided or updated
-      let evidenceAnalysis: any = existing ? existing.evidence_analysis : null;
-      if (currentUrl) {
-        try {
-          const reqsRes = await client.query(
-            "SELECT evidence_requirements FROM crc_controls WHERE id = $1",
-            [targetUuid]
-          );
-          const controlReqs: string[] = reqsRes.rows[0]?.evidence_requirements || [];
-          const parsedFromUrl = await fetchAndParseEvidenceFromUrl(currentUrl, controlReqs);
-          if (parsedFromUrl) {
-            evidenceAnalysis = parsedFromUrl;
-            if (currentStatus === "No Evidence" || currentStatus === "Template Downloaded") {
-              currentStatus = "Evidence Complete";
-            }
-          }
-        } catch (urlErr) {
-          console.error("[crc-assess] Error auto-parsing evidence URL:", urlErr);
-        }
+      let evidenceAnalysis: any = preParsedAnalysis || (existing ? existing.evidence_analysis : null);
+      if (urlPromoteStatus && (currentStatus === "No Evidence" || currentStatus === "Template Downloaded")) {
+        currentStatus = "Evidence Complete";
       }
 
       // Upsert response using canonical UUID

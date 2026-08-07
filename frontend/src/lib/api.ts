@@ -1692,8 +1692,42 @@ class ApiService {
       evidenceUrl?: string | null;
       auditReady?: boolean;
     }
-  ): Promise<any> {
-    return this.request<any>(`/crc/assess/${projectId}`, {
+  ): Promise<{
+    success: boolean;
+    data?: {
+      id: string;
+      projectId: string;
+      controlId: string;
+      userId: string;
+      value: number;
+      notes: string;
+      evidenceStatus: CRCEvidenceStatus;
+      evidenceUrl: string | null;
+      auditReady: boolean;
+      evidenceAnalysis?: EvidenceAnalysis;
+      createdAt: string;
+      updatedAt: string;
+    };
+    error?: string;
+  }> {
+    return this.request<{
+      success: boolean;
+      data?: {
+        id: string;
+        projectId: string;
+        controlId: string;
+        userId: string;
+        value: number;
+        notes: string;
+        evidenceStatus: CRCEvidenceStatus;
+        evidenceUrl: string | null;
+        auditReady: boolean;
+        evidenceAnalysis?: EvidenceAnalysis;
+        createdAt: string;
+        updatedAt: string;
+      };
+      error?: string;
+    }>(`/crc/assess/${projectId}`, {
       method: "POST",
       body: JSON.stringify(data),
     });

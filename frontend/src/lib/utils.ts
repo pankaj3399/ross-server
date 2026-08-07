@@ -28,3 +28,12 @@ export const getDomainIcon = (title: string) => {
   }
   return IconFolder;
 };
+
+export function isControlAnswered(
+  responses: Record<string, any>,
+  control: { id: string; control_id?: string }
+): boolean {
+  if (!control || !responses) return false;
+  const r = responses[control.id] || (control.control_id ? responses[control.control_id] : undefined);
+  return r !== undefined && r.value !== null && r.value !== undefined;
+}

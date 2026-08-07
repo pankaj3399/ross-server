@@ -20,8 +20,9 @@ exports.up = (pgm) => {
 exports.down = (pgm) => {
   pgm.sql("DROP INDEX IF EXISTS unique_crc_risk_per_control_partial");
 
-  // Restore original constraint (note: may fail if duplicate NULLs already exist)
-  pgm.addConstraint("crc_risks", "unique_crc_risk_per_control", {
-    unique: ["project_id", "control_id"],
-  });
+  // Restore original constraint
+  pgm.sql(`
+    ALTER TABLE crc_risks
+    ADD CONSTRAINT unique_crc_risk_per_control UNIQUE NULLS NOT DISTINCT (project_id, control_id)
+  `);
 };
