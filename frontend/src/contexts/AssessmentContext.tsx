@@ -108,7 +108,7 @@ interface AssessmentContextType {
         status: CRCEvidenceStatus, 
         url?: string | null, 
         auditReady?: boolean
-    ) => Promise<void>;
+    ) => Promise<any>;
     uploadEvidenceFile: (controlId: string, file: File) => Promise<{ success: boolean; error?: string; analysis?: EvidenceAnalysis }>;
     saveAllNotes: (isSubmitting?: boolean) => Promise<boolean>;
     submitProject: () => Promise<void>;
@@ -697,7 +697,7 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
 
         setSaving(true);
         try {
-            await apiService.saveCRCResponse(projectId, {
+            const res = await apiService.saveCRCResponse(projectId, {
                 controlId,
                 value,
                 notes,
@@ -705,6 +705,22 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 evidenceUrl: finalUrl,
                 auditReady: finalAuditReady
             });
+            if (res && res.data) {
+                const savedData = res.data;
+                setCrcResponses(prev => ({
+                    ...prev,
+                    [controlId]: {
+                        value: savedData.value,
+                        notes: savedData.notes || "",
+                        evidenceStatus: savedData.evidenceStatus,
+                        evidenceUrl: savedData.evidenceUrl,
+                        auditReady: savedData.auditReady,
+                        evidenceAnalysis: savedData.evidenceAnalysis,
+                        updatedAt: savedData.updatedAt || new Date().toISOString()
+                    }
+                }));
+                return savedData;
+            }
         } catch (error: any) {
             console.error("Failed to save evidence status:", error);
             // Rollback optimistic update

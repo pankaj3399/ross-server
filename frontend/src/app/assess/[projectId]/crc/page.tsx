@@ -6,6 +6,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { safeRenderHTML } from "@/lib/htmlUtils";
 import { showToast } from "@/lib/toast";
+import { isControlAnswered } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
   IconArrowLeft,
@@ -261,6 +262,18 @@ export default function CRCAssessmentPage() {
     }
   };
 
+  // Category-wise progress
+  const currentCategoryControls = useMemo(() => {
+    if (!currentControl) return [];
+    return controls.filter(
+      (c) => c.category_name === currentControl.category_name || c.category_id === currentControl.category_id
+    );
+  }, [controls, currentControl]);
+
+  const currentCategoryAnswered = useMemo(() => {
+    return currentCategoryControls.filter((c) => isControlAnswered(responses, c)).length;
+  }, [currentCategoryControls, responses]);
+
   // --- Premium Gate Conditional ---
   if (!authLoading && !contextLoading && user && !isPremium) {
     return (
@@ -281,11 +294,12 @@ export default function CRCAssessmentPage() {
 
   // Progress
   const totalControls = controls.length;
-  const answeredControls = controls.filter((ctrl) => {
-    const r = responses[ctrl.id];
-    return r && Number.isFinite(r.value);
-  }).length;
+  const answeredControls = controls.filter((ctrl) => isControlAnswered(responses, ctrl)).length;
   const progress = totalControls > 0 ? (answeredControls / totalControls) * 100 : 0;
+
+  const categoryProgress = currentCategoryControls.length > 0
+    ? (currentCategoryAnswered / currentCategoryControls.length) * 100
+    : 0;
 
   if (authLoading || contextLoading) {
     return <AssessmentSkeleton />;
@@ -416,14 +430,19 @@ export default function CRCAssessmentPage() {
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="mt-2 w-full">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Assessment Progress
-                </span>
+            {/* Progress Bar & Category Markers */}
+            <div className="mt-2 w-full space-y-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    Category Progress ({currentControl?.category_name}):
+                  </span>
+                  <span className="text-[10px] font-bold text-[var(--section-premium)] font-mono bg-[var(--section-premium)]/10 px-1.5 py-0.5 rounded border border-[var(--section-premium)]/20">
+                    {currentCategoryAnswered}/{currentCategoryControls.length} Controls ({Math.round(categoryProgress)}%)
+                  </span>
+                </div>
                 <span className="text-[10px] font-bold text-foreground">
-                  {answeredControls}/{totalControls} Controls ({Math.round(progress)}%)
+                  Overall: {answeredControls}/{totalControls} Controls ({Math.round(progress)}%)
                 </span>
               </div>
               <div className="w-full bg-secondary dark:bg-zinc-800 rounded-full h-1.5 overflow-hidden">
@@ -950,19 +969,10 @@ export default function CRCAssessmentPage() {
                               const newStatus = e.target.value as any;
                               const trimmedUrl = (urlInput || "").trim();
 
-                              if (newStatus === "Evidence Complete" && !trimmedUrl) {
-                                showToast.error("Please provide an Evidence URL before setting status to 'Evidence Complete'.");
-                                try {
-                                  await handleEvidenceStatusChange(currentControl.id, "Evidence in Progress");
-                                } catch (err) {}
-                                setTimeout(() => {
-                                  document.getElementById("evidence-url-input")?.focus();
-                                }, 100);
-                                return;
-                              }
-
                               try {
-                                await handleEvidenceStatusChange(currentControl.id, newStatus, trimmedUrl || currentResponse?.evidenceUrl);
+                                const saved = await handleEvidenceStatusChange(currentControl.id, newStatus, trimmedUrl || currentResponse?.evidenceUrl);
+                                const savedStatus = saved?.evidenceStatus || newStatus;
+                                showToast.success(`Evidence status set to '${savedStatus}'`);
                               } catch (err) {
                                 // Handled in context
                               }
@@ -1073,18 +1083,25 @@ export default function CRCAssessmentPage() {
                               if (urlInput === (currentResponse?.evidenceUrl || "")) return;
                               const finalUrl = urlInput.trim() === "" ? null : urlInput.trim();
                               let targetStatus = currentResponse?.evidenceStatus || "No Evidence";
-                              if (finalUrl && targetStatus === "No Evidence") {
-                                targetStatus = "Evidence in Progress";
+                              if (finalUrl && (targetStatus === "No Evidence" || targetStatus === "Template Downloaded")) {
+                                targetStatus = "Evidence Complete";
                               } else if (!finalUrl && targetStatus === "Evidence Complete") {
-                                targetStatus = "Evidence in Progress";
+                                targetStatus = "No Evidence";
                               }
                               try {
-                                await handleEvidenceStatusChange(
+                                const saved = await handleEvidenceStatusChange(
                                   currentControl.id, 
                                   targetStatus, 
                                   finalUrl
                                 );
-                                showToast.success("Evidence URL saved");
+                                const analysis = saved?.evidenceAnalysis;
+                                if (analysis && analysis.success) {
+                                  showToast.success("Evidence URL saved and analyzed successfully");
+                                } else if (analysis && !analysis.success && analysis.validationErrors?.[0]) {
+                                  showToast.warning(`Evidence URL saved: ${analysis.validationErrors[0]}`);
+                                } else {
+                                  showToast.success("Evidence URL saved");
+                                }
                               } catch (err) {
                                 setUrlInput(currentResponse?.evidenceUrl || "");
                               }

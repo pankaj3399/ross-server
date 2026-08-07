@@ -1692,8 +1692,42 @@ class ApiService {
       evidenceUrl?: string | null;
       auditReady?: boolean;
     }
-  ): Promise<{ success: boolean }> {
-    return this.request<{ success: boolean }>(`/crc/assess/${projectId}`, {
+  ): Promise<{
+    success: boolean;
+    data?: {
+      id: string;
+      projectId: string;
+      controlId: string;
+      userId: string;
+      value: number;
+      notes: string;
+      evidenceStatus: CRCEvidenceStatus;
+      evidenceUrl: string | null;
+      auditReady: boolean;
+      evidenceAnalysis?: EvidenceAnalysis;
+      createdAt: string;
+      updatedAt: string;
+    };
+    error?: string;
+  }> {
+    return this.request<{
+      success: boolean;
+      data?: {
+        id: string;
+        projectId: string;
+        controlId: string;
+        userId: string;
+        value: number;
+        notes: string;
+        evidenceStatus: CRCEvidenceStatus;
+        evidenceUrl: string | null;
+        auditReady: boolean;
+        evidenceAnalysis?: EvidenceAnalysis;
+        createdAt: string;
+        updatedAt: string;
+      };
+      error?: string;
+    }>(`/crc/assess/${projectId}`, {
       method: "POST",
       body: JSON.stringify(data),
     });
@@ -2013,6 +2047,12 @@ class ApiService {
   public async revokeProjectInvitation(projectId: string, invitationId: string): Promise<any> {
     return this.request(`/projects/${projectId}/invitations/${invitationId}`, {
       method: "DELETE",
+    });
+  }
+
+  public async resendProjectInvitation(projectId: string, invitationId: string): Promise<any> {
+    return this.request(`/projects/${projectId}/invitations/${invitationId}/resend`, {
+      method: "POST",
     });
   }
 

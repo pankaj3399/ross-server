@@ -13,6 +13,7 @@ import {
   revokeInvitation,
 } from "../services/projectInvitationService";
 import { emailService } from "../services/emailService";
+import { notificationService } from "../services/notificationService";
 import { recordEvent } from "../services/auditLogService";
 
 // Initialize Gemini client only if configured
@@ -856,14 +857,24 @@ router.post(
         return res.status(400).json({ error: "A pending invitation already exists for this email." });
       }
 
-      // Send email (best-effort)
-      const inviteUrl = `${process.env.FRONTEND_URL}/invite/accept?token=${invitation.token}`;
+      // Send email
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+      const inviteUrl = `${frontendBase}/invite/accept?token=${invitation.token}`;
       const inviterName = req.user!.email;
-      emailService
-        .sendProjectInvitation(email, project.name, inviterName, inviteUrl)
-        .catch((err) => {
-          console.error("Failed to send project invitation email:", err);
-        });
+
+      const emailSent = await emailService.sendProjectInvitation(
+        email,
+        project.name,
+        inviterName,
+        inviteUrl,
+      );
+
+      if (emailSent) {
+        await pool.query(
+          "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
+          [invitation.id]
+        );
+      }
 
       await recordEvent({
         projectId: project.id,
@@ -871,7 +882,7 @@ router.post(
         action: "project.invitation.created",
         objectType: "INVITATION",
         objectId: invitation.id,
-        metadata: { email, role },
+        metadata: { email, role, emailSent },
       });
 
       res.status(201).json({
@@ -949,6 +960,66 @@ router.delete(
     } catch (error) {
       console.error("Error revoking project invitation:", error);
       res.status(500).json({ error: "Failed to revoke invitation" });
+    }
+  },
+);
+
+// Resend invitation email
+router.post(
+  "/:projectId/invitations/:invitationId/resend",
+  authenticateToken,
+  loadProject,
+  requireActiveProject,
+  requireProjectRole(["OWNER"]),
+  async (req, res) => {
+    try {
+      const { projectId, invitationId } = req.params;
+      const project = req.project as { id: string; name: string };
+      const inviterName = req.user!.email;
+
+      const inviteResult = await pool.query(
+        `SELECT id, email, token, status, expires_at 
+         FROM project_invitations 
+         WHERE id = $1 AND project_id = $2`,
+        [invitationId, projectId]
+      );
+
+      if (inviteResult.rows.length === 0) {
+        return res.status(404).json({ error: "Invitation not found." });
+      }
+
+      const inv = inviteResult.rows[0];
+      const isExpired = inv.expires_at && new Date(inv.expires_at) < new Date();
+      if (!["pending", "sent"].includes(inv.status) || isExpired) {
+        return res.status(400).json({ error: "Invitation is no longer pending or has expired." });
+      }
+
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+      const inviteUrl = `${frontendBase}/invite/accept?token=${inv.token}`;
+
+      const emailSent = await emailService.sendProjectInvitation(
+        inv.email,
+        project.name,
+        inviterName,
+        inviteUrl
+      );
+
+      if (emailSent) {
+        await pool.query(
+          "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
+          [inv.id]
+        );
+      }
+
+      res.json({
+        message: emailSent
+          ? "Invitation email sent successfully"
+          : "Failed to send invitation email",
+        emailSent,
+      });
+    } catch (error) {
+      console.error("Error resending project invitation:", error);
+      res.status(500).json({ error: "Failed to resend invitation email" });
     }
   },
 );

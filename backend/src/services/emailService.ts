@@ -20,12 +20,14 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
+    const user = process.env.GMAIL_USER;
+    const pass = process.env.GMAIL_APP_PASSWORD;
+    if (!user || !pass) {
+      console.warn("[EmailService] GMAIL_USER or GMAIL_APP_PASSWORD missing in ENV variables.");
+    }
     this.transporter = nodemailer.createTransport({
       service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
+      auth: { user, pass },
     });
   }
 
@@ -34,8 +36,11 @@ class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
+      const fromEmail = process.env.GMAIL_USER || "noreply@matur.ai";
+      const fromName = "MATUR.ai";
+
       const mailOptions = {
-        from: `"MATUR.ai" <${process.env.GMAIL_USER}>`,
+        from: `"${fromName}" <${fromEmail}>`,
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -339,48 +344,14 @@ class EmailService {
     const safeProjectName = escapeHtml(projectName);
     const safeInviterName = escapeHtml(inviterName);
 
-    // Validate and normalize the invite URL to prevent javascript: URIs or malformed values
-    let normalizedInviteUrl: string;
+    let normalizedInviteUrl = inviteUrl;
     try {
       const parsed = new URL(inviteUrl);
-
-      const isLocalhost =
-        parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-      const allowInsecureLocal =
-        process.env.NODE_ENV !== "production" ||
-        process.env.ALLOW_INSECURE_URLS === "true";
-
-      // Require a safe protocol and a valid hostname.
-      // In non-production (or when ALLOW_INSECURE_URLS is true), allow http for localhost-style URLs.
-      const isHttps = parsed.protocol === "https:";
-      const isAllowedLocalHttp =
-        parsed.protocol === "http:" && isLocalhost && allowInsecureLocal;
-
-      if (!parsed.hostname || (!isHttps && !isAllowedLocalHttp)) {
-        throw new Error("Unsafe invitation URL");
+      if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+        normalizedInviteUrl = parsed.toString();
       }
-
-      normalizedInviteUrl = parsed.toString();
     } catch {
-      const fallbackBase =
-        process.env.FRONTEND_URL || "https://app.matur.ai";
-      try {
-        const base = new URL(fallbackBase);
-
-        // Best effort: if the original inviteUrl parses relative to the base,
-        // preserve its path/query while anchoring to the trusted FRONTEND_URL host.
-        try {
-          const relative = new URL(inviteUrl, base);
-          normalizedInviteUrl = new URL(
-            relative.pathname + relative.search + relative.hash,
-            base,
-          ).toString();
-        } catch {
-          normalizedInviteUrl = base.toString();
-        }
-      } catch {
-        normalizedInviteUrl = "https://app.matur.ai";
-      }
+      normalizedInviteUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}`;
     }
 
     const safeInviteUrlText = escapeHtml(normalizedInviteUrl);
