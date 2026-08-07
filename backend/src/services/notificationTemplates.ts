@@ -65,16 +65,10 @@ function getSafeOrigin(urlStr: string, fallback: string): string {
  */
 function getFooterUrls(userId: string, type: string) {
   const token = generateUnsubscribeToken(userId, type);
-  const rawBackend = process.env.BACKEND_URL || "http://localhost:4000";
-  const rawFrontend = process.env.FRONTEND_URL || "http://localhost:3000";
-  
-  const backendUrl = getSafeOrigin(rawBackend, "http://localhost:4000");
-  const frontendUrl = getSafeOrigin(rawFrontend, "http://localhost:3000");
-  
-  const appOrigin = process.env.FRONTEND_URL || frontendUrl;
+  const frontendUrl = getSafeOrigin(process.env.FRONTEND_URL || "http://localhost:3000", "http://localhost:3000");
 
   return {
-    unsubscribeUrl: `${appOrigin}/notifications/unsubscribe/${encodeURIComponent(token)}`,
+    unsubscribeUrl: `${frontendUrl}/notifications/unsubscribe/${encodeURIComponent(token)}`,
     preferencesUrl: `${frontendUrl}/settings?tab=notifications`,
     privacyUrl: `${frontendUrl}/privacy`,
   };

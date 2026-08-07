@@ -5,7 +5,7 @@ import { isAnthropicConfigured, callClaudeJSON } from "./anthropicClient";
 import { getMembership } from "./projectMembershipService";
 
 const LANGFAIR_SERVICE_URL = process.env.LANGFAIR_SERVICE_URL;
-const LANGFAIR_TIMEOUT_MS = parseInt(process.env.LANGFAIR_TIMEOUT_MS || "30000", 10); // Default 30 seconds
+const LANGFAIR_TIMEOUT_MS = 30000; // 30 seconds
 
 export type EvaluationPayload = {
     id: string;

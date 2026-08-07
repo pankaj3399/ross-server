@@ -857,41 +857,22 @@ router.post(
         return res.status(400).json({ error: "A pending invitation already exists for this email." });
       }
 
-      // Send email (best-effort with queue fallback)
-      const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
-      const cleanBase = frontendBase.replace(/\/$/, "");
-      const inviteUrl = `${cleanBase}/invite/accept?token=${invitation.token}`;
+      // Send email
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+      const inviteUrl = `${frontendBase}/invite/accept?token=${invitation.token}`;
       const inviterName = req.user!.email;
 
-      let emailSent = false;
-      try {
-        emailSent = await emailService.sendProjectInvitation(
-          email,
-          project.name,
-          inviterName,
-          inviteUrl,
-        );
-      } catch (err) {
-        console.error("Failed to send project invitation email:", err);
-      }
+      const emailSent = await emailService.sendProjectInvitation(
+        email,
+        project.name,
+        inviterName,
+        inviteUrl,
+      );
 
       if (emailSent) {
         await pool.query(
           "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
           [invitation.id]
-        );
-      } else {
-        console.warn(`[Invitation] Direct email send failed for invitationId ${invitation.id} in project ${project.id}. Queueing notification for background retry.`);
-        await notificationService.queueNotification(
-          inviterId,
-          project.id,
-          "project_invitation",
-          {
-            to: email,
-            subject: `You've been invited to a MATUR.ai project: ${project.name}`,
-            html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
-            text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
-          }
         );
       }
 
@@ -1013,45 +994,27 @@ router.post(
         return res.status(400).json({ error: "Invitation is no longer pending or has expired." });
       }
 
-      const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
-      const cleanBase = frontendBase.replace(/\/$/, "");
-      const inviteUrl = `${cleanBase}/invite/accept?token=${inv.token}`;
+      const frontendBase = (process.env.FRONTEND_URL || "http://localhost:3000").replace(/\/$/, "");
+      const inviteUrl = `${frontendBase}/invite/accept?token=${inv.token}`;
 
-      let emailSent = false;
-      try {
-        emailSent = await emailService.sendProjectInvitation(
-          inv.email,
-          project.name,
-          inviterName,
-          inviteUrl
-        );
-      } catch (err) {
-        console.error("Error sending project invitation email:", err);
-      }
+      const emailSent = await emailService.sendProjectInvitation(
+        inv.email,
+        project.name,
+        inviterName,
+        inviteUrl
+      );
 
       if (emailSent) {
         await pool.query(
           "UPDATE project_invitations SET status = 'sent' WHERE id = $1",
           [inv.id]
         );
-      } else {
-        await notificationService.queueNotification(
-          req.user!.id,
-          project.id,
-          "project_invitation",
-          {
-            to: inv.email,
-            subject: `You've been invited to a MATUR.ai project: ${project.name}`,
-            html: `<p>You have been invited by <strong>${inviterName}</strong> to collaborate on the project <strong>${project.name}</strong> on MATUR.ai.</p><p><a href="${inviteUrl}">Click here to accept invitation</a></p>`,
-            text: `You have been invited by ${inviterName} to collaborate on ${project.name}. Accept here: ${inviteUrl}`,
-          }
-        );
       }
 
       res.json({
         message: emailSent
           ? "Invitation email sent successfully"
-          : "Invitation email queued for retry",
+          : "Failed to send invitation email",
         emailSent,
       });
     } catch (error) {
