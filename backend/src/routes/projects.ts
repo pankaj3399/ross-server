@@ -858,11 +858,7 @@ router.post(
       }
 
       // Send email (best-effort with queue fallback)
-      const frontendBase =
-        process.env.FRONTEND_URL ||
-        process.env.PUBLIC_URL ||
-        process.env.APP_URL ||
-        "http://localhost:3000";
+      const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
       const cleanBase = frontendBase.replace(/\/$/, "");
       const inviteUrl = `${cleanBase}/invite/accept?token=${invitation.token}`;
       const inviterName = req.user!.email;
@@ -1017,11 +1013,7 @@ router.post(
         return res.status(400).json({ error: "Invitation is no longer pending or has expired." });
       }
 
-      const frontendBase =
-        process.env.FRONTEND_URL ||
-        process.env.PUBLIC_URL ||
-        process.env.APP_URL ||
-        "http://localhost:3000";
+      const frontendBase = process.env.FRONTEND_URL || "http://localhost:3000";
       const cleanBase = frontendBase.replace(/\/$/, "");
       const inviteUrl = `${cleanBase}/invite/accept?token=${inv.token}`;
 
