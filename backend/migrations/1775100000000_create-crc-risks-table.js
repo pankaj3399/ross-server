@@ -24,11 +24,11 @@ exports.up = (pgm) => {
       references: "crc_controls(id)",
       onDelete: "CASCADE",
     },
-    risk_code: { // New sequential Risk ID column (e.g. CRC-001)
+    risk_code: { // Sequential Risk ID (e.g. CRC-1, CRC-1000) — no fixed-width lpad (truncates past 999)
       type: "varchar(20)",
       unique: true,
       notNull: true,
-      default: pgm.func("'CRC-' || lpad(nextval('crc_risks_seq')::text, 3, '0')"),
+      default: pgm.func("'CRC-' || nextval('crc_risks_seq')::text"),
     },
     title: {
       type: "varchar(300)",

@@ -2026,69 +2026,43 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
 
     const targetDate = data.target_date ? new Date(data.target_date) : null;
 
-    // Use a transaction to sync the sequence and insert with collision retry
+    // Sync sequence under lock, then insert (risk_code comes from column default)
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      // Sync crc_risks_seq to avoid risk_code collisions (same pattern as wizard)
       await client.query("SELECT pg_advisory_xact_lock(hashtext('crc_risks_seq_sync'))");
-      
-      const maxValRes = await client.query(`
-        SELECT COALESCE(MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint), 0) AS max_val
-        FROM crc_risks
+      await client.query(`
+        SELECT setval('crc_risks_seq', max_val)
+        FROM (
+          SELECT COALESCE(MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint), 0) AS max_val
+          FROM crc_risks
+        ) m
+        WHERE max_val > (SELECT last_value FROM crc_risks_seq)
       `);
-      const maxVal = Number(maxValRes.rows[0]?.max_val || 0);
-      if (maxVal === 0) {
-        await client.query(`SELECT setval('crc_risks_seq', 1, false)`);
-      } else {
-        await client.query(`SELECT setval('crc_risks_seq', $1, true)`, [maxVal]);
-      }
 
-      let insertedRow = null;
-      let attempts = 0;
-      const maxAttempts = 5;
-
-      while (!insertedRow && attempts < maxAttempts) {
-        attempts++;
-        await client.query("SAVEPOINT manual_risk_insert");
-        try {
-          const result = await client.query(
-            `INSERT INTO crc_risks (
-              project_id, control_id, title, category, rating, status, description,
-              mitigation_plan, owner, target_date, review_frequency, source
-            )
-            VALUES ($1, NULL, $2, $3, $4, 'Open', $5, $6, $7, $8, $9, 'Manual')
-            RETURNING *`,
-            [
-              projectId,
-              data.title,
-              data.category,
-              data.rating,
-              data.description,
-              data.mitigation_plan,
-              data.owner,
-              targetDate,
-              data.review_frequency
-            ]
-          );
-          await client.query("RELEASE SAVEPOINT manual_risk_insert");
-          insertedRow = result.rows[0];
-        } catch (insertErr: any) {
-          await client.query("ROLLBACK TO SAVEPOINT manual_risk_insert");
-          if (insertErr?.code === "23505" && attempts < maxAttempts) {
-            await client.query(
-              `SELECT setval('crc_risks_seq', (SELECT MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint) + $1 FROM crc_risks))`,
-              [attempts]
-            );
-          } else {
-            throw insertErr;
-          }
-        }
-      }
+      const result = await client.query(
+        `INSERT INTO crc_risks (
+          project_id, control_id, title, category, rating, status, description,
+          mitigation_plan, owner, target_date, review_frequency, source
+        )
+        VALUES ($1, NULL, $2, $3, $4, 'Open', $5, $6, $7, $8, $9, 'Manual')
+        RETURNING *`,
+        [
+          projectId,
+          data.title,
+          data.category,
+          data.rating,
+          data.description,
+          data.mitigation_plan,
+          data.owner,
+          targetDate,
+          data.review_frequency
+        ]
+      );
 
       await client.query("COMMIT");
-      res.status(201).json({ success: true, data: insertedRow });
+      res.status(201).json({ success: true, data: result.rows[0] });
     } catch (txError: any) {
       await client.query("ROLLBACK");
       throw txError;
