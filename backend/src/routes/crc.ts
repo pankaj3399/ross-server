@@ -2044,7 +2044,8 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
       } else {
         await client.query(`
           SELECT setval('crc_risks_seq', $1, true)
-          WHERE $1 > (SELECT last_value FROM crc_risks_seq)
+          FROM crc_risks_seq s
+          WHERE $1 > s.last_value OR ($1 = s.last_value AND NOT s.is_called)
         `, [maxVal]);
       }
 
@@ -2079,7 +2080,11 @@ router.post("/risks/:projectId", authenticateToken, async (req, res) => {
           insertedRow = result.rows[0];
         } catch (insertErr: any) {
           await client.query("ROLLBACK TO SAVEPOINT manual_risk_insert");
-          if (insertErr?.code === "23505" && attempts < maxAttempts) {
+          const isRiskCodeConflict =
+            insertErr?.constraint === "crc_risks_risk_code_key" ||
+            Boolean(insertErr?.detail?.includes("risk_code"));
+
+          if (insertErr?.code === "23505" && isRiskCodeConflict && attempts < maxAttempts) {
             await client.query(`
               SELECT setval('crc_risks_seq', GREATEST(
                 (SELECT COALESCE(MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint), 0) FROM crc_risks),

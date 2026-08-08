@@ -443,12 +443,12 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
       // Global transaction-level lock to prevent concurrent rewinds of the sequence
       await client.query("SELECT pg_advisory_xact_lock(hashtext('crc_risks_seq_sync'))");
       await client.query(`
-        SELECT setval('crc_risks_seq', max_val)
+        SELECT setval('crc_risks_seq', max_val, true)
         FROM (
           SELECT COALESCE(MAX(NULLIF(regexp_replace(risk_code, '[^0-9]', '', 'g'), '')::bigint), 0) AS max_val 
           FROM crc_risks
-        ) m
-        WHERE max_val > (SELECT last_value FROM crc_risks_seq)
+        ) m, crc_risks_seq s
+        WHERE m.max_val > s.last_value OR (m.max_val = s.last_value AND NOT s.is_called)
       `);
     }
 
