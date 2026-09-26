@@ -139,6 +139,23 @@ async function uploadControls() {
   
   const headers = allRows[0];
   const dataRows = allRows.slice(1);
+
+  // Build normalized header index map for dynamic column resolution (F9 & B37/B24)
+  const headerMap = new Map<string, number>();
+  headers.forEach((h, i) => {
+    const normalized = (h || "").toLowerCase().trim().replace(/[\s_-]+/g, "_");
+    if (normalized) headerMap.set(normalized, i);
+  });
+
+  const getCol = (row: string[], aliases: string[], fallbackIdx: number): string => {
+    for (const alias of aliases) {
+      const idx = headerMap.get(alias);
+      if (idx !== undefined && row[idx] !== undefined && row[idx] !== "") {
+        return row[idx];
+      }
+    }
+    return row[fallbackIdx] || "";
+  };
   
   const validRows: ControlRow[] = [];
   const invalidRows: { index: number; data: any; errors: any }[] = [];
@@ -150,22 +167,22 @@ async function uploadControls() {
       if (row.length < 5) return; // Skip empty/incomplete rows
       
       const rawData = {
-        control_id: row[1],
-        control_title: row[2],
-        category_name: row[3],
-        priority: row[4],
-        control_statement: row[5],
-        control_objective: row[6],
-        implementation: parseImplementation(row[7] || ""),
-        evidence_requirements: (row[8] || "").split(/\r?\n|☐/).map(s => s.trim()).filter(s => s.length > 2),
+        control_id: getCol(row, ["control_id", "id", "control_identifier"], 1),
+        control_title: getCol(row, ["control_title", "title", "name", "control_name"], 2),
+        category_name: getCol(row, ["category_name", "category", "domain"], 3),
+        priority: getCol(row, ["priority", "level", "severity"], 4),
+        control_statement: getCol(row, ["control_statement", "statement", "description"], 5),
+        control_objective: getCol(row, ["control_objective", "objective", "goal"], 6),
+        implementation: parseImplementation(getCol(row, ["implementation", "implementation_guidance", "guidance"], 7)),
+        evidence_requirements: getCol(row, ["evidence_requirements", "evidence", "artifacts"], 8).split(/\r?\n|☐/).map(s => s.trim()).filter(s => s.length > 2),
         compliance_mapping: {
-          eu_ai_act: parseCompliance(row[9] || ""),
-          nist_ai_rmf: parseCompliance(row[10] || ""),
-          iso_42001: parseCompliance(row[11] || ""),
+          eu_ai_act: parseCompliance(getCol(row, ["eu_ai_act", "eu_ai_act_mapping", "eu_mapping"], 9)),
+          nist_ai_rmf: parseCompliance(getCol(row, ["nist_ai_rmf", "nist_mapping", "nist"], 10)),
+          iso_42001: parseCompliance(getCol(row, ["iso_42001", "iso_mapping", "iso"], 11)),
         },
-        risk_description: row[13],
-        aima_mapping: parseAima(row[12] || ""),
-        expected_timeline: row[16],
+        risk_description: getCol(row, ["risk_description", "risk", "risk_desc", "risk_statement"], 13),
+        aima_mapping: parseAima(getCol(row, ["aima_mapping", "aima", "aima_matrix"], 12)),
+        expected_timeline: getCol(row, ["expected_timeline", "timeline", "target_timeline"], 16),
       };
       
       const validation = rowSchema.safeParse(rawData);

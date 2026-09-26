@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "./AuthContext";
 import { useRequireAuth } from "../hooks/useRequireAuth";
 import {
@@ -207,10 +207,11 @@ const sortDomainsByPriority = (domains: DomainWithLevels[]) => {
 
 export const AssessmentProvider = ({ children }: { children: React.ReactNode }) => {
     const params = useParams();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { isAuthenticated, user, loading: userLoading } = useAuth();
     const { loading: authLoading } = useRequireAuth();
-    const projectId = params.projectId as string;
+    const projectId = (params?.projectId as string) || (searchParams?.get("projectId") as string) || "";
 
     const [domains, setDomains] = useState<DomainWithLevels[]>([]);
     const [answers, setAnswers] = useState<Record<string, number>>({});

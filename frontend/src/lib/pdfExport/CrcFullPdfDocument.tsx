@@ -6,7 +6,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import { FullPdfData } from "./pdfExportTypes";
+import { FullPdfData, humanize } from "./pdfExportTypes";
 
 // --- Design Tokens ---
 const colors = {
@@ -367,15 +367,17 @@ const styles = StyleSheet.create({
 // --- Formatting Helpers ---
 const getTrafficLightColor = (percentage: number | null): string => {
   if (percentage === null) return colors.gray;
-  if (percentage >= 60) return colors.green;
-  if (percentage >= 30) return colors.amber;
+  if (percentage >= 90) return colors.green;
+  if (percentage >= 75) return colors.green;
+  if (percentage >= 55) return colors.amber;
   return colors.red;
 };
 
 const getTrafficLightBg = (percentage: number | null): string => {
   if (percentage === null) return colors.muted;
-  if (percentage >= 60) return colors.greenBg;
-  if (percentage >= 30) return colors.amberBg;
+  if (percentage >= 90) return colors.greenBg;
+  if (percentage >= 75) return colors.greenBg;
+  if (percentage >= 55) return colors.amberBg;
   return colors.redBg;
 };
 
@@ -467,11 +469,11 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>System Scope</Text>
-              <Text style={styles.metaValue}>{systemProfile.data.governanceScope}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.data.governanceScope)}</Text>
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>EU Risk Tier</Text>
-              <Text style={styles.metaValue}>{systemProfile.data.euRiskTier}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.data.euRiskTier)}</Text>
             </View>
           </View>
         </View>
@@ -496,27 +498,27 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
           <View style={styles.profileGrid}>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Regulatory Role</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.regulatoryRole}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.regulatoryRole)}</Text>
             </View>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Automation Level</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.automationLevel}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.automationLevel)}</Text>
             </View>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Primary Use Case</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.useCase}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.useCase)}</Text>
             </View>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Scale</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.scale}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.scale)}</Text>
             </View>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Third-Party Models</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.usesThirdPartyModels}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.usesThirdPartyModels)}</Text>
             </View>
             <View style={styles.profileCol}>
               <Text style={styles.profileLabel}>Biometric Use</Text>
-              <Text style={styles.profileVal}>{systemProfile.data.biometricUse}</Text>
+              <Text style={styles.profileVal}>{humanize(systemProfile.data.biometricUse)}</Text>
             </View>
             <View style={[styles.profileCol, { width: "100%" }]}>
               <Text style={[styles.profileLabel, { width: "20%" }]}>EU Risk Reason</Text>
@@ -675,12 +677,12 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
               {componentInventory.components.map((comp, idx) => (
                 <View key={idx} style={styles.tableRow} wrap={false}>
                   <View style={styles.colCompName}><Text style={[styles.tbText, { fontWeight: "bold" }]}>{comp.componentName}</Text></View>
-                  <View style={styles.colCompType}><Text style={styles.tbText}>{comp.componentType}</Text></View>
+                  <View style={styles.colCompType}><Text style={styles.tbText}>{humanize(comp.componentType)}</Text></View>
                   <View style={styles.colCompProvider}><Text style={styles.tbText}>{comp.provider}</Text></View>
-                  <View style={styles.colCompRole}><Text style={styles.tbText}>{comp.roleInSystem}</Text></View>
+                  <View style={styles.colCompRole}><Text style={styles.tbText}>{humanize(comp.roleInSystem)}</Text></View>
                   <View style={styles.colCompRisk}>
                     <View style={[styles.badge, { backgroundColor: getRiskBg(comp.riskTier) }]}>
-                      <Text style={[styles.badgeText, { color: getRiskColor(comp.riskTier) }]}>{comp.riskTier}</Text>
+                      <Text style={[styles.badgeText, { color: getRiskColor(comp.riskTier) }]}>{humanize(comp.riskTier)}</Text>
                     </View>
                   </View>
                 </View>
@@ -719,10 +721,10 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
                   </View>
                   <View style={styles.colVendorRisk}>
                     <View style={[styles.badge, { backgroundColor: getRiskBg(vendor.riskTier) }]}>
-                      <Text style={[styles.badgeText, { color: getRiskColor(vendor.riskTier) }]}>{vendor.riskTier}</Text>
+                      <Text style={[styles.badgeText, { color: getRiskColor(vendor.riskTier) }]}>{humanize(vendor.riskTier)}</Text>
                     </View>
                   </View>
-                  <View style={styles.colVendorStatus}><Text style={styles.tbText}>{vendor.status}</Text></View>
+                  <View style={styles.colVendorStatus}><Text style={styles.tbText}>{humanize(vendor.status)}</Text></View>
                 </View>
               ))}
             </View>

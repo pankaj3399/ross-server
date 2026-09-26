@@ -293,8 +293,8 @@ router.post("/:projectId/component/:componentId/complete", authenticateToken, as
         ) VALUES ($1, $2, $3, 1, 'Satisfied via Vendor AI Risk Assessment.', 'Evidence Complete', $4, true)
         ON CONFLICT (project_id, control_id)
         DO UPDATE SET
-          evidence_status = 'Evidence Complete',
-          evidence_url = $4,
+          evidence_status = CASE WHEN crc_assessment_responses.value = 1 THEN 'Evidence Complete' ELSE crc_assessment_responses.evidence_status END,
+          evidence_url = CASE WHEN crc_assessment_responses.value = 1 THEN $4 ELSE crc_assessment_responses.evidence_url END,
           audit_ready = CASE WHEN crc_assessment_responses.value = 1 THEN true ELSE false END,
           updated_at = CURRENT_TIMESTAMP`,
         [projectId, ctrl.id, userId, evidenceUrl]

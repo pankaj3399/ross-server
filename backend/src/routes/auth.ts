@@ -370,6 +370,20 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    // Mandatory MFA enrollment check (F10)
+    if (!user.mfa_enabled) {
+      const tempToken = jwt.sign(
+        { userId: user.id, email: user.email, isMfaSetupToken: true },
+        process.env.JWT_SECRET!,
+        { expiresIn: "15m" }
+      );
+      return res.status(200).json({
+        requiresMfaSetup: true,
+        tempToken,
+        message: "MFA enrollment is mandatory. Please set up your authenticator app.",
+      });
+    }
+
     // Check MFA if enabled
     if (user.mfa_enabled) {
       if (!mfaCode && !backupCode) {
@@ -755,7 +769,36 @@ router.post("/verify-mfa-setup", authenticateToken, async (req, res) => {
       userId,
     ]);
 
-    res.json({ message: "MFA enabled successfully" });
+    const userResult = await pool.query(
+      "SELECT id, email, name, last_name, role, subscription_status, email_verified, mfa_enabled, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
+      [userId],
+    );
+    const user = userResult.rows[0];
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, emailVerified: true },
+      process.env.JWT_SECRET!,
+      { expiresIn: "7d" },
+    );
+
+    res.json({
+      message: "MFA enabled successfully",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        lastName: user.last_name,
+        role: user.role,
+        subscription_status: user.subscription_status,
+        email_verified: user.email_verified,
+        mfa_enabled: true,
+        trial_started_at: user.trial_started_at,
+        trial_ends_at: user.trial_ends_at,
+        trial_used: user.trial_used,
+        free_path_chosen_at: user.free_path_chosen_at,
+      },
+    });
   } catch (error) {
     console.error("MFA verification error:", error);
     if (error instanceof z.ZodError) {

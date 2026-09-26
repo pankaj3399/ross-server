@@ -7,7 +7,7 @@ export type LlmSecurityReview = {
   confidence?: number;
 };
 
-const LLM_REVIEW_ENABLED = process.env.SECURITY_LLM_JUDGE_ENABLED === "true";
+const LLM_REVIEW_ENABLED = process.env.SECURITY_LLM_JUDGE_ENABLED !== "false";
 const LLM_REVIEW_TIMEOUT_MS = Number(process.env.SECURITY_LLM_JUDGE_TIMEOUT_MS || 12000);
 
 export function shouldRunLlmReviewForSecurity(

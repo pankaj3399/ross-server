@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { PasswordStrengthIndicator } from "../../components/auth/PasswordStrengthIndicator";
+import { MFASetup } from "../../components/auth/MFASetup";
 import { IconEye, IconEyeOff, IconLoader2, IconUser, IconBuilding, IconMail, IconLock, IconArrowRight, IconInfoCircle } from "@tabler/icons-react";
 import { validatePassword, ALLOWED_SPECIAL_CHARS } from "../../lib/passwordValidation";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
-  const { login, register, mfaRequired, setMfaRequired } = useAuth();
+  const { login, register, mfaRequired, setMfaRequired, mfaSetupRequired, setMfaSetupRequired, mfaSetupToken, refreshUser } = useAuth();
   const [showRequirements, setShowRequirements] = useState(false);
   const router = useRouter();
 
@@ -102,6 +103,9 @@ export default function AuthPage() {
       if (err.message === "MFA_REQUIRED") {
         setMfaRequired(true);
         setError("");
+      } else if (err.message === "MFA_SETUP_REQUIRED") {
+        setMfaSetupRequired(true);
+        setError("");
       } else {
         setError(err.message || "An error occurred");
       }
@@ -132,12 +136,38 @@ export default function AuthPage() {
 
         {/* Center Form Container */}
         <div className="w-full max-w-md mx-auto my-auto py-2">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="mb-4"
-          >
+          {mfaSetupRequired ? (
+            <div className="space-y-4">
+              <div className="mb-2">
+                <h2 className="text-2xl font-bold mb-1 tracking-tight text-foreground">
+                  Security Setup Required
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  MFA enrollment is mandatory for all accounts. Please scan the QR code and enter your verification code below.
+                </p>
+              </div>
+              <MFASetup
+                tempToken={mfaSetupToken || undefined}
+                isMandatory={true}
+                onComplete={async () => {
+                  showToast.success("MFA successfully enabled!");
+                  await refreshUser();
+                  router.push(validateRedirect(redirectTo));
+                }}
+                onCancel={() => {
+                  setMfaSetupRequired(false);
+                  setError("");
+                }}
+              />
+            </div>
+          ) : (
+            <>
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="mb-4"
+              >
             <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
               {isLogin ? "Welcome Back" : "Create your account"}
             </h2>
@@ -508,7 +538,9 @@ export default function AuthPage() {
               </div>
             </div>
           </motion.div>
-        </div>
+        </>
+      )}
+    </div>
 
         {/* Bottom Footer Row */}
         <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">

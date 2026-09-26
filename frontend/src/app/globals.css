@@ -636,7 +636,7 @@ button:enabled,
 
   /* Section accent colors for sidebar */
   --section-free: #2d9924;
-  --section-premium: #fca800;
+  --section-premium: #b45309;
   --section-settings: var(--primary);
   --section-admin: #7523de;
 }
@@ -839,33 +839,39 @@ button:enabled,
   color: var(--section-free) !important;
 }
 
-/* --- Premium Section (Yellow) --- */
-/* Inactive State: Soft color-coded theme */
+/* --- Premium Section (Amber/Yellow) --- */
+/* Inactive State: Soft color-coded theme with accessible contrast */
 .sidebar-btn-premium {
-  color: rgba(252, 168, 0, 0.75) !important;
+  color: var(--section-premium) !important;
+  opacity: 0.85;
 }
 .sidebar-btn-premium svg {
-  color: rgba(252, 168, 0, 0.70) !important;
+  color: var(--section-premium) !important;
+  opacity: 0.85;
 }
 .sidebar-btn-premium:hover {
-  background-color: rgba(252, 168, 0, 0.08) !important;
+  background-color: color-mix(in srgb, var(--section-premium) 8%, transparent) !important;
   color: var(--section-premium) !important;
+  opacity: 1;
 }
 .sidebar-btn-premium:hover svg {
   color: var(--section-premium) !important;
+  opacity: 1;
 }
 /* Active State: Rich, full color themed highlight */
 .sidebar-btn-premium[data-active="true"] {
   border-left: 4px solid var(--section-premium) !important;
-  background-color: rgba(252, 168, 0, 0.12) !important;
+  background-color: color-mix(in srgb, var(--section-premium) 12%, transparent) !important;
   color: var(--section-premium) !important;
   font-weight: 700 !important;
+  opacity: 1;
   padding-left: 0.5rem !important;
   border-top-left-radius: 0 !important;
   border-bottom-left-radius: 0 !important;
 }
 .sidebar-btn-premium[data-active="true"] svg {
   color: var(--section-premium) !important;
+  opacity: 1;
 }
 
 /* --- Settings Section (Slate-Gray / Primary Blue) --- */

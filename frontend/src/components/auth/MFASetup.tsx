@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   IconShield,
@@ -20,10 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 interface MFASetupProps {
   onComplete: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  tempToken?: string;
+  isMandatory?: boolean;
 }
 
-export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
+export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel, tempToken, isMandatory }) => {
   const [step, setStep] = useState<"setup" | "verify">("setup");
   const [mfaData, setMfaData] = useState<{
     secret: string;
@@ -35,11 +37,11 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSetup = async () => {
+  const handleSetup = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const data = await apiService.setupMFA();
+      const data = await apiService.setupMFA(tempToken);
       setMfaData(data);
       setStep("verify");
     } catch (error: any) {
@@ -47,7 +49,13 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tempToken]);
+
+  useEffect(() => {
+    if (tempToken) {
+      handleSetup();
+    }
+  }, [tempToken, handleSetup]);
 
   const handleVerify = async () => {
     if (!mfaCode || mfaCode.length !== 6) {
@@ -58,7 +66,7 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
     try {
       setLoading(true);
       setError("");
-      await apiService.verifyMFASetup(mfaCode);
+      await apiService.verifyMFASetup(mfaCode, tempToken);
       onComplete();
     } catch (error: any) {
       setError(error.message || "Invalid MFA code");
@@ -118,6 +126,12 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onCancel }) => {
                 <li>• Enter the 6-digit code to complete setup</li>
               </ul>
             </div>
+
+            {error && (
+              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                {error}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button

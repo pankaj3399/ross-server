@@ -109,7 +109,13 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   const isSocialScoring = answers.use_case === "social_scoring";
   const isCognitiveManipulation = answers.use_case === "cognitive_behavioral_manipulation";
 
-  if (isEmotionInWorkplace || isPublicBiometricSpace || isSocialScoring || isCognitiveManipulation) {
+  const hasEUScope = 
+    geographic_scope.includes("eu_eea") || 
+    geographic_scope.includes("global") || 
+    geographic_scope.some(g => typeof g === "string" && (g.toLowerCase().includes("eu") || g.toLowerCase() === "global")) ||
+    answers.scale === "global_massive";
+
+  if (hasEUScope && (isEmotionInWorkplace || isPublicBiometricSpace || isSocialScoring || isCognitiveManipulation)) {
     eu_risk_tier = "UNACCEPTABLE";
     article5_warning = true;
     if (isEmotionInWorkplace) {
@@ -130,7 +136,10 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   else {
     const hasAnnexIIIDomains = annex_iii_domains.length > 0 && !annex_iii_domains.includes("none");
     const isCriticalUseCase = answers.use_case === "medical_diagnosis" || answers.use_case === "employment_hr" || answers.use_case === "critical_infrastructure";
-    const isSensitiveBiometrics = answers.biometric_use === "biometric_categorization" || answers.biometric_use === "verification_authentication";
+    const isSensitiveBiometrics = 
+      answers.biometric_use === "biometric_categorization" || 
+      answers.biometric_use === "biometric_identification" || 
+      answers.biometric_use === "public_spaces_identification";
     const affectsVulnerable = answers.affects_children === "yes";
 
     if (hasAnnexIIIDomains || isCriticalUseCase || isSensitiveBiometrics || affectsVulnerable) {
@@ -213,70 +222,131 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   }
   applicable_frameworks.push("ISO/IEC 42001"); // Always applicable for premium projects
 
+  const hasNISTScope = applicable_frameworks.includes("NIST AI RMF");
+  const hasISOScope = applicable_frameworks.includes("ISO/IEC 42001");
+
   // ==========================================
   // RULE SET 3: CRC Control Flagging
   // ==========================================
   const control_flags: Record<string, ControlFlag> = {};
   
+  const hasRealRef = (entries: any): boolean => {
+    if (!entries || !Array.isArray(entries) || entries.length === 0) return false;
+    return entries.some((e: any) => {
+      const ref = typeof e?.ref === "string" ? e.ref.trim().toUpperCase() : undefined;
+      return Boolean(ref && ref !== "N/A" && ref !== "NONE" && ref !== "NOT APPLICABLE");
+    });
+  };
+
+  const processesSensitiveData = (answers.data_categories || []).some(cat => {
+    const c = cat.toLowerCase();
+    return c.includes("biometric") || c.includes("health") || c.includes("personal") || c.includes("financial") || c.includes("special");
+  });
+  const isHighOrCritical = internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL" || eu_risk_tier === "HIGH";
+  const usesThirdParty = answers.uses_third_party_models === "yes";
+  const highAutomation =
+    answers.automation_level === "autonomous" ||
+    answers.automation_level === "semi_autonomous" ||
+    answers.automation_level === "full" ||
+    answers.automation_level === "high";
+  const hasRealAnnexIIIDomains = (answers.annex_iii_domains || []).some(d => d && d !== "none");
+  const affectsProtectedGroups = answers.affects_children === "yes" || hasRealAnnexIIIDomains;
+
   for (const control of controls) {
     const cid = control.control_id;
     const mapping = control.compliance_mapping || {};
     
-    const hasEU = mapping.eu_ai_act && Array.isArray(mapping.eu_ai_act) && mapping.eu_ai_act.length > 0;
-    const hasNIST = mapping.nist_ai_rmf && Array.isArray(mapping.nist_ai_rmf) && mapping.nist_ai_rmf.length > 0;
-    const hasISO = mapping.iso_42001 && Array.isArray(mapping.iso_42001) && mapping.iso_42001.length > 0;
+    const hasEU = hasRealRef(mapping.eu_ai_act);
+    const hasNIST = hasRealRef(mapping.nist_ai_rmf);
+    const hasISO = hasRealRef(mapping.iso_42001);
+
+    const isBaselineCore = cid.startsWith("GOV-01") || cid.startsWith("GOV-02") || cid.startsWith("DATA-01");
+    const isGov = cid.startsWith("GOV");
+    const isRisk = cid.startsWith("RSK") || cid.startsWith("RISK");
+    const isData = cid.startsWith("DAT") || cid.startsWith("DATA") || cid.startsWith("PRV") || cid.startsWith("PRIV");
+    const isFair = cid.startsWith("FAI") || cid.startsWith("FAIR") || cid.startsWith("BIAS");
+    const isVendor = cid.startsWith("VEN") || cid.startsWith("VEND") || cid.startsWith("SUP");
+    const isTrans = cid.startsWith("TRN") || cid.startsWith("TRANS") || cid.startsWith("HUM") || cid.startsWith("COMM");
+    const isVerif = cid.startsWith("VER") || cid.startsWith("VAL") || cid.startsWith("SEC") || cid.startsWith("CYB");
+    const isOps = cid.startsWith("OPS") || cid.startsWith("MON") || cid.startsWith("LOG") || cid.startsWith("INC");
 
     let flag: ControlFlag["flag"] = "OPTIONAL";
     let reason = "Optional control based on current system profile.";
 
-    const isBaselineCore = cid.startsWith("GOV-01") || cid.startsWith("GOV-02") || cid.startsWith("DATA-01");
-
-    // ISO 42001 rules
-    if (hasISO && applicable_frameworks.includes("ISO/IEC 42001")) {
-      if (answers.governance_scope === "organization") {
+    if (isGov) {
+      if (answers.governance_scope === "organization" && ((hasISO && hasISOScope) || (hasNIST && hasNISTScope))) {
         flag = "MANDATORY";
-        reason = "Mandatory for organizational AI management systems under ISO/IEC 42001.";
-      } else if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
+        reason = "Mandatory organizational AI management control under ISO/IEC 42001 & NIST AI RMF.";
+      } else if (isHighOrCritical) {
         flag = "MANDATORY";
-        reason = "Mandatory control under ISO/IEC 42001 for High/Critical risk profiles.";
-      } else if (internal_risk_tier === "MEDIUM" || isBaselineCore) {
+        reason = "Mandatory governance control for High/Critical risk profiles.";
+      } else {
         flag = "RECOMMENDED";
-        reason = "Recommended best practice for system-level AI governance under ISO/IEC 42001.";
+        reason = "Recommended baseline AI governance best practice.";
       }
-    }
-
-    // NIST AI RMF rules
-    if (hasNIST && applicable_frameworks.includes("NIST AI RMF")) {
-      if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
+    } else if (isRisk) {
+      if (isHighOrCritical && ((hasEU && hasEUScope) || (hasNIST && hasNISTScope))) {
         flag = "MANDATORY";
-        reason = "Mandatory control under NIST AI RMF for High or Critical risk profiles.";
-      } else if (internal_risk_tier === "MEDIUM" && flag !== "MANDATORY") {
+        reason = "Mandatory continuous risk management requirement under EU AI Act Article 9 / NIST AI RMF.";
+      } else {
         flag = "RECOMMENDED";
-        reason = "Recommended control under NIST AI RMF risk management guidelines.";
+        reason = "Recommended risk assessment and management control.";
       }
-    }
-
-    // EU AI Act rules (takes precedence)
-    if (hasEU && applicable_frameworks.includes("EU AI Act")) {
-      if (eu_risk_tier === "UNACCEPTABLE") {
+    } else if (isData) {
+      if ((processesSensitiveData || eu_risk_tier === "HIGH") && hasEU && hasEUScope) {
         flag = "MANDATORY";
-        reason = "Mandatory regulatory obligation for Unacceptable Risk AI systems under the EU AI Act.";
-      } else if (eu_risk_tier === "HIGH") {
+        reason = "Mandatory data governance control under EU AI Act Article 10 for sensitive and training data management.";
+      } else {
+        flag = "RECOMMENDED";
+        reason = "Recommended data quality and provenance management practice.";
+      }
+    } else if (isFair) {
+      if ((affectsProtectedGroups || eu_risk_tier === "HIGH") && hasEU && hasEUScope) {
         flag = "MANDATORY";
-        reason = "Mandatory regulatory obligation for High-Risk AI systems under the EU AI Act.";
-      } else if (eu_risk_tier === "LIMITED") {
-        if (cid.includes("COMM") || cid.includes("TRN") || cid.includes("GOV-CUST")) {
-          flag = "MANDATORY";
-          reason = "Mandatory Article 50 transparency control for Limited Risk systems under the EU AI Act.";
-        } else if (flag !== "MANDATORY") {
-          flag = "RECOMMENDED";
-          reason = "Recommended compliance alignment under the EU AI Act.";
-        }
-      } else if (internal_risk_tier === "HIGH" || internal_risk_tier === "CRITICAL") {
-        if (flag !== "MANDATORY") {
-          flag = "RECOMMENDED";
-          reason = "Recommended general risk alignment under the EU AI Act framework.";
-        }
+        reason = "Mandatory bias mitigation and non-discrimination assurance under EU AI Act Article 10(2)(f).";
+      } else {
+        flag = "RECOMMENDED";
+        reason = "Recommended fairness evaluation and algorithmic accountability practice.";
+      }
+    } else if (isVendor) {
+      if (usesThirdParty) {
+        flag = "MANDATORY";
+        reason = "Mandatory third-party AI supplier risk management due to integrated external model(s).";
+      } else {
+        flag = "OPTIONAL";
+        reason = "Optional control as system does not utilize third-party AI models.";
+      }
+    } else if (isTrans) {
+      if ((eu_risk_tier === "LIMITED" || eu_risk_tier === "HIGH" || highAutomation) && hasEU && hasEUScope) {
+        flag = "MANDATORY";
+        reason = "Mandatory transparency and human oversight obligation under EU AI Act Articles 13, 14, or 50.";
+      } else {
+        flag = "RECOMMENDED";
+        reason = "Recommended transparency and explainability best practice.";
+      }
+    } else if (isVerif) {
+      if (isHighOrCritical && hasEU && hasEUScope) {
+        flag = "MANDATORY";
+        reason = "Mandatory technical robustness, cybersecurity, and accuracy verification under EU AI Act Article 15.";
+      } else {
+        flag = "RECOMMENDED";
+        reason = "Recommended verification and testing best practice.";
+      }
+    } else if (isOps) {
+      if (isHighOrCritical && hasEU && hasEUScope) {
+        flag = "MANDATORY";
+        reason = "Mandatory post-market monitoring, logging, and incident reporting under EU AI Act Articles 12 & 72.";
+      } else {
+        flag = "RECOMMENDED";
+        reason = "Recommended operational telemetry and logging practice.";
+      }
+    } else {
+      if (isBaselineCore || isHighOrCritical) {
+        flag = "RECOMMENDED";
+        reason = "Recommended compliance alignment control for system risk tier.";
+      } else {
+        flag = "OPTIONAL";
+        reason = "Optional control based on current system profile.";
       }
     }
 
@@ -506,7 +576,6 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   const providersText = third_party_providers.length > 0 ? `integrating third-party services from ${third_party_providers.join(", ")}` : "relying on fully internal or open-source infrastructure";
   const geoText = geographic_scope.join(" and ");
 
-  const hasEUScope = applicable_frameworks.includes("EU AI Act") || geographic_scope.some(g => g.toLowerCase().includes("eu") || g.toLowerCase() === "global");
   const euNarrative = hasEUScope 
     ? ` Under the EU AI Act, it is classified as a ${eu_risk_tier} Risk profile because: ${eu_risk_reason}` 
     : "";

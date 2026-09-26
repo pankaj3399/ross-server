@@ -94,6 +94,7 @@ import SubscriptionModal from "../features/subscriptions/SubscriptionModal";
 import { ProjectSelectionModal } from "./ProjectSelectionModal";
 import { useSidebarStore, getTotalSidebarWidth, ACTIVITY_BAR_WIDTH, MIN_WIDTH, MAX_WIDTH_RATIO } from "../../store/sidebarStore";
 import { buildAssessmentAnswerKey } from "@/lib/assessmentValidation";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,7 +147,11 @@ const sortDomainsByPriority = (domainsList: any[]) => {
 
 // ─── Route Flag Helpers ───────────────────────────────────────────────────────
 
-const getProjectIdFromPath = (pathname: string | null): string | null => {
+const getProjectIdFromPath = (pathname: string | null, searchParams?: any): string | null => {
+  const queryId = searchParams?.get ? searchParams.get("projectId") : null;
+  if (queryId && typeof queryId === "string" && queryId.match(/^[a-f0-9-]{36}$/i)) {
+    return queryId;
+  }
   const match = pathname?.match(/\/assess\/([a-f0-9-]{36})/i);
   return match ? match[1] : null;
 };
@@ -397,7 +402,7 @@ function SidebarContentComponent() {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { user, isAuthenticated, logout } = useAuth();
-  const { setOpenMobile, state, setOpen } = useSidebar();
+  const { openMobile, setOpenMobile, state, setOpen } = useSidebar();
   const { invitations: myInvitations, fetchInvitations, removeInvitation, clearInvitations } = useNotificationStore();
   const [decliningTokens, setDecliningTokens] = useState<Set<string>>(new Set());
   const fetchInProgress = useRef(false);
@@ -413,6 +418,9 @@ function SidebarContentComponent() {
 
   // ─── Sidebar Resizable & Secondary State ─────────────────────────────────────
   const { sidebarWidth, setSidebarWidth, isSecondaryOpen, setIsSecondaryOpen, isResizing, setIsResizing } = useSidebarStore();
+
+  const projectId = getProjectIdFromPath(pathname, searchParams);
+  const isInsideProject = !!projectId;
 
   const getTabFromPathname = useCallback((path: string | null): "dashboard" | "aima" | "premium" | "settings" | "admin" => {
     if (!path) return "dashboard";
@@ -444,6 +452,17 @@ function SidebarContentComponent() {
     } else {
       setActiveTab(tab);
       setIsSecondaryOpen(true);
+      if (tab === "dashboard") {
+        router.push("/dashboard");
+      } else if (tab === "aima") {
+        router.push(projectId ? `/assess/${projectId}` : "/dashboard");
+      } else if (tab === "premium") {
+        router.push(projectId ? `/assess/${projectId}/crc/dashboard` : "/dashboard");
+      } else if (tab === "settings") {
+        router.push(projectId ? `/assess/${projectId}/settings` : "/settings");
+      } else if (tab === "admin") {
+        router.push("/admin");
+      }
     }
   };
 
@@ -502,27 +521,21 @@ function SidebarContentComponent() {
   const [staticDomains, setStaticDomains] = useState<any[]>([]);
 
   const handleProjectAction = useCallback((destinationRoute: string) => {
-    const isInsideProject = !!getProjectIdFromPath(pathname);
-    if (!isInsideProject) {
+    if (!projectId) {
       setPendingDestinationRoute(destinationRoute);
       setShowProjectModal(true);
       return true;
     }
     return false;
-  }, [pathname]);
+  }, [projectId]);
 
   const handleProjectNav = useCallback((route: string) => {
     if (handleProjectAction(route)) return;
-    const pid = getProjectIdFromPath(pathname);
-    if (pid) {
-      router.push(`/assess/${pid}${route}`);
+    if (projectId) {
+      setOpenMobile(false);
+      router.push(`/assess/${projectId}${route}`);
     }
-  }, [handleProjectAction, pathname, router]);
-
-  // ─── Determine project context ──────────────────────────────────────────────
-
-  const projectId = getProjectIdFromPath(pathname);
-  const isInsideProject = !!projectId;
+  }, [handleProjectAction, projectId, router, setOpenMobile]);
 
   // Extract assessment data from context
   const domains = assessmentContext?.domains || [];
@@ -887,22 +900,8 @@ function SidebarContentComponent() {
 
   // ─── Render Dual Sidebar ────────────────────────────────────────────────────
 
-  return (
-    <>
-      <TooltipProvider delayDuration={0}>
-        {/* Layout width spacer */}
-        <div
-          className="shrink-0 h-screen pointer-events-none"
-          style={{ width: `${totalSidebarWidth}px` }}
-          aria-hidden="true"
-        />
-
-        {/* Fixed position dual sidebar */}
-        <aside
-          className="fixed top-0 left-0 bottom-0 z-30 h-screen flex select-none bg-sidebar border-r-0 p-0 shadow-none"
-          style={{ width: `${totalSidebarWidth}px` }}
-        >
-          <div className="flex h-screen w-full select-none">
+  const sidebarDualContent = (
+    <div className="flex h-screen w-full select-none">
           {/* ─── 1. Thin Primary Activity Bar (48px) ─────────────────────────── */}
           <div className="w-[48px] shrink-0 h-screen min-h-screen border-r border-sidebar-border/40 bg-sidebar flex flex-col justify-between items-center py-0 z-10 select-none">
             {/* Top Header Aligned with Secondary Header (h-12) */}
@@ -1246,7 +1245,7 @@ function SidebarContentComponent() {
 
                   {activeTab === "aima" && (
                     <div className="flex flex-col gap-1">
-                      <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-zinc-300 dark:text-zinc-400 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
+                      <div className="px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground/80 dark:text-zinc-400 flex items-center gap-1.5 border-b border-sidebar-border/30 mb-1">
                         <span className="size-1.5 rounded-full bg-primary shrink-0" />
                         <span>AIMA Domains</span>
                       </div>
@@ -1580,23 +1579,58 @@ function SidebarContentComponent() {
             )}
           </AnimatePresence>
         </div>
-      </aside>
+  );
 
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-        title={modalTitle}
-        description={modalDescription}
-      />
-      <ProjectSelectionModal
-        isOpen={showProjectModal}
-        onOpenChange={setShowProjectModal}
-        onSelectProject={(selectedId) => {
-          setShowProjectModal(false);
-          const targetRoute = pendingDestinationRoute || getDefaultProjectRoute(premiumStatus);
-          router.push(`/assess/${selectedId}${targetRoute}`);
-        }}
-      />
+  return (
+    <>
+      <TooltipProvider delayDuration={0}>
+        {/* Layout width spacer (Desktop only) */}
+        <div
+          className="hidden md:block shrink-0 h-screen pointer-events-none"
+          style={{ width: `${totalSidebarWidth}px` }}
+          aria-hidden="true"
+        />
+
+        {/* Fixed position dual sidebar (Desktop only) */}
+        <aside
+          className="hidden md:flex fixed top-0 left-0 bottom-0 z-30 h-screen select-none bg-sidebar border-r-0 p-0 shadow-none"
+          style={{ width: `${totalSidebarWidth}px` }}
+        >
+          {sidebarDualContent}
+        </aside>
+
+        {/* Mobile Drawer (Sheet) */}
+        <Sheet open={openMobile} onOpenChange={setOpenMobile}>
+          <SheetContent
+            side="left"
+            className="p-0 w-[310px] sm:w-[360px] bg-sidebar border-r border-sidebar-border/40 text-sidebar-foreground flex flex-col h-full overflow-hidden [&>button]:hidden"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>Navigation Menu</SheetTitle>
+              <SheetDescription>Access MATUR.ai projects, assessments, and settings.</SheetDescription>
+            </SheetHeader>
+            <div className="flex h-full w-full select-none overflow-hidden">
+              {sidebarDualContent}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <SubscriptionModal
+          isOpen={showSubscriptionModal}
+          onClose={() => setShowSubscriptionModal(false)}
+          title={modalTitle}
+          description={modalDescription}
+        />
+        <ProjectSelectionModal
+          isOpen={showProjectModal}
+          onOpenChange={setShowProjectModal}
+          onSelectProject={(selectedId) => {
+            setShowProjectModal(false);
+            setOpenMobile(false);
+            const targetRoute = pendingDestinationRoute || getDefaultProjectRoute(premiumStatus);
+            router.push(`/assess/${selectedId}${targetRoute}`);
+          }}
+        />
       </TooltipProvider>
     </>
   );

@@ -336,16 +336,18 @@ const formatPercent = (value: number | null): string =>
 const getTierInfo = (percent: number | null, answeredCount: number = 1) => {
   if (answeredCount === 0) return { label: "Not Started", color: colors.gray, bg: colors.muted };
   if (percent === null) return { label: "Insufficient Data", color: colors.gray, bg: colors.muted };
-  if (percent >= 60) return { label: "Ready", color: colors.green, bg: colors.greenBg };
-  if (percent >= 30) return { label: "Partially Ready", color: colors.amber, bg: colors.amberBg };
+  if (percent >= 90) return { label: "Ready", color: colors.green, bg: colors.greenBg };
+  if (percent >= 75) return { label: "Substantially Ready", color: colors.green, bg: colors.greenBg };
+  if (percent >= 55) return { label: "Partially Ready", color: colors.amber, bg: colors.amberBg };
   return { label: "Not Ready", color: colors.red, bg: colors.redBg };
 };
 
 const getCategoryColor = (percent: number | null, answeredCount: number = 1): string => {
   if (answeredCount === 0) return colors.gray;
   if (percent === null) return colors.gray;
-  if (percent >= 60) return colors.green;
-  if (percent >= 30) return colors.amber;
+  if (percent >= 90) return colors.green;
+  if (percent >= 75) return colors.green;
+  if (percent >= 55) return colors.amber;
   return colors.red;
 };
 

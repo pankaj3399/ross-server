@@ -53,7 +53,7 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
             try {
                 const url = routeMode === 'vulnerability'
                     ? `${API_BASE_URL}/fairness/api-reports/${projectId}?testType=SECURITY_SCAN`
-                    : `${API_BASE_URL}/fairness/api-reports/${projectId}`;
+                    : `${API_BASE_URL}/fairness/api-reports/${projectId}?excludeSecurity=true`;
                 const res = await fetch(url, {
                     headers: {
                         "Authorization": `Bearer ${localStorage.getItem("auth_token")}`

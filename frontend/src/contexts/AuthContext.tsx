@@ -24,6 +24,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   mfaRequired: boolean;
   setMfaRequired: (required: boolean) => void;
+  mfaSetupRequired: boolean;
+  setMfaSetupRequired: (required: boolean) => void;
+  mfaSetupToken: string | null;
+  setMfaSetupToken: (token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaSetupRequired, setMfaSetupRequired] = useState(false);
+  const [mfaSetupToken, setMfaSetupToken] = useState<string | null>(null);
 
   // Initialize auth on mount
   useEffect(() => {
@@ -79,6 +85,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       backupCode,
     );
 
+    // Check if MFA setup is required (F10)
+    if ("requiresMfaSetup" in response && response.requiresMfaSetup) {
+      setMfaSetupToken((response as any).tempToken || null);
+      setMfaSetupRequired(true);
+      throw new Error("MFA_SETUP_REQUIRED");
+    }
+
     // Check if MFA is required
     if ("requiresMFA" in response && response.requiresMFA) {
       setMfaRequired(true);
@@ -89,6 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if ("user" in response) {
       setUser(response.user);
       setMfaRequired(false);
+      setMfaSetupRequired(false);
+      setMfaSetupToken(null);
     }
   };
 
@@ -107,6 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     apiService.logout();
     setUser(null);
     setMfaRequired(false);
+    setMfaSetupRequired(false);
+    setMfaSetupToken(null);
   };
 
   const refreshUser = async () => {
@@ -129,6 +146,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: !!user,
     mfaRequired,
     setMfaRequired,
+    mfaSetupRequired,
+    setMfaSetupRequired,
+    mfaSetupToken,
+    setMfaSetupToken,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -348,27 +348,45 @@ export const callUserApiForPrompt = inngest.createFunction(
       ? `${prompt}\n\n${constraintToUse}`
       : prompt;
 
-    const response = await step.run("call-user-api", async () => {
-      const normalizedConfig = normalizeFairnessApiJobConfig(config);
-      const apiResponse = await callUserApi(normalizedConfig, modifiedPrompt);
-      // If the API call succeeded but returned no content (commonly a wrong
-      // responseKey path or an endpoint that doesn't return JSON at the
-      // expected location), treat it as a failure so the user sees a real
-      // reason rather than every metric scoring 0.0 downstream (bug 16).
-      if (typeof apiResponse !== "string" || !apiResponse.trim()) {
-        throw new Error("API endpoint returned no content at the configured responseKey. Verify the endpoint URL, auth, and responseKey path.");
-      }
-      return apiResponse;
-    });
+    let callResult: { success: true; response: string } | { success: false; error: string };
+
+    try {
+      const response = await step.run("call-user-api", async () => {
+        const normalizedConfig = normalizeFairnessApiJobConfig(config);
+        const apiResponse = await callUserApi(normalizedConfig, modifiedPrompt);
+        // If the API call succeeded but returned no content (commonly a wrong
+        // responseKey path or an endpoint that doesn't return JSON at the
+        // expected location), treat it as a failure so the user sees a real
+        // reason rather than every metric scoring 0.0 downstream (bug 16).
+        if (typeof apiResponse !== "string" || !apiResponse.trim()) {
+          throw new Error("API endpoint returned no content at the configured responseKey. Verify the endpoint URL, auth, and responseKey path.");
+        }
+        return apiResponse;
+      });
+      callResult = { success: true, response };
+    } catch (err: any) {
+      callResult = {
+        success: false,
+        error: err?.message || "Target API request failed. Verify endpoint URL, auth, and response key path.",
+      };
+    }
 
     await step.run("store-response", async () => {
-      const userApiResponse: UserApiResponse = {
-        promptIndex,
-        category,
-        prompt,
-        success: true,
-        response: response,
-      };
+      const userApiResponse: UserApiResponse = callResult.success
+        ? {
+            promptIndex,
+            category,
+            prompt,
+            success: true,
+            response: callResult.response,
+          }
+        : {
+            promptIndex,
+            category,
+            prompt,
+            success: false,
+            error: callResult.error,
+          };
 
       await pool.query(
         `UPDATE evaluation_status
@@ -387,12 +405,15 @@ export const callUserApiForPrompt = inngest.createFunction(
       data: {
         jobId,
         promptIndex,
-        success: true,
-        response: response,
+        category,
+        prompt,
+        success: callResult.success,
+        response: callResult.success ? callResult.response : undefined,
+        error: !callResult.success ? callResult.error : undefined,
       },
     });
 
-    return { success: true, response };
+    return callResult;
   }
 );
 

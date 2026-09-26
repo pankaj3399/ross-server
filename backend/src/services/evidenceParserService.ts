@@ -684,7 +684,7 @@ export function parseAndValidateEvidence(
     summary,
   };
 
-  const snippet = cleanText.slice(0, 300) + (cleanText.length > 300 ? "..." : "");
+  const snippet = cleanText.slice(0, 200) + (cleanText.length > 200 ? "..." : "");
 
   return {
     success: true,

@@ -110,6 +110,14 @@ function readinessPoints(value: number | null): number {
     return 0;
 }
 
+function hasValidFrameworkMapping(entries?: Array<{ ref?: string; context?: string }>): boolean {
+    if (!entries || !Array.isArray(entries) || entries.length === 0) return false;
+    return entries.some((entry) => {
+        const ref = typeof entry?.ref === "string" ? entry.ref.trim().toUpperCase() : undefined;
+        return Boolean(ref && ref !== "N/A" && ref !== "NONE" && ref !== "NOT APPLICABLE");
+    });
+}
+
 export async function computeCrcResults(projectId: string): Promise<CrcResults> {
     // Left join: every published control appears once, with the user's response
     // value if any. This is the source of truth for both completion and scoring.
@@ -200,7 +208,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
 
         const pts = readinessPoints(value);
 
-        if (mapping.eu_ai_act && mapping.eu_ai_act.length > 0) {
+        if (hasValidFrameworkMapping(mapping.eu_ai_act)) {
             fw.eu_ai_act.totalControls++;
             if (value === ANSWER_NA) {
                 fw.eu_ai_act.naCount++;
@@ -210,7 +218,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 fw.eu_ai_act.points += pts;
             }
         }
-        if (mapping.nist_ai_rmf && mapping.nist_ai_rmf.length > 0) {
+        if (hasValidFrameworkMapping(mapping.nist_ai_rmf)) {
             fw.nist_ai_rmf.totalControls++;
             if (value === ANSWER_NA) {
                 fw.nist_ai_rmf.naCount++;
@@ -218,6 +226,16 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
             if (value !== null && SCOREABLE_VALUES.has(value)) {
                 fw.nist_ai_rmf.scoredControls++;
                 fw.nist_ai_rmf.points += pts;
+            }
+        }
+        if (hasValidFrameworkMapping(mapping.iso_42001)) {
+            fw.iso_42001.totalControls++;
+            if (value === ANSWER_NA) {
+                fw.iso_42001.naCount++;
+            }
+            if (value !== null && SCOREABLE_VALUES.has(value)) {
+                fw.iso_42001.scoredControls++;
+                fw.iso_42001.points += pts;
             }
         }
 
@@ -231,17 +249,6 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
             evidenceBreakdown.inProgress++;
         } else if (status === 'Evidence Complete') {
             evidenceBreakdown.evidenceComplete++;
-        }
-
-        if (mapping.iso_42001 && mapping.iso_42001.length > 0) {
-            fw.iso_42001.totalControls++;
-            if (value === ANSWER_NA) {
-                fw.iso_42001.naCount++;
-            }
-            if (value !== null && SCOREABLE_VALUES.has(value)) {
-                fw.iso_42001.scoredControls++;
-                fw.iso_42001.points += pts;
-            }
         }
 
         if (value === null) continue;

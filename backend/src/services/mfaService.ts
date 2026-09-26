@@ -132,10 +132,10 @@ class MFAService {
   async isMFAEnabled(userId: string): Promise<boolean> {
     try {
       const result = await pool.query(
-        "SELECT secret FROM user_mfa WHERE user_id = $1 AND secret IS NOT NULL",
+        "SELECT mfa_enabled FROM users WHERE id = $1",
         [userId],
       );
-      return result.rows.length > 0;
+      return result.rows.length > 0 && !!result.rows[0].mfa_enabled;
     } catch (error) {
       console.error("Error checking MFA status:", error);
       return false;

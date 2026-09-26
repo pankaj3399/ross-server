@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -1352,53 +1353,44 @@ export default function ComponentInventoryPage() {
                   <span>
                     Data Categories Sent/Processed <span className="text-red-500 font-bold ml-0.5">*</span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={handleNoDataProcessing}
-                    className="text-[10px] text-primary hover:text-primary/85 font-semibold"
+                    className="text-[10px] h-auto p-0 text-primary hover:text-primary/85 font-semibold"
                   >
                     Set to 'No Data Processing'
-                  </button>
+                  </Button>
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 border border-border/55 rounded-xl p-3 bg-muted/15 max-h-[140px] overflow-y-auto">
                   {DATA_CATEGORIES.map((cat) => {
                     const isChecked = formDataCategories.includes(cat);
+                    const checkboxId = `data-cat-${cat.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
                     return (
-                      <div
+                      <label
                         key={cat}
-                        role="checkbox"
-                        tabIndex={0}
-                        aria-checked={isChecked}
-                        onKeyDown={(e) => {
-                          if (e.key === " " || e.key === "Enter") {
-                            e.preventDefault();
-                            if (cat === "No Data Processing") {
-                              handleNoDataProcessing();
-                            } else {
-                              handleCategoryToggle(cat);
-                            }
-                          }
-                        }}
-                        onClick={() => {
-                          if (cat === "No Data Processing") {
-                            handleNoDataProcessing();
-                          } else {
-                            handleCategoryToggle(cat);
-                          }
-                        }}
+                        htmlFor={checkboxId}
                         className={`flex items-start space-x-2 text-xs p-2 rounded-lg cursor-pointer border transition-colors ${
                           isChecked
                             ? "bg-primary/10 border-primary/30 text-foreground font-semibold"
                             : "border-transparent text-muted-foreground hover:bg-muted"
                         }`}
                       >
-                        <div className={`h-3.5 w-3.5 rounded flex items-center justify-center border shrink-0 mt-0.5 ${
-                          isChecked ? "bg-primary border-primary text-white" : "border-border/80"
-                        }`}>
-                          {isChecked && <IconCheck className="h-2.5 w-2.5 stroke-[3]" />}
-                        </div>
-                        <span className="leading-tight select-none">{cat}</span>
-                      </div>
+                        <Checkbox
+                          id={checkboxId}
+                          checked={isChecked}
+                          onCheckedChange={() => {
+                            if (cat === "No Data Processing") {
+                              handleNoDataProcessing();
+                            } else {
+                              handleCategoryToggle(cat);
+                            }
+                          }}
+                          className="mt-0.5 shrink-0"
+                        />
+                        <span className="leading-tight select-none flex-1">{cat}</span>
+                      </label>
                     );
                   })}
                 </div>

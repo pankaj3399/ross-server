@@ -983,7 +983,9 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
-                 WHERE e.project_id = $1 AND e.user_id = $2 AND e.status IN ('success', 'partial_success', 'failed', 'completed') AND r.id IS NULL
+                 WHERE e.project_id = $1 AND e.user_id = $2 
+                   AND (e.status IN ('success', 'partial_success', 'failed', 'completed') OR (e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' AND jsonb_array_length(e.payload->'results') > 0)) 
+                   AND r.id IS NULL
                  ON CONFLICT (job_id) DO NOTHING`,
                 [projectId, userId]
             );
@@ -992,11 +994,14 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
         }
 
         const testType = req.query.testType as string | undefined;
+        const excludeSecurity = req.query.excludeSecurity === "true" || req.query.fairnessOnly === "true";
         let whereClause = `project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')`;
         const countParams: any[] = [projectId, userId];
         if (testType) {
             countParams.push(testType);
             whereClause += ` AND config->>'testType' = $${countParams.length}`;
+        } else if (excludeSecurity) {
+            whereClause += ` AND (config->>'testType' IS NULL OR config->>'testType' != 'SECURITY_SCAN')`;
         }
 
         // Fetch reports for this project with pagination
@@ -1097,10 +1102,11 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
             if (evalResult.rows.length > 0) {
                 const evalRow = evalResult.rows[0];
                 const terminalStatuses = ["failed", "completed", "success", "partial_success"];
-                if (!terminalStatuses.includes(evalRow.status)) {
+                const hasPartialResults = Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0;
+                if (!terminalStatuses.includes(evalRow.status) && !hasPartialResults) {
                     return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
                 }
-                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || '0');
+                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || (hasPartialResults ? String(evalRow.payload.results.length) : '0'));
                 const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
                     ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
                     : evalRow.payload?.type === "SECURITY_SCAN"

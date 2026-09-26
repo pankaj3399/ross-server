@@ -6,7 +6,7 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
-import { SummaryPdfData } from "./pdfExportTypes";
+import { SummaryPdfData, humanize } from "./pdfExportTypes";
 
 // --- Design Tokens ---
 const colors = {
@@ -300,15 +300,17 @@ const styles = StyleSheet.create({
 // Formatting Helpers
 const getTrafficLightColor = (percentage: number | null): string => {
   if (percentage === null) return colors.gray;
-  if (percentage >= 60) return colors.green;
-  if (percentage >= 30) return colors.amber;
+  if (percentage >= 90) return colors.green;
+  if (percentage >= 75) return colors.green;
+  if (percentage >= 55) return colors.amber;
   return colors.red;
 };
 
 const getTrafficLightBg = (percentage: number | null): string => {
   if (percentage === null) return colors.muted;
-  if (percentage >= 60) return colors.greenBg;
-  if (percentage >= 30) return colors.amberBg;
+  if (percentage >= 90) return colors.greenBg;
+  if (percentage >= 75) return colors.greenBg;
+  if (percentage >= 55) return colors.amberBg;
   return colors.redBg;
 };
 
@@ -398,11 +400,11 @@ export const CrcSummaryPdfDocument: React.FC<CrcSummaryPdfDocumentProps> = ({ da
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>EU Risk Tier</Text>
-              <Text style={styles.metaValue}>{systemProfile.euRiskTier}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.euRiskTier)}</Text>
             </View>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Internal Risk Tier</Text>
-              <Text style={styles.metaValue}>{systemProfile.internalRiskTier}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.internalRiskTier)}</Text>
             </View>
           </View>
         </View>
@@ -426,22 +428,22 @@ export const CrcSummaryPdfDocument: React.FC<CrcSummaryPdfDocumentProps> = ({ da
           <View style={styles.profileRow}>
             <View style={styles.profileItem}>
               <Text style={styles.metaLabel}>Governance Scope</Text>
-              <Text style={styles.metaValue}>{systemProfile.governanceScope}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.governanceScope)}</Text>
             </View>
             <View style={styles.profileItem}>
               <Text style={styles.metaLabel}>Regulatory Role</Text>
-              <Text style={styles.metaValue}>{systemProfile.regulatoryRole}</Text>
+              <Text style={styles.metaValue}>{humanize(systemProfile.regulatoryRole)}</Text>
             </View>
             <View style={styles.profileItem}>
               <Text style={styles.metaLabel}>EU AI Act Tier</Text>
               <Text style={[styles.metaValue, { color: getRiskColor(systemProfile.euRiskTier) }]}>
-                {systemProfile.euRiskTier}
+                {humanize(systemProfile.euRiskTier)}
               </Text>
             </View>
             <View style={styles.profileItem}>
               <Text style={styles.metaLabel}>Internal Tier</Text>
               <Text style={[styles.metaValue, { color: getRiskColor(systemProfile.internalRiskTier) }]}>
-                {systemProfile.internalRiskTier}
+                {humanize(systemProfile.internalRiskTier)}
               </Text>
             </View>
           </View>

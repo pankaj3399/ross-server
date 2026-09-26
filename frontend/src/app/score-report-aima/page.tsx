@@ -238,8 +238,8 @@ export default function ScoreReportPage() {
     ? ((premiumDomainIds || new Set()).size === 0 && premiumDomainError
         ? [] 
         : hasPremiumAccess
-          ? results.results.domains
-          : results.results.domains.filter((domain: any) => 
+          ? (results.results?.domains || [])
+          : (results.results?.domains || []).filter((domain: any) => 
               premiumDomainIds ? !premiumDomainIds.has(domain.domainId) : false
             ))
     : [];
@@ -420,7 +420,12 @@ export default function ScoreReportPage() {
                 </h2>
 
                 <div className="space-y-8">
-                  {nonPremiumDomains.length > 0 ? (
+                  {((!hasPremiumAccess && premiumDomainIds === null && !premiumDomainError) || loading || !results) ? (
+                    <div className="flex flex-col items-center justify-center py-16 bg-muted/30 rounded-3xl border border-border">
+                      <IconLoader className="w-8 h-8 animate-spin text-primary mb-3" />
+                      <p className="text-sm text-muted-foreground font-medium">Loading domains...</p>
+                    </div>
+                  ) : nonPremiumDomains.length > 0 ? (
                     <div className="flex flex-col gap-8">
                       {nonPremiumDomains.map((domain: any, index: number) => {
                         const domainMaturity = getMaturityLevel(domain.maturityScore);

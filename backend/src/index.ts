@@ -64,7 +64,8 @@ app.use(cors({
     const allowed = [
       FRONTEND_URL,
       "http://localhost:3000",
-      "http://localhost:3001"
+      "http://localhost:3001",
+      "http://localhost:3002"
     ].filter(Boolean) as string[];
 
     const isAllowed = allowed.some(url => origin === url);

@@ -508,7 +508,10 @@ class ApiService {
     const url = `${API_BASE_URL}${endpoint}`;
     const response = await fetch(url, {
       ...options,
-      headers: this.getHeaders(),
+      headers: {
+        ...this.getHeaders(),
+        ...(options.headers || {}),
+      },
     });
 
     if (!response.ok) {
@@ -559,9 +562,15 @@ class ApiService {
     password: string,
     mfaCode?: string,
     backupCode?: string,
-  ): Promise<AuthResponse | { requiresMFA: boolean; message: string }> {
+  ): Promise<
+    | AuthResponse
+    | { requiresMFA: boolean; message: string }
+    | { requiresMfaSetup: boolean; tempToken: string; message: string }
+  > {
     const response = await this.request<
-      AuthResponse | { requiresMFA: boolean; message: string }
+      | AuthResponse
+      | { requiresMFA: boolean; message: string }
+      | { requiresMfaSetup: boolean; tempToken: string; message: string }
     >("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password, mfaCode, backupCode }),
@@ -1265,7 +1274,7 @@ class ApiService {
   }
 
   // MFA
-  async setupMFA(): Promise<{
+  async setupMFA(tempToken?: string): Promise<{
     secret: string;
     qrCodeUrl: string;
     backupCodes: string[];
@@ -1278,14 +1287,25 @@ class ApiService {
       message: string;
     }>("/auth/setup-mfa", {
       method: "POST",
+      ...(tempToken ? { headers: { Authorization: `Bearer ${tempToken}` } } : {}),
     });
   }
 
-  async verifyMFASetup(mfaCode: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>("/auth/verify-mfa-setup", {
+  async verifyMFASetup(mfaCode: string, tempToken?: string): Promise<{ message: string; token?: string; user?: User }> {
+    const response = await this.request<{ message: string; token?: string; user?: User }>("/auth/verify-mfa-setup", {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(tempToken ? { Authorization: `Bearer ${tempToken}` } : {}),
+      },
       body: JSON.stringify({ mfaCode }),
     });
+
+    if (response.token) {
+      localStorage.setItem("auth_token", response.token);
+    }
+
+    return response;
   }
 
   async disableMFA(): Promise<{ message: string }> {

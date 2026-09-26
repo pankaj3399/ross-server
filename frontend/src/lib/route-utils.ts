@@ -29,7 +29,7 @@ export const isLandingRoute = (pathname: string | null): boolean => {
 };
 
 export const getRouteFlags = (pathname: string | null) => {
-  const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/);
+  const isCrcPage = !!pathname?.match(/\/crc($|\/|\?)/) || !!pathname?.match(/\/score-report-crc($|\/|\?)/);
   const isRiskRegisterPage = !!pathname?.match(/\/crc\/risks($|\/|\?)/);
   const isFairnessPage = !!pathname?.match(/\/fairness-bias($|\/|\?)/);
   const isFairnessRootPage = !!pathname?.match(/\/fairness-bias($|\?|\/$)/);
@@ -42,7 +42,7 @@ export const getRouteFlags = (pathname: string | null) => {
   const isWizardSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings\/wizard($|\/|\?)/);
   const isSettingsPage = !!pathname?.match(/\/assess\/[^/]+\/settings($|\/|\?)/) && !isWizardSettingsPage;
   const isInventoryPage = !!pathname?.match(/\/inventory($|\/|\?)/);
-  const isAimaPage = !isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !isWizardSettingsPage && !isInventoryPage && !!pathname?.match(/\/assess\/[^/]+/);
+  const isAimaPage = (!isCrcPage && !isFairnessPage && !isTeamPage && !isSettingsPage && !isWizardSettingsPage && !isInventoryPage && !!pathname?.match(/\/assess\/[^/]+/)) || !!pathname?.match(/\/score-report-aima($|\/|\?)/);
   const isAimaQuestionPage = isAimaPage && !!pathname?.match(/\/assess\/[^/]+\/[^/]+\/[^/]+/);
   return {
     isCrcPage,

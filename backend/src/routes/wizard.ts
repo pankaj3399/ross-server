@@ -29,6 +29,34 @@ const saveAnswersSchema = z.object({
   wizard_step: z.number().int().min(1).max(6).optional(),
 });
 
+// Zod schema for completing wizard (requires non-empty answers for mandatory fields)
+const completeAnswersSchema = z.object({
+  name: z.string().min(1, "Project name is required"),
+  description: z.string().min(1, "Description is required"),
+  governance_scope: z.enum(["system", "organization"], {
+    errorMap: () => ({ message: "Governance scope must be 'system' or 'organization'" }),
+  }),
+  use_case: z.string().min(1, "Use case is required"),
+  regulatory_role: z.enum(["provider", "deployer", "both"], {
+    errorMap: () => ({ message: "Regulatory role must be 'provider', 'deployer', or 'both'" }),
+  }),
+  data_categories: z.array(z.string()).min(1, "At least one data category must be selected"),
+  geographic_scope: z.array(z.string()).min(1, "At least one geographic scope must be selected"),
+  scale: z.string().min(1, "Scale is required"),
+  uses_third_party_models: z.enum(["yes", "no", "not_sure"], {
+    errorMap: () => ({ message: "uses_third_party_models must be 'yes', 'no', or 'not_sure'" }),
+  }),
+  automation_level: z.string().min(1, "Automation level is required"),
+  biometric_use: z.string().min(1, "Biometric use is required"),
+  affects_children: z.enum(["yes", "no", "not_sure"], {
+    errorMap: () => ({ message: "affects_children must be 'yes', 'no', or 'not_sure'" }),
+  }),
+  third_party_providers: z.array(z.string()).optional(),
+  existing_certifications: z.array(z.string()).optional(),
+  annex_iii_domains: z.array(z.string()).optional(),
+  public_url: z.string().url().nullish().or(z.literal("")),
+});
+
 // Helper to convert db row to WizardAnswers structure
 function mapRowToAnswers(row: any): WizardAnswers {
   return {
@@ -264,6 +292,18 @@ router.post("/:projectId/complete", authenticateToken, loadProject, requireProje
 
     const profileRow = profileResult.rows[0];
     const answers = mapRowToAnswers(profileRow);
+
+    // Validate completeness before running rules engine (B47)
+    const validationResult = completeAnswersSchema.safeParse(answers);
+    if (!validationResult.success) {
+      await client.query("ROLLBACK");
+      const issues = validationResult.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+      return res.status(400).json({
+        success: false,
+        error: `Incomplete wizard answers: ${issues}`,
+        details: validationResult.error.flatten(),
+      });
+    }
 
     // Fetch all controls from database to run the mapping engine
     const controlsResult = await client.query("SELECT id, control_id, compliance_mapping FROM crc_controls WHERE status = 'Published'");
@@ -527,32 +567,32 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
         [projectId, comp.component_name]
       );
 
+      const compType = ALLOWED_COMPONENT_TYPES.has(comp.component_type) ? comp.component_type : "API Service";
+
+      let riskTier = "Low";
+      if (comp.risk_tier) {
+        const rt = String(comp.risk_tier).toLowerCase();
+        if (rt === "critical") riskTier = "Critical";
+        else if (rt === "high") riskTier = "High";
+        else if (rt === "medium") riskTier = "Medium";
+        else if (rt === "low") riskTier = "Low";
+      }
+
+      let compStatus = "Active";
+      if (comp.status) {
+        const st = String(comp.status).toLowerCase();
+        if (st === "active") compStatus = "Active";
+        else if (st === "evaluating") compStatus = "Evaluating";
+        else if (st === "deprecated") compStatus = "Deprecated";
+      }
+
+      const dataCategories = Array.isArray(comp.data_categories_sent) ? comp.data_categories_sent : [];
+
       if (dupeCheck.rows.length === 0) {
         // Generate atomic CMP-XXX ID using db sequence
         const seqResult = await client.query("SELECT nextval('component_inventory_seq') as seq");
         const nextSeq = parseInt(seqResult.rows[0].seq, 10);
         const componentId = `CMP-${String(nextSeq).padStart(3, "0")}`;
-
-        const compType = ALLOWED_COMPONENT_TYPES.has(comp.component_type) ? comp.component_type : "API Service";
-
-        let riskTier = "Low";
-        if (comp.risk_tier) {
-          const rt = String(comp.risk_tier).toLowerCase();
-          if (rt === "critical") riskTier = "Critical";
-          else if (rt === "high") riskTier = "High";
-          else if (rt === "medium") riskTier = "Medium";
-          else if (rt === "low") riskTier = "Low";
-        }
-
-        let compStatus = "Active";
-        if (comp.status) {
-          const st = String(comp.status).toLowerCase();
-          if (st === "active") compStatus = "Active";
-          else if (st === "evaluating") compStatus = "Evaluating";
-          else if (st === "deprecated") compStatus = "Deprecated";
-        }
-
-        const dataCategories = Array.isArray(comp.data_categories_sent) ? comp.data_categories_sent : [];
 
         await client.query(
           `INSERT INTO component_inventory (
@@ -569,6 +609,24 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
             JSON.stringify(dataCategories),
             riskTier,
             compStatus,
+          ]
+        );
+      } else {
+        // B35: Update existing component's risk_tier, categories, role, and provider if wizard is re-run
+        await client.query(
+          `UPDATE component_inventory
+           SET risk_tier = $1,
+               data_categories_sent = $2::jsonb,
+               role_in_system = COALESCE(NULLIF($3, ''), role_in_system),
+               provider = CASE WHEN (provider = 'Unknown' OR provider IS NULL) AND $4 != 'Unknown' THEN $4 ELSE provider END,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $5`,
+          [
+            riskTier,
+            JSON.stringify(dataCategories),
+            comp.role_in_system || "",
+            String(comp.provider || "Unknown").slice(0, 255),
+            dupeCheck.rows[0].id,
           ]
         );
       }

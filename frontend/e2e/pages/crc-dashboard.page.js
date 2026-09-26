@@ -8,9 +8,9 @@ class CrcDashboardPage {
     // to activate Quick Wins" gated) — "Quick Wins" is the only substring
     // common to both, so this can't be an exact match.
     this.quickWinsHeading = page.getByText("Quick Wins").first();
-    // "Ready" / "Partially Ready" / "Not Ready" / "Not Started" tier badge
+    // "Ready" / "Substantially Ready" / "Partially Ready" / "Not Ready" / "Not Started" tier badge
     // next to the big circular readiness % (getReadinessTier() in
-    // crc/dashboard/page.tsx) — four mutually-exclusive fixed labels. As of
+    // crc/dashboard/page.tsx) — five mutually-exclusive fixed labels. As of
     // the 2026-07-26 upstream merge (af35378), "Insufficient Data" was
     // replaced by "Not Started" (now driven by answeredCount === 0, not just
     // a null percentage) and the ≥75%/≥30% thresholds were unified with
@@ -23,6 +23,7 @@ class CrcDashboardPage {
     this.tierBadge = page
       .locator("main")
       .getByText("Ready", { exact: true })
+      .or(page.locator("main").getByText("Substantially Ready", { exact: true }))
       .or(page.locator("main").getByText("Partially Ready", { exact: true }))
       .or(page.locator("main").getByText("Not Ready", { exact: true }))
       .or(page.locator("main").getByText("Not Started", { exact: true }))

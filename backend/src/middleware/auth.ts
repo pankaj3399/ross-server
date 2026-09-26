@@ -35,6 +35,22 @@ export const authenticateToken = async (
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
 
+    if (decoded.isMfaSetupToken) {
+      const requestPath = (req.originalUrl ? req.originalUrl.split("?")[0] : req.path) || "";
+      const isMfaEndpoint =
+        req.path.endsWith("/setup-mfa") ||
+        req.path.endsWith("/verify-mfa-setup") ||
+        requestPath.endsWith("/setup-mfa") ||
+        requestPath.endsWith("/verify-mfa-setup");
+
+      if (!isMfaEndpoint) {
+        return res.status(403).json({
+          error: "MFA enrollment is required before accessing this resource.",
+          requiresMfaSetup: true,
+        });
+      }
+    }
+
     const result = await pool.query(
       "SELECT id, email, role, subscription_status, stripe_customer_id, stripe_subscription_id, trial_started_at, trial_ends_at, trial_used, free_path_chosen_at FROM users WHERE id = $1",
       [decoded.userId],

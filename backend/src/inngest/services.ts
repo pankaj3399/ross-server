@@ -576,6 +576,12 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
     }
 
     if (!response.ok) {
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("retry-after");
+        throw new Error(
+          `Upstream rate limit exceeded (HTTP 429)${retryAfter ? `. Retry after ${retryAfter}s` : ""}`
+        );
+      }
       const errorText = await response
         .text()
         .catch(() => `API returned status ${response.status}`);
@@ -1044,11 +1050,30 @@ export async function processAutomatedApiTest(
     });
   }
 
-  await step.waitForEvent("wait-for-all-user-api-complete", {
+  const waitResult = await step.waitForEvent("wait-for-all-user-api-complete", {
     event: "user-api/all-completed",
     timeout: `${prompts.length * 2}m`,
     if: `async.data.jobId == "${job.job_id}"`,
   });
+
+  if (!waitResult) {
+    await step.run("handle-api-timeout", async () => {
+      await pool.query(
+        `UPDATE evaluation_status
+         SET status = 'failed',
+             error = 'Execution timed out waiting for API responses',
+             payload = jsonb_set(
+               COALESCE(payload, '{}'::jsonb),
+               '{error}',
+               '"Execution timed out waiting for API responses"'::jsonb
+             ),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [job.id]
+      );
+    });
+    return { success: false, error: "Execution timed out waiting for API responses" };
+  }
 
   const finalJobData = await step.run("read-collected-responses", async () => {
     const jobData = await pool.query(
@@ -1337,11 +1362,30 @@ export async function processSecurityScan(
     });
   }
 
-  await step.waitForEvent("wait-for-all-user-api-complete", {
+  const waitResult = await step.waitForEvent("wait-for-all-user-api-complete", {
     event: "user-api/all-completed",
     timeout: `${prompts.length * 2}m`,
     if: `async.data.jobId == "${job.job_id}"`,
   });
+
+  if (!waitResult) {
+    await step.run("handle-api-timeout", async () => {
+      await pool.query(
+        `UPDATE evaluation_status
+         SET status = 'failed',
+             error = 'Execution timed out waiting for API responses',
+             payload = jsonb_set(
+               COALESCE(payload, '{}'::jsonb),
+               '{error}',
+               '"Execution timed out waiting for API responses"'::jsonb
+             ),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [job.id]
+      );
+    });
+    return { success: false, error: "Execution timed out waiting for API responses" };
+  }
 
   const finalJobData = await step.run("read-collected-responses", async () => {
     const jobData = await pool.query(

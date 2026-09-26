@@ -61,7 +61,7 @@ export function WizardSection6() {
           Q12. {path === "system" ? "Is this AI system deployed in any of the following sensitive domains?" : "Are systems under this program deployed in any of these sensitive domains?"}
         </Label>
         <span className="block text-xs text-muted-foreground mb-2">
-          Systems in these domains are classified as High-Risk under EU AI Act Annex III and require third-party conformity audits.
+          Systems in these domains are classified as High-Risk under EU AI Act Annex III.
         </span>
         <div className="space-y-2.5">
           {domains.map((dom) => (
