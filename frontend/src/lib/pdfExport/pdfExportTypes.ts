@@ -177,10 +177,17 @@ export function humanize(val?: string | null): string {
   if (str === "autonomous") return "Autonomous";
   if (str === "single_system") return "Single System";
   if (str === "ai_program") return "AI Program";
+  if (str === "MANDATORY") return "Mandatory";
+  if (str === "RECOMMENDED") return "Recommended";
+  if (str === "OPTIONAL") return "Optional";
+  if (str === "CRITICAL") return "Critical";
   if (str === "UNACCEPTABLE") return "Unacceptable";
   if (str === "HIGH") return "High";
   if (str === "LIMITED") return "Limited";
   if (str === "MINIMAL") return "Minimal";
+  if (str === "MEDIUM") return "Medium";
+  if (str === "LOW") return "Low";
+  if (str === "NOT_APPLICABLE" || str === "N/A") return "Not Applicable";
   if (str === "TIER_1") return "Tier 1";
   if (str === "TIER_2") return "Tier 2";
   if (str === "TIER_3") return "Tier 3";

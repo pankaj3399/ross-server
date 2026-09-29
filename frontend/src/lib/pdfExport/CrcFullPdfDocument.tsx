@@ -818,7 +818,7 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
                       },
                     ]}
                   >
-                    {ctrl.flag}
+                    {humanize(ctrl.flag)}
                   </Text>
                 </View>
               </View>

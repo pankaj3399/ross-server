@@ -3098,6 +3098,9 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
             <li><span class='checklist-box'></span> Root Cause Analysis Template (Section 4)</li>
             <li><span class='checklist-box'></span> Serious Incident Notification Form (Section 5)</li>
           </ul>
+          <div style='margin-top: 40px; padding-top: 15px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #64748b; text-align: center;'>
+            This compliance document template is provided for use under the MATUR.ai <a href="${process.env.FRONTEND_URL || 'https://matur.ai'}/terms" style="color: #0284c7; text-decoration: underline;">Terms of Service</a>.
+          </div>
         </body>
         </html>
       `;
@@ -3148,6 +3151,9 @@ router.get("/templates/:controlId/download", authenticateToken, async (req, res)
           <h1>Section 3: Evidence References</h1>
           <p>List references, system logs, code paths, or dashboards that act as objective evidence of implementation.</p>
           <div style='border: 1px dashed #cbd5e1; padding: 20px; color: #64748b;'>[Enter details here]</div>
+          <div style='margin-top: 40px; padding-top: 15px; border-top: 1px solid #cbd5e1; font-size: 11px; color: #64748b; text-align: center;'>
+            This compliance document template is provided for use under the MATUR.ai <a href="${process.env.FRONTEND_URL || 'https://matur.ai'}/terms" style="color: #0284c7; text-decoration: underline;">Terms of Service</a>.
+          </div>
         </body>
         </html>
       `;

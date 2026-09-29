@@ -54,6 +54,80 @@ type ApiReportDetail = {
     created_at: string;
 };
 
+interface VerdictDetail {
+    verdict?: string;
+    score?: number;
+    explanation?: string;
+}
+
+interface ItemVerdictBadgesProps {
+    evaluation?: {
+        overallVerdict?: string;
+        verdicts?: {
+            bias?: VerdictDetail;
+            toxicity?: VerdictDetail;
+            relevancy?: VerdictDetail;
+            faithfulness?: VerdictDetail;
+        };
+    };
+    verdicts?: {
+        bias?: VerdictDetail;
+        toxicity?: VerdictDetail;
+        relevancy?: VerdictDetail;
+        faithfulness?: VerdictDetail;
+    };
+}
+
+function getVerdictBadgeClass(verdictStr: string): string {
+    const v = verdictStr.toLowerCase();
+    if (v.includes("low bias") || v.includes("low toxicity") || v.includes("highly relevant") || v.includes("highly faithful") || v.includes("pass")) {
+        return "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30";
+    }
+    if (v.includes("moderate")) {
+        return "bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/30";
+    }
+    if (v.includes("high bias") || v.includes("high toxicity") || v.includes("low relevance") || v.includes("low faithfulness") || v.includes("fail")) {
+        return "bg-destructive/10 text-destructive border border-destructive/30";
+    }
+    return "bg-secondary text-secondary-foreground border border-border";
+}
+
+function ItemVerdictBadges({ evaluation, verdicts }: ItemVerdictBadgesProps) {
+    const resolved = evaluation?.verdicts || verdicts;
+    if (!resolved) {
+        return (
+            <span className="text-xs text-muted-foreground bg-secondary/30 px-2 py-0.5 rounded border border-border">
+                {evaluation?.overallVerdict || "Evaluation completed"}
+            </span>
+        );
+    }
+
+    return (
+        <>
+            {resolved.bias?.verdict && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getVerdictBadgeClass(resolved.bias.verdict)}`}>
+                    Bias: {resolved.bias.verdict}
+                </span>
+            )}
+            {resolved.toxicity?.verdict && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getVerdictBadgeClass(resolved.toxicity.verdict)}`}>
+                    Toxicity: {resolved.toxicity.verdict}
+                </span>
+            )}
+            {resolved.relevancy?.verdict && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getVerdictBadgeClass(resolved.relevancy.verdict)}`}>
+                    Relevancy: {resolved.relevancy.verdict}
+                </span>
+            )}
+            {resolved.faithfulness?.verdict && (
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getVerdictBadgeClass(resolved.faithfulness.verdict)}`}>
+                    Faithfulness: {resolved.faithfulness.verdict}
+                </span>
+            )}
+        </>
+    );
+}
+
 export default function ApiReportDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -145,9 +219,15 @@ export default function ApiReportDetailPage() {
     }, [reportId, projectId]);
 
     const getScoreColor = (score: number) => {
-        if (score >= 0.8) return "text-green-500";
-        if (score >= 0.6) return "text-yellow-500";
-        return "text-red-500";
+        if (score >= 0.8) return "text-emerald-700 dark:text-emerald-400";
+        if (score >= 0.6) return "text-amber-800 dark:text-amber-300";
+        return "text-destructive";
+    };
+
+    const getBiasScoreColor = (score: number) => {
+        if (score < 0.3) return "text-emerald-700 dark:text-emerald-400";
+        if (score < 0.7) return "text-amber-800 dark:text-amber-300";
+        return "text-destructive";
     };
 
     if (isLoading) {
@@ -313,18 +393,19 @@ export default function ApiReportDetailPage() {
                                         ? (report.average_scores.averageOverallScore * 100).toFixed(1) + "%"
                                         : "N/A"}
                                 </div>
+                                <div className="text-xs text-muted-foreground mt-2 italic">Higher score indicates better compliance & quality (&ge;80% is good)</div>
                             </div>
                             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                                 <div className="text-sm text-muted-foreground mb-1 font-medium uppercase tracking-wider text-balance">Avg Bias Score</div>
                                 <div className={`text-3xl font-bold ${report.average_scores?.averageBiasScore != null
-                                    ? getScoreColor(1 - (report.average_scores.averageBiasScore ?? 0))
+                                    ? getBiasScoreColor(report.average_scores.averageBiasScore)
                                     : "text-muted-foreground"
                                     }`}>
                                     {report.average_scores?.averageBiasScore != null
                                         ? (report.average_scores.averageBiasScore * 100).toFixed(1) + "%"
                                         : "N/A"}
                                 </div>
-                                <div className="text-xs text-muted-foreground mt-2 italic">Lower score indicates less bias</div>
+                                <div className="text-xs text-muted-foreground mt-2 italic">Lower score indicates less bias (&lt;30% is low bias)</div>
                             </div>
                         </>
                     )}
@@ -572,7 +653,10 @@ export default function ApiReportDetailPage() {
                                                                 </div>
                                                                 <div className="flex justify-between items-center text-sm">
                                                                     <span>Bias Score:</span>
-                                                                    <span className="font-mono text-foreground">
+                                                                    <span className={`font-mono font-semibold ${Number.isFinite((item as any).evaluation?.biasScore)
+                                                                        ? getBiasScoreColor((item as any).evaluation?.biasScore)
+                                                                        : "text-foreground"
+                                                                        }`}>
                                                                         {Number.isFinite((item as any).evaluation?.biasScore)
                                                                             ? ((item as any).evaluation?.biasScore * 100).toFixed(1) + "%"
                                                                             : "N/A"}
@@ -586,8 +670,11 @@ export default function ApiReportDetailPage() {
                                                                             : "N/A"}
                                                                     </span>
                                                                 </div>
-                                                                <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded pdf-reason-box">
-                                                                    {(item as any).evaluation?.overallVerdict || "No verdict"}
+                                                                <div className="mt-2.5 flex flex-wrap gap-1.5 pdf-reason-box">
+                                                                    <ItemVerdictBadges
+                                                                        evaluation={(item as any).evaluation}
+                                                                        verdicts={(item as any).verdicts}
+                                                                    />
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -599,7 +686,7 @@ export default function ApiReportDetailPage() {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="bg-red-500/10 p-4 rounded-lg border border-red-500/20 text-red-600 text-sm">
+                                                    <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20 text-destructive text-sm">
                                                         <strong>Error:</strong> {item.message || (item as any).error || "Unknown error occurred"}
                                                     </div>
                                                 )}

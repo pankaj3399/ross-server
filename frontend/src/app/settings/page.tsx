@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { showToast } from "../../lib/toast";
@@ -18,13 +18,20 @@ import {
   IconRefresh,
   IconEye,
   IconEyeOff,
-  IconStar,
+  IconCrown,
   IconMail,
   IconCreditCard,
   IconArrowRight,
   IconTrash,
   IconRotate,
   IconBell,
+  IconHelp,
+  IconInfoCircle,
+  IconChevronDown,
+  IconChevronUp,
+  IconLifebuoy,
+  IconBook,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse, Project } from "../../lib/api";
@@ -38,12 +45,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-export default function SettingsPage() {
+const VALID_TABS = [
+  "profile",
+  "security",
+  "notifications",
+  "deleted-projects",
+  "subscription",
+  "help",
+] as const;
+type SettingsTab = typeof VALID_TABS[number];
+
+function SettingsContent() {
   const { user, isAuthenticated, refreshUser } = useAuth();
   const { loading: authLoading } = useRequireAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    return tabParam && VALID_TABS.includes(tabParam as SettingsTab)
+      ? (tabParam as SettingsTab)
+      : "profile";
+  });
+
+  useEffect(() => {
+    if (tabParam && VALID_TABS.includes(tabParam as SettingsTab)) {
+      setActiveTab(tabParam as SettingsTab);
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (value: string) => {
+    const newTab = value as SettingsTab;
+    setActiveTab(newTab);
+    router.replace(`/settings?tab=${newTab}`, { scroll: false });
+  };
+
+  const [openFaqIndices, setOpenFaqIndices] = useState<number[]>([0]);
+  const toggleFaq = (index: number) => {
+    setOpenFaqIndices((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    );
+  };
   const [loading, setLoading] = useState(true);
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [mfaLoading, setMfaLoading] = useState(false);
@@ -94,6 +139,7 @@ export default function SettingsPage() {
   const [prefsLoading, setPrefsLoading] = useState(true);
   const [prefsError, setPrefsError] = useState(false);
 
+  const isMountedRef = useRef(true);
   const prefsUpdateInFlightRef = useRef<Promise<any>>(Promise.resolve());
   const lastUpdateSequenceRef = useRef<number>(0);
 
@@ -259,8 +305,6 @@ export default function SettingsPage() {
       initializedForEmailRef.current = user.email || null;
     }
   }, [user]);
-
-  const isMountedRef = useRef(true);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -667,16 +711,46 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="space-y-8"
+          className="space-y-6"
         >
-          {/* User Profile Section */}
-          <Card>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
+            <div className="overflow-x-auto pb-2 scrollbar-none">
+              <TabsList className="h-11 p-1 bg-muted/60 border border-border/40 rounded-xl inline-flex w-auto min-w-full sm:min-w-0">
+                <TabsTrigger value="profile" className="gap-2 px-4 py-2">
+                  <IconUser className="w-4 h-4" />
+                  Profile
+                </TabsTrigger>
+                <TabsTrigger value="security" className="gap-2 px-4 py-2">
+                  <IconShield className="w-4 h-4" />
+                  Security
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="gap-2 px-4 py-2">
+                  <IconBell className="w-4 h-4" />
+                  Notifications
+                </TabsTrigger>
+                <TabsTrigger value="deleted-projects" className="gap-2 px-4 py-2">
+                  <IconTrash className="w-4 h-4" />
+                  Deleted Projects
+                </TabsTrigger>
+                <TabsTrigger value="subscription" className="gap-2 px-4 py-2">
+                  <IconCreditCard className="w-4 h-4" />
+                  Subscription
+                </TabsTrigger>
+                <TabsTrigger value="help" className="gap-2 px-4 py-2">
+                  <IconHelp className="w-4 h-4" />
+                  Help &amp; FAQs
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="profile" className="space-y-6 focus-visible:outline-none">
+              {/* User Profile Section */}
+              <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
@@ -875,7 +949,9 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="security" className="space-y-6 focus-visible:outline-none">
           {/* Security Section */}
           <Card>
             <CardHeader>
@@ -1111,7 +1187,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="notifications" className="space-y-6 focus-visible:outline-none">
           {/* Notifications Section */}
           <Card>
             <CardHeader>
@@ -1218,31 +1296,36 @@ export default function SettingsPage() {
                       Determine your Monday morning digest time based on your local timezone.
                     </p>
                     <div className="max-w-xs">
-                      <select
-                        id="timezone-selector"
+                      <Select
                         value={notificationPrefs.timezone}
-                        onChange={(e) => handleTimezoneChange(e.target.value)}
-                        className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        onValueChange={(val) => handleTimezoneChange(val)}
                       >
-                        <option value="UTC">UTC (GMT+0)</option>
-                        <option value="America/New_York">US Eastern Time (EST/EDT)</option>
-                        <option value="America/Chicago">US Central Time (CST/CDT)</option>
-                        <option value="America/Denver">US Mountain Time (MST/MDT)</option>
-                        <option value="America/Los_Angeles">US Pacific Time (PST/PDT)</option>
-                        <option value="Europe/London">London (GMT/BST)</option>
-                        <option value="Europe/Paris">Paris (CET/CEST)</option>
-                        <option value="Asia/Tokyo">Tokyo (JST)</option>
-                        <option value="Asia/Kolkata">Kolkata (IST)</option>
-                        <option value="Asia/Singapore">Singapore (SGT)</option>
-                        <option value="Australia/Sydney">Sydney (AEST/AEDT)</option>
-                      </select>
+                        <SelectTrigger id="timezone-selector" className="w-full">
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UTC">UTC (GMT+0)</SelectItem>
+                          <SelectItem value="America/New_York">US Eastern Time (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Chicago">US Central Time (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Denver">US Mountain Time (MST/MDT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">US Pacific Time (PST/PDT)</SelectItem>
+                          <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                          <SelectItem value="Europe/Paris">Paris (CET/CEST)</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Tokyo (JST)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Kolkata (IST)</SelectItem>
+                          <SelectItem value="Asia/Singapore">Singapore (SGT)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Sydney (AEST/AEDT)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </>
               )}
             </CardContent>
           </Card>
+        </TabsContent>
 
+        <TabsContent value="deleted-projects" className="space-y-6 focus-visible:outline-none">
           {/* Deleted Projects Section */}
           <Card>
             <CardHeader>
@@ -1347,118 +1430,325 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
-        </motion.div>
+        </TabsContent>
 
-        {/* Subscription Management Section */}
-        <Card className="mt-12">
-          <CardHeader>
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-warning/10 rounded-full flex items-center justify-center">
-                <IconStar className="w-6 h-6 text-warning" />
+        <TabsContent value="subscription" className="space-y-6 focus-visible:outline-none">
+          {/* Subscription Management Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <IconCrown className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Subscription</CardTitle>
+                  <CardDescription>
+                    Manage your billing cycle and subscription plan.
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle>Subscription</CardTitle>
-                <CardDescription>
-                  Manage your billing cycle and subscription plan.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+            </CardHeader>
 
-          <CardContent className="space-y-6">
-            {subscriptionLoading ? (
-              <div className="space-y-4">
-                <div className="h-20 bg-muted rounded-lg animate-pulse" />
-                <div className="h-12 bg-muted rounded-lg animate-pulse" />
-              </div>
-            ) : subscriptionError ? (
-              <div className="text-center py-6">
-                <IconAlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Failed to load subscription details</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={fetchSubscriptionDetails}
-                  className="mt-3"
-                >
-                  <IconRefresh className="w-4 h-4 mr-2" />
-                  Retry
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Current Plan Info */}
-                <div className="p-4 bg-muted/50 rounded-xl">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                        CURRENT PLAN
-                      </p>
-                      <p className="text-xl font-bold text-foreground capitalize mb-3">
-                        {user?.subscription_status === 'basic_premium' ? 'BLOOM' :
-                          user?.subscription_status === 'pro_premium' ? 'BLOOM PLUS' :
-                            user?.subscription_status === 'trial' ? 'FREE TRIAL' :
-                            'SEED'}
-                      </p>
-                      {subscriptionDetails?.plan && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">Status</span>
-                            <span className={cn(
-                              "font-medium flex items-center gap-1",
-                              subscriptionDetails.plan.status === 'active' ? 'text-success' :
-                                subscriptionDetails.plan.status === 'trialing' ? 'text-primary' :
-                                  'text-muted-foreground'
-                            )}>
-                              <span className="w-2 h-2 rounded-full bg-current"></span>
-                              {subscriptionDetails.plan.status === 'active' ? 'Active' :
-                                subscriptionDetails.plan.status === 'trialing' ? 'Trialing' :
-                                  subscriptionDetails.plan.status}
-                            </span>
-                          </div>
-                          {subscriptionDetails.plan.days_remaining !== null && (
+            <CardContent className="space-y-6">
+              {subscriptionLoading ? (
+                <div className="space-y-4">
+                  <div className="h-20 bg-muted rounded-lg animate-pulse" />
+                  <div className="h-12 bg-muted rounded-lg animate-pulse" />
+                </div>
+              ) : subscriptionError ? (
+                <div className="text-center py-6">
+                  <IconAlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Failed to load subscription details</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchSubscriptionDetails}
+                    className="mt-3"
+                  >
+                    <IconRefresh className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Current Plan Info */}
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                          CURRENT PLAN
+                        </p>
+                        <p className="text-xl font-bold text-foreground capitalize mb-3">
+                          {user?.subscription_status === 'basic_premium' ? 'BLOOM' :
+                            user?.subscription_status === 'pro_premium' ? 'BLOOM PLUS' :
+                              user?.subscription_status === 'trial' ? 'FREE TRIAL' :
+                              'SEED'}
+                        </p>
+                        {subscriptionDetails?.plan && (
+                          <div className="space-y-2">
                             <div className="flex items-center gap-2 text-sm">
-                              <span className="text-muted-foreground">Days remaining</span>
-                              <span className="font-medium text-foreground">
-                                {subscriptionDetails.plan.days_remaining} days
+                              <span className="text-muted-foreground">Status</span>
+                              <span className={cn(
+                                "font-medium flex items-center gap-1",
+                                subscriptionDetails.plan.status === 'active' ? 'text-success' :
+                                  subscriptionDetails.plan.status === 'trialing' ? 'text-primary' :
+                                    'text-muted-foreground'
+                              )}>
+                                <span className="w-2 h-2 rounded-full bg-current"></span>
+                                {subscriptionDetails.plan.status === 'active' ? 'Active' :
+                                  subscriptionDetails.plan.status === 'trialing' ? 'Trialing' :
+                                    subscriptionDetails.plan.status}
                               </span>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            {subscriptionDetails?.plan.days_remaining !== null && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-muted-foreground">Days remaining</span>
+                                <span className="font-medium text-foreground">
+                                  {subscriptionDetails.plan.days_remaining} days
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex gap-3">
-                  <Button asChild className="flex-1 h-14 text-base gap-3 group">
-                    <Link href="/manage-subscription">
-                      <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                      <span>Manage Subscription</span>
-                      <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1 h-14 text-base gap-3 group"
-                    onClick={() => setShowSubscriptionModal(true)}
-                  >
-                    <span>Compare Plans</span>
-                  </Button>
+                  <div className="flex gap-3">
+                    <Button asChild className="flex-1 h-14 text-base gap-3 group">
+                      <Link href="/manage-subscription">
+                        <IconCreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                        <span>Manage Subscription</span>
+                        <IconArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 h-14 text-base gap-3 group"
+                      onClick={() => setShowSubscriptionModal(true)}
+                    >
+                      <span>Compare Plans</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="help" className="space-y-6 focus-visible:outline-none">
+          {/* Platform Feature Guide */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <IconLifebuoy className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Platform Guide &amp; Modules</CardTitle>
+                  <CardDescription>
+                    Learn about MATUR.ai&apos;s core risk, compliance, and governance engines.
+                  </CardDescription>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconShield className="w-5 h-5 text-primary shrink-0" />
+                    <span>CRC Assessment</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Audit AI systems against EU AI Act, NIST AI RMF, ISO 42001, and OWASP LLM Top 10 with gap tracking and PDF compliance exports.
+                  </p>
+                </div>
 
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-        currentPlan={user?.subscription_status || "free"}
-        onUpgrade={() => router.push("/manage-subscription")}
-        onDowngrade={() => router.push("/manage-subscription")}
-      />
-    </div>
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconRotate className="w-5 h-5 text-primary shrink-0" />
+                    <span>Fairness &amp; Bias</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Statistically evaluate dataset disparities and live model inference APIs across demographic attributes with sample-size rigor.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconKey className="w-5 h-5 text-primary shrink-0" />
+                    <span>AI System Inventory</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Maintain an enterprise registry of models, data sources, lifecycles, and automated Article 5 / Annex III risk classifications.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconUser className="w-5 h-5 text-primary shrink-0" />
+                    <span>Vendor Risk Management</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Continuously evaluate third-party foundation models and suppliers with automated 12-month reassessment notifications.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconSettings className="w-5 h-5 text-primary shrink-0" />
+                    <span>Assessment Wizard</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Fast-track project scoping with guided questionnaires that automatically seed applicable controls and risk profiles.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors">
+                  <div className="flex items-center gap-2 mb-2 font-semibold text-foreground">
+                    <IconBook className="w-5 h-5 text-primary shrink-0" />
+                    <span>Mira Copilot</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Interactive regulatory assistant providing contextual advice, control remediation strategies, and compliance explanations.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Frequently Asked Questions */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <IconHelp className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Frequently Asked Questions</CardTitle>
+                  <CardDescription>
+                    Common questions regarding risk tiering, fairness thresholds, copilot limits, and audits.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[
+                {
+                  q: "How does MATUR.ai determine an AI system's risk tier under the EU AI Act?",
+                  a: "Risk tiers are calculated dynamically based on deployment use-cases and component data flows. Systems utilizing real-time biometric identification in publicly accessible spaces for law enforcement, workplace or educational emotion recognition, or social scoring are classified as Prohibited (Article 5). Post-remote biometric identification, biometric categorization, and general emotion recognition outside workplace/education are classified as Annex III High Risk. Third-party vendor models processing sensitive personal data automatically inherit a High Risk baseline."
+                },
+                {
+                  q: "How are dataset fairness and bias evaluations conducted?",
+                  a: "Our fairness engine computes Statistical Parity Difference and Disparate Impact Ratio (the 80% rule). When total dataset size is below 30 rows, statistical power is insufficient to reliably establish parity, and overall verdicts are marked as 'Insufficient Data' unless clear disparity failure is detected."
+                },
+                {
+                  q: "What is the daily message limit for Mira AI Copilot?",
+                  a: "Free tier accounts receive 10 complimentary messages per day with Mira Copilot to assist with control explanations and compliance scoping. Premium plans (Bloom and Bloom Plus), active trial users, and platform administrators enjoy unlimited copilot interactions."
+                },
+                {
+                  q: "Why do vendor risk assessments require annual reassessment?",
+                  a: "Under ISO 42001 (Clause A.9 Vendor Relationships) and NIST AI RMF, organizations must maintain ongoing monitoring of external AI supply chains. Models, training updates, and vendor terms change over time. MATUR.ai prompts reassessment every 12 months."
+                },
+                {
+                  q: "How do I export compliance evidence dossiers for external auditors?",
+                  a: "Navigate to the CRC Dashboard or Score Report for any project and click 'Download Full PDF'. The generated audit package includes all evaluated controls, evidence attachments, status flags, and auditor notes formatted for EU AI Act, NIST AI RMF, and ISO 42001 verification."
+                }
+              ].map((item, idx) => {
+                const isOpen = openFaqIndices.includes(idx);
+                return (
+                  <div
+                    key={idx}
+                    className="border border-border rounded-xl overflow-hidden transition-colors"
+                  >
+                    <Button
+                      variant="ghost"
+                      onClick={() => toggleFaq(idx)}
+                      className="w-full flex items-center justify-between p-4 h-auto text-left font-medium text-foreground hover:bg-muted/50 rounded-none"
+                    >
+                      <span className="text-sm font-semibold">{item.q}</span>
+                      {isOpen ? (
+                        <IconChevronUp className="w-4 h-4 text-muted-foreground shrink-0 ml-4" />
+                      ) : (
+                        <IconChevronDown className="w-4 h-4 text-muted-foreground shrink-0 ml-4" />
+                      )}
+                    </Button>
+                    {isOpen && (
+                      <div className="px-4 pb-4 pt-1 text-sm text-muted-foreground leading-relaxed border-t border-border/40 bg-muted/20">
+                        {item.a}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          {/* Contact & Support Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <IconMail className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Need Direct Assistance?</CardTitle>
+                  <CardDescription>
+                    Get in touch with our AI compliance engineering and governance advisory team.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-xl bg-muted/40 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-foreground text-sm">Enterprise Support &amp; Compliance Inquiries</p>
+                  <p className="text-xs text-muted-foreground mt-1">Our advisory team typically responds within 24 hours.</p>
+                </div>
+                <Button asChild variant="default" className="gap-2">
+                  <a href="mailto:hello@matur.ai">
+                    <IconMail className="w-4 h-4" />
+                    Contact hello@matur.ai
+                  </a>
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button asChild variant="outline" size="sm" className="gap-2">
+                  <Link href="/privacy">
+                    <IconExternalLink className="w-4 h-4" />
+                    Privacy Policy
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="gap-2">
+                  <Link href="/terms">
+                    <IconExternalLink className="w-4 h-4" />
+                    Terms of Service
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  </div>
+
+  <SubscriptionModal
+    isOpen={showSubscriptionModal}
+    onClose={() => setShowSubscriptionModal(false)}
+    currentPlan={user?.subscription_status || "free"}
+    onUpgrade={() => router.push("/manage-subscription")}
+    onDowngrade={() => router.push("/manage-subscription")}
+  />
+</div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SimplePageSkeleton />}>
+      <SettingsContent />
+    </Suspense>
   );
 }

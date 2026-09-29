@@ -1,3 +1,5 @@
+import { suggestRiskTier } from "../utils/componentRisk";
+
 export interface WizardAnswers {
   name: string;
   description?: string;
@@ -60,6 +62,8 @@ export interface WizardEngineOutput {
 
 export function formatBiometricUse(val?: string): string {
   if (!val || val === "none") return "None";
+  if (val === "real_time_public_identification") return "Real-Time Remote Biometric ID in Public Spaces";
+  if (val === "post_remote_identification") return "Post / Retrospective Remote Biometric Identification";
   if (val === "public_spaces_identification") return "Remote Identification in Public Spaces";
   if (val === "biometric_identification") return "Biometric Identification";
   if (val === "biometric_categorization") return "Biometric Categorization";
@@ -104,7 +108,9 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   
   const isPublicBiometricSpace = 
     answers.biometric_use === "biometric_categorization" ||
-    ((answers.biometric_use === "public_spaces_identification" || answers.biometric_use === "biometric_identification") && isLawEnforcement);
+    ((answers.biometric_use === "real_time_public_identification" ||
+      answers.biometric_use === "public_spaces_identification" ||
+      answers.biometric_use === "biometric_identification") && isLawEnforcement);
 
   const isSocialScoring = answers.use_case === "social_scoring";
   const isCognitiveManipulation = answers.use_case === "cognitive_behavioral_manipulation";
@@ -139,7 +145,10 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
     const isSensitiveBiometrics = 
       answers.biometric_use === "biometric_categorization" || 
       answers.biometric_use === "biometric_identification" || 
-      answers.biometric_use === "public_spaces_identification";
+      answers.biometric_use === "public_spaces_identification" ||
+      answers.biometric_use === "real_time_public_identification" ||
+      answers.biometric_use === "post_remote_identification" ||
+      answers.biometric_use === "emotion_recognition";
     const affectsVulnerable = answers.affects_children === "yes";
 
     if (hasAnnexIIIDomains || isCriticalUseCase || isSensitiveBiometrics || affectsVulnerable) {
@@ -149,7 +158,13 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
       } else if (isCriticalUseCase) {
         eu_risk_reason = `Classified as High-Risk due to critical use case: ${answers.use_case}.`;
       } else if (isSensitiveBiometrics) {
-        eu_risk_reason = `Classified as High-Risk due to biometric processing: ${formatBiometricUse(answers.biometric_use)}.`;
+        if (answers.biometric_use === "emotion_recognition") {
+          eu_risk_reason = "Classified as High-Risk under EU AI Act Annex III 1(c) due to emotion recognition processing.";
+        } else if (answers.biometric_use === "post_remote_identification") {
+          eu_risk_reason = "Classified as High-Risk under EU AI Act Annex III 1(a) due to post/retrospective remote biometric identification.";
+        } else {
+          eu_risk_reason = `Classified as High-Risk due to biometric processing: ${formatBiometricUse(answers.biometric_use)}.`;
+        }
       } else {
         eu_risk_reason = "Classified as High-Risk due to direct interaction or impact on children (vulnerable groups).";
       }
@@ -464,58 +479,62 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
     MEDIUM: "Medium",
     LOW: "Low"
   };
-  const componentRiskTier = riskMapping[internal_risk_tier] || "Low";
+  const baseComponentRiskTier = riskMapping[internal_risk_tier] || "Low";
+  const priorityOrder: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+  const resolveRiskTier = (compType: string, categories: string[]): StarterComponent["risk_tier"] => {
+    const suggested = suggestRiskTier(compType, categories);
+    if ((priorityOrder[suggested] || 0) > (priorityOrder[baseComponentRiskTier] || 0)) {
+      return suggested;
+    }
+    return baseComponentRiskTier;
+  };
+
+  const KNOWN_PROVIDER_COMPONENTS: Record<string, {
+    component_name: string;
+    component_type: string;
+    provider: string;
+    role_in_system: string;
+  }> = {
+    openai: {
+      component_name: "OpenAI GPT-4 API Connection",
+      component_type: "Closed Foundation Model",
+      provider: "OpenAI",
+      role_in_system: "Primary large language model used for text generation, semantic reasoning, and conversational features."
+    },
+    anthropic: {
+      component_name: "Anthropic Claude API Connection",
+      component_type: "Closed Foundation Model",
+      provider: "Anthropic",
+      role_in_system: "Large language model utilized for complex document processing, reasoning, and context window operations."
+    },
+    google: {
+      component_name: "Google Gemini API Connection",
+      component_type: "Closed Foundation Model",
+      provider: "Google",
+      role_in_system: "Multimodal language model used for general semantic generation and multimedia processing."
+    },
+    meta: {
+      component_name: "Meta LLaMA Model Instance",
+      component_type: "Open Source Model",
+      provider: "Meta",
+      role_in_system: "Self-hosted open source language model used for localized data processing and custom fine-tuning."
+    },
+    huggingface: {
+      component_name: "HuggingFace Transformers / Embeddings",
+      component_type: "Embedding Model",
+      provider: "HuggingFace",
+      role_in_system: "Open source embedding models used for local text vectorization and semantic search."
+    }
+  };
 
   if (answers.uses_third_party_models === "yes" && third_party_providers.length > 0) {
     for (const provider of third_party_providers) {
-      if (provider === "openai") {
+      const template = KNOWN_PROVIDER_COMPONENTS[provider.toLowerCase()];
+      if (template) {
         suggested_components.push({
-          component_name: "OpenAI GPT-4 API Connection",
-          component_type: "Closed Foundation Model",
-          provider: "OpenAI",
-          role_in_system: "Primary large language model used for text generation, semantic reasoning, and conversational features.",
+          ...template,
           data_categories_sent: data_categories,
-          risk_tier: componentRiskTier,
-          status: "Active"
-        });
-      } else if (provider === "anthropic") {
-        suggested_components.push({
-          component_name: "Anthropic Claude API Connection",
-          component_type: "Closed Foundation Model",
-          provider: "Anthropic",
-          role_in_system: "Large language model utilized for complex document processing, reasoning, and context window operations.",
-          data_categories_sent: data_categories,
-          risk_tier: componentRiskTier,
-          status: "Active"
-        });
-      } else if (provider === "google") {
-        suggested_components.push({
-          component_name: "Google Gemini API Connection",
-          component_type: "Closed Foundation Model",
-          provider: "Google",
-          role_in_system: "Multimodal language model used for general semantic generation and multimedia processing.",
-          data_categories_sent: data_categories,
-          risk_tier: componentRiskTier,
-          status: "Active"
-        });
-      } else if (provider === "meta") {
-        suggested_components.push({
-          component_name: "Meta LLaMA Model Instance",
-          component_type: "Open Source Model",
-          provider: "Meta",
-          role_in_system: "Self-hosted open source language model used for localized data processing and custom fine-tuning.",
-          data_categories_sent: data_categories,
-          risk_tier: componentRiskTier,
-          status: "Active"
-        });
-      } else if (provider === "huggingface") {
-        suggested_components.push({
-          component_name: "HuggingFace Transformers / Embeddings",
-          component_type: "Embedding Model",
-          provider: "HuggingFace",
-          role_in_system: "Open source embedding models used for local text vectorization and semantic search.",
-          data_categories_sent: data_categories,
-          risk_tier: componentRiskTier,
+          risk_tier: resolveRiskTier(template.component_type, data_categories),
           status: "Active"
         });
       }

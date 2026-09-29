@@ -19,29 +19,29 @@ const getStatusConfig = (verdict: string) => {
     const configs: Record<string, { icon: typeof CheckCircle2; color: string; bgColor: string; label: string; badgeVariant: "default" | "secondary" | "destructive" | "outline" }> = {
         pass: {
             icon: CheckCircle2,
-            color: "text-success",
-            bgColor: "bg-[#f0fdf4] dark:bg-[#064e3b]",
+            color: "text-emerald-800 dark:text-emerald-300",
+            bgColor: "bg-emerald-500/10 border-emerald-500/30",
             label: "Pass",
             badgeVariant: "default"
         },
         caution: {
             icon: AlertTriangle,
-            color: "text-warning",
-            bgColor: "bg-[#fffbeb] dark:bg-[#78350f]",
+            color: "text-amber-800 dark:text-amber-300",
+            bgColor: "bg-amber-500/10 border-amber-500/30",
             label: "Needs Review",
             badgeVariant: "outline"
         },
         fail: {
             icon: XCircle,
             color: "text-destructive",
-            bgColor: "bg-[#fef2f2] dark:bg-[#7f1d1d]",
+            bgColor: "bg-destructive/10 border-destructive/30",
             label: "Fail",
             badgeVariant: "destructive"
         },
         insufficient: {
             icon: Info,
             color: "text-muted-foreground",
-            bgColor: "bg-muted",
+            bgColor: "bg-muted border-border",
             label: "Insufficient",
             badgeVariant: "secondary"
         }
@@ -69,14 +69,14 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
 
     return (
         <Card
-            className={`page-break-avoid w-full ${column.verdict === 'fail' ? 'border-[#fca5a5] dark:border-destructive' : ''}`}
+            className={`page-break-avoid w-full ${column.verdict === 'fail' ? 'border-destructive/40 dark:border-destructive' : ''}`}
             style={isExporting ? { marginBottom: '20px', paddingBottom: '20px', breakInside: 'avoid' } : {}}
         >
             <CardContent className="p-5" style={isExporting ? { padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' } : {}}>
                 {/* Header with Status */}
                 <div className={`flex items-center justify-between ${!isExporting ? 'mb-5' : ''}`}>
                     <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-xl ${status.bgColor}`}>
+                        <div className={`p-2 rounded-xl border ${status.bgColor}`}>
                             <StatusIcon className={`w-5 h-5 ${status.color}`} />
                         </div>
                         <div>
@@ -97,12 +97,12 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                 {fairnessScore !== null && (
                     <div
                         className="bg-muted rounded-xl p-4"
-                        style={isExporting ? { padding: '16px', marginBottom: '24px', backgroundColor: '#f1f5f9' } : {}}
+                        style={isExporting ? { padding: '16px', marginBottom: '24px' } : {}}
                     >
                         <div className="flex items-center justify-between mb-3" style={isExporting ? { marginBottom: '12px' } : {}}>
                             <span className="text-sm font-medium text-muted-foreground">Fairness Score</span>
                             <div className="flex items-center gap-2">
-                                <span className={`text-2xl font-bold ${(fairnessScore ?? 0) >= thresholdPercent ? 'text-success' : (fairnessScore ?? 0) >= cautionPercent ? 'text-warning' : 'text-destructive'}`}>
+                                <span className={`text-2xl font-bold ${(fairnessScore ?? 0) >= thresholdPercent ? 'text-emerald-800 dark:text-emerald-400' : (fairnessScore ?? 0) >= cautionPercent ? 'text-amber-800 dark:text-amber-400' : 'text-destructive'}`}>
                                     {(fairnessScore ?? 0).toFixed(0)}%
                                 </span>
                                 {!isExporting && (
@@ -122,19 +122,19 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
 
                         {/* Progress bar */}
                         <div
-                            className="relative h-3 rounded-full bg-[#cbd5e1] overflow-hidden pdf-progress-bar"
-                            style={isExporting ? { height: '10px', marginBottom: '12px', backgroundColor: '#e2e8f0' } : {}}
+                            className="relative h-3 rounded-full bg-secondary overflow-hidden pdf-progress-bar"
+                            style={isExporting ? { height: '10px', marginBottom: '12px' } : {}}
                         >
                             <div
-                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${(fairnessScore ?? 0) >= thresholdPercent ? 'bg-[#34a853] dark:bg-success' :
-                                    (fairnessScore ?? 0) >= cautionPercent ? 'bg-[#fbbc04] dark:bg-warning' :
-                                        'bg-[#ea4335] dark:bg-destructive'
+                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${(fairnessScore ?? 0) >= thresholdPercent ? 'bg-emerald-600 dark:bg-emerald-500' :
+                                    (fairnessScore ?? 0) >= cautionPercent ? 'bg-amber-600 dark:bg-amber-500' :
+                                        'bg-destructive'
                                     }`}
                                 style={{ width: `${Math.min(Math.max(fairnessScore ?? 0, MIN_PROGRESS_BAR_WIDTH), 100)}%` }}
                             />
                             {/* Threshold marker */}
                             <div
-                                className="absolute top-0 bottom-0 w-0.5 bg-[#475569]"
+                                className="absolute top-0 bottom-0 w-0.5 bg-foreground/60"
                                 style={{ left: `${thresholdPercent}%` }}
                             />
                         </div>
@@ -147,14 +147,30 @@ export const SensitiveColumnAnalysis = ({ column, threshold, isExporting }: Sens
                         {/* Expandable details */}
                         {(showDetails || isExporting) && (
                             <div
-                                className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-1"
-                                style={isExporting ? { marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' } : {}}
+                                className="mt-3 pt-3 border-t border-border text-xs text-muted-foreground space-y-2"
+                                style={isExporting ? { marginTop: '16px', paddingTop: '12px' } : {}}
                             >
-                                <p style={isExporting ? { marginBottom: '4px', lineHeight: '1.4' } : {}}><strong>Fairness Score</strong> measures how equally outcomes are distributed across groups.</p>
-                                <p style={isExporting ? { marginBottom: '4px', lineHeight: '1.4' } : {}}>Scores ≥{thresholdPercent.toFixed(0)}% meet the required fairness threshold.</p>
-                                <p className="text-slate-500 text-[10px] mt-2" style={isExporting ? { marginTop: '6px' } : {}}>
-                                    Technical: DIR = {formatPercent(column.disparateImpactRatio ?? 0)} | DPD = {formatPercent(column.disparity)}
-                                </p>
+                                <p style={isExporting ? { marginBottom: '4px', lineHeight: '1.4' } : {}}><strong>Fairness Score</strong> measures how equally outcomes are distributed across demographic groups.</p>
+                                <p style={isExporting ? { marginBottom: '4px', lineHeight: '1.4' } : {}}>Scores ≥{thresholdPercent.toFixed(0)}% meet the target fairness threshold (regulatory Four-Fifths rule baseline is 80%).</p>
+                                
+                                <div className="mt-2.5 pt-2 border-t border-border/60 text-[11px] space-y-1.5 font-mono">
+                                    <div className="flex flex-wrap items-center justify-between gap-1 text-foreground/90">
+                                        <span>
+                                            <strong className="text-foreground">DIR</strong> (Disparate Impact Ratio): {formatPercent(column.disparateImpactRatio ?? 0)}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground font-sans bg-secondary/50 px-2 py-0.5 rounded">
+                                            Higher is better (EEOC Four-Fifths threshold: &ge;80%)
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center justify-between gap-1 text-foreground/90">
+                                        <span>
+                                            <strong className="text-foreground">DPD</strong> (Demographic Parity Difference): {formatPercent(column.disparity)}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground font-sans bg-secondary/50 px-2 py-0.5 rounded">
+                                            Lower is better (Ideal: 0%, parity threshold: &le;10%)
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

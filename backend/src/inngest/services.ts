@@ -724,10 +724,10 @@ export async function markJobCompleted(
   
   let finalStatus: string;
   if (total === 0) {
-    finalStatus = "success";
+    finalStatus = "failed";
   } else if (successful === 0 && failed > 0) {
     finalStatus = "failed";
-  } else if (failed === 0) {
+  } else if (failed === 0 && (data.summary.failed || 0) === 0) {
     finalStatus = "success";
   } else {
     finalStatus = "partial_success";
@@ -886,7 +886,7 @@ export async function markSecurityScanCompleted(
 
   let finalStatus: string;
   if (totalPrompts === 0) {
-    finalStatus = "success";
+    finalStatus = "failed";
   } else if (successful === 0 && failed > 0) {
     finalStatus = "failed";
   } else if (failed === 0) {

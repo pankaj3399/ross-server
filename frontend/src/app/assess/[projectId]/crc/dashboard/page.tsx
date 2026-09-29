@@ -435,16 +435,17 @@ export default function CRCDashboardPage() {
           </div>
 
           {/* Bottom: Main row */}
-          <div className="flex items-center justify-between gap-4 mt-1">
+          <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-3 mt-1">
             <div className="flex items-center gap-3 min-w-0">
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => router.back()}
-                type="button"
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-border/60 hover:bg-muted text-xs text-foreground/80 hover:text-foreground transition-all shadow-2xs shrink-0"
+                className="flex items-center gap-1.5 h-8 px-2.5 text-xs text-foreground/80 hover:text-foreground shrink-0 shadow-2xs"
               >
                 <IconArrowLeft className="w-3.5 h-3.5" />
                 Back
-              </button>
+              </Button>
               <div className="h-5 w-px bg-border shrink-0" />
               <div className="flex items-center gap-2.5 flex-wrap min-w-0">
                 <IconShieldCheck className="w-4 h-4 text-primary shrink-0" style={{ color: "var(--section-premium)" }} />
@@ -455,7 +456,7 @@ export default function CRCDashboardPage() {
             </div>
 
             {/* Export & Assessment Actions */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

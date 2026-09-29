@@ -46,6 +46,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.11.30",
     "@types/pg": "^8.10.9",
+    "inngest-cli": "^1.45.1",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.5"
   }

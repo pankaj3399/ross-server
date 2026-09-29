@@ -71,6 +71,7 @@ function getFooterUrls(userId: string, type: string) {
     unsubscribeUrl: `${frontendUrl}/notifications/unsubscribe/${encodeURIComponent(token)}`,
     preferencesUrl: `${frontendUrl}/settings?tab=notifications`,
     privacyUrl: `${frontendUrl}/privacy`,
+    termsUrl: `${frontendUrl}/terms`,
   };
 }
 
@@ -91,7 +92,7 @@ export function buildWeeklyDigestEmail(
   userId: string,
   data: WeeklyDigestData
 ): { html: string; text: string } {
-  const { unsubscribeUrl, preferencesUrl, privacyUrl } = getFooterUrls(userId, "weekly_digest");
+  const { unsubscribeUrl, preferencesUrl, privacyUrl, termsUrl } = getFooterUrls(userId, "weekly_digest");
   const safeProjectName = escapeHtml(data.projectName);
   const readiness = Math.round(data.readinessPercentage);
   const changes = data.changesCount;
@@ -204,6 +205,8 @@ export function buildWeeklyDigestEmail(
             <a href="${preferencesUrl}" style="color: #4a5568; text-decoration: underline;">Manage Preferences</a>
             &nbsp;•&nbsp;
             <a href="${privacyUrl}" style="color: #4a5568; text-decoration: underline;">Privacy Policy</a>
+            &nbsp;•&nbsp;
+            <a href="${termsUrl}" style="color: #4a5568; text-decoration: underline;">Terms of Service</a>
           </p>
           <p style="margin: 15px 0 0 0;">© 2026 MATUR.ai. All rights reserved.</p>
         </div>
@@ -235,6 +238,7 @@ Open Project Dashboard: ${data.dashboardUrl}
 Manage preferences: ${preferencesUrl}
 One-click unsubscribe: ${unsubscribeUrl}
 Privacy policy: ${privacyUrl}
+Terms of service: ${termsUrl}
 © 2026 MATUR.ai. All rights reserved.
 `;
 
@@ -245,7 +249,7 @@ export function buildCriticalAlertEmail(
   userId: string,
   data: CriticalRiskData
 ): { html: string; text: string } {
-  const { unsubscribeUrl, preferencesUrl, privacyUrl } = getFooterUrls(userId, "critical_alerts");
+  const { unsubscribeUrl, preferencesUrl, privacyUrl, termsUrl } = getFooterUrls(userId, "critical_alerts");
   const safeProjectName = escapeHtml(data.projectName);
   const safeRiskCode = escapeHtml(data.riskCode);
   const safeRiskTitle = escapeHtml(data.riskTitle);
@@ -313,6 +317,8 @@ export function buildCriticalAlertEmail(
             <a href="${preferencesUrl}" style="color: #4a5568; text-decoration: underline;">Manage Preferences</a>
             &nbsp;•&nbsp;
             <a href="${privacyUrl}" style="color: #4a5568; text-decoration: underline;">Privacy Policy</a>
+            &nbsp;•&nbsp;
+            <a href="${termsUrl}" style="color: #4a5568; text-decoration: underline;">Terms of Service</a>
           </p>
           <p style="margin: 15px 0 0 0;">© 2026 MATUR.ai. All rights reserved.</p>
         </div>
@@ -338,6 +344,7 @@ Review Risk Mitigation: ${data.projectUrl}
 Manage preferences: ${preferencesUrl}
 One-click unsubscribe: ${unsubscribeUrl}
 Privacy policy: ${privacyUrl}
+Terms of service: ${termsUrl}
 © 2026 MATUR.ai. All rights reserved.
 `;
 
@@ -348,7 +355,7 @@ export function buildVendorReassessmentEmail(
   userId: string,
   data: VendorReassessmentData
 ): { html: string; text: string } {
-  const { unsubscribeUrl, preferencesUrl, privacyUrl } = getFooterUrls(userId, "vendor_reassessment");
+  const { unsubscribeUrl, preferencesUrl, privacyUrl, termsUrl } = getFooterUrls(userId, "vendor_reassessment");
   const safeProjectName = escapeHtml(data.projectName);
   const safeVendorName = escapeHtml(data.vendorName);
 
@@ -408,6 +415,8 @@ export function buildVendorReassessmentEmail(
             <a href="${preferencesUrl}" style="color: #4a5568; text-decoration: underline;">Manage Preferences</a>
             &nbsp;•&nbsp;
             <a href="${privacyUrl}" style="color: #4a5568; text-decoration: underline;">Privacy Policy</a>
+            &nbsp;•&nbsp;
+            <a href="${termsUrl}" style="color: #4a5568; text-decoration: underline;">Terms of Service</a>
           </p>
           <p style="margin: 15px 0 0 0;">© 2026 MATUR.ai. All rights reserved.</p>
         </div>
@@ -431,6 +440,7 @@ Start Reassessment: ${data.assessmentUrl}
 Manage preferences: ${preferencesUrl}
 One-click unsubscribe: ${unsubscribeUrl}
 Privacy policy: ${privacyUrl}
+Terms of service: ${termsUrl}
 © 2026 MATUR.ai. All rights reserved.
 `;
 
