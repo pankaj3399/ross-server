@@ -6,6 +6,9 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
+  fromEmail?: string;
+  fromName?: string;
 }
 
 const escapeHtml = (str: string): string =>
@@ -36,12 +39,27 @@ class EmailService {
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const fromEmail = process.env.GMAIL_USER || "noreply@matur.ai";
-      const fromName = "MATUR.ai";
+      const fromEmail =
+        options.fromEmail ||
+        process.env.MAIL_FROM ||
+        process.env.EMAIL_FROM ||
+        process.env.GMAIL_USER ||
+        "noreply@matur.ai";
+      const fromName =
+        options.fromName ||
+        process.env.MAIL_FROM_NAME ||
+        process.env.EMAIL_FROM_NAME ||
+        "MATUR.ai";
+      const replyTo =
+        options.replyTo ||
+        process.env.MAIL_REPLY_TO ||
+        process.env.EMAIL_REPLY_TO ||
+        "hello@matur.ai";
 
       const mailOptions = {
         from: `"${fromName}" <${fromEmail}>`,
         to: options.to,
+        replyTo,
         subject: options.subject,
         html: options.html,
         text: options.text,

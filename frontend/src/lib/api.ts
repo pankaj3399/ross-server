@@ -819,6 +819,9 @@ class ApiService {
     projectId: string;
     fileName: string;
     csvText: string;
+    outcomeColumn?: string;
+    positiveValue?: string;
+    protectedColumns?: string[];
   }): Promise<{
     fairness: {
       overallVerdict: "pass" | "caution" | "fail" | "insufficient";

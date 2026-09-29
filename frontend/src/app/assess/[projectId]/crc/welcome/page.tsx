@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import { Button } from "@/components/ui/button";
-import { FALLBACK_PRICES } from "@/lib/constants";
 import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 import { IconArrowLeft, IconLoader2, IconShield } from "@tabler/icons-react";
 
@@ -46,14 +45,15 @@ export default function CRCWelcomePage() {
     <div className="flex-1 bg-background">
       <div className="max-w-4xl mx-auto px-6 py-6 space-y-8">
         <div className="flex items-center gap-4">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => router.push(isPremium ? `/assess/${projectId}/crc/dashboard` : `/assess/${projectId}`)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-border/60 hover:bg-muted text-xs text-foreground/80 hover:text-foreground transition-all shadow-2xs shrink-0"
+            className="flex items-center gap-1.5 h-8 px-2.5 text-xs text-foreground/80 hover:text-foreground shrink-0 shadow-2xs"
           >
             <IconArrowLeft className="w-3.5 h-3.5" />
             Back
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center justify-between mb-6 border-b border-border pb-4">

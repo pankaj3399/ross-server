@@ -216,7 +216,7 @@ export default function FairnessJobPage() {
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[jobStatus.status]}`}
             >
-              {jobStatus.status.toUpperCase()}
+              {jobStatus.status.replace(/_/g, " ").toUpperCase()}
             </span>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
               <Clock className="w-4 h-4" />

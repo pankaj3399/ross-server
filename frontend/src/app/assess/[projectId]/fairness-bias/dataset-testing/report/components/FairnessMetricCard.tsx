@@ -26,34 +26,34 @@ const VISUAL_CONFIGS: Record<'good' | 'caution' | 'bad' | 'unknown', VisualConfi
     good: {
         icon: CheckCircle2,
         color: "text-primary",
-        bgColor: "bg-[#eff6ff] dark:bg-[#1e3a8a]",
-        barColor: "bg-[#4285f4] dark:bg-primary",
+        bgColor: "bg-primary/10",
+        barColor: "bg-primary",
         badgeLabel: "Good",
         badgeVariant: "default"
     },
     caution: {
         icon: AlertTriangle,
-        color: "text-muted-foreground",
-        bgColor: "bg-[#f1f5f9] dark:bg-muted",
-        barColor: "bg-[#64748b] dark:bg-muted-foreground",
+        color: "text-amber-800 dark:text-amber-300",
+        bgColor: "bg-amber-500/10",
+        barColor: "bg-amber-600 dark:bg-amber-500",
         badgeLabel: "Review",
         badgeVariant: "secondary"
     },
     bad: {
         icon: XCircle,
         color: "text-destructive",
-        bgColor: "bg-[#fef2f2] dark:bg-[#7f1d1d]",
-        barColor: "bg-[#ea4335] dark:bg-destructive",
+        bgColor: "bg-destructive/10",
+        barColor: "bg-destructive",
         badgeLabel: "Alert",
         badgeVariant: "destructive"
     },
     unknown: {
         icon: HelpCircle,
         color: "text-muted-foreground",
-        bgColor: "bg-[#f1f3f5] dark:bg-muted",
-        barColor: "bg-[#94a3b8] dark:bg-muted",
-        badgeLabel: "Unknown",
-        badgeVariant: "secondary"
+        bgColor: "bg-muted/40",
+        barColor: "bg-muted-foreground",
+        badgeLabel: "Insufficient Data",
+        badgeVariant: "outline"
     }
 };
 
@@ -69,6 +69,10 @@ const getVisualStatus = (
 ): 'good' | 'caution' | 'bad' | 'unknown' => {
     const normalizedLabel = label?.toLowerCase() ?? '';
     const isNegativeMetric = (NEGATIVE_METRICS as readonly string[]).includes(metricName);
+
+    if (normalizedLabel === 'insufficient_data' || normalizedLabel === 'insufficient') {
+        return 'unknown';
+    }
 
     if (normalizedLabel === 'moderate') {
         return 'caution';

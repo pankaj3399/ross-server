@@ -67,7 +67,7 @@ function isRateLimited(userId: string): boolean {
 }
 
 // Periodically clean up stale rate limit entries (every 5 minutes)
-setInterval(() => {
+const rateLimitCleanupInterval = setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of rateLimitMap.entries()) {
     if (now > entry.resetAt) {
@@ -75,8 +75,60 @@ setInterval(() => {
     }
   }
 }, 5 * 60_000);
+if (rateLimitCleanupInterval.unref) rateLimitCleanupInterval.unref();
+
+// Daily limit for free tier users (10 messages per day)
+const freeTierDailyLimitMap = new Map<string, number>();
+const FREE_TIER_DAILY_LIMIT = 10;
+
+function getFreeTierRemaining(userId: string): number {
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const key = `${userId}:${today}`;
+  const currentCount = freeTierDailyLimitMap.get(key) || 0;
+  return Math.max(0, FREE_TIER_DAILY_LIMIT - currentCount);
+}
+
+function incrementFreeTierDailyLimit(userId: string): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `${userId}:${today}`;
+  const currentCount = freeTierDailyLimitMap.get(key) || 0;
+  freeTierDailyLimitMap.set(key, currentCount + 1);
+  return Math.max(0, FREE_TIER_DAILY_LIMIT - (currentCount + 1));
+}
+
+// Periodically clean up entries from previous days (every hour)
+const dailyLimitCleanupInterval = setInterval(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const key of freeTierDailyLimitMap.keys()) {
+    if (!key.endsWith(today)) {
+      freeTierDailyLimitMap.delete(key);
+    }
+  }
+}, 60 * 60_000);
+if (dailyLimitCleanupInterval.unref) dailyLimitCleanupInterval.unref();
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
+
+// GET /chat/usage - Get remaining free messages
+router.get("/usage", (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (!user?.id) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  const isPaid = user.role === "ADMIN" || ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
+  if (isPaid) {
+    return res.json({ unlimited: true, remaining: null, dailyLimit: null });
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `${user.id}:${today}`;
+  const currentCount = freeTierDailyLimitMap.get(key) || 0;
+  return res.json({
+    unlimited: false,
+    dailyLimit: FREE_TIER_DAILY_LIMIT,
+    used: currentCount,
+    remaining: Math.max(0, FREE_TIER_DAILY_LIMIT - currentCount),
+  });
+});
 
 // POST /chat - Send a chat message
 router.post("/", async (req: Request, res: Response) => {
@@ -93,11 +145,25 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
-    // Rate limiting
+    // Rate limiting (per-minute spike prevention)
     if (isRateLimited(user.id)) {
       return res.status(429).json({
         error: "You're sending messages too quickly. Please wait a moment before trying again.",
       });
+    }
+
+    // Check free tier daily message limit before expensive work
+    const isPaid = user.role === "ADMIN" || ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
+    if (!isPaid) {
+      const remaining = getFreeTierRemaining(user.id);
+      if (remaining <= 0) {
+        return res.status(429).json({
+          error: "You have reached your daily limit of 10 free messages with Mira. Upgrade your plan for unlimited messages.",
+          limitReached: true,
+          dailyLimit: FREE_TIER_DAILY_LIMIT,
+          remaining: 0,
+        });
+      }
     }
 
     // Validate request body
@@ -143,6 +209,12 @@ router.post("/", async (req: Request, res: Response) => {
       controlId,
       verifiedProjectId
     );
+
+    // Charge free tier allowance only upon successful generation
+    if (!isPaid) {
+      const remainingAfterCharge = incrementFreeTierDailyLimit(user.id);
+      res.setHeader("X-RateLimit-Remaining-Daily", remainingAfterCharge.toString());
+    }
 
     res.json({ reply });
   } catch (error: any) {

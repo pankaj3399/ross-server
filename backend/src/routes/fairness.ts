@@ -79,6 +79,9 @@ const evaluateDatasetSchema = z.object({
     projectId: z.string().uuid(),
     fileName: z.string().min(1, "File name is required"),
     csvText: z.string().min(1, "CSV text is required"),
+    outcomeColumn: z.string().optional(),
+    positiveValue: z.string().optional(),
+    protectedColumns: z.array(z.string()).optional(),
 });
 
 // Manual prompt test schema
@@ -145,7 +148,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             });
         }
 
-        const { projectId, fileName, csvText } = evaluateDatasetSchema.parse(req.body);
+        const { projectId, fileName, csvText, outcomeColumn, positiveValue, protectedColumns } = evaluateDatasetSchema.parse(req.body);
         const userId = req.user!.id;
 
         // Verify project access (owner, member, or platform ADMIN)
@@ -157,8 +160,12 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         const parsed = parseCSV(csvText);
         const { headers, rows } = parsed;
 
-        // Evaluate dataset fairness
-        const fairnessAssessment = evaluateDatasetFairness(csvText);
+        // Evaluate dataset fairness with optional user-designated columns
+        const fairnessAssessment = evaluateDatasetFairness(csvText, {
+            outcomeColumn,
+            positiveValue,
+            protectedColumns,
+        });
 
         // Prepare dataset summary for Gemini explanations
         const datasetSummary = `Dataset contains ${rows.length} rows and ${headers.length} columns. ` +
@@ -169,8 +176,10 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
         // Calculate scores based on fairness assessment
         const overallScore = getScoreFromVerdict(fairnessAssessment.overallVerdict);
         const fairnessLabel = getFairnessLabel(overallScore);
-        const fairnessContext = `The dataset fairness assessment resulted in a "${fairnessAssessment.overallVerdict}" verdict with a score of ${overallScore.toFixed(3)}. ` +
-            `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`;
+        const fairnessContext = overallScore !== null
+            ? `The dataset fairness assessment resulted in a "${fairnessAssessment.overallVerdict}" verdict with a score of ${overallScore.toFixed(3)}. ` +
+              `This indicates ${fairnessAssessment.overallVerdict === "pass" ? "low bias" : fairnessAssessment.overallVerdict === "caution" ? "moderate bias requiring attention" : "significant bias requiring immediate correction"} across sensitive groups.`
+            : "No sensitive columns or insufficient demographic groups were detected to calculate a statistically significant fairness score. Fairness cannot be measured for this dataset sample.";
         
         // Calculate biasness score from sensitive columns. When no sensitive columns
         // are detected, or no outcome column was inferred, group-fairness metrics
@@ -259,7 +268,9 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
 
         // Execute all AI calls in parallel
         // Define promises for each explanation/evaluation
-        const fairnessPromise = generateExplanationWithGemini("Fairness", overallScore, fairnessLabel, fairnessContext, datasetSummary);
+        const fairnessPromise: Promise<string[]> = overallScore !== null
+            ? generateExplanationWithGemini("Fairness", overallScore, fairnessLabel, fairnessContext, datasetSummary)
+            : Promise.resolve([fairnessContext]);
         // When biasness is unmeasurable, skip the AI explanation and use the
         // pre-built context string directly so we don't burn a Gemini call
         // generating prose around a null score.

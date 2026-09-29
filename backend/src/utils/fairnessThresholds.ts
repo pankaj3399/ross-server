@@ -27,9 +27,9 @@ export const THRESHOLDS = {
  * - pass -> 0.9: Represents a high confidence pass, well above the 0.8 high threshold.
  * - caution -> 0.5: Represents a borderline case, sitting at the threshold between low and moderate.
  * - fail -> 0.1: Represents a clear failure, well below the moderate range.
- * - insufficient -> 0.5: Treated same as caution because lack of evidence shouldn't penalize as heavily as a fail, but isn't a pass.
+ * - insufficient -> null: Represents unmeasurable data, avoids generating misleading pseudo-measurements.
  */
-export const getScoreFromVerdict = (verdict: string): number => {
+export const getScoreFromVerdict = (verdict: string): number | null => {
     switch (verdict) {
         case "pass":
             return 0.9;
@@ -38,9 +38,9 @@ export const getScoreFromVerdict = (verdict: string): number => {
         case "fail":
             return 0.1;
         case "insufficient":
-            return 0.5;
+            return null;
         default:
-            return 0.5;
+            return null;
     }
 };
 
@@ -48,8 +48,8 @@ export const getScoreFromVerdict = (verdict: string): number => {
  * For Fairness (higher is better, based on verdict conversion)
  * Score 0.8+ -> high (good), 0.5-0.8 -> moderate, <0.5 -> low (bad)
  */
-export const getFairnessLabel = (score: number): MetricLabel => {
-    if (!Number.isFinite(score)) return "moderate"; // Safe default for invalid input
+export const getFairnessLabel = (score: number | null): MetricLabel | "insufficient_data" => {
+    if (score === null || !Number.isFinite(score)) return "insufficient_data";
     if (score >= THRESHOLDS.FAIRNESS.HIGH) return "high";
     if (score >= THRESHOLDS.FAIRNESS.MODERATE) return "moderate";
     return "low";

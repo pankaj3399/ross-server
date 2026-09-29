@@ -10,6 +10,40 @@ CONSTRAINTS:
 - State facts directly from the data. Do NOT extrapolate, speculate, or introduce external concepts.
 - Keep the summary clear, executive-grade, and concise.`;
 
+export function humanizeEnum(str?: string | null): string {
+    if (!str || str === "Not specified") return str || "Not specified";
+    const map: Record<string, string> = {
+        hr_recruitment: "HR & Recruitment",
+        employment_hr: "Employment & HR",
+        medical_diagnosis: "Medical Diagnosis",
+        credit_scoring: "Credit Scoring",
+        critical_infrastructure: "Critical Infrastructure",
+        customer_service_chatbot: "Customer Service Chatbot",
+        synthetic_media: "Synthetic Media",
+        social_scoring: "Social Scoring",
+        biometric_categorization: "Biometric Categorization",
+        biometric_identification: "Biometric Identification",
+        real_time_public_identification: "Real-Time Remote Biometric ID",
+        post_remote_identification: "Post Remote Biometric ID",
+        public_spaces_identification: "Public Spaces Remote Biometric ID",
+        emotion_recognition: "Emotion Recognition",
+        verification_authentication: "Verification & Authentication",
+        single_system: "Single System",
+        ai_program: "AI Program",
+        HIGH: "High",
+        LIMITED: "Limited",
+        MINIMAL: "Minimal",
+        UNACCEPTABLE: "Unacceptable",
+        CRITICAL: "Critical",
+        LOW: "Low",
+        MEDIUM: "Medium",
+    };
+    if (map[str]) return map[str];
+    return str
+        .replace(/[_-]+/g, " ")
+        .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 /**
  * Aggregates all project details, compliance stats, risks, components, vendors, and fairness metrics.
  */
@@ -172,16 +206,16 @@ export async function generateFullPdfData(projectId: string) {
     const systemProfileData = {
         name: projectName,
         description: projectDescription,
-        governanceScope: data.profile?.governance_scope || "Not specified",
-        useCase: data.profile?.use_case || "Not specified",
-        regulatoryRole: data.profile?.regulatory_role || "Not specified",
-        scale: data.profile?.scale || "Not specified",
+        governanceScope: humanizeEnum(data.profile?.governance_scope),
+        useCase: humanizeEnum(data.profile?.use_case),
+        regulatoryRole: humanizeEnum(data.profile?.regulatory_role),
+        scale: humanizeEnum(data.profile?.scale),
         usesThirdPartyModels: data.profile?.uses_third_party_models || "Not specified",
-        automationLevel: data.profile?.automation_level || "Not specified",
-        biometricUse: data.profile?.biometric_use || "Not specified",
+        automationLevel: humanizeEnum(data.profile?.automation_level),
+        biometricUse: humanizeEnum(data.profile?.biometric_use),
         affectsChildren: data.profile?.affects_children || "Not specified",
-        euRiskTier: data.engineOutput?.eu_risk_tier || "MINIMAL",
-        internalRiskTier: data.engineOutput?.internal_risk_tier || "LOW",
+        euRiskTier: humanizeEnum(data.engineOutput?.eu_risk_tier || "MINIMAL"),
+        internalRiskTier: humanizeEnum(data.engineOutput?.internal_risk_tier || "LOW"),
         euRiskReason: data.engineOutput?.eu_risk_reason || "",
         dataCategories: data.profile?.data_categories || [],
         geographicScope: data.profile?.geographic_scope || [],
@@ -245,11 +279,11 @@ export async function generateFullPdfData(projectId: string) {
         totalComponents: data.components.length,
         components: data.components.map(c => ({
             componentName: c.component_name,
-            componentType: c.component_type,
+            componentType: humanizeEnum(c.component_type),
             provider: c.provider,
-            roleInSystem: c.role_in_system,
-            riskTier: c.risk_tier,
-            status: c.status
+            roleInSystem: humanizeEnum(c.role_in_system),
+            riskTier: humanizeEnum(c.risk_tier),
+            status: humanizeEnum(c.status)
         }))
     };
 
@@ -260,8 +294,8 @@ export async function generateFullPdfData(projectId: string) {
                 vendorName: c.provider,
                 componentName: c.component_name,
                 score: c.vendor_score || 0,
-                riskTier: c.vendor_risk_tier || "Low",
-                status: c.vendor_assessment_status || "Not Started"
+                riskTier: humanizeEnum(c.vendor_risk_tier || "Low"),
+                status: humanizeEnum(c.vendor_assessment_status || "Not Started")
             }))
     };
 
@@ -424,12 +458,12 @@ export async function generateFullPdfData(projectId: string) {
                 narrative: narratives[5],
                 components: data.components.map(c => ({
                     componentName: c.component_name,
-                    componentType: c.component_type,
+                    componentType: humanizeEnum(c.component_type),
                     provider: c.provider,
-                    roleInSystem: c.role_in_system,
+                    roleInSystem: humanizeEnum(c.role_in_system),
                     dataCategoriesSent: c.data_categories_sent || [],
-                    riskTier: c.risk_tier,
-                    status: c.status
+                    riskTier: humanizeEnum(c.risk_tier),
+                    status: humanizeEnum(c.status)
                 }))
             },
             vendorAssessments: {
@@ -454,10 +488,10 @@ export async function generateSummaryPdfData(projectId: string) {
     // System Profile Summary
     const systemProfileSummary = {
         name: projectName,
-        governanceScope: data.profile?.governance_scope || "Not specified",
-        regulatoryRole: data.profile?.regulatory_role || "Not specified",
-        euRiskTier: data.engineOutput?.eu_risk_tier || "MINIMAL",
-        internalRiskTier: data.engineOutput?.internal_risk_tier || "LOW"
+        governanceScope: humanizeEnum(data.profile?.governance_scope),
+        regulatoryRole: humanizeEnum(data.profile?.regulatory_role),
+        euRiskTier: humanizeEnum(data.engineOutput?.eu_risk_tier || "MINIMAL"),
+        internalRiskTier: humanizeEnum(data.engineOutput?.internal_risk_tier || "LOW")
     };
 
     // Hero Metrics Summary

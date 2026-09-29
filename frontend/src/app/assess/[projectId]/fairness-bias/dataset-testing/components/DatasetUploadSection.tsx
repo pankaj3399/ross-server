@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, Trash2, FileText, Loader2, ChevronDown, Scale, CheckCircle2 } from "lucide-react";
+import { Upload, Trash2, FileText, Loader2, ChevronDown, Scale, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PreviewData } from "../types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FALLBACK_PRICES } from "@/lib/constants";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PRIVACY_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
 const MAX_PREVIEW_COLUMNS = 20;
@@ -34,6 +35,13 @@ interface DatasetUploadSectionProps {
     hasFile: boolean;
     fileMeta: { name: string; size: number; uploadedAt: Date } | null;
     preview: PreviewData;
+    outcomeColumn: string;
+    setOutcomeColumn: (col: string) => void;
+    positiveValue: string;
+    setPositiveValue: (val: string) => void;
+    protectedColumns: string[];
+    setProtectedColumns: React.Dispatch<React.SetStateAction<string[]>>;
+    totalRowCount?: number;
 }
 
 export const DatasetUploadSection = ({
@@ -50,6 +58,13 @@ export const DatasetUploadSection = ({
     hasFile,
     fileMeta,
     preview,
+    outcomeColumn,
+    setOutcomeColumn,
+    positiveValue,
+    setPositiveValue,
+    protectedColumns,
+    setProtectedColumns,
+    totalRowCount = 0,
 }: DatasetUploadSectionProps) => {
     const [isMethodologyExpanded, setIsMethodologyExpanded] = useState(false);
 
@@ -67,14 +82,16 @@ export const DatasetUploadSection = ({
                                 About Dataset Testing & Evaluation
                             </h3>
                         </div>
-                        <button
+                        <Button
+                            variant="outline"
+                            size="sm"
                             type="button"
                             onClick={() => setIsMethodologyExpanded(!isMethodologyExpanded)}
-                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg bg-muted/60 dark:bg-zinc-800/80 hover:bg-muted border border-border/50 shadow-2xs"
+                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground h-8 px-3 shadow-2xs"
                         >
                             <span>{isMethodologyExpanded ? "Show Less" : "Show Methodology"}</span>
                             <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform duration-200 ${isMethodologyExpanded ? "rotate-180" : ""}`} />
-                        </button>
+                        </Button>
                     </div>
 
                     <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
@@ -189,12 +206,135 @@ export const DatasetUploadSection = ({
                         </div>
                     )}
 
+                    {/* Dataset Fairness Parameters Configuration (Statistical Rigor) */}
+                    {hasFile && preview.headers.length > 0 && (
+                        <div className="rounded-xl border border-border/80 bg-muted/20 p-5 space-y-5">
+                            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                                <div>
+                                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                        <Scale className="w-4 h-4 text-primary" />
+                                        Fairness Evaluation Parameters
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        Designate target outcomes and protected demographic attributes required for statistical parity and four-fifths disparity testing.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Sample size rigor notice if totalRowCount > 0 and < 30 */}
+                            {totalRowCount > 0 && totalRowCount < 30 && (
+                                <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+                                    <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                                    <div>
+                                        <span className="font-semibold">Sample size notice ({totalRowCount} rows): </span>
+                                        Under EU AI Act and standard algorithmic statistical rigor, samples with fewer than 30 observations cannot reliably establish statistical significance for four-fifths or parity metrics, and will be flagged as insufficient data.
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-foreground">
+                                        Target / Outcome Column <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Select
+                                        value={outcomeColumn}
+                                        onValueChange={(val) => {
+                                            setOutcomeColumn(val);
+                                            setProtectedColumns((prev) => prev.filter((c) => c !== val));
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full text-xs">
+                                            <SelectValue placeholder="Select outcome column..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {preview.headers
+                                                .filter((header) => header.trim().length > 0)
+                                                .map((header) => (
+                                                    <SelectItem key={header} value={header} className="text-xs">
+                                                        {header}
+                                                    </SelectItem>
+                                                ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Column representing the decision or classification (e.g., hired, approved, status).
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-foreground">
+                                        Favorable / Positive Outcome Value <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Input
+                                        type="text"
+                                        placeholder="e.g. 1, Approved, Yes, True, Pass"
+                                        value={positiveValue}
+                                        onChange={(e) => setPositiveValue(e.target.value)}
+                                        className="text-xs"
+                                    />
+                                    <p className="text-[11px] text-muted-foreground">
+                                        The value in the outcome column indicating a beneficial result (e.g., loan approved).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2.5 pt-2">
+                                <Label className="text-xs font-semibold text-foreground">
+                                    Protected Demographic Attributes <span className="text-destructive">*</span>
+                                </Label>
+                                <p className="text-[11px] text-muted-foreground -mt-1">
+                                    Select the sensitive attributes to evaluate for disparate impact across sub-populations:
+                                </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+                                    {preview.headers
+                                        .filter((h) => h.trim().length > 0 && h !== outcomeColumn)
+                                        .map((header) => {
+                                            const isChecked = protectedColumns.includes(header);
+                                            return (
+                                                <label
+                                                    key={header}
+                                                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs transition-colors cursor-pointer select-none ${
+                                                        isChecked
+                                                            ? "border-primary/50 bg-primary/10 text-foreground font-medium"
+                                                            : "border-border/70 bg-card hover:bg-muted/40 text-muted-foreground"
+                                                    }`}
+                                                >
+                                                    <Checkbox
+                                                        checked={isChecked}
+                                                        onCheckedChange={(checked) => {
+                                                            setProtectedColumns((prev) =>
+                                                                checked
+                                                                    ? [...prev, header]
+                                                                    : prev.filter((c) => c !== header)
+                                                            );
+                                                        }}
+                                                    />
+                                                    <span className="truncate">{header}</span>
+                                                </label>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pt-2 border-t border-border/60">
                         <p className="text-xs text-muted-foreground flex items-center gap-2">
                             <FileText className="w-3.5 h-3.5 text-emerald-500" />
                             Data never leaves this workspace.
                         </p>
-                        <div className="flex gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                            {hasFile && (!outcomeColumn || !positiveValue.trim() || protectedColumns.length === 0) && (
+                                <span className="text-[11px] text-muted-foreground">
+                                    {!outcomeColumn
+                                        ? "Select target column"
+                                        : !positiveValue.trim()
+                                        ? "Enter positive outcome value"
+                                        : "Select at least 1 protected attribute"}{" "}
+                                    to run evaluation.
+                                </span>
+                            )}
                             {hasFile && (
                                 <Button
                                     type="button"
@@ -209,7 +349,13 @@ export const DatasetUploadSection = ({
                             <Button
                                 type="button"
                                 onClick={handleEvaluate}
-                                disabled={!hasFile || isEvaluating}
+                                disabled={
+                                    !hasFile ||
+                                    isEvaluating ||
+                                    !outcomeColumn ||
+                                    !positiveValue.trim() ||
+                                    protectedColumns.length === 0
+                                }
                                 className="rounded-lg text-xs font-semibold px-5"
                             >
                                 {isEvaluating && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}

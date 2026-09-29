@@ -23,9 +23,10 @@ export function WizardSection6() {
 
   const biometricPurposes = [
     { value: "emotion_recognition", label: "Emotion Recognition (detecting emotional states in workplace/schools)" },
-    { value: "biometric_categorization", label: "Biometric Categorization (inferring race, political or religious beliefs)" },
+    { value: "biometric_categorization", label: "Biometric Categorization (inferring race, political or religious beliefs, sex life/orientation)" },
+    { value: "real_time_public_identification", label: "Real-Time Remote Biometric ID in public spaces (live crowd scanning/surveillance)" },
+    { value: "post_remote_identification", label: "Post / Retrospective Remote Biometric ID (e.g. historical footage analysis)" },
     { value: "biometric_identification", label: "Remote Biometric Identification (biometric scanning / identification)" },
-    { value: "public_spaces_identification", label: "Remote Identification in public spaces (crowd scanning/surveillance)" },
     { value: "verification_authentication", label: "1-to-1 Verification (secure login, authentication, face-unlock)" },
     { value: "none", label: "No biometric data is processed" },
   ];

@@ -233,7 +233,7 @@ const sanitizeValue = (value: string | null | undefined) => (value ?? "").toStri
 // Detects characters outside the Basic Latin and Latin-1 Supplement blocks.
 // Used to surface a warning when CSV content is in a script the English-only
 // keyword/pattern detectors and toxicity word-lists cannot reliably evaluate.
-const NON_LATIN_CHAR_REGEX = /[^ -ɏ\s]/;
+const NON_LATIN_CHAR_REGEX = /[^\u0000-\u024F\s]/;
 // Accepts either record-shaped CSV rows (Record<string, string>) or array-shaped
 // rows (string[]) — historical csv_preview payloads may hold either form.
 // Object.values handles both at runtime.
@@ -698,7 +698,16 @@ const deriveOverallVerdict = (metrics: FairnessColumnAssessment[]): VerdictStatu
     return "insufficient";
 };
 
-export const evaluateDatasetFairnessFromParsed = (parsed: { headers: string[]; rows: CSVRow[] }): FairnessAssessment => {
+export interface DatasetEvaluationOptions {
+    outcomeColumn?: string;
+    positiveValue?: string;
+    protectedColumns?: string[];
+}
+
+export const evaluateDatasetFairnessFromParsed = (
+    parsed: { headers: string[]; rows: CSVRow[] },
+    options?: DatasetEvaluationOptions
+): FairnessAssessment => {
     const emptyResult: FairnessAssessment = {
         overallVerdict: "insufficient",
         sensitiveColumns: [],
@@ -717,19 +726,21 @@ export const evaluateDatasetFairnessFromParsed = (parsed: { headers: string[]; r
     }
 
     const columnTypes = inferColumnTypes(parsed.headers, parsed.rows);
-    const sensitiveCandidates = detectSensitiveColumns(parsed.headers, parsed.rows, columnTypes);
-    if (!sensitiveCandidates.length) {
-        return {
-            ...emptyResult,
-            datasetStats: {
-                totalRows: parsed.rows.length,
-                totalPositives: 0,
-                overallPositiveRate: 0,
-            },
-        };
+
+    // Determine outcome configuration (custom or inferred)
+    let outcomeConfig: OutcomeConfig | null = null;
+    if (options?.outcomeColumn && parsed.headers.includes(options.outcomeColumn)) {
+        const designatedCol = options.outcomeColumn;
+        let posVal = options.positiveValue;
+        if (!posVal) {
+            const vals = collectUniqueValues(parsed.rows, designatedCol, 10);
+            posVal = vals.find(v => POSITIVE_KEYWORDS.includes(v.toLowerCase())) || vals[0] || "";
+        }
+        outcomeConfig = { column: designatedCol, positiveValue: posVal };
+    } else {
+        outcomeConfig = inferOutcomeConfig(parsed.headers, parsed.rows, columnTypes);
     }
 
-    const outcomeConfig = inferOutcomeConfig(parsed.headers, parsed.rows, columnTypes);
     if (!outcomeConfig) {
         return {
             ...emptyResult,
@@ -741,27 +752,62 @@ export const evaluateDatasetFairnessFromParsed = (parsed: { headers: string[]; r
         };
     }
 
+    // Determine sensitive columns (custom or inferred)
+    let sensitiveColumnNames: string[] = [];
+    if (options?.protectedColumns && options.protectedColumns.length > 0) {
+        sensitiveColumnNames = options.protectedColumns.filter(
+            (c) => parsed.headers.includes(c) && c !== outcomeConfig?.column
+        );
+    }
+    if (sensitiveColumnNames.length === 0) {
+        const sensitiveCandidates = detectSensitiveColumns(parsed.headers, parsed.rows, columnTypes);
+        sensitiveColumnNames = sensitiveCandidates
+            .filter((c) => c.column !== outcomeConfig?.column)
+            .map((c) => c.column);
+    }
+
+    if (!sensitiveColumnNames.length) {
+        return {
+            ...emptyResult,
+            outcomeColumn: outcomeConfig.column,
+            positiveOutcome: outcomeConfig.positiveValue,
+            datasetStats: {
+                totalRows: parsed.rows.length,
+                totalPositives: 0,
+                overallPositiveRate: 0,
+            },
+        };
+    }
+
     // Calculate overall dataset statistics
-    const normalizedPositive = sanitizeValue(outcomeConfig.positiveValue).toLowerCase();
+    const activeOutcome = outcomeConfig;
+    const normalizedPositive = sanitizeValue(activeOutcome.positiveValue).toLowerCase();
     const positiveIsNumeric = !Number.isNaN(Number(normalizedPositive));
     
     let totalPositives = 0;
     parsed.rows.forEach((row) => {
-        const targetValueRaw = sanitizeValue(row[outcomeConfig.column]);
-        if (isPositiveOutcome(targetValueRaw, normalizedPositive, positiveIsNumeric, outcomeConfig.positiveValue)) {
+        const targetValueRaw = sanitizeValue(row[activeOutcome.column]);
+        if (isPositiveOutcome(targetValueRaw, normalizedPositive, positiveIsNumeric, activeOutcome.positiveValue)) {
             totalPositives++;
         }
     });
 
     const metrics = computeGroupMetrics(
         parsed.rows,
-        sensitiveCandidates.map((candidate) => candidate.column),
-        outcomeConfig.column,
-        outcomeConfig.positiveValue
+        sensitiveColumnNames,
+        activeOutcome.column,
+        activeOutcome.positiveValue
     );
 
+    // Apply sample size rigor: If dataset has fewer than 30 rows, statistical
+    // fairness metrics cannot be reliably established (Four-Fifths / DPD require adequate sample power)
+    let overallVerdict = deriveOverallVerdict(metrics);
+    if (parsed.rows.length < 30 && overallVerdict !== "fail") {
+        overallVerdict = "insufficient";
+    }
+
     return {
-        overallVerdict: deriveOverallVerdict(metrics),
+        overallVerdict,
         sensitiveColumns: metrics,
         outcomeColumn: outcomeConfig.column,
         positiveOutcome: outcomeConfig.positiveValue,
@@ -774,7 +820,10 @@ export const evaluateDatasetFairnessFromParsed = (parsed: { headers: string[]; r
     };
 };
 
-export const evaluateDatasetFairness = (csvText: string): FairnessAssessment => {
+export const evaluateDatasetFairness = (
+    csvText: string,
+    options?: DatasetEvaluationOptions
+): FairnessAssessment => {
     const parsed = parseCSV(csvText);
-    return evaluateDatasetFairnessFromParsed(parsed);
+    return evaluateDatasetFairnessFromParsed(parsed, options);
 };

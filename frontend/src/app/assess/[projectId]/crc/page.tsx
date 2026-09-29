@@ -1136,20 +1136,20 @@ export default function CRCAssessmentPage() {
                           const isComplete = analysis.isValidTemplate && score >= 80;
                           const isPartial = !isComplete && score >= 40 && (!analysis.unfilledPlaceholders || analysis.unfilledPlaceholders.length === 0);
 
-                          let cardBg = "bg-red-500/10 border-red-500/30";
-                          let headerColor = "text-red-500";
-                          let badgeBorder = "border-red-500/30 text-red-500";
+                          let cardBg = "bg-destructive/10 border-destructive/30";
+                          let headerColor = "text-destructive";
+                          let badgeBorder = "border-destructive/30 text-destructive";
                           let statusTitle = "⚠️ Incomplete Template / Action Required";
 
                           if (isComplete) {
-                            cardBg = "bg-green-500/10 border-green-500/30";
-                            headerColor = "text-green-500";
-                            badgeBorder = "border-green-500/30 text-green-500";
+                            cardBg = "bg-emerald-500/10 border-emerald-500/30";
+                            headerColor = "text-emerald-800 dark:text-emerald-300";
+                            badgeBorder = "border-emerald-500/30 text-emerald-800 dark:text-emerald-300";
                             statusTitle = "✅ Evidence Verified & Complete";
                           } else if (isPartial) {
                             cardBg = "bg-amber-500/10 border-amber-500/30";
-                            headerColor = "text-amber-500";
-                            badgeBorder = "border-amber-500/30 text-amber-500";
+                            headerColor = "text-amber-800 dark:text-amber-300";
+                            badgeBorder = "border-amber-500/30 text-amber-800 dark:text-amber-300";
                             statusTitle = "⚡ Partial Evidence - Missing Requirements";
                           }
 

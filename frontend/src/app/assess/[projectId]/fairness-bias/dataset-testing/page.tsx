@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Upload, Trash2, RefreshCw, FileText, Lock, Scale } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { apiService } from "@/lib/api";
 import { getDatasetTestingReportKey } from "./storage";
 import { DatasetUploadSection } from "./components/DatasetUploadSection";
@@ -107,6 +108,14 @@ const parseFullCsv = (text: string): PreviewData => {
   return parseCsv(text);
 };
 
+const DEFAULT_DATASET_SELECTIONS = {
+  metric: "adverseImpact",
+  method: "selectionRate" as const,
+  group: "genderRace",
+  resumeFilter: "all",
+  testType: "userData",
+};
+
 const DatasetTestingPage = () => {
   const router = useRouter();
   const params = useParams<{ projectId: string }>();
@@ -126,13 +135,12 @@ const DatasetTestingPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState("adverseImpact");
-  const [selectedMethod, setSelectedMethod] = useState<"selectionRate" | "impactRatio">("selectionRate");
-  const [selectedGroup, setSelectedGroup] = useState("genderRace");
-  const [selectedResumeFilter, setSelectedResumeFilter] = useState("all");
-  const [threshold, setThreshold] = useState(0.5);
+  const [threshold] = useState(0.5);
 
-  const [testType, setTestType] = useState("userData");
+  const [outcomeColumn, setOutcomeColumn] = useState<string>("");
+  const [positiveValue, setPositiveValue] = useState<string>("");
+  const [protectedColumns, setProtectedColumns] = useState<string[]>([]);
+  const [totalRowCount, setTotalRowCount] = useState<number>(0);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
   const [subscriptionStatus, setSubscriptionStatus] = useState<'unknown' | 'free' | 'trial' | 'premium'>('unknown');
   const [projectInfo, setProjectInfo] = useState<{ name: string; aiSystemType?: string } | null>(null);
@@ -194,6 +202,10 @@ const DatasetTestingPage = () => {
     setCsvText("");
     setPreview({ headers: [], rows: [] });
     setError(null);
+    setOutcomeColumn("");
+    setPositiveValue("");
+    setProtectedColumns([]);
+    setTotalRowCount(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -239,6 +251,49 @@ const DatasetTestingPage = () => {
       setCsvText(text);
       setPreview(previewData);
       setFileMeta({ name: file.name, size: file.size, uploadedAt: new Date() });
+
+      // Calculate actual total row count from full CSV text (excluding header)
+      const nonBlankLines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      const actualRowCount = Math.max(0, nonBlankLines.length - 1);
+      setTotalRowCount(actualRowCount);
+
+      // Intelligent candidate pre-selection from non-empty headers
+      const headers = previewData.headers.filter(h => h.trim().length > 0);
+      const lowerHeaders = headers.map(h => h.toLowerCase());
+      const outcomeKeywords = ["outcome", "target", "label", "hired", "accepted", "approved", "selected", "admitted", "decision", "result", "class"];
+      const detectedOutcomeIdx = lowerHeaders.findIndex(h => outcomeKeywords.some(k => h.includes(k)));
+      let defaultOutcome = "";
+      if (detectedOutcomeIdx !== -1) {
+        defaultOutcome = headers[detectedOutcomeIdx];
+      } else if (headers.length > 0) {
+        defaultOutcome = headers[headers.length - 1];
+      }
+      setOutcomeColumn(defaultOutcome);
+
+      // Detect sensitive protected attribute candidates
+      const sensitiveKeywords = ["gender", "sex", "race", "ethnicity", "age", "disability", "religion", "nationality"];
+      const detectedProtected = headers.filter((h) => 
+        h !== defaultOutcome && sensitiveKeywords.some(k => h.toLowerCase().includes(k))
+      );
+      setProtectedColumns(detectedProtected);
+
+      // Detect common positive outcome values
+      if (previewData.rows.length > 0 && defaultOutcome) {
+        const uniqueValues = Array.from(new Set(previewData.rows.map(r => {
+          if (Array.isArray(r)) {
+            const colIdx = headers.indexOf(defaultOutcome);
+            return colIdx !== -1 ? r[colIdx] : "";
+          }
+          return r[defaultOutcome] || "";
+        }))).filter(Boolean);
+        const positiveCandidates = ["1", "true", "yes", "approved", "hired", "pass", "accepted"];
+        const match = uniqueValues.find(v => positiveCandidates.includes(String(v).trim().toLowerCase()));
+        if (match) {
+          setPositiveValue(String(match));
+        } else if (uniqueValues.length > 0) {
+          setPositiveValue(String(uniqueValues[0]));
+        }
+      }
     } catch (parseError) {
       setError("Unable to read this CSV. Please verify formatting.");
     } finally {
@@ -270,6 +325,18 @@ const DatasetTestingPage = () => {
       setError("Upload a CSV before running evaluation.");
       return;
     }
+    if (!outcomeColumn) {
+      setError("Please designate a target/outcome column for statistical evaluation.");
+      return;
+    }
+    if (!positiveValue.trim()) {
+      setError("Please enter the favorable / positive outcome value (e.g. 1, Approved, Yes).");
+      return;
+    }
+    if (protectedColumns.length === 0) {
+      setError("Please select at least one protected attribute / demographic column to measure parity across.");
+      return;
+    }
     setIsEvaluating(true);
     setError(null);
     try {
@@ -277,6 +344,9 @@ const DatasetTestingPage = () => {
         projectId,
         fileName: fileMeta.name,
         csvText,
+        outcomeColumn,
+        positiveValue: positiveValue.trim(),
+        protectedColumns,
       });
       const payload: DatasetReportPayload = {
         result: response,
@@ -288,12 +358,8 @@ const DatasetTestingPage = () => {
         preview: parseFullCsv(csvText),
         generatedAt: new Date().toISOString(),
         selections: {
-          metric: selectedMetric,
-          method: selectedMethod,
-          group: selectedGroup,
-          resumeFilter: selectedResumeFilter,
+          ...DEFAULT_DATASET_SELECTIONS,
           threshold,
-          testType,
         },
         projectName: projectInfo?.name,
         aiSystemType: projectInfo?.aiSystemType,
@@ -419,13 +485,14 @@ const DatasetTestingPage = () => {
                       Upgrade to keep access to Fairness & Bias evaluation after your trial ends.
                     </p>
                   </div>
-                  <button
-                    type="button"
+                  <Button
+                    variant="link"
+                    size="sm"
                     onClick={() => router.push("/subscriptions")}
-                    className="text-xs font-semibold text-primary hover:text-primary/80 transition"
+                    className="text-xs font-semibold text-primary hover:text-primary/80 transition h-auto p-0"
                   >
                     Upgrade →
-                  </button>
+                  </Button>
                 </div>
               </div>
               <DatasetUploadSection
@@ -442,6 +509,13 @@ const DatasetTestingPage = () => {
                 hasFile={hasFile}
                 fileMeta={fileMeta}
                 preview={preview}
+                outcomeColumn={outcomeColumn}
+                setOutcomeColumn={setOutcomeColumn}
+                positiveValue={positiveValue}
+                setPositiveValue={setPositiveValue}
+                protectedColumns={protectedColumns}
+                setProtectedColumns={setProtectedColumns}
+                totalRowCount={totalRowCount}
               />
 
               <div className="w-full px-6 pb-12">
@@ -470,6 +544,13 @@ const DatasetTestingPage = () => {
                 hasFile={hasFile}
                 fileMeta={fileMeta}
                 preview={preview}
+                outcomeColumn={outcomeColumn}
+                setOutcomeColumn={setOutcomeColumn}
+                positiveValue={positiveValue}
+                setPositiveValue={setPositiveValue}
+                protectedColumns={protectedColumns}
+                setProtectedColumns={setProtectedColumns}
+                totalRowCount={totalRowCount}
               />
 
               <div className="w-full px-6">
