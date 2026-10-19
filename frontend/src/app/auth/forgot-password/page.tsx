@@ -35,10 +35,10 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-white dark:bg-black p-[14px]">
+    <div className="h-screen max-h-screen flex w-full bg-white dark:bg-black p-2 sm:p-3.5 overflow-hidden">
       {/* Left Pane - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between py-4 px-6 sm:px-10 bg-white dark:bg-black overflow-y-auto">
-        <div className="flex justify-between items-center w-full mb-4">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between py-2 sm:py-3 px-4 sm:px-8 lg:px-10 bg-white dark:bg-black overflow-y-auto">
+        <div className="flex justify-between items-center w-full mb-2 sm:mb-3">
           <Link href="/" className="flex items-center">
             <span className="text-lg font-bold tracking-tight text-foreground">MATUR.ai</span>
           </Link>
@@ -48,9 +48,9 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Center Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-2">
+        <div className="w-full max-w-md mx-auto my-auto py-1 sm:py-2">
           {/* Progress Bar */}
-          <div className="flex gap-2 w-full mb-6">
+          <div className="flex gap-2 w-full mb-4 sm:mb-5">
             <div className="h-[3px] flex-1 bg-black dark:bg-white rounded-full" />
             <div className={`h-[3px] flex-1 rounded-full ${submitted ? "bg-black dark:bg-white" : "bg-zinc-200 dark:bg-zinc-800"}`} />
             <div className="h-[3px] flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
@@ -59,26 +59,28 @@ export default function ForgotPasswordPage() {
           {submitted ? (
             <>
               {/* Back link */}
-              <div className="mb-4">
-                <button
+              <div className="mb-2 sm:mb-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setSubmitted(false);
                     setEmail("");
                   }}
-                  className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground font-medium cursor-pointer"
+                  className="p-0 h-auto inline-flex items-center text-sm text-muted-foreground hover:text-foreground font-medium cursor-pointer"
                 >
                   <IconArrowLeft className="h-4 w-4 mr-2" />
                   Back
-                </button>
+                </Button>
               </div>
 
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="mb-6"
+                className="mb-4"
               >
-                <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
                   Check your inbox
                 </h2>
                 <p className="text-sm text-muted-foreground">
@@ -107,7 +109,7 @@ export default function ForgotPasswordPage() {
           ) : (
             <>
               {/* Back link */}
-              <div className="mb-4">
+              <div className="mb-2 sm:mb-3">
                 <Link href="/auth?isLogin=true" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground font-medium">
                   <IconArrowLeft className="h-4 w-4 mr-2" />
                   Back
@@ -118,9 +120,9 @@ export default function ForgotPasswordPage() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="mb-4"
+                className="mb-2 sm:mb-3"
               >
-                <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
                   Reset your password
                 </h2>
                 <p className="text-sm text-muted-foreground">
@@ -133,9 +135,9 @@ export default function ForgotPasswordPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.1 }}
               >
-              <form className="space-y-4" onSubmit={handleSubmit}>
+              <form className="space-y-3" onSubmit={handleSubmit}>
                 <div className="space-y-1">
-                  <Label htmlFor="email" className="text-sm flex items-center gap-1.5 mb-1">
+                  <Label htmlFor="email" className="text-sm flex items-center gap-1.5 mb-0.5">
                     <IconMail className="h-4 w-4 text-muted-foreground" />
                     Email address
                   </Label>
@@ -148,17 +150,17 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
-                    className="h-[50px] text-sm px-4 input-auth"
+                    className="h-[42px] text-sm px-4 input-auth"
                   />
                 </div>
 
                 {error && (
-                  <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2.5">
+                  <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2">
                     {error}
                   </div>
                 )}
 
-                <button
+                <Button
                   type="submit"
                   disabled={loading}
                   className="btn-auth-submit"
@@ -174,7 +176,7 @@ export default function ForgotPasswordPage() {
                       <IconArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
-                </button>
+                </Button>
 
               </form>
             </motion.div>
@@ -183,7 +185,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Bottom Footer Row */}
-        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-2 sm:mt-3">
           <span>&copy; {new Date().getFullYear()} MATUR.ai</span>
           <div className="flex gap-3">
             <Link href="/privacy" className="hover:underline">Privacy</Link>
@@ -193,17 +195,17 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* Right Pane - Image */}
-      <div className="hidden lg:block lg:w-[55%] relative">
-        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative">
+      <div className="hidden lg:block lg:w-[55%] relative h-full">
+        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative bg-auth-visual-bg flex items-center justify-center">
           <img
             src="/auth_bg_light.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover dark:hidden"
+            className="w-full h-full object-contain dark:hidden"
           />
           <img
-            src="/auth_bg_dark.jpg"
+            src="/auth_bg_dark.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover hidden dark:block"
+            className="w-full h-full object-contain hidden dark:block"
           />
         </div>
       </div>

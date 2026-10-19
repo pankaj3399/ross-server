@@ -45,10 +45,10 @@ export default function VerifyEmailPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex w-full bg-white dark:bg-black p-[14px]">
+    <div className="h-screen max-h-screen flex w-full bg-white dark:bg-black p-2 sm:p-3.5 overflow-hidden">
       {/* Left Pane - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between py-4 px-6 sm:px-10 bg-white dark:bg-black overflow-y-auto">
-        <div className="flex justify-between items-center w-full mb-4">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between py-2 sm:py-3 px-4 sm:px-8 lg:px-10 bg-white dark:bg-black overflow-y-auto">
+        <div className="flex justify-between items-center w-full mb-2 sm:mb-3">
           <Link href="/" className="flex items-center">
             <span className="text-lg font-bold tracking-tight text-foreground">MATUR.ai</span>
           </Link>
@@ -58,14 +58,14 @@ export default function VerifyEmailPage() {
         </div>
 
         {/* Center Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-2">
+        <div className="w-full max-w-md mx-auto my-auto py-1 sm:py-2">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center mb-4"
+            className="text-center mb-2 sm:mb-3"
           >
-            <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
               Email Verification
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -152,7 +152,7 @@ export default function VerifyEmailPage() {
         </div>
 
         {/* Bottom Footer Row */}
-        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-2 sm:mt-3">
           <span>&copy; {new Date().getFullYear()} MATUR.ai</span>
           <div className="flex gap-3">
             <Link href="/privacy" className="hover:underline">Privacy</Link>
@@ -162,17 +162,17 @@ export default function VerifyEmailPage() {
       </div>
 
       {/* Right Pane - Image */}
-      <div className="hidden lg:block lg:w-[55%] relative">
-        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative">
+      <div className="hidden lg:block lg:w-[55%] relative h-full">
+        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative bg-auth-visual-bg flex items-center justify-center">
           <img
             src="/auth_bg_light.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover dark:hidden"
+            className="w-full h-full object-contain dark:hidden"
           />
           <img
-            src="/auth_bg_dark.jpg"
+            src="/auth_bg_dark.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover hidden dark:block"
+            className="w-full h-full object-contain hidden dark:block"
           />
         </div>
       </div>

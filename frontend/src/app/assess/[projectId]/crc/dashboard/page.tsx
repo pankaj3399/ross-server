@@ -43,20 +43,20 @@ const getReadinessTier = (
   answeredCount: number = 1
 ): { label: string; color: string; bg: string } => {
   if (answeredCount === 0 || percent === null) {
-    return { label: "Not Started", color: "text-blue-500 dark:text-blue-400", bg: "bg-blue-500/10" };
+    return { label: "Not Started", color: "text-blue-700 dark:text-blue-400", bg: "bg-blue-500/10" };
   }
-  if (percent >= 90) return { label: "Ready", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" };
-  if (percent >= 75) return { label: "Substantially Ready", color: "text-teal-600 dark:text-teal-400", bg: "bg-teal-500/10" };
-  if (percent >= 55) return { label: "Partially Ready", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" };
-  return { label: "Not Ready", color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10" };
+  if (percent >= 90) return { label: "Ready", color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-500/10" };
+  if (percent >= 75) return { label: "Substantially Ready", color: "text-teal-700 dark:text-teal-400", bg: "bg-teal-500/10" };
+  if (percent >= 55) return { label: "Partially Ready", color: "text-amber-800 dark:text-amber-400", bg: "bg-amber-500/10" };
+  return { label: "Not Ready", color: "text-red-700 dark:text-red-400", bg: "bg-red-500/10" };
 };
 
 const getCategoryColor = (percent: number | null, answeredCount: number = 1): string => {
-  if (answeredCount === 0 || percent === null) return "text-blue-500 dark:text-blue-400";
-  if (percent >= 90) return "text-emerald-600 dark:text-emerald-400";
-  if (percent >= 75) return "text-teal-600 dark:text-teal-400";
-  if (percent >= 55) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
+  if (answeredCount === 0 || percent === null) return "text-blue-700 dark:text-blue-400";
+  if (percent >= 90) return "text-emerald-700 dark:text-emerald-400";
+  if (percent >= 75) return "text-teal-700 dark:text-teal-400";
+  if (percent >= 55) return "text-amber-800 dark:text-amber-400";
+  return "text-red-700 dark:text-red-400";
 };
 
 // Locale codes commonly associated with regions that use A4 paper sizing by default.
@@ -411,9 +411,9 @@ export default function CRCDashboardPage() {
     return "bg-green-500 text-green-500";
   };
   const getEvidenceColorBorder = (percent: number) => {
-    if (percent < 30) return "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400";
-    if (percent < 60) return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400";
-    return "border-green-500/20 bg-green-500/10 text-green-600 dark:text-green-400";
+    if (percent < 30) return "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-400";
+    if (percent < 60) return "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-400";
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
   };
 
   const projectBreadcrumbHref = isPremium
@@ -640,9 +640,9 @@ export default function CRCDashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      <BreakdownPill count={breakdown.yes} label="Yes" icon={IconCheck} color="text-emerald-500" />
-                      <BreakdownPill count={breakdown.partial} label="Partial" icon={IconMinus} color="text-blue-500" />
-                      <BreakdownPill count={breakdown.no} label="No" icon={IconX} color="text-red-500" />
+                      <BreakdownPill count={breakdown.yes} label="Yes" icon={IconCheck} color="text-emerald-700 dark:text-emerald-400" />
+                      <BreakdownPill count={breakdown.partial} label="Partial" icon={IconMinus} color="text-blue-700 dark:text-blue-400" />
+                      <BreakdownPill count={breakdown.no} label="No" icon={IconX} color="text-rose-700 dark:text-rose-400" />
                       <BreakdownPill count={breakdown.na} label="N/A" icon={IconMinus} color="text-muted-foreground" />
                       <BreakdownPill count={breakdown.notSure} label="Not Sure" icon={IconQuestionMark} color="text-muted-foreground" />
                     </div>
@@ -691,10 +691,10 @@ export default function CRCDashboardPage() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: "Critical", count: results.riskSummary?.critical ?? 0, bg: "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400" },
-                  { label: "High", count: results.riskSummary?.high ?? 0, bg: "bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400" },
-                  { label: "Medium", count: results.riskSummary?.medium ?? 0, bg: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400" },
-                  { label: "Low", count: results.riskSummary?.low ?? 0, bg: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400" },
+                  { label: "Critical", count: results.riskSummary?.critical ?? 0, bg: "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400" },
+                  { label: "High", count: results.riskSummary?.high ?? 0, bg: "bg-orange-500/10 border-orange-500/20 text-orange-800 dark:text-orange-400" },
+                  { label: "Medium", count: results.riskSummary?.medium ?? 0, bg: "bg-amber-500/10 border-amber-500/20 text-amber-900 dark:text-amber-300" },
+                  { label: "Low", count: results.riskSummary?.low ?? 0, bg: "bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-400" },
                 ].map((badge) => (
                   <Link key={badge.label} href={`/assess/${projectId}/crc/risks`}>
                     <Card className="hover:shadow-md transition-shadow duration-200 cursor-pointer group">
@@ -787,13 +787,13 @@ export default function CRCDashboardPage() {
                         </span>
                       </div>
                       <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl space-y-1">
-                        <span className="text-xs text-amber-500 block font-medium">In Progress</span>
+                        <span className="text-xs text-amber-900 dark:text-amber-300 block font-semibold">In Progress</span>
                         <span className="text-lg font-bold text-foreground tabular-nums">
                           {evidenceProgress.breakdown.inProgress}
                         </span>
                       </div>
-                      <div className="p-3 bg-green-500/5 border border-green-500/10 rounded-xl space-y-1">
-                        <span className="text-xs text-green-500 block font-medium">Complete</span>
+                      <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl space-y-1">
+                        <span className="text-xs text-emerald-800 dark:text-emerald-300 block font-semibold">Complete</span>
                         <span className="text-lg font-bold text-foreground tabular-nums">
                           {evidenceProgress.breakdown.evidenceComplete}
                         </span>

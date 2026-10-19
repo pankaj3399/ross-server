@@ -252,9 +252,9 @@ const DatasetTestingPage = () => {
       setPreview(previewData);
       setFileMeta({ name: file.name, size: file.size, uploadedAt: new Date() });
 
-      // Calculate actual total row count from full CSV text (excluding header)
-      const nonBlankLines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-      const actualRowCount = Math.max(0, nonBlankLines.length - 1);
+      // Calculate actual total row count from full CSV parser (handles quoted multiline fields)
+      const fullParsed = parseFullCsv(text);
+      const actualRowCount = fullParsed.rows.length;
       setTotalRowCount(actualRowCount);
 
       // Intelligent candidate pre-selection from non-empty headers
@@ -277,7 +277,8 @@ const DatasetTestingPage = () => {
       );
       setProtectedColumns(detectedProtected);
 
-      // Detect common positive outcome values
+      // Reset and detect common positive outcome values for the newly uploaded file
+      setPositiveValue("");
       if (previewData.rows.length > 0 && defaultOutcome) {
         const uniqueValues = Array.from(new Set(previewData.rows.map(r => {
           if (Array.isArray(r)) {

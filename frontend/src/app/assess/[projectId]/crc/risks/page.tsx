@@ -37,10 +37,10 @@ import SubscriptionModal from "@/components/features/subscriptions/SubscriptionM
 import { showToast } from "@/lib/toast";
 
 const RATING_COLORS = {
-  Critical: "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400",
-  High: "bg-orange-500/10 border-orange-500/20 text-orange-600 dark:text-orange-400",
-  Medium: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
-  Low: "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400",
+  Critical: "bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400",
+  High: "bg-orange-500/10 border-orange-500/20 text-orange-800 dark:text-orange-400",
+  Medium: "bg-amber-500/10 border-amber-500/20 text-amber-900 dark:text-amber-300",
+  Low: "bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-400",
 };
 
 const CATEGORIES = [
@@ -444,10 +444,10 @@ export default function CRCRiskRegisterPage() {
             </CardContent>
           </Card>
           {[
-            { label: "Critical", count: stats.critical, color: "text-red-500 border-red-500/20 bg-red-500/5" },
-            { label: "High", count: stats.high, color: "text-orange-500 border-orange-500/20 bg-orange-500/5" },
-            { label: "Medium", count: stats.medium, color: "text-amber-500 border-amber-500/20 bg-amber-500/5" },
-            { label: "Low", count: stats.low, color: "text-blue-500 border-blue-500/20 bg-blue-500/5" },
+            { label: "Critical", count: stats.critical, color: "text-red-700 dark:text-red-400 border-red-500/20 bg-red-500/10" },
+            { label: "High", count: stats.high, color: "text-orange-800 dark:text-orange-400 border-orange-500/20 bg-orange-500/10" },
+            { label: "Medium", count: stats.medium, color: "text-amber-900 dark:text-amber-300 border-amber-500/20 bg-amber-500/10" },
+            { label: "Low", count: stats.low, color: "text-blue-800 dark:text-blue-400 border-blue-500/20 bg-blue-500/10" },
           ].map((item) => (
             <Card key={item.label} className={item.color}>
               <CardContent className="p-4 text-center">

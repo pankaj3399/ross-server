@@ -84,16 +84,16 @@ import {
 } from "@/lib/inventoryConstants";
 
 const RISK_BADGES: Record<string, string> = {
-  Low: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  Medium: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  High: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  Critical: "bg-rose-500/10 text-rose-500 border-rose-500/20"
+  Low: "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20",
+  Medium: "bg-blue-500/10 text-blue-800 dark:text-blue-300 border-blue-500/20",
+  High: "bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/20",
+  Critical: "bg-rose-500/10 text-rose-800 dark:text-rose-300 border-rose-500/20"
 };
 
 const STATUS_BADGES: Record<string, string> = {
-  Active: "bg-green-500/10 text-green-400 border-green-500/20",
-  Evaluating: "bg-primary/10 text-primary border-primary/20",
-  Deprecated: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+  Active: "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20",
+  Evaluating: "bg-primary/10 text-primary dark:text-primary-foreground border-primary/20",
+  Deprecated: "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-500/20"
 };
 
 const getRiskCardTheme = (tier: string) => {
@@ -864,14 +864,14 @@ export default function ComponentInventoryPage() {
                             <div className="flex flex-col gap-1 items-start">
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
                                 comp.vendorRiskTier === null || comp.vendorRiskTier === undefined
-                                  ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
+                                  ? "bg-zinc-500/10 text-zinc-700 dark:text-zinc-300 border-zinc-500/20"
                                   : comp.vendorRiskTier === "Low"
-                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20"
                                     : comp.vendorRiskTier === "Medium"
-                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                                      ? "bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/20"
                                       : comp.vendorRiskTier === "High"
-                                        ? "bg-orange-500/10 text-orange-400 border-orange-500/20"
-                                        : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                                        ? "bg-orange-500/10 text-orange-900 dark:text-orange-300 border-orange-500/20"
+                                        : "bg-rose-500/10 text-rose-800 dark:text-rose-300 border-rose-500/20"
                               }`}>
                                 Vendor Risk: {comp.vendorRiskTier === null || comp.vendorRiskTier === undefined ? "N/A" : comp.vendorRiskTier}
                               </span>
@@ -893,7 +893,7 @@ export default function ComponentInventoryPage() {
                             <div className="flex items-center space-x-2">
                               <span className={`text-xs ${
                                 comp.vendorAssessmentStatus === "In Progress"
-                                  ? "text-amber-400 font-medium"
+                                  ? "text-amber-800 dark:text-amber-300 font-semibold"
                                   : "text-muted-foreground"
                               }`}>
                                 {comp.vendorAssessmentStatus}

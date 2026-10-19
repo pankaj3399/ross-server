@@ -121,9 +121,9 @@ export default function ManualReportDetailPage() {
     }, [reportId]);
 
     const getScoreColor = (score: number) => {
-        if (score >= 0.8) return "text-green-500";
-        if (score >= 0.6) return "text-yellow-500";
-        return "text-red-500";
+        if (score >= 0.8) return "text-emerald-800 dark:text-emerald-300";
+        if (score >= 0.6) return "text-amber-900 dark:text-amber-300";
+        return "text-rose-800 dark:text-rose-300";
     };
 
     if (isLoading) {
@@ -215,7 +215,7 @@ export default function ManualReportDetailPage() {
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">
                         <div className="text-sm text-muted-foreground mb-1 pb-1 leading-normal">Success Rate</div>
-                        <div className="text-2xl font-bold text-green-500">
+                        <div className="text-2xl font-bold text-emerald-800 dark:text-emerald-300">
                             {report.total_prompts > 0 ? ((report.success_count / report.total_prompts) * 100).toFixed(1) + "%" : "0.0%"}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
@@ -276,9 +276,9 @@ export default function ManualReportDetailPage() {
                                         }`}>
                                         <div className="flex items-center gap-3">
                                             {item.success ? (
-                                                <CheckCircle className="w-5 h-5 text-green-500" />
+                                                <CheckCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                                             ) : (
-                                                <XCircle className="w-5 h-5 text-red-500" />
+                                                <XCircle className="w-5 h-5 text-rose-700 dark:text-rose-400" />
                                             )}
                                             <span className="font-medium text-foreground/80">
                                                 Prompt #{idx + 1}

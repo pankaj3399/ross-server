@@ -261,10 +261,10 @@ export default function ApiReportDetailPage() {
 
     const getRiskBadgeColor = (risk: string) => {
         switch (risk) {
-            case "Low": return "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20";
-            case "Medium": return "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20";
-            case "High": return "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20";
-            case "Critical": return "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20";
+            case "Low": return "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20";
+            case "Medium": return "bg-amber-500/10 text-amber-900 dark:text-amber-300 border-amber-500/20";
+            case "High": return "bg-orange-500/10 text-orange-900 dark:text-orange-300 border-orange-500/20";
+            case "Critical": return "bg-rose-500/10 text-rose-800 dark:text-rose-300 border-rose-500/20";
             default: return "bg-muted text-muted-foreground border-border";
         }
     };
@@ -357,7 +357,7 @@ export default function ApiReportDetailPage() {
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6 shadow-sm break-inside-avoid pdf-break-safe">
                         <div className="text-sm text-muted-foreground mb-1 font-medium uppercase tracking-wider text-balance">Success Rate</div>
-                        <div className="text-3xl font-bold text-green-500">
+                        <div className="text-3xl font-bold text-emerald-800 dark:text-emerald-300">
                             {report.total_prompts > 0 ? ((report.success_count / report.total_prompts) * 100).toFixed(1) + "%" : "0.0%"}
                         </div>
                         <div className="text-xs text-muted-foreground mt-2 font-medium">
@@ -565,7 +565,7 @@ export default function ApiReportDetailPage() {
                                                             Test Iteration #{idx + 1}
                                                         </span>
                                                     </div>
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.passed ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>
+                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${item.passed ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20" : "bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-500/20"}`}>
                                                         {item.passed ? "PASSED" : "FAILED"}
                                                     </span>
                                                 </div>
@@ -617,9 +617,9 @@ export default function ApiReportDetailPage() {
                                                 }`}>
                                                 <div className="flex items-center gap-3">
                                                     {item.success ? (
-                                                        <CheckCircle className="w-5 h-5 text-green-500 pdf-icon" />
+                                                        <CheckCircle className="w-5 h-5 text-emerald-700 dark:text-emerald-400 pdf-icon" />
                                                     ) : (
-                                                        <XCircle className="w-5 h-5 text-red-500 pdf-icon" />
+                                                        <XCircle className="w-5 h-5 text-rose-700 dark:text-rose-400 pdf-icon" />
                                                     )}
                                                     <span className="font-medium text-foreground/80">
                                                         Prompt #{idx + 1}

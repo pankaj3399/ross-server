@@ -131,21 +131,21 @@ export const ManualTestHistory = ({ projectId }: ManualTestHistoryProps) => {
         }
         if (failure === 0 && success > 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20">
                     <CheckCircle className="w-3.5 h-3.5" />
                     Success ({success}/{total})
                 </span>
             );
         } else if (success === 0 && failure > 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-500/20">
                     <XCircle className="w-3.5 h-3.5" />
                     Failed ({failure}/{total})
                 </span>
             );
         } else {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20">
                     <CheckCircle className="w-3.5 h-3.5" />
                     Completed ({success}/{total})
                 </span>

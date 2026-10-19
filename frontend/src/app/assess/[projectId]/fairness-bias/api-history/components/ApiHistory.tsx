@@ -131,7 +131,7 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (hasError || (success === 0 && failure > 0) || (total === 0 && hasError)) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/20 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-800 dark:text-rose-300 border border-rose-500/20 whitespace-nowrap">
                     <XCircle className="w-3.5 h-3.5 shrink-0" />
                     Failed {total > 0 ? `(${failure}/${total})` : ""}
                 </span>
@@ -140,7 +140,7 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (total === 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-muted-foreground border border-border whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-secondary text-muted-foreground border border-border whitespace-nowrap">
                     <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                     Pending
                 </span>
@@ -149,14 +149,14 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
 
         if (failure === 0 && success > 0) {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20 whitespace-nowrap">
                     <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                     Success ({success}/{total})
                 </span>
             );
         } else {
             return (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20 whitespace-nowrap">
                     <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                     Completed ({success}/{total})
                 </span>
@@ -252,7 +252,7 @@ export const ApiHistory = ({ projectId, routeMode = 'fairness' }: ApiHistoryProp
                                                     </Tooltip>
                                                 </TooltipProvider>
                                                 {report.config?.testType === "SECURITY_SCAN" && (
-                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0 mt-1">
+                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20 shrink-0 mt-1">
                                                         <Shield className="w-3 h-3" />
                                                         Security scan
                                                     </span>
