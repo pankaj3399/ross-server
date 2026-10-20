@@ -305,7 +305,7 @@ export const DatasetUploadSection = ({
                                                         onCheckedChange={(checked) => {
                                                             setProtectedColumns((prev) =>
                                                                 checked
-                                                                    ? [...prev, header]
+                                                                    ? (prev.includes(header) ? prev : [...prev, header])
                                                                     : prev.filter((c) => c !== header)
                                                             );
                                                         }}

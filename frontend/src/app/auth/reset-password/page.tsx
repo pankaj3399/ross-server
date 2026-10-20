@@ -69,10 +69,10 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-white dark:bg-black p-[14px]">
+    <div className="h-screen max-h-screen flex w-full bg-white dark:bg-black p-2 sm:p-3.5 overflow-hidden">
       {/* Left Pane - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between py-4 px-6 sm:px-10 bg-white dark:bg-black overflow-y-auto">
-        <div className="flex justify-between items-center w-full mb-4">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between py-2 sm:py-3 px-4 sm:px-8 lg:px-10 bg-white dark:bg-black overflow-y-auto">
+        <div className="flex justify-between items-center w-full mb-2 sm:mb-3">
           <Link href="/" className="flex items-center">
             <span className="text-lg font-bold tracking-tight text-foreground">MATUR.ai</span>
           </Link>
@@ -82,15 +82,15 @@ export default function ResetPasswordPage() {
         </div>
 
         {/* Center Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-2">
+        <div className="w-full max-w-md mx-auto my-auto py-1 sm:py-2">
           {/* Progress Bar */}
-          <div className="flex gap-2 w-full mb-6">
+          <div className="flex gap-2 w-full mb-4 sm:mb-5">
             <div className="h-[3px] flex-1 bg-black dark:bg-white rounded-full" />
             <div className="h-[3px] flex-1 bg-black dark:bg-white rounded-full" />
           </div>
 
           {/* Back link */}
-          <div className="mb-4">
+          <div className="mb-2 sm:mb-3">
             <Link href="/auth?isLogin=true" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground font-medium">
               <IconArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -101,9 +101,9 @@ export default function ResetPasswordPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-4"
+            className="mb-2 sm:mb-3"
           >
-            <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
               {success ? "Password Reset" : "Reset your password"}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -119,7 +119,7 @@ export default function ResetPasswordPage() {
             transition={{ duration: 0.6, delay: 0.1 }}
           >
             {noToken ? (
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-3">
                 <div className="flex justify-center">
                   <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
                     <IconCircleX className="h-6 w-6 text-destructive" />
@@ -139,7 +139,7 @@ export default function ResetPasswordPage() {
                 </Button>
               </div>
             ) : success ? (
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-3">
                 <div className="flex justify-center">
                   <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <IconCircleCheck className="h-6 w-6 text-primary" />
@@ -151,39 +151,43 @@ export default function ResetPasswordPage() {
                     Your password has been reset successfully. You can now sign in with your new password.
                   </p>
                 </div>
-                <button
+                <Button
                   className="btn-auth-submit"
                   onClick={() => router.push("/auth?isLogin=true")}
                 >
                   Sign In
                   <IconArrowRight className="h-4 w-4 ml-2" />
-                </button>
+                </Button>
               </div>
             ) : (
-              <form className="space-y-4" onSubmit={handleSubmit}>
+              <form className="space-y-2.5 sm:space-y-3" onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center mb-0.5">
                       <Label htmlFor="password" className="text-sm flex items-center gap-1.5">
                         <IconLock className="h-4 w-4 text-muted-foreground" />
                         New Password
                       </Label>
-                      <div className="flex items-center gap-2">
-                        <button
+                      <div className="flex items-center gap-1">
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setShowRequirements(prev => !prev)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                           title="Password requirements"
                         >
                           <IconInfoCircle className="h-4 w-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setShowPassword(prev => !prev)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                         >
                           {showPassword ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div className="relative">
@@ -198,7 +202,7 @@ export default function ResetPasswordPage() {
                         onFocus={() => setShowRequirements(true)}
                         onBlur={() => setTimeout(() => setShowRequirements(false), 200)}
                         placeholder="New password"
-                        className="h-[50px] text-sm px-4 input-auth"
+                        className="h-[42px] text-sm px-4 input-auth"
                       />
                       <AnimatePresence>
                         {showRequirements && (
@@ -243,18 +247,20 @@ export default function ResetPasswordPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center mb-0.5">
                       <Label htmlFor="confirmPassword" className="text-sm flex items-center gap-1.5">
                         <IconLock className="h-4 w-4 text-muted-foreground" />
                         Confirm Password
                       </Label>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setShowConfirmPassword(prev => !prev)}
-                        className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                       >
                         {showConfirmPassword ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
-                      </button>
+                      </Button>
                     </div>
                     <Input
                       id="confirmPassword"
@@ -265,7 +271,7 @@ export default function ResetPasswordPage() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Confirm password"
-                      className="h-[50px] text-sm px-4 input-auth"
+                      className="h-[42px] text-sm px-4 input-auth"
                     />
                   </div>
                 </div>
@@ -277,12 +283,12 @@ export default function ResetPasswordPage() {
                 />
 
                 {error && (
-                  <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2.5">
+                  <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2">
                     {error}
                   </div>
                 )}
 
-                <button
+                <Button
                   type="submit"
                   disabled={loading}
                   className="btn-auth-submit"
@@ -298,14 +304,14 @@ export default function ResetPasswordPage() {
                       <IconArrowRight className="h-4 w-4 ml-2" />
                     </>
                   )}
-                </button>
+                </Button>
 
               </form>
             )}
           </motion.div>
         </div>
 
-        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-2 sm:mt-3">
           <span>&copy; {new Date().getFullYear()} MATUR.ai</span>
           <div className="flex gap-3">
             <Link href="/privacy" className="hover:underline">Privacy</Link>
@@ -315,17 +321,17 @@ export default function ResetPasswordPage() {
       </div>
 
       {/* Right Pane - Image */}
-      <div className="hidden lg:block lg:w-[55%] relative">
-        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative">
+      <div className="hidden lg:block lg:w-[55%] relative h-full">
+        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative bg-auth-visual-bg flex items-center justify-center">
           <img
             src="/auth_bg_light.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover dark:hidden"
+            className="w-full h-full object-contain dark:hidden"
           />
           <img
-            src="/auth_bg_dark.jpg"
+            src="/auth_bg_dark.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover hidden dark:block"
+            className="w-full h-full object-contain hidden dark:block"
           />
         </div>
       </div>

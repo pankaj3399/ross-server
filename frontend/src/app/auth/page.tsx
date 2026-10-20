@@ -122,10 +122,10 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-white dark:bg-black p-[14px]">
+    <div className="h-screen max-h-screen flex w-full bg-white dark:bg-black p-2 sm:p-3.5 overflow-hidden">
       {/* Left Pane - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between py-4 px-6 sm:px-10 bg-white dark:bg-black overflow-y-auto">
-        <div className="flex justify-between items-center w-full mb-4">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between py-2 sm:py-3 px-4 sm:px-8 lg:px-10 bg-white dark:bg-black overflow-y-auto">
+        <div className="flex justify-between items-center w-full mb-2 sm:mb-3">
           <Link href="/" className="flex items-center">
             <span className="text-lg font-bold tracking-tight text-foreground">MATUR.ai</span>
           </Link>
@@ -135,7 +135,7 @@ export default function AuthPage() {
         </div>
 
         {/* Center Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-2">
+        <div className="w-full max-w-md mx-auto my-auto py-1 sm:py-2">
           {mfaSetupRequired ? (
             <div className="space-y-4">
               <div className="mb-2">
@@ -166,9 +166,9 @@ export default function AuthPage() {
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="mb-4"
+                className="mb-2 sm:mb-3"
               >
-            <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
               {isLogin ? "Welcome Back" : "Create your account"}
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -181,12 +181,12 @@ export default function AuthPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
           >
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form className="space-y-2.5 sm:space-y-3" onSubmit={handleSubmit}>
               {!isLogin && (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="name" className="text-sm flex items-center gap-1.5 mb-1">
+                      <Label htmlFor="name" className="text-sm flex items-center gap-1.5 mb-0.5">
                         <IconUser className="h-4 w-4 text-muted-foreground" />
                         First Name
                       </Label>
@@ -202,12 +202,12 @@ export default function AuthPage() {
                         pattern="^[^0-9]*$"
                         onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("First name should not contain numbers")}
                         onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
-                        className="h-[50px] text-sm input-auth"
+                        className="h-[42px] text-sm input-auth"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <Label htmlFor="lastName" className="text-sm flex items-center gap-1.5 mb-1">
+                      <Label htmlFor="lastName" className="text-sm flex items-center gap-1.5 mb-0.5">
                         <IconUser className="h-4 w-4 text-muted-foreground" />
                         Last Name
                       </Label>
@@ -222,13 +222,13 @@ export default function AuthPage() {
                         pattern="^[^0-9]*$"
                         onInvalid={(e) => (e.target as HTMLInputElement).setCustomValidity("Last name should not contain numbers")}
                         onInput={(e) => (e.target as HTMLInputElement).setCustomValidity("")}
-                        className="h-[50px] text-sm input-auth"
+                        className="h-[42px] text-sm input-auth"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="organization" className="text-sm flex items-center gap-1.5 mb-1">
+                    <Label htmlFor="organization" className="text-sm flex items-center gap-1.5 mb-0.5">
                       <IconBuilding className="h-4 w-4 text-muted-foreground" />
                       Organization (Optional)
                     </Label>
@@ -238,14 +238,14 @@ export default function AuthPage() {
                       type="text"
                       value={formData.organization}
                       onChange={handleChange}
-                      className="h-[50px] text-sm input-auth"
+                      className="h-[42px] text-sm input-auth"
                     />
                   </div>
                 </>
               )}
 
               <div className="space-y-1">
-                <Label htmlFor="email" className="text-sm flex items-center gap-1.5 mb-1">
+                <Label htmlFor="email" className="text-sm flex items-center gap-1.5 mb-0.5">
                   <IconMail className="h-4 w-4 text-muted-foreground" />
                   Email address
                 </Label>
@@ -257,25 +257,27 @@ export default function AuthPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="h-[50px] text-sm input-auth"
+                  className="h-[42px] text-sm input-auth"
                 />
               </div>
 
               {isLogin ? (
                 // Login Password Row (Includes Forgot password)
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="flex justify-between items-center mb-0.5">
                     <Label htmlFor="password" className="text-sm flex items-center gap-1.5">
                       <IconLock className="h-4 w-4 text-muted-foreground" />
                       Password
                     </Label>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setShowPassword(prev => !prev)}
-                      className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                      className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                     >
                       {showPassword ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
-                    </button>
+                    </Button>
                   </div>
                   <Input
                     id="password"
@@ -285,7 +287,7 @@ export default function AuthPage() {
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    className="h-[50px] text-sm input-auth"
+                    className="h-[42px] text-sm input-auth"
                   />
                   <div className="flex justify-end mt-1">
                     <Button
@@ -302,27 +304,31 @@ export default function AuthPage() {
                 // Registration Password Row (Side-by-side Password and Confirm Password)
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center mb-0.5">
                       <Label htmlFor="password" className="text-sm flex items-center gap-1.5">
                         <IconLock className="h-4 w-4 text-muted-foreground" />
                         Password
                       </Label>
-                      <div className="flex items-center gap-2">
-                        <button
+                      <div className="flex items-center gap-1">
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setShowRequirements(prev => !prev)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                           title="Password requirements"
                         >
                           <IconInfoCircle className="h-4 w-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="icon"
                           onClick={() => setShowPassword(prev => !prev)}
-                          className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                         >
                           {showPassword ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div className="relative">
@@ -336,7 +342,7 @@ export default function AuthPage() {
                         onChange={handleChange}
                         onFocus={() => setShowRequirements(true)}
                         onBlur={() => setTimeout(() => setShowRequirements(false), 200)}
-                        className="h-[50px] text-sm input-auth"
+                        className="h-[42px] text-sm input-auth"
                       />
                       <AnimatePresence>
                         {showRequirements && (() => {
@@ -347,10 +353,10 @@ export default function AuthPage() {
                               initial={{ opacity: 0, y: -5 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
-                              className="absolute right-0 z-50 mt-1 w-[280px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3.5 shadow-xl text-xs space-y-2"
+                              className="absolute right-0 z-50 mt-1 w-[280px] bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 shadow-xl text-xs space-y-1.5"
                             >
                               <h4 className="font-semibold text-foreground">Password requirements:</h4>
-                              <ul className="space-y-1.5 text-muted-foreground">
+                              <ul className="space-y-1 text-muted-foreground">
                                 <li className="flex items-center gap-1.5">
                                   <span className={formData.password.length >= 8 ? "text-green-500 font-semibold" : ""}>
                                     ✓ At least 8 characters
@@ -392,18 +398,20 @@ export default function AuthPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex justify-between items-center mb-1">
+                    <div className="flex justify-between items-center mb-0.5">
                       <Label htmlFor="confirmPassword" className="text-sm flex items-center gap-1.5">
                         <IconLock className="h-4 w-4 text-muted-foreground" />
                         Confirm Password
                       </Label>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setShowConfirmPassword(prev => !prev)}
-                        className="text-muted-foreground hover:text-foreground cursor-pointer flex items-center"
+                        className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                       >
                         {showConfirmPassword ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
-                      </button>
+                      </Button>
                     </div>
                     <Input
                       id="confirmPassword"
@@ -413,7 +421,7 @@ export default function AuthPage() {
                       required
                       value={formData.confirmPassword}
                       onChange={handleChange}
-                      className="h-[50px] text-sm input-auth"
+                      className="h-[42px] text-sm input-auth"
                     />
                   </div>
                 </div>
@@ -453,7 +461,7 @@ export default function AuthPage() {
                       maxLength={6}
                       value={formData.mfaCode}
                       onChange={handleChange}
-                      className="h-[50px] text-center text-xl tracking-widest input-auth"
+                      className="h-[42px] text-center text-xl tracking-widest input-auth"
                     />
                   </div>
 
@@ -477,19 +485,19 @@ export default function AuthPage() {
                       placeholder="Enter backup code"
                       value={formData.backupCode}
                       onChange={handleChange}
-                      className="h-[50px] text-sm input-auth"
+                      className="h-[42px] text-sm input-auth"
                     />
                   </div>
                 </div>
               )}
 
               {error && (
-                <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2.5">
+                <div className="text-destructive text-sm text-center bg-destructive/10 border border-destructive/20 rounded-lg p-2">
                   {error}
                 </div>
               )}
 
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
                 className="btn-auth-submit"
@@ -510,10 +518,10 @@ export default function AuthPage() {
                     <IconArrowRight className="h-4 w-4 ml-2" />
                   </>
                 )}
-              </button>
+              </Button>
             </form>
 
-            <div className="mt-6 text-center text-sm text-muted-foreground space-y-3">
+            <div className="mt-3 sm:mt-4 text-center text-sm text-muted-foreground space-y-1 sm:space-y-1.5">
               <div>
                 {isLogin ? (
                   <>
@@ -543,7 +551,7 @@ export default function AuthPage() {
     </div>
 
         {/* Bottom Footer Row */}
-        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-2 sm:mt-3">
           <span>&copy; {new Date().getFullYear()} MATUR.ai</span>
           <div className="flex gap-3">
             <Link href="/privacy" className="hover:underline">Privacy</Link>
@@ -553,17 +561,17 @@ export default function AuthPage() {
       </div>
 
       {/* Right Pane - Image */}
-      <div className="hidden lg:block lg:w-[55%] relative">
-        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative">
+      <div className="hidden lg:block lg:w-[55%] relative h-full">
+        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative bg-auth-visual-bg flex items-center justify-center">
           <img
             src="/auth_bg_light.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover dark:hidden"
+            className="w-full h-full object-contain dark:hidden"
           />
           <img
-            src="/auth_bg_dark.jpg"
+            src="/auth_bg_dark.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover hidden dark:block"
+            className="w-full h-full object-contain hidden dark:block"
           />
         </div>
       </div>

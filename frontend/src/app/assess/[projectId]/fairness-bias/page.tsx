@@ -410,7 +410,7 @@ export default function FairnessBiasTest() {
                           {category.label}
                         </h3>
                       </div>
-                      <span className={`ml-2 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded shrink-0 ${isCatComplete ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : answeredInCat > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "text-muted-foreground/60"}`}>
+                      <span className={`ml-2 text-[10px] font-mono font-medium px-1.5 py-0.5 rounded shrink-0 ${isCatComplete ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300" : answeredInCat > 0 ? "bg-amber-500/10 text-amber-900 dark:text-amber-300" : "text-muted-foreground/60"}`}>
                         {answeredInCat}/{category.totalPrompts}
                       </span>
                     </div>
@@ -614,9 +614,9 @@ export default function FairnessBiasTest() {
                       return (
                         <span className={`text-[11px] font-mono px-2 py-0.5 rounded-md transition-colors ${
                           isLimitReached 
-                            ? "text-rose-500 bg-rose-500/10 font-bold border border-rose-500/20" 
+                            ? "text-rose-800 dark:text-rose-300 bg-rose-500/10 font-bold border border-rose-500/20" 
                             : isNearLimit 
-                            ? "text-amber-500 bg-amber-500/10 border border-amber-500/20" 
+                            ? "text-amber-900 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20" 
                             : "text-muted-foreground bg-muted border border-border/60"
                         }`}>
                           {words} / 1,000 words ({chars} / 5,000 chars)
@@ -674,7 +674,7 @@ export default function FairnessBiasTest() {
                     }}
                     placeholder="Type or paste your AI system prompt response here..."
                   />
-                  <div className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex items-start gap-2">
+                  <div className="text-xs text-amber-900 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex items-start gap-2">
                     <span className="shrink-0 font-bold">⚠️</span>
                     <div className="leading-relaxed">
                       <strong>Security:</strong> Your notes are automatically sanitized to prevent malicious content. HTML tags and scripts will be stripped upon evaluation.

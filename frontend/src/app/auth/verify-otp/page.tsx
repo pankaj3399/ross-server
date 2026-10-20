@@ -191,10 +191,10 @@ export default function VerifyOTPPage() {
   };
 
   return (
-    <div className="min-h-screen flex w-full bg-white dark:bg-black p-[14px]">
+    <div className="h-screen max-h-screen flex w-full bg-white dark:bg-black p-2 sm:p-3.5 overflow-hidden">
       {/* Left Pane - Form */}
-      <div className="w-full lg:w-[45%] flex flex-col justify-between py-4 px-6 sm:px-10 bg-white dark:bg-black overflow-y-auto">
-        <div className="flex justify-between items-center w-full mb-4">
+      <div className="w-full lg:w-[45%] flex flex-col justify-between py-2 sm:py-3 px-4 sm:px-8 lg:px-10 bg-white dark:bg-black overflow-y-auto">
+        <div className="flex justify-between items-center w-full mb-2 sm:mb-3">
           <Link href="/" className="flex items-center">
             <span className="text-lg font-bold tracking-tight text-foreground">MATUR.ai</span>
           </Link>
@@ -204,16 +204,16 @@ export default function VerifyOTPPage() {
         </div>
 
         {/* Center Form Container */}
-        <div className="w-full max-w-md mx-auto my-auto py-2">
+        <div className="w-full max-w-md mx-auto my-auto py-1 sm:py-2">
           {/* Progress Bar */}
-          <div className="flex gap-2 w-full mb-6">
+          <div className="flex gap-2 w-full mb-4 sm:mb-5">
             <div className="h-[3px] flex-1 bg-black dark:bg-white rounded-full" />
             <div className="h-[3px] flex-1 bg-black dark:bg-white rounded-full" />
             <div className="h-[3px] flex-1 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
           </div>
 
           {/* Back link */}
-          <div className="mb-4">
+          <div className="mb-2 sm:mb-3">
             <Link href="/auth" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground font-medium">
               <IconArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -224,9 +224,9 @@ export default function VerifyOTPPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="mb-4"
+            className="mb-2 sm:mb-3"
           >
-            <h2 className="text-3xl font-bold mb-1 tracking-tight text-foreground">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-0.5 tracking-tight text-foreground">
               Check your inbox
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -307,7 +307,7 @@ export default function VerifyOTPPage() {
                   </AnimatePresence>
 
                   <div className="space-y-3">
-                    <button
+                    <Button
                       onClick={() => handleVerifyOTP()}
                       disabled={loading || otp.some(digit => digit === "")}
                       className="btn-auth-submit"
@@ -323,10 +323,10 @@ export default function VerifyOTPPage() {
                           <IconArrowRight className="h-4 w-4 ml-2" />
                         </>
                       )}
-                    </button>
+                    </Button>
 
                     {/* Resend OTP */}
-                    <div className="text-center text-sm text-muted-foreground pt-3">
+                    <div className="text-center text-sm text-muted-foreground pt-2">
                       {isResending ? (
                         "Sending code..."
                       ) : resendCooldown > 0 ? (
@@ -336,13 +336,14 @@ export default function VerifyOTPPage() {
                       ) : (
                         <span>
                           Didn't get it?{" "}
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
                             onClick={handleResendOTP}
-                            className="font-semibold text-foreground hover:underline cursor-pointer"
+                            className="p-0 h-auto font-semibold text-foreground hover:underline inline"
                           >
                             Resend code
-                          </button>
+                          </Button>
                         </span>
                       )}
                     </div>
@@ -353,7 +354,7 @@ export default function VerifyOTPPage() {
           </motion.div>
         </div>
 
-        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-4">
+        <div className="flex justify-between items-center w-full text-xs text-muted-foreground mt-2 sm:mt-3">
           <span>&copy; {new Date().getFullYear()} MATUR.ai</span>
           <div className="flex gap-3">
             <Link href="/privacy" className="hover:underline">Privacy</Link>
@@ -363,17 +364,17 @@ export default function VerifyOTPPage() {
       </div>
 
       {/* Right Pane - Image */}
-      <div className="hidden lg:block lg:w-[55%] relative">
-        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative">
+      <div className="hidden lg:block lg:w-[55%] relative h-full">
+        <div className="w-full h-full rounded-[12px] overflow-hidden shadow-lg relative bg-auth-visual-bg flex items-center justify-center">
           <img
             src="/auth_bg_light.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover dark:hidden"
+            className="w-full h-full object-contain dark:hidden"
           />
           <img
-            src="/auth_bg_dark.jpg"
+            src="/auth_bg_dark.png"
             alt="Auth visual"
-            className="absolute inset-0 w-full h-full object-cover hidden dark:block"
+            className="w-full h-full object-contain hidden dark:block"
           />
         </div>
       </div>

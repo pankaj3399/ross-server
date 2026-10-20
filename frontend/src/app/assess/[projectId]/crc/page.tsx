@@ -1013,9 +1013,9 @@ export default function CRCAssessmentPage() {
                           }
                           const status = currentResponse?.evidenceStatus || "No Evidence";
                           let colorClass = "bg-secondary text-secondary-foreground";
-                          if (status === "Template Downloaded") colorClass = "bg-blue-500/10 text-blue-500 border border-blue-500/20";
-                          else if (status === "Evidence in Progress") colorClass = "bg-amber-500/10 text-amber-500 border border-amber-500/20";
-                          else if (status === "Evidence Complete") colorClass = "bg-green-500/10 text-green-500 border border-green-500/20";
+                          if (status === "Template Downloaded") colorClass = "bg-blue-500/10 text-blue-800 dark:text-blue-300 border border-blue-500/20";
+                          else if (status === "Evidence in Progress") colorClass = "bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-500/20";
+                          else if (status === "Evidence Complete") colorClass = "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/20";
                           return (
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
                               {status}
@@ -1211,7 +1211,7 @@ export default function CRCAssessmentPage() {
                                   </p>
                                   <div className="flex flex-wrap gap-1">
                                     {analysis.unfilledPlaceholders.map((ph: string, i: number) => (
-                                      <span key={i} className="px-2 py-0.5 rounded bg-red-500/20 text-red-500 border border-red-500/30 font-mono text-[10px]">
+                                      <span key={i} className="px-2 py-0.5 rounded bg-red-500/20 text-red-700 dark:text-red-400 border border-red-500/30 font-mono text-[10px]">
                                         {ph}
                                       </span>
                                     ))}
@@ -1221,7 +1221,7 @@ export default function CRCAssessmentPage() {
 
                               {/* Missing Requirements List */}
                               {analysis.missingRequirements && analysis.missingRequirements.length > 0 && (
-                                <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs">
+                                <div className="p-2 rounded bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-300 text-xs">
                                   <p className="font-semibold mb-0.5">⚡ Missing Required Evidence Items:</p>
                                   <ul className="list-disc pl-4 space-y-0.5">
                                     {analysis.missingRequirements.map((item: string, i: number) => (
@@ -1291,7 +1291,7 @@ export default function CRCAssessmentPage() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start justify-between gap-2 text-xs text-amber-600 dark:text-amber-500"
+                        className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-start justify-between gap-2 text-xs text-amber-900 dark:text-amber-300"
                       >
                         <div className="flex items-start gap-2 flex-1">
                           <IconAlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1304,7 +1304,7 @@ export default function CRCAssessmentPage() {
                           onClick={() => handleDismissNudge(currentControl.id)}
                           title="Dismiss nudge"
                           aria-label="Dismiss nudge"
-                          className="text-amber-600/70 hover:text-amber-600 dark:text-amber-500/70 dark:hover:text-amber-400 p-1 rounded-lg hover:bg-amber-500/10 transition-colors shrink-0"
+                          className="text-amber-800 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-200 p-1 rounded-lg hover:bg-amber-500/10 transition-colors shrink-0"
                         >
                           <IconX className="w-4 h-4" />
                         </button>

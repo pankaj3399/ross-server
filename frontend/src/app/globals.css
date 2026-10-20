@@ -245,6 +245,7 @@ button:enabled,
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-auth-visual-bg: var(--auth-visual-bg);
 
   /* Chart Colors - Brand palette */
   --color-chart-1: var(--chart-1);
@@ -639,6 +640,9 @@ button:enabled,
   --section-premium: #b45309;
   --section-settings: var(--primary);
   --section-admin: #7523de;
+
+  /* Auth visual panel background matching tree art */
+  --auth-visual-bg: #eaf1f9;
 }
 
 /* Disable transitions during sidebar drag resize for smooth performance */
@@ -726,6 +730,9 @@ button:enabled,
   --section-premium: #ffc100;
   --section-settings: var(--primary);
   --section-admin: #8b45fa;
+
+  /* Auth visual panel background matching tree art */
+  --auth-visual-bg: #060f26;
 }
 
 /* ======================
@@ -1055,12 +1062,12 @@ button:enabled,
   left: 0px;
   justify-content: center;
   align-items: center;
-  height: 50px;
+  height: 44px;
   width: 100%;
 
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 500;
-  line-height: 22.5px;
+  line-height: 20px;
   color: rgb(255, 255, 255);
   text-align: center;
   background-image: linear-gradient(rgb(80, 81, 85) 0%, rgb(62, 63, 68) 52%, rgb(51, 52, 56) 100%) !important;
@@ -1083,14 +1090,14 @@ button:enabled,
 
 /* Custom Auth Input style */
 .input-auth {
-  padding: 0px 16px;
+  padding: 0px 14px;
   display: block !important;
-  height: 50px !important;
+  height: 42px !important;
   width: 100% !important;
 
-  font-size: 14.5px !important;
+  font-size: 14px !important;
   font-weight: 500 !important;
-  line-height: 21.75px !important;
+  line-height: 20px !important;
   color: rgb(17, 17, 17) !important;
   background-color: rgba(255, 255, 255, 0.4) !important;
   border: 1px solid rgba(15, 17, 21, 0.07) !important;
