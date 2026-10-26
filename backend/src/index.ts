@@ -52,35 +52,49 @@ app.post(
 // Validate CORS configuration in production
 const FRONTEND_URL = process.env.FRONTEND_URL;
 if (process.env.NODE_ENV === 'production' && !FRONTEND_URL) {
-  throw new Error('FRONTEND_URL environment variable is required in production for CORS configuration');
+  console.warn('FRONTEND_URL environment variable is recommended in production for explicit CORS configuration');
 }
 
-// Configure CORS with proper options for production
-app.use(cors({
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+
+  const configuredFrontends = (FRONTEND_URL || "")
+    .split(",")
+    .map((u) => u.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  const allowed = [
+    ...configuredFrontends,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "https://matur.ai",
+    "https://www.matur.ai"
+  ];
+
+  const normalizedOrigin = origin.replace(/\/$/, "");
+  if (allowed.some((url) => normalizedOrigin === url)) return true;
+
+  // Strict match for verified team Vercel production and preview deployment hostnames
+  return /^https:\/\/(?:matur-ai\.vercel\.app|ross-server\.vercel\.app|(?:ross-server|matur-ai)(?:-[a-z0-9]+)?-pankajs-projects-[a-z0-9]+\.vercel\.app)$/i.test(normalizedOrigin);
+}
+
+const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    
-    // Check if the origin matches the configured FRONTEND_URL or local hosts or Vercel domains
-    const allowed = [
-      FRONTEND_URL,
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002"
-    ].filter(Boolean) as string[];
-
-    const isAllowed = allowed.some(url => origin === url);
-    const isVercel = !!origin.match(/^https?:\/\/ross-server-[a-z0-9-]+\.vercel\.app$/i);
-
-    if (isAllowed || isVercel) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-}));
+};
+
+// Configure CORS with proper options for production
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 
 // Specific route requiring larger payload - defined BEFORE global body parser
@@ -137,6 +151,19 @@ app.use(
     signingKey: process.env.INNGEST_SIGNING_KEY,
   })
 );
+
+// Global Express error handler to guarantee CORS headers on all error responses (500, cold-start, unhandled errors)
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[Express Error Handler]", err);
+  const origin = req.headers.origin;
+  if (origin && isOriginAllowed(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+  const status = typeof err.status === "number" && err.status >= 400 && err.status < 600 ? err.status : 500;
+  const message = status >= 500 ? "Internal server error" : (err.message || "An error occurred");
+  res.status(status).json({ error: message });
+});
 
 const initialize = async () => {
   try {

@@ -207,3 +207,41 @@ export function sanitizeConfig(config: any): any {
         return "[REDACTED]";
     }
 }
+
+/**
+ * Sanitizes upstream provider error messages to prevent leaking internal IDs (like OpenRouter user_id),
+ * credentials, API keys, or raw JSON stack envelopes.
+ */
+export function sanitizeErrorMessage(errorText: unknown): string {
+    if (!errorText) return "Unknown error occurred";
+    let raw = String(errorText).trim();
+
+    // Check if errorText is JSON (e.g. OpenRouter 404 / 500 error envelope)
+    try {
+        if ((raw.startsWith("{") && raw.endsWith("}")) || (raw.startsWith("[") && raw.endsWith("]"))) {
+            const parsed = JSON.parse(raw);
+            const errObj = parsed.error || parsed;
+            const message = errObj.message || (typeof errObj === "string" ? errObj : null);
+            const code = errObj.code || parsed.code || parsed.status;
+
+            if (message && typeof message === "string") {
+                raw = code ? `${message} (HTTP ${code})` : message;
+            }
+        }
+    } catch (_) {
+        // Not JSON, continue with string sanitization
+    }
+
+    // Strip sensitive IDs (OpenRouter user IDs, Org IDs, etc.)
+    raw = raw.replace(/\buser_[a-zA-Z0-9_-]{10,}\b/g, "[REDACTED_USER]");
+    raw = raw.replace(/\borg_[a-zA-Z0-9_-]{10,}\b/g, "[REDACTED_ORG]");
+    raw = raw.replace(/sk-[a-zA-Z0-9_-]{10,}/gi, "sk-[REDACTED]");
+    raw = raw.replace(/(bearer\s+)([a-zA-Z0-9\-\._~+\/]{8,})/gi, "$1[REDACTED]");
+
+    // Strip raw metadata blocks if still present
+    raw = raw.replace(/"metadata"\s*:\s*\{[^}]*\}/gi, "");
+    raw = raw.replace(/"user_id"\s*:\s*"[^"]*"/gi, "");
+
+    return raw.trim() || "Upstream target API returned an error";
+}
+

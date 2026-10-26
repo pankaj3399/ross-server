@@ -4,7 +4,8 @@ import type { EvaluationPayload } from "../services/evaluateFairness";
 import { getMembership } from "../services/projectMembershipService";
 
 export const FAIRNESS_PASS_THRESHOLD = 0.6;
-import { sanitizeConfig } from "../utils/sanitize";
+import { sanitizeConfig, sanitizeErrorMessage } from "../utils/sanitize";
+import { decryptApiKey } from "../utils/crypto";
 import { isPublicApiUrl } from "../utils/validateUrl";
 import {
   getAllSecurityPrompts,
@@ -15,6 +16,7 @@ import {
   computeCategoryScores,
   computeFinalScore,
   getRiskLevel,
+  type RiskLevel,
 } from "../security";
 
 // Types 
@@ -471,20 +473,28 @@ export function prepareRequestOptions(
   let url = config.apiUrl;
   let body = requestPayload;
 
-  if (config.apiKeyPlacement !== "none" && config.apiKey) {
+  let rawApiKey: string | null = null;
+  if (config.apiKey && config.apiKeyPlacement !== "none") {
+    rawApiKey = decryptApiKey(config.apiKey);
+    if (!rawApiKey) {
+      throw new Error("Failed to decrypt configured API key. Please check your credentials configuration.");
+    }
+  }
+
+  if (config.apiKeyPlacement !== "none" && rawApiKey) {
     const fieldName = resolveApiKeyFieldName(config.apiKeyPlacement, config.apiKeyFieldName) || undefined;
     const normalizedFieldName = fieldName?.toLowerCase();
     const shouldMirrorGoogleHeader = normalizedFieldName === "x-goog-api-key";
 
     switch (config.apiKeyPlacement) {
       case "auth_header":
-        headers.Authorization = `Bearer ${config.apiKey}`;
+        headers.Authorization = `Bearer ${rawApiKey}`;
         break;
       case "x_api_key":
-        headers[fieldName || "x-api-key"] = config.apiKey;
+        headers[fieldName || "x-api-key"] = rawApiKey;
         break;
       case "query_param":
-        url = appendQueryParam(url, fieldName || "key", config.apiKey);
+        url = appendQueryParam(url, fieldName || "key", rawApiKey);
         break;
       case "body_field": {
         if (body === null || typeof body !== "object" || Array.isArray(body)) {
@@ -493,7 +503,7 @@ export function prepareRequestOptions(
         const bodyField = fieldName || "api_key";
         body = {
           ...body,
-          [bodyField]: config.apiKey,
+          [bodyField]: rawApiKey,
         };
         break;
       }
@@ -502,7 +512,7 @@ export function prepareRequestOptions(
     }
 
     if (shouldMirrorGoogleHeader) {
-      headers["x-goog-api-key"] = config.apiKey;
+      headers["x-goog-api-key"] = rawApiKey;
     }
   }
 
@@ -746,7 +756,7 @@ export async function markJobCompleted(
      SET status = $1,
          progress = $2,
          percent = 100,
-         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         payload = (COALESCE(payload, '{}'::jsonb) || $3::jsonb) #- '{config,apiKey}'
      WHERE id = $4`,
     [
       finalStatus,
@@ -819,7 +829,7 @@ export async function failJob(jobInternalId: number, message: string) {
   await pool.query(
     `UPDATE evaluation_status
      SET status = 'failed',
-     payload = COALESCE(payload, '{}'::jsonb) || $1::jsonb
+     payload = (COALESCE(payload, '{}'::jsonb) || $1::jsonb) #- '{config,apiKey}'
      WHERE id = $2`,
     [JSON.stringify({ error: message }), jobInternalId],
   );
@@ -868,8 +878,8 @@ export async function failJob(jobInternalId: number, message: string) {
 }
 
 export type SecurityScanReport = {
-  overall_score: number;
-  risk: "Low" | "Medium" | "High" | "Critical";
+  overall_score: number | null;
+  risk: RiskLevel;
   categories: Record<string, number>;
   failures: Array<{ prompt: string; reason: string }>;
   tests?: SecurityScanTestResult[];
@@ -919,7 +929,7 @@ export async function markSecurityScanCompleted(
      SET status = $1,
          progress = $2,
          percent = 100,
-         payload = COALESCE(payload, '{}'::jsonb) || $3::jsonb
+         payload = (COALESCE(payload, '{}'::jsonb) || $3::jsonb) #- '{config,apiKey}'
      WHERE id = $4`,
     [
       finalStatus,
@@ -1311,8 +1321,8 @@ export async function processSecurityScan(
   if (prompts.length === 0) {
     await step.run("mark-empty-completed", async () => {
       await markSecurityScanCompleted(job.id, payload, {
-        overall_score: 100,
-        risk: "Low",
+        overall_score: null,
+        risk: "Inconclusive",
         categories: {},
         failures: [],
         tests: [],
@@ -1402,13 +1412,89 @@ export async function processSecurityScan(
 
   const apiErrors: JobError[] = userApiResponses
     .filter((r): r is UserApiResponse & { success: false; error: string } => !r.success)
-    .map((r) => ({
-      category: r.category,
-      prompt: r.prompt,
-      success: false as const,
-      error: r.error,
-      message: r.error,
-    }));
+    .map((r) => {
+      const sanitizedErr = sanitizeErrorMessage(r.error);
+      return {
+        category: r.category,
+        prompt: r.prompt,
+        success: false as const,
+        error: sanitizedErr,
+        message: sanitizedErr,
+      };
+    });
+
+  if (successfulResponses.length === 0) {
+    const errorSummary = apiErrors[0]?.error || "Target API requests failed (endpoint unreachable or returned error)";
+    await step.run("mark-security-scan-failed-inconclusive", async () => {
+      await pool.query(
+        `UPDATE evaluation_status
+         SET status = 'failed',
+             error = $1,
+             payload = (COALESCE(payload, '{}'::jsonb) || $2::jsonb) #- '{config,apiKey}',
+             updated_at = NOW()
+         WHERE id = $3`,
+        [
+          errorSummary,
+          JSON.stringify({
+            status: "failed",
+            error: errorSummary,
+            errors: apiErrors,
+            summary: {
+              total: prompts.length,
+              successful: 0,
+              failed: prompts.length,
+            },
+          }),
+          job.id,
+        ]
+      );
+
+      const jobResult = await pool.query(
+        `SELECT user_id, project_id, job_id FROM evaluation_status WHERE id = $1`,
+        [job.id]
+      );
+      if (jobResult.rows.length > 0) {
+        const { user_id, project_id, job_id } = jobResult.rows[0];
+        const configToSave = { ...sanitizeConfig(payload.config), testType: "SECURITY_SCAN" };
+        const resultsPayload = {
+          status: "failed",
+          error: errorSummary,
+          overall_score: null,
+          risk: "Inconclusive",
+          categories: {},
+          failures: [],
+          tests: [],
+        };
+        await pool.query(
+          `INSERT INTO api_test_reports
+           (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+           ON CONFLICT (job_id) DO UPDATE SET
+             total_prompts = EXCLUDED.total_prompts,
+             success_count = EXCLUDED.success_count,
+             failure_count = EXCLUDED.failure_count,
+             average_scores = EXCLUDED.average_scores,
+             results = EXCLUDED.results,
+             errors = EXCLUDED.errors,
+             config = EXCLUDED.config,
+             updated_at = NOW()`,
+          [
+            user_id,
+            project_id,
+            job_id,
+            prompts.length,
+            0,
+            prompts.length,
+            JSON.stringify({}),
+            JSON.stringify(resultsPayload),
+            JSON.stringify(apiErrors.map((e) => ({ prompt: e.prompt, reason: e.error }))),
+            JSON.stringify(configToSave),
+          ]
+        );
+      }
+    });
+    return;
+  }
 
   const testResults: SecurityScanTestResult[] = [];
   const failures: Array<{ prompt: string; reason: string }> = [];
@@ -1438,9 +1524,10 @@ export async function processSecurityScan(
             ? `LLM confirmed failure: ${llmReview.reason}`
             : analyzed.reason;
         } else {
-          // Uncertain: keep regex decision, but preserve the uncertainty in reason.
+          // Uncertain: preserve deterministic heuristic verdict with uncertainty notice
+          finalPassed = analyzed.passed;
           finalReason = llmReview.reason
-            ? `${analyzed.reason || "Flagged by regex"} (LLM uncertain: ${llmReview.reason})`
+            ? `${analyzed.reason || "Flagged by security heuristics"} (LLM review uncertain: ${llmReview.reason})`
             : analyzed.reason;
         }
       }
@@ -1457,10 +1544,6 @@ export async function processSecurityScan(
     if (!finalPassed && finalReason) {
       failures.push({ prompt: r.prompt, reason: finalReason });
     }
-  }
-
-  for (const e of apiErrors) {
-    failures.push({ prompt: e.prompt, reason: e.error });
   }
 
   const categoryScores = computeCategoryScores(testResults);

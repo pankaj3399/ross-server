@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, FileEdit, FileJson, Download, Loader2 } from "lucide-react";
 import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
+import { getVerdictBadgeClass } from "@/lib/fairnessUtils";
 
 type ManualReportDetail = {
     id: string;
@@ -123,6 +124,12 @@ export default function ManualReportDetailPage() {
     const getScoreColor = (score: number) => {
         if (score >= 0.8) return "text-emerald-800 dark:text-emerald-300";
         if (score >= 0.6) return "text-amber-900 dark:text-amber-300";
+        return "text-rose-800 dark:text-rose-300";
+    };
+
+    const getNegativeMetricColor = (score: number) => {
+        if (score <= 0.3) return "text-emerald-800 dark:text-emerald-300";
+        if (score <= 0.6) return "text-amber-900 dark:text-amber-300";
         return "text-rose-800 dark:text-rose-300";
     };
 
@@ -313,15 +320,34 @@ export default function ManualReportDetailPage() {
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Bias Score:</span>
-                                                            <span className="font-mono">{(item.evaluation.biasScore * 100).toFixed(1)}%</span>
+                                                            <span className={`font-mono font-semibold ${getNegativeMetricColor(item.evaluation.biasScore)}`}>
+                                                                {(item.evaluation.biasScore * 100).toFixed(1)}%
+                                                            </span>
                                                         </div>
                                                         <div className="flex justify-between items-center text-sm">
                                                             <span>Toxicity Score:</span>
-                                                            <span className="font-mono">{(item.evaluation.toxicityScore * 100).toFixed(1)}%</span>
+                                                            <span className={`font-mono font-semibold ${getNegativeMetricColor(item.evaluation.toxicityScore)}`}>
+                                                                {(item.evaluation.toxicityScore * 100).toFixed(1)}%
+                                                            </span>
                                                         </div>
-                                                        <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
-                                                            {item.evaluation.overallVerdict}
-                                                        </div>
+                                                        {(item.evaluation as any).verdicts ? (
+                                                            <div className="mt-2.5 flex flex-wrap gap-1.5">
+                                                                {(item.evaluation as any).verdicts.bias?.verdict && (
+                                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${getVerdictBadgeClass((item.evaluation as any).verdicts.bias.verdict)}`}>
+                                                                        Bias: {(item.evaluation as any).verdicts.bias.verdict}
+                                                                    </span>
+                                                                )}
+                                                                {(item.evaluation as any).verdicts.toxicity?.verdict && (
+                                                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${getVerdictBadgeClass((item.evaluation as any).verdicts.toxicity.verdict)}`}>
+                                                                        Toxicity: {(item.evaluation as any).verdicts.toxicity.verdict}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        ) : item.evaluation.overallVerdict ? (
+                                                            <div className="mt-2 text-sm text-muted-foreground bg-secondary/20 p-2 rounded">
+                                                                {item.evaluation.overallVerdict}
+                                                            </div>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                                 <div>

@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, Server, Terminal, FileJ
 import { usePdfReport } from "../../../../../../hooks/usePdfReport";
 import { API_BASE_URL } from "@/lib/api";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
+import { getVerdictBadgeClass } from "@/lib/fairnessUtils";
 
 type SecurityReportPayload = {
     overall_score: number;
@@ -78,19 +79,7 @@ interface ItemVerdictBadgesProps {
     };
 }
 
-function getVerdictBadgeClass(verdictStr: string): string {
-    const v = verdictStr.toLowerCase();
-    if (v.includes("low bias") || v.includes("low toxicity") || v.includes("highly relevant") || v.includes("highly faithful") || v.includes("pass")) {
-        return "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30";
-    }
-    if (v.includes("moderate")) {
-        return "bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/30";
-    }
-    if (v.includes("high bias") || v.includes("high toxicity") || v.includes("low relevance") || v.includes("low faithfulness") || v.includes("fail")) {
-        return "bg-destructive/10 text-destructive border border-destructive/30";
-    }
-    return "bg-secondary text-secondary-foreground border border-border";
-}
+
 
 function ItemVerdictBadges({ evaluation, verdicts }: ItemVerdictBadgesProps) {
     const resolved = evaluation?.verdicts || verdicts;
@@ -664,7 +653,10 @@ export default function ApiReportDetailPage() {
                                                                 </div>
                                                                 <div className="flex justify-between items-center text-sm">
                                                                     <span>Toxicity Score:</span>
-                                                                    <span className="font-mono text-foreground">
+                                                                    <span className={`font-mono font-semibold ${Number.isFinite((item as any).evaluation?.toxicityScore)
+                                                                        ? getBiasScoreColor((item as any).evaluation?.toxicityScore)
+                                                                        : "text-foreground"
+                                                                        }`}>
                                                                         {Number.isFinite((item as any).evaluation?.toxicityScore)
                                                                             ? ((item as any).evaluation?.toxicityScore * 100).toFixed(1) + "%"
                                                                             : "N/A"}

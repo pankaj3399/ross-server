@@ -99,6 +99,24 @@ export function validateNarrative(
         }
     }
 
+    // Conversational LLM meta-text check (prevents prompt chatter/refusals from printing in PDFs)
+    const conversationalPatterns = [
+        /\bi'?m ready to (generate|help|provide)\b/i,
+        /\bplease (share|provide|upload) the (data|details|information)\b/i,
+        /\bcould you (please )?provide\b/i,
+        /\bno (section )?data (has been|was) provided\b/i,
+        /\bas an ai (?:language model|assistant|model)\b/i,
+        /\bas an ai,?\s+(?:i|we|my)\b/i,
+        /\bhere is a summary of the (provided )?data\b/i,
+        /\bif you (can )?provide the\b/i,
+        /\bto generate (the|an) executive summary\b/i
+    ];
+    for (const pattern of conversationalPatterns) {
+        if (pattern.test(cleanedNarrative)) {
+            errors.push(`Contains conversational LLM meta-text: "${cleanedNarrative.slice(0, 60)}..."`);
+        }
+    }
+
     // 2. Date Validation
     // Check if dates mentioned in narrative exist in section_data
     const dateRegexes = [
@@ -242,6 +260,19 @@ export async function generateAndValidateNarrative(
 ): Promise<{ narrative: string; success: boolean }> {
     const { systemPrompt, userPrompt, sectionData, projectName, sectionLabel, isPremium = true } = params;
     
+    // Check if section data is empty or missing
+    if (!sectionData || (typeof sectionData === "object" && Object.keys(sectionData).length === 0)) {
+        return {
+            narrative: "Complete your assessment to generate the narrative.",
+            success: false
+        };
+    }
+
+    const hasDataInPrompt = userPrompt.includes("Section Data:");
+    const basePromptWithData = hasDataInPrompt
+        ? userPrompt
+        : `${userPrompt}\n\nSection Data (JSON):\n${JSON.stringify(sectionData, null, 2)}`;
+
     let currentFeedback = "";
     let attempts = 0;
     const maxAttempts = 3;
@@ -250,8 +281,8 @@ export async function generateAndValidateNarrative(
         attempts++;
         try {
             const fullUserPrompt = currentFeedback
-                ? `${userPrompt}\n\n[RETRY ATTEMPT ${attempts}] Previous attempt failed validation with the following errors:\n${currentFeedback}\nPlease rewrite the narrative avoiding these errors. Make sure to adhere to all constraints.`
-                : userPrompt;
+                ? `${basePromptWithData}\n\n[RETRY ATTEMPT ${attempts}] Previous attempt failed validation with the following errors:\n${currentFeedback}\nPlease rewrite the narrative avoiding these errors. Make sure to adhere to all constraints.`
+                : basePromptWithData;
 
             const generated = await callClaude({
                 systemPrompt,
@@ -277,7 +308,7 @@ export async function generateAndValidateNarrative(
     // Fallback on exhaustion
     console.error(`[Narrative Validator] Failed all ${maxAttempts} attempts for ${sectionLabel}. Using fallback.`);
     return {
-        narrative: "Section data is available below",
+        narrative: "Assessment narrative is currently unavailable. Please try again.",
         success: false
     };
 }
