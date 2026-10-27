@@ -36,11 +36,15 @@ interface Evaluation {
 
 const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; verdict?: string }) => {
   const percentage = (score * 100).toFixed(0);
-  const isGood = score >= 0.7;
-  const isMedium = score >= 0.4 && score < 0.7;
+  const isNegativeMetric = label.toLowerCase() === "bias" || label.toLowerCase() === "toxicity";
+
+  // Negative metrics (Bias, Toxicity): low score is good, high score is bad
+  // Positive metrics (Relevancy, Faithfulness, Fairness, Overall): high score is good, low is bad
+  const isGood = isNegativeMetric ? score < 0.3 : score >= 0.7;
+  const isMedium = isNegativeMetric ? (score >= 0.3 && score <= 0.6) : (score >= 0.4 && score < 0.7);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-card rounded-lg border border-border min-w-[120px] pdf-score-badge">
+    <div className="flex items-center gap-2.5 px-3.5 py-2 bg-card rounded-lg border border-border min-w-[130px] pdf-score-badge">
       <div className="flex-shrink-0">
         {isGood ? (
           <CheckCircle2 className="w-4 h-4 text-success pdf-icon" />
@@ -51,8 +55,23 @@ const ScoreBadge = ({ label, score, verdict }: { label: string; score: number; v
         )}
       </div>
       <div className="flex flex-col justify-center">
-        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider leading-none mb-1 pdf-label">{label}</span>
-        <span className="text-sm font-bold text-foreground leading-none pdf-value">{percentage}%</span>
+        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider leading-none mb-1 pdf-label">
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5 leading-none">
+          <span className="text-sm font-bold text-foreground pdf-value">{percentage}%</span>
+          {verdict && (
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+              isGood
+                ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                : isMedium
+                ? "bg-amber-500/10 text-amber-800 dark:text-amber-300"
+                : "bg-destructive/10 text-destructive"
+            }`}>
+              {verdict}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

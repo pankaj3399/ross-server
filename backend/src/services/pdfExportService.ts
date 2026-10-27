@@ -396,7 +396,7 @@ export async function generateFullPdfData(projectId: string) {
             return r.value.narrative;
         }
         console.error(`Narrative call ${index} failed:`, (r as any).reason);
-        return "Section data is available below";
+        return "Assessment narrative is currently unavailable. Please try again.";
     });
 
     const anyFailed = results.some(r => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success));
@@ -604,7 +604,7 @@ export async function generateSummaryPdfData(projectId: string) {
             return r.value.narrative;
         }
         console.error(`Summary narrative call ${index} failed:`, (r as any).reason);
-        return "Section data is available below";
+        return "Assessment narrative is currently unavailable. Please try again.";
     });
 
     const anyFailed = results.some(r => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success));

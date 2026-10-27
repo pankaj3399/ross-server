@@ -22,6 +22,7 @@ import {
     THRESHOLDS
 } from "../utils/fairnessThresholds";
 import { sanitizeConfig } from "../utils/sanitize";
+import { encryptApiKey } from "../utils/crypto";
 import { getAllSecurityPrompts } from "../security";
 import {
     RESPONSE_KEY_REGEX,
@@ -523,7 +524,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
         // Generate a unique job ID
         const jobId = `fairness-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-        // Create job payload
+        // Create job payload (encrypt sensitive provider API key before storage at rest)
         const jobPayload = {
             type: "FAIRNESS_API",
             config: {
@@ -531,7 +532,7 @@ router.post("/evaluate-api", authenticateToken, async (req, res) => {
                 apiUrl,
                 requestTemplate,
                 responseKey,
-                apiKey: apiKey || null,
+                apiKey: apiKey ? encryptApiKey(apiKey) : null,
                 apiKeyPlacement: apiKeyPlacement || "none",
                 apiKeyFieldName: apiKeyFieldName || null,
             },
@@ -614,7 +615,7 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
                 apiUrl,
                 requestTemplate,
                 responseKey,
-                apiKey: apiKey || null,
+                apiKey: apiKey ? encryptApiKey(apiKey) : null,
                 apiKeyPlacement: apiKeyPlacement || "none",
                 apiKeyFieldName: apiKeyFieldName || null,
             },

@@ -997,7 +997,7 @@ function SidebarContentComponent() {
                       {myInvitations.map((inv) => (
                         <div key={inv.id} className="p-3 text-xs flex flex-col gap-2 border-b last:border-0 hover:bg-muted/50 transition-colors">
                           <p className="text-foreground leading-snug">
-                            <span className="font-semibold">{inv.inviter?.name || "Someone"}</span> invited you to join <span className="font-semibold text-primary">{inv.project.name}</span>
+                            <span className="font-semibold">{inv.inviter?.name || "Someone"}</span> invited you to join <span className="font-semibold text-primary">{inv.project?.name || "Untitled Project"}</span>
                           </p>
                           <div className="flex gap-2 mt-1">
                             <Button size="sm" className="flex-1 h-7 text-[10px] py-0" onClick={() => router.push(`/invite/accept?token=${encodeURIComponent(inv.token)}`)}>

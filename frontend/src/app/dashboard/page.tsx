@@ -150,6 +150,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'created_desc' | 'created_asc' | 'name_asc' | 'name_desc'>('created_desc');
   const [filterStatus, setFilterStatus] = useState<'all' | 'not_started' | 'in_progress' | 'completed'>('all');
@@ -353,22 +354,43 @@ export default function DashboardPage() {
     }
   }, [deletingProjectId, editingProject, showCreateForm, showPathSelection, showSubscriptionModal, showFilterModal]);
 
-  const loadProjects = useCallback(async () => {
+  const loadProjects = useCallback(async (retryCount = 0) => {
+    let retryScheduled = false;
     try {
-      // Fetch both projects and pending invitations concurrently
-      const [projectsData] = await Promise.all([
+      if (retryCount === 0) {
+        setLoadError(null);
+      }
+      // Fetch both projects and pending invitations concurrently and independently
+      const [projectsResult] = await Promise.allSettled([
         apiService.getProjects(),
         fetchInvitations()
       ]);
 
-      setProjects(Array.isArray(projectsData) ? projectsData : []);
+      if (projectsResult.status === "fulfilled") {
+        setProjects(Array.isArray(projectsResult.value) ? projectsResult.value : []);
+        setLoadError(null);
+      } else {
+        throw projectsResult.reason;
+      }
     } catch (error) {
-      console.error("Failed to load projects:", error);
+      console.error(`Failed to load projects (attempt ${retryCount + 1}):`, error);
+      if (retryCount < 2) {
+        retryScheduled = true;
+        // Automatic retry with exponential backoff for cold starts / transient CORS misses
+        const delay = (retryCount + 1) * 600;
+        setTimeout(() => {
+          loadProjects(retryCount + 1);
+        }, delay);
+        return;
+      }
+      setLoadError("Failed to load dashboard data. Please try again.");
       showToast.error("Failed to load dashboard data. Please try again.");
       setProjects([]);
       clearInvitations();
     } finally {
-      setLoading(false);
+      if (!retryScheduled) {
+        setLoading(false);
+      }
     }
   }, [fetchInvitations, clearInvitations]);
 
@@ -588,7 +610,7 @@ export default function DashboardPage() {
                         <div>
                           <CardTitle className="text-lg font-bold flex items-center gap-2">
                             <IconFolder className="w-5 h-5 text-primary shrink-0" />
-                            <span>{invitation.project.name}</span>
+                            <span>{invitation.project?.name || "Untitled Project"}</span>
                           </CardTitle>
                           <CardDescription className="mt-1.5 flex items-center gap-1.5 text-muted-foreground/80">
                             <IconUser className="w-3.5 h-3.5" />
@@ -661,6 +683,29 @@ export default function DashboardPage() {
                 {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
                   <CardSkeleton key={i} />
                 ))}
+              </div>
+            ) : loadError && projects.length === 0 ? (
+              <div className="text-center py-12 border border-destructive/20 rounded-xl bg-destructive/5 p-8 max-w-lg mx-auto">
+                <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <IconAlertCircle className="w-8 h-8 text-destructive" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2 text-foreground">
+                  Failed to load dashboard data
+                </h3>
+                <p className="text-muted-foreground mb-6 text-sm">
+                  Unable to connect or load your projects right now. This can happen during temporary network interruptions or server cold starts.
+                </p>
+                <Button
+                  onClick={() => {
+                    setLoading(true);
+                    loadProjects(0);
+                  }}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <IconRefresh className="w-4 h-4" />
+                  <span>Retry Connection</span>
+                </Button>
               </div>
             ) : projects.length === 0 ? (
               <div className="text-center py-12">
