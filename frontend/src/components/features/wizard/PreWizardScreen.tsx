@@ -175,7 +175,7 @@ export function PreWizardScreen({ featureName, onStart, onSkip }: PreWizardScree
 
             <motion.div variants={itemVariants} className="text-center max-w-md">
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold text-primary">Recommended:</span> Configuring your profile takes ~5 minutes. You can skip now and configure it anytime from Settings.
+                <span className="font-semibold text-primary">Recommended:</span> Configuring your profile takes ~5 minutes to unlock tailored compliance controls and framework mappings.
               </p>
             </motion.div>
           </CardFooter>

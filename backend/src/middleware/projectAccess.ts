@@ -137,7 +137,9 @@ export const requireProjectPermission =
         ? membership.permissions
         : [];
 
-      if (!permissions.includes("*") && !permissions.includes(permission)) {
+      // Wildcard permissions cannot be used by read-only VIEWER roles to bypass permission checks
+      const hasWildcard = permissions.includes("*") && membership.role !== "VIEWER";
+      if (!hasWildcard && !permissions.includes(permission)) {
         return res.status(403).json({ error: "Insufficient project permissions" });
       }
 

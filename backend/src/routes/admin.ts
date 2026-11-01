@@ -620,6 +620,46 @@ router.post("/chatbot-instructions", authenticateToken, requireRole(["ADMIN"]), 
   }
 });
 
+// POST /admin/chatbot-instructions/bulk - Bulk insert custom chatbot instructions
+router.post("/chatbot-instructions/bulk", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
+  try {
+    const bulkSchema = z.array(addChatbotInstructionSchema);
+    const instructions = bulkSchema.parse(req.body);
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const inserted = [];
+      for (const inst of instructions) {
+        const result = await client.query(
+          "INSERT INTO chatbot_instructions (title, content, is_active, category) VALUES ($1, $2, $3, $4) RETURNING *",
+          [inst.title, inst.content, inst.is_active ?? true, inst.category ?? "General"]
+        );
+        inserted.push(result.rows[0]);
+      }
+      await client.query("COMMIT");
+      res.status(201).json({
+        success: true,
+        count: inserted.length,
+        data: inserted,
+        message: `Successfully bulk-inserted ${inserted.length} chatbot instructions`,
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Error bulk adding chatbot instructions:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to bulk add chatbot instructions",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 // PATCH /admin/chatbot-instructions/:id - Update an existing chatbot instruction
 router.patch("/chatbot-instructions/:id", authenticateToken, requireRole(["ADMIN"]), async (req, res) => {
   try {

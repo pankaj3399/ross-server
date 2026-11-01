@@ -93,7 +93,7 @@ export const ReportHistory = ({ projectId, projectName, aiSystemType }: ReportHi
         if (typeof window !== "undefined") {
             const storageKey = getDatasetTestingReportKey(projectId);
             window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
-            router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report`);
+            router.push(`/assess/${projectId}/fairness-bias/dataset-testing/report?reportId=${report.id}`);
         }
     };
 

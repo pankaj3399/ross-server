@@ -75,7 +75,7 @@ const PREMIUM_FEATURES = [
   {
     icon: IconUsers,
     text: "Team Collaboration",
-    description: "Invite team members with role-based permissions",
+    description: "Unlimited read-only viewer seats for team review and auditing",
   },
 ];
 

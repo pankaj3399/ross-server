@@ -626,7 +626,7 @@ export function WizardConfirmation({ projectId, onApplyComplete, onAdjustAnswers
                   {/* Vuln Scope */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      Vulnerability Assessment Scope (OWASP LLM Pre-selections)
+                      Vulnerability Assessment Scope (OWASP LLM 2025 Pre-selections)
                     </h4>
                     <div className="flex flex-wrap gap-2 pt-1">
                       {vulnerability_scope.map((v: string) => (

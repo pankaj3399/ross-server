@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 import "./AICopilot.css";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export default function AICopilot() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
   const [showIntroPulse, setShowIntroPulse] = useState(true);
+  const [showNewChatConfirm, setShowNewChatConfirm] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -442,7 +444,7 @@ export default function AICopilot() {
                   <button
                     type="button"
                     className="copilot-close-btn"
-                    onClick={handleNewChat}
+                    onClick={() => setShowNewChatConfirm(true)}
                     aria-label="New chat"
                     title="New chat"
                   >
@@ -459,6 +461,39 @@ export default function AICopilot() {
                 </button>
               </div>
             </div>
+
+            {/* Confirmation Banner before Resetting Chat */}
+            {showNewChatConfirm && (
+              <div className="bg-destructive/10 border-b border-destructive/20 p-3 flex flex-col gap-2 text-xs">
+                <div className="font-semibold text-foreground">
+                  Start new conversation?
+                </div>
+                <div className="text-muted-foreground">
+                  Your current chat history for this project will be cleared.
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs"
+                    onClick={() => setShowNewChatConfirm(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 px-2.5 text-xs font-semibold"
+                    onClick={() => {
+                      handleNewChat();
+                      setShowNewChatConfirm(false);
+                    }}
+                  >
+                    Clear Chat
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Messages or Starters */}
             {messages.length === 0 && !isLoading ? (

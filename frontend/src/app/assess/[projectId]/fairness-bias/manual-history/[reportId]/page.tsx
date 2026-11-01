@@ -163,6 +163,9 @@ export default function ManualReportDetailPage() {
         success: !!item.success
     })) as AllItem[];
 
+    const totalExpected = (report.config as any)?.totalQuestions || (report.config as any)?.total_questions || 20;
+    const isPartial = report.total_prompts < totalExpected;
+
     return (
         <div ref={reportRef} className="min-h-screen bg-background">
             <div className="bg-card border-b border-border pdf-section">
@@ -182,11 +185,16 @@ export default function ManualReportDetailPage() {
                                 <h1 className="text-2xl font-bold text-foreground pb-1 leading-relaxed">
                                     Manual Prompt Report Details
                                 </h1>
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1 flex-wrap">
                                     <span className="flex items-center gap-1.5">
                                         <FileEdit className="w-3.5 h-3.5" />
                                         Manual Evaluation
                                     </span>
+                                    {isPartial && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20">
+                                            Partial Evaluation ({report.total_prompts} / {totalExpected} Answered)
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -227,6 +235,11 @@ export default function ManualReportDetailPage() {
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                             {report.success_count} passed, {report.failure_count} failed
+                            {isPartial && (
+                                <span className="block text-amber-600 dark:text-amber-400 font-medium mt-1">
+                                    Partial run ({report.total_prompts}/{totalExpected} prompts)
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="bg-card border border-border rounded-xl p-6">

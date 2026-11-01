@@ -135,7 +135,7 @@ class EmailService {
           </div>
           
           <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
-            <p>© 2024 MATUR.ai. All rights reserved.</p>
+            <p>© 2026 MATUR.ai. All rights reserved.</p>
           </div>
         </body>
       </html>
@@ -154,7 +154,7 @@ class EmailService {
       
       If you didn't create an account with MATUR.ai, you can safely ignore this email.
       
-      © 2024 MATUR.ai. All rights reserved.
+      © 2026 MATUR.ai. All rights reserved.
     `;
 
     return this.sendEmail({
@@ -230,7 +230,7 @@ class EmailService {
       
       If you didn't request a password reset, you can safely ignore this email.
       
-      © 2024 MATUR.ai. All rights reserved.
+      © 2026 MATUR.ai. All rights reserved.
     `;
 
     return this.sendEmail({
@@ -613,12 +613,97 @@ class EmailService {
 
       Start your trial: ${dashboardUrl}
 
-      © 2024 MATUR.ai. All rights reserved.
+      © 2026 MATUR.ai. All rights reserved.
     `;
 
     return this.sendEmail({
       to: email,
       subject: "You're only seeing part of MATUR.ai — unlock the full platform",
+      html,
+      text,
+    });
+  }
+
+  /**
+   * Send welcome email after email verification
+   */
+  async sendWelcomeEmail(
+    email: string,
+    userName?: string,
+  ): Promise<boolean> {
+    const dashboardUrl = `${process.env.FRONTEND_URL}/dashboard`;
+    const safeName = escapeHtml(userName || "there");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to MATUR.ai</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">MATUR.ai</h1>
+            <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">AI Governance & Compliance Readiness Platform</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-top: 0;">Welcome, ${safeName}!</h2>
+            <p>Your email has been verified and your MATUR.ai workspace is ready. You now have access to industry-leading AI governance, risk assessment, and compliance tools tailored for the EU AI Act, NIST AI RMF, and ISO/IEC 42001.</p>
+            
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+              <h3 style="color: #333; margin-top: 0; font-size: 16px;">Quick-Start Steps:</h3>
+              <ul style="padding-left: 20px; color: #555; margin-bottom: 0;">
+                <li style="margin-bottom: 8px;"><strong>Create your first project</strong> to scope your AI system or organizational program.</li>
+                <li style="margin-bottom: 8px;"><strong>Complete the AI System Profile</strong> for automatic Article 5 / Annex III risk tier classification.</li>
+                <li style="margin-bottom: 8px;"><strong>Track Compliance Readiness Controls (CRC)</strong> and generate audit-ready documentation.</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${dashboardUrl}" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        font-weight: bold; 
+                        display: inline-block;">
+                Go to Your Dashboard
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #666;">
+              Need help getting started? Check our platform documentation or ask Mira, our contextual AI Copilot, directly inside your dashboard.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+            <p>© 2026 MATUR.ai. All rights reserved.</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const text = `
+      Welcome to MATUR.ai, ${userName || "there"}!
+      
+      Your email has been verified and your workspace is ready. You now have access to industry-leading AI governance, risk assessment, and compliance tools tailored for the EU AI Act, NIST AI RMF, and ISO/IEC 42001.
+      
+      Quick-Start Steps:
+      - Create your first project to scope your AI system or organizational program.
+      - Complete the AI System Profile for automatic regulatory classifications.
+      - Track Compliance Readiness Controls (CRC) and generate audit-ready documentation.
+      
+      Open your dashboard: ${dashboardUrl}
+      
+      © 2026 MATUR.ai. All rights reserved.
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject: "Welcome to MATUR.ai - AI Governance Platform",
       html,
       text,
     });

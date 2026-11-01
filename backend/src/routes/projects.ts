@@ -788,7 +788,7 @@ router.get(
 
 const inviteBodySchema = z.object({
   email: z.string().email(),
-  role: z.enum(["OWNER", "EDITOR", "VIEWER"]).default("EDITOR"),
+  role: z.enum(["OWNER", "EDITOR", "VIEWER"]).default("VIEWER"),
   permissions: z.array(z.string()).optional(),
 });
 
@@ -811,6 +811,14 @@ router.post(
         return res.status(403).json({
           error: "TEAM_ACCESS_RESTRICTED",
           message: "The Teams feature is only available for premium subscribers. Please upgrade to invite members.",
+        });
+      }
+
+      // Enforce v1 Viewer role policy
+      if (role !== "VIEWER") {
+        return res.status(400).json({
+          error: "ROLE_NOT_SUPPORTED",
+          message: "In v1, team invitations are restricted to read-only Viewer seats. Paid Editor seats will be available in v2.",
         });
       }
 
@@ -844,13 +852,18 @@ router.post(
         return res.status(400).json({ error: "A pending invitation already exists for this email." });
       }
 
+      // Sanitize permissions for VIEWER role: do not allow wildcard "*" or mutation permissions
+      const safePermissions = (Array.isArray(permissions) ? permissions : []).filter(
+        (p: string) => typeof p === "string" && p !== "*" && !p.includes("write") && !p.includes("delete") && !p.includes("admin")
+      );
+
       // Create a pending invitation for all users (new or existing)
       const invitation = await createInvitation(
         project.id,
         inviterId,
         email,
         role,
-        permissions ?? [],
+        safePermissions,
       );
 
       if (!invitation) {
@@ -1067,6 +1080,14 @@ router.patch(
 
       if (!role || !["OWNER", "EDITOR", "VIEWER"].includes(role)) {
         return res.status(400).json({ error: "Invalid role specified" });
+      }
+
+      // Enforce v1 Viewer role policy
+      if (role !== "VIEWER") {
+        return res.status(400).json({
+          error: "ROLE_NOT_SUPPORTED",
+          message: "In v1, team member roles are restricted to read-only Viewer seats. Paid Editor seats will be available in v2.",
+        });
       }
 
       // Prevent owner from demoting themselves

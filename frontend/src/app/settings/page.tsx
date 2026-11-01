@@ -32,6 +32,7 @@ import {
   IconLifebuoy,
   IconBook,
   IconExternalLink,
+  IconLock,
 } from "@tabler/icons-react";
 import { MFASetup } from "../../components/auth/MFASetup";
 import { apiService, SubscriptionDetailsResponse, Project } from "../../lib/api";
@@ -980,28 +981,35 @@ function SettingsContent() {
                       Two-Factor Authentication
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Protect your account with a second verification step.
+                      Two-Factor Authentication is required for all organizational accounts under MATUR.ai security compliance policies.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <Badge variant={user?.mfa_enabled ? "default" : "secondary"}>
-                    {user?.mfa_enabled ? "Enabled" : "Disabled"}
-                  </Badge>
-                  <Button
-                    variant={user?.mfa_enabled ? "destructive" : "default"}
-                    onClick={handleMFAToggle}
-                    disabled={mfaLoading}
-                    size="sm"
-                  >
-                    {mfaLoading ? (
-                      "Loading..."
-                    ) : user?.mfa_enabled ? (
-                      "Disable"
-                    ) : (
-                      "Enable"
-                    )}
-                  </Button>
+                  {user?.mfa_enabled ? (
+                    <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-3 text-xs font-semibold bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border-emerald-500/20">
+                      <IconLock className="w-3.5 h-3.5" />
+                      Enabled (Mandatory)
+                    </Badge>
+                  ) : (
+                    <>
+                      <Badge variant="secondary">
+                        Pending Setup
+                      </Badge>
+                      <Button
+                        variant="default"
+                        onClick={handleMFAToggle}
+                        disabled={mfaLoading}
+                        size="sm"
+                      >
+                        {mfaLoading ? (
+                          "Loading..."
+                        ) : (
+                          "Enable"
+                        )}
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
 

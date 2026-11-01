@@ -547,21 +547,23 @@ export function runRulesEngine(answers: WizardAnswers, controls: any[] = []): Wi
   // Return the list of vendors that should be queued for assessment
 
   // ==========================================
-  // RULE SET 7: Vulnerability Assessment Scope
+  // RULE SET 7: Vulnerability Assessment Scope (OWASP LLM Top 10: 2025)
   // ==========================================
   let vulnerability_scope: string[] = [];
   if (answers.uses_third_party_models === "yes" || answers.use_case === "customer_service_chatbot") {
     vulnerability_scope = [
       "LLM01: Prompt Injection",
-      "LLM02: Insecure Output Handling",
-      "LLM06: Sensitive Information Disclosure",
-      "LLM09: Overreliance"
+      "LLM02: Sensitive Information Disclosure",
+      "LLM05: Improper Output Handling",
+      "LLM07: System Prompt Leakage",
+      "LLM09: Misinformation"
     ];
   } else {
     vulnerability_scope = [
-      "Model Evasion (Adversarial)",
-      "Data Poisoning",
-      "Insecure Input / Output Validation"
+      "LLM01: Prompt Injection",
+      "LLM02: Sensitive Information Disclosure",
+      "LLM04: Data and Model Poisoning",
+      "LLM05: Improper Output Handling"
     ];
   }
 

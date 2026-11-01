@@ -600,7 +600,12 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
       );
     }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (parseErr: any) {
+      throw new Error(`Target API returned invalid JSON or unterminated response: ${parseErr.message}`);
+    }
     const value = getNestedValue(data, trimmedResponsePath);
 
     if (value === undefined) {
