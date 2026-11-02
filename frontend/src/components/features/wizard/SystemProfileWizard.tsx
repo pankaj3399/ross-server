@@ -106,6 +106,10 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
         setValidationError("Please enter a name for the system or program (Q2).");
         return false;
       }
+      if (!answers.description || answers.description.trim() === "") {
+        setValidationError("Please provide a description of the system or program functionality (Q3).");
+        return false;
+      }
       if (!answers.use_case) {
         setValidationError("Please select a primary use case (Q4).");
         return false;
@@ -196,14 +200,21 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
   };
 
   const handleComplete = async () => {
+    if (!answers.description || answers.description.trim() === "") {
+      setSection(1);
+      setValidationError("Please provide a description of the system or program functionality (Q3).");
+      return;
+    }
     if (!validateCurrentSection()) return;
 
     try {
       await completeWizard(projectId);
       toast.success("AI Profile generated successfully!");
       onClose();
-    } catch (err) {
-      toast.error("Failed to complete profile generation.");
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.message || "Failed to complete profile generation.";
+      setValidationError(msg);
+      toast.error(msg);
     }
   };
 

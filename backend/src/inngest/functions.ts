@@ -728,6 +728,16 @@ export const evaluationAggregator = inngest.createFunction(
         const summary = buildSummary(responses.length, results, errors);
         await markJobCompleted(job.id, payload as FairnessApiJobPayloadExtended | FairnessPromptsJobPayloadExtended, { summary, results, errors });
       });
+
+      // Dispatch evaluation/all-completed so parent workflows (runFairnessApiJob) are unblocked immediately
+      await step.run("trigger-all-eval-complete", async () => {
+        await inngest.send({
+          name: "evaluation/all-completed",
+          data: {
+            jobId,
+          },
+        });
+      });
     }
   }
 );
