@@ -180,9 +180,9 @@ async function uploadControls() {
           nist_ai_rmf: parseCompliance(getCol(row, ["nist_ai_rmf", "nist_mapping", "nist"], 10)),
           iso_42001: parseCompliance(getCol(row, ["iso_42001", "iso_mapping", "iso"], 11)),
         },
-        risk_description: getCol(row, ["risk_description", "risk", "risk_desc", "risk_statement"], 13),
-        aima_mapping: parseAima(getCol(row, ["aima_mapping", "aima", "aima_matrix"], 12)),
-        expected_timeline: getCol(row, ["expected_timeline", "timeline", "target_timeline"], 16),
+        risk_description: getCol(row, ["risk_description", "risk", "risk_desc", "risk_statement"], 14),
+        aima_mapping: parseAima(getCol(row, ["aima_mapping", "aima", "aima_matrix"], 13)),
+        expected_timeline: getCol(row, ["expected_timeline", "timeline", "target_timeline"], 17),
       };
       
       const validation = rowSchema.safeParse(rawData);

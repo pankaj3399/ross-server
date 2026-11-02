@@ -973,6 +973,8 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                        (e.payload->'summary'->>'successful')::int, 
                        CASE 
                          WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results')
+                         WHEN e.payload ? 'tests' AND jsonb_typeof(e.payload->'tests') = 'array' THEN jsonb_array_length(e.payload->'tests')
+                         WHEN e.payload ? 'userApiResponses' AND jsonb_typeof(e.payload->'userApiResponses') = 'array' THEN jsonb_array_length(e.payload->'userApiResponses')
                          WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) 
                          ELSE 0 
                        END
@@ -982,7 +984,13 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                        CASE 
                          WHEN e.payload ? 'errors' AND jsonb_typeof(e.payload->'errors') = 'array' THEN jsonb_array_length(e.payload->'errors')
                          WHEN e.payload ? 'error' OR e.status = 'failed' THEN COALESCE(e.total_prompts, 0) 
-                         ELSE GREATEST(0, COALESCE(e.total_prompts, 0) - CASE WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results') WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) ELSE 0 END)
+                         ELSE GREATEST(0, COALESCE(e.total_prompts, 0) - CASE 
+                           WHEN e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' THEN jsonb_array_length(e.payload->'results')
+                           WHEN e.payload ? 'tests' AND jsonb_typeof(e.payload->'tests') = 'array' THEN jsonb_array_length(e.payload->'tests')
+                           WHEN e.payload ? 'userApiResponses' AND jsonb_typeof(e.payload->'userApiResponses') = 'array' THEN jsonb_array_length(e.payload->'userApiResponses')
+                           WHEN e.status IN ('success', 'completed') THEN COALESCE(e.total_prompts, 0) 
+                           ELSE 0 
+                         END)
                        END
                      ) as failure_count,
                      COALESCE(
@@ -991,6 +999,14 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      ) as average_scores,
                      CASE 
                        WHEN e.payload ? 'error' THEN jsonb_build_object('error', e.payload->>'error', 'failures', jsonb_build_array(jsonb_build_object('prompt', 'API Request', 'reason', e.payload->>'error')))
+                       WHEN e.job_type = 'SECURITY_SCAN' OR e.job_id ILIKE 'security-%' OR e.payload->>'type' = 'SECURITY_SCAN' THEN
+                         jsonb_build_object(
+                           'overall_score', COALESCE((e.payload->>'overall_score')::numeric, (e.payload->'summary'->>'averageOverallScore')::numeric, 0),
+                           'risk', COALESCE(e.payload->>'risk', 'UNKNOWN'),
+                           'categories', COALESCE(e.payload->'categories', '[]'::jsonb),
+                           'failures', COALESCE(e.payload->'failures', '[]'::jsonb),
+                           'tests', COALESCE(e.payload->'tests', e.payload->'results', e.payload->'userApiResponses', '[]'::jsonb)
+                         )
                        ELSE COALESCE(e.payload->'results', '[]'::jsonb)
                      END as results,
                      CASE 
@@ -999,17 +1015,23 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
                      END as errors,
                      CASE
                        WHEN e.payload->>'type' = 'FAIRNESS_PROMPTS' THEN jsonb_build_object('testType', 'MANUAL_PROMPT_TEST', 'totalQuestions', COALESCE((e.payload->>'totalQuestions')::int, 20))
-                       WHEN e.payload->>'type' = 'SECURITY_SCAN' THEN COALESCE(e.payload->'config', '{}'::jsonb) || jsonb_build_object('testType', 'SECURITY_SCAN')
+                       WHEN e.job_type = 'SECURITY_SCAN' OR e.job_id ILIKE 'security-%' OR e.payload->>'type' = 'SECURITY_SCAN' THEN COALESCE(e.payload->'config', '{}'::jsonb) || jsonb_build_object('testType', 'SECURITY_SCAN')
                        ELSE COALESCE(e.payload->'config', '{}'::jsonb)
                      END as config,
                      e.created_at
                  FROM evaluation_status e
                  LEFT JOIN api_test_reports r ON e.job_id = r.job_id
-                 WHERE e.project_id = $1 AND e.user_id = $2 
-                   AND (e.status IN ('success', 'partial_success', 'failed', 'completed') OR (e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' AND jsonb_array_length(e.payload->'results') > 0)) 
+                 WHERE e.project_id = $1
+                   AND (
+                     e.status IN ('success', 'partial_success', 'failed', 'completed') 
+                     OR (e.payload ? 'results' AND jsonb_typeof(e.payload->'results') = 'array' AND jsonb_array_length(e.payload->'results') > 0)
+                     OR (e.payload ? 'tests' AND jsonb_typeof(e.payload->'tests') = 'array' AND jsonb_array_length(e.payload->'tests') > 0)
+                     OR (e.payload ? 'userApiResponses' AND jsonb_typeof(e.payload->'userApiResponses') = 'array' AND jsonb_array_length(e.payload->'userApiResponses') > 0)
+                     OR (e.created_at < NOW() - INTERVAL '3 minutes' AND e.status = 'evaluating')
+                   ) 
                    AND r.id IS NULL
                  ON CONFLICT (job_id) DO NOTHING`,
-                [projectId, userId]
+                [projectId]
             );
         } catch (backfillErr) {
             console.error("Backfill completed jobs error (non-fatal):", backfillErr);
@@ -1017,8 +1039,8 @@ router.get("/api-reports/:projectId", authenticateToken, async (req, res) => {
 
         const testType = req.query.testType as string | undefined;
         const excludeSecurity = req.query.excludeSecurity === "true" || req.query.fairnessOnly === "true";
-        let whereClause = `project_id = $1 AND user_id = $2 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')`;
-        const countParams: any[] = [projectId, userId];
+        let whereClause = `project_id = $1 AND (config->>'testType' IS NULL OR config->>'testType' != 'MANUAL_PROMPT_TEST')`;
+        const countParams: any[] = [projectId];
         if (testType) {
             countParams.push(testType);
             whereClause += ` AND config->>'testType' = $${countParams.length}`;
@@ -1072,26 +1094,85 @@ router.get("/api-reports/detail/:reportId", authenticateToken, async (req, res) 
         const { reportId } = req.params;
         const userId = req.user!.id; // Use non-null assertion as authenticateToken ensures user exists
 
-        // Validate UUID format
-        if (!UUID_REGEX.test(reportId)) {
-            return res.status(400).json({ error: "Invalid reportId" });
-        }
+        const isUuid = UUID_REGEX.test(reportId);
 
-        const result = await pool.query(
+        let result = await pool.query(
             `SELECT * FROM api_test_reports
-             WHERE id = $1 AND user_id = $2`,
-            [reportId, userId]
+             WHERE ${isUuid ? "id = $1" : "job_id = $1"}`,
+            [reportId]
         );
         
         if (result.rows.length === 0) {
+            // Check evaluation_status as fallback
+            const evalResult = await pool.query(
+                `SELECT * FROM evaluation_status WHERE ${isUuid ? "id = $1" : "job_id = $1"}`,
+                [reportId]
+            );
+
+            if (evalResult.rows.length > 0) {
+                const evalRow = evalResult.rows[0];
+                if (!(await verifyProjectAccess(evalRow.project_id, userId))) {
+                    return res.status(403).json({ error: "Report not found or access denied" });
+                }
+                const isSecurity = evalRow.job_type === "SECURITY_SCAN" || evalRow.job_id?.startsWith("security-") || evalRow.payload?.type === "SECURITY_SCAN";
+                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || '0');
+                const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
+                    ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
+                    : isSecurity
+                        ? { ...(evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {}), testType: "SECURITY_SCAN" }
+                        : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+
+                const synthesizedResults = isSecurity ? {
+                    overall_score: evalRow.payload?.overall_score ?? evalRow.payload?.summary?.averageOverallScore ?? 0,
+                    risk: evalRow.payload?.risk || "UNKNOWN",
+                    categories: evalRow.payload?.categories || {},
+                    failures: evalRow.payload?.failures || [],
+                    tests: evalRow.payload?.tests || evalRow.payload?.results || evalRow.payload?.userApiResponses || []
+                } : (evalRow.payload?.error ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] } : (evalRow.payload?.results || []));
+
+                const backfilled = await pool.query(
+                    `INSERT INTO api_test_reports 
+                     (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                     ON CONFLICT (job_id) DO UPDATE SET updated_at = NOW()
+                     RETURNING *`,
+                    [
+                        evalRow.user_id,
+                        evalRow.project_id,
+                        evalRow.job_id,
+                        totalPrompts,
+                        evalRow.payload?.summary?.successful ?? (Array.isArray(synthesizedResults) ? synthesizedResults.length : (synthesizedResults.tests?.length || 0)),
+                        evalRow.payload?.summary?.failed ?? (evalRow.payload?.errors?.length || 0),
+                        JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                        JSON.stringify(synthesizedResults),
+                        JSON.stringify(evalRow.payload?.errors || []),
+                        JSON.stringify(configToSave),
+                        evalRow.created_at
+                    ]
+                );
+
+                return res.json({
+                    success: true,
+                    report: {
+                        ...backfilled.rows[0],
+                        config: sanitizeConfig(backfilled.rows[0].config)
+                    }
+                });
+            }
+
             return res.status(404).json({ error: "Report not found or access denied" });
         }
         
+        const reportRow = result.rows[0];
+        if (!(await verifyProjectAccess(reportRow.project_id, userId))) {
+            return res.status(403).json({ error: "Report not found or access denied" });
+        }
+
         res.json({ 
             success: true, 
             report: {
-                ...result.rows[0],
-                config: sanitizeConfig(result.rows[0].config)
+                ...reportRow,
+                config: sanitizeConfig(reportRow.config)
             },
         });
     } catch (error: any) {
@@ -1107,82 +1188,112 @@ router.get("/api-reports/job/:jobId", authenticateToken, async (req, res) => {
         const userId = req.user!.id;
         
         let result = await pool.query(
-            `SELECT id FROM api_test_reports
-             WHERE job_id = $1 AND user_id = $2`,
-            [jobId, userId]
+            `SELECT id, project_id FROM api_test_reports
+             WHERE job_id = $1`,
+            [jobId]
         );
         
-        if (result.rows.length === 0) {
-            // Check evaluation_status for this job
-            const evalResult = await pool.query(
-                `SELECT id, user_id, project_id, job_id, status, payload, total_prompts, created_at 
-                 FROM evaluation_status 
-                 WHERE job_id = $1 AND user_id = $2`,
-                [jobId, userId]
-            );
+        if (result.rows.length > 0) {
+            const reportRow = result.rows[0];
+            if (!(await verifyProjectAccess(reportRow.project_id, userId))) {
+                return res.status(403).json({ error: "Report not found or access denied" });
+            }
+            return res.json({ 
+                success: true, 
+                reportId: reportRow.id
+            });
+        }
 
-            if (evalResult.rows.length > 0) {
-                const evalRow = evalResult.rows[0];
-                const terminalStatuses = ["failed", "completed", "success", "partial_success"];
-                const hasPartialResults = Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0;
-                if (!terminalStatuses.includes(evalRow.status) && !hasPartialResults) {
-                    return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
-                }
-                const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || (hasPartialResults ? String(evalRow.payload.results.length) : '0'));
-                const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
-                    ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
-                    : evalRow.payload?.type === "SECURITY_SCAN"
-                        ? { ...(evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {}), testType: "SECURITY_SCAN" }
-                        : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+        // Check evaluation_status for this job
+        const evalResult = await pool.query(
+            `SELECT id, user_id, project_id, job_id, status, payload, total_prompts, created_at 
+             FROM evaluation_status 
+             WHERE job_id = $1`,
+            [jobId]
+        );
 
-                const hasSummarySuccess = evalRow.payload?.summary?.successful !== undefined && evalRow.payload?.summary?.successful !== null;
-                const hasSummaryFailed = evalRow.payload?.summary?.failed !== undefined && evalRow.payload?.summary?.failed !== null;
-
-                const successCount = hasSummarySuccess
-                    ? parseInt(evalRow.payload.summary.successful)
-                    : (Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0
-                        ? evalRow.payload.results.length
-                        : (["success", "completed"].includes(evalRow.status) ? totalPrompts : 0));
-
-                const failureCount = hasSummaryFailed
-                    ? parseInt(evalRow.payload.summary.failed)
-                    : (Array.isArray(evalRow.payload?.errors) && evalRow.payload.errors.length > 0
-                        ? evalRow.payload.errors.length
-                        : (evalRow.payload?.error || evalRow.status === "failed" ? totalPrompts : Math.max(0, totalPrompts - successCount)));
-
-                const insertResult = await pool.query(
-                    `INSERT INTO api_test_reports 
-                     (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                     ON CONFLICT (job_id) DO UPDATE SET updated_at = NOW()
-                     RETURNING id`,
-                    [
-                        evalRow.user_id,
-                        evalRow.project_id,
-                        evalRow.job_id,
-                        totalPrompts,
-                        successCount,
-                        failureCount,
-                        JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
-                        JSON.stringify(evalRow.payload?.error ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] } : (Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0 ? evalRow.payload.results : [])),
-                        JSON.stringify(evalRow.payload?.errors || []),
-                        JSON.stringify(configToSave),
-                        evalRow.created_at
-                    ]
-                );
-                return res.json({
-                    success: true,
-                    reportId: insertResult.rows[0].id
-                });
+        if (evalResult.rows.length > 0) {
+            const evalRow = evalResult.rows[0];
+            if (!(await verifyProjectAccess(evalRow.project_id, userId))) {
+                return res.status(403).json({ error: "Report not found or access denied" });
             }
 
-            return res.status(404).json({ error: "Report not found or access denied" });
+            const terminalStatuses = ["failed", "completed", "success", "partial_success"];
+            const hasArrayResults = Array.isArray(evalRow.payload?.results) && evalRow.payload.results.length > 0;
+            const hasSecurityTests = Array.isArray(evalRow.payload?.tests) && evalRow.payload.tests.length > 0;
+            const hasUserResponses = Array.isArray(evalRow.payload?.userApiResponses) && evalRow.payload.userApiResponses.length > 0;
+            const isStale = (Date.now() - new Date(evalRow.created_at).getTime()) > 3 * 60 * 1000;
+            const hasPartial = hasArrayResults || hasSecurityTests || hasUserResponses;
+
+            if (!terminalStatuses.includes(evalRow.status) && !hasPartial && !isStale) {
+                return res.status(404).json({ error: "Report is not ready yet", status: evalRow.status });
+            }
+
+            const isSecurity = evalRow.job_type === "SECURITY_SCAN" || evalRow.job_id?.startsWith("security-") || evalRow.payload?.type === "SECURITY_SCAN";
+
+            const totalPrompts = parseInt(evalRow.payload?.summary?.total || evalRow.total_prompts || (hasPartial ? String(evalRow.payload.results?.length || evalRow.payload.tests?.length || evalRow.payload.userApiResponses?.length || 0) : '0'));
+            const configToSave = evalRow.payload?.type === "FAIRNESS_PROMPTS"
+                ? { testType: "MANUAL_PROMPT_TEST", totalQuestions: evalRow.payload?.totalQuestions || 20 }
+                : isSecurity
+                    ? { ...(evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {}), testType: "SECURITY_SCAN" }
+                    : (evalRow.payload?.config ? (sanitizeConfig(evalRow.payload.config) || {}) : {});
+
+            const hasSummarySuccess = evalRow.payload?.summary?.successful !== undefined && evalRow.payload?.summary?.successful !== null;
+            const hasSummaryFailed = evalRow.payload?.summary?.failed !== undefined && evalRow.payload?.summary?.failed !== null;
+
+            const successCount = hasSummarySuccess
+                ? parseInt(evalRow.payload.summary.successful)
+                : (hasArrayResults
+                    ? evalRow.payload.results.length
+                    : (hasSecurityTests
+                        ? evalRow.payload.tests.filter((t: any) => t.passed).length
+                        : (["success", "completed"].includes(evalRow.status) ? totalPrompts : (hasUserResponses ? evalRow.payload.userApiResponses.length : 0))));
+
+            const failureCount = hasSummaryFailed
+                ? parseInt(evalRow.payload.summary.failed)
+                : (Array.isArray(evalRow.payload?.errors) && evalRow.payload.errors.length > 0
+                    ? evalRow.payload.errors.length
+                    : (evalRow.payload?.error || evalRow.status === "failed" ? totalPrompts : Math.max(0, totalPrompts - successCount)));
+
+            const resultsData = isSecurity
+                ? {
+                    overall_score: evalRow.payload?.overall_score ?? evalRow.payload?.summary?.averageOverallScore ?? (totalPrompts > 0 ? Math.round((successCount / totalPrompts) * 100) : 0),
+                    risk: evalRow.payload?.risk || (failureCount > 0 ? "HIGH" : "LOW"),
+                    categories: evalRow.payload?.categories || {},
+                    failures: evalRow.payload?.failures || [],
+                    tests: evalRow.payload?.tests || evalRow.payload?.results || evalRow.payload?.userApiResponses || []
+                }
+                : (evalRow.payload?.error
+                    ? { error: evalRow.payload.error, failures: [{ prompt: 'API Request', reason: evalRow.payload.error }] }
+                    : (hasArrayResults ? evalRow.payload.results : (evalRow.payload?.userApiResponses || [])));
+
+            const insertResult = await pool.query(
+                `INSERT INTO api_test_reports 
+                 (user_id, project_id, job_id, total_prompts, success_count, failure_count, average_scores, results, errors, config, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                 ON CONFLICT (job_id) DO UPDATE SET updated_at = NOW()
+                 RETURNING id`,
+                [
+                    evalRow.user_id,
+                    evalRow.project_id,
+                    evalRow.job_id,
+                    totalPrompts,
+                    successCount,
+                    failureCount,
+                    JSON.stringify(evalRow.payload?.summary || { averageOverallScore: 0, averageBiasScore: 0, averageToxicityScore: 0 }),
+                    JSON.stringify(resultsData),
+                    JSON.stringify(evalRow.payload?.errors || []),
+                    JSON.stringify(configToSave),
+                    evalRow.created_at
+                ]
+            );
+            return res.json({
+                success: true,
+                reportId: insertResult.rows[0].id
+            });
         }
-        
-        res.json({ 
-            success: true, 
-            reportId: result.rows[0].id
-        });
+
+        return res.status(404).json({ error: "Report not found or access denied" });
     } catch (error: any) {
         console.error("Error fetching API test report by job ID:", error);
         res.status(500).json({ error: "Failed to fetch API test report by job ID" });

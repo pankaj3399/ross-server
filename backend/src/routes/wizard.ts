@@ -5,6 +5,7 @@ import { authenticateToken } from "../middleware/auth";
 import { loadProject, requireProjectRole } from "../middleware/projectAccess";
 import { runRulesEngine, WizardAnswers } from "../services/wizardRulesEngine";
 import { recordEvent } from "../services/auditLogService";
+import { suggestRiskTier } from "../utils/componentRisk";
 
 const router = Router();
 
@@ -77,6 +78,60 @@ function mapRowToAnswers(row: any): WizardAnswers {
     affects_children: row.affects_children || undefined,
     public_url: row.public_url || undefined,
   };
+}
+
+/**
+ * B35: Recomputes the risk tiers of all existing components in the project inventory
+ * based on the updated project internal risk tier and data categories.
+ */
+async function recomputeAllProjectComponentRiskTiers(
+  client: any,
+  projectId: string,
+  internalRiskTier?: string,
+  projectDataCategories?: string[]
+) {
+  const compResult = await client.query(
+    "SELECT id, component_name, component_type, data_categories_sent, risk_tier FROM component_inventory WHERE project_id = $1",
+    [projectId]
+  );
+
+  const riskMapping: Record<string, "Low" | "Medium" | "High" | "Critical"> = {
+    CRITICAL: "Critical",
+    HIGH: "High",
+    MEDIUM: "Medium",
+    LOW: "Low",
+    Critical: "Critical",
+    High: "High",
+    Medium: "Medium",
+    Low: "Low",
+  };
+  const baseTier = (internalRiskTier && riskMapping[internalRiskTier]) || "Low";
+  const priorityOrder: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+
+  for (const comp of compResult.rows) {
+    let cats: string[] = [];
+    if (Array.isArray(comp.data_categories_sent)) {
+      cats = comp.data_categories_sent;
+    } else if (typeof comp.data_categories_sent === "string") {
+      try { cats = JSON.parse(comp.data_categories_sent); } catch {}
+    }
+
+    if ((!cats || cats.length === 0) && projectDataCategories && projectDataCategories.length > 0) {
+      cats = projectDataCategories;
+    }
+
+    const suggested = suggestRiskTier(comp.component_type || "API Service", cats);
+    const newTier = (priorityOrder[suggested] || 0) > (priorityOrder[baseTier] || 0)
+      ? suggested
+      : baseTier;
+
+    if (newTier !== comp.risk_tier) {
+      await client.query(
+        "UPDATE component_inventory SET risk_tier = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [newTier, comp.id]
+      );
+    }
+  }
 }
 
 // GET /wizard/:projectId/status - Check wizard status
@@ -436,9 +491,10 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
     // 4. Update project table fields
     // Prefill name and description from wizard profile if available (only update name if non-empty to respect NOT NULL constraint)
     const profileResult = await client.query(
-      "SELECT name, description FROM wizard_profiles WHERE project_id = $1",
+      "SELECT name, description, data_categories FROM wizard_profiles WHERE project_id = $1",
       [projectId]
     );
+    const profileDataCategories: string[] = profileResult.rows[0]?.data_categories || [];
     if (profileResult.rows.length > 0) {
       const profile = profileResult.rows[0];
       const hasName = profile.name && profile.name.trim() !== "";
@@ -631,6 +687,14 @@ router.post("/:projectId/apply", authenticateToken, loadProject, requireProjectR
         );
       }
     }
+
+    // B35: Recalculate risk tiers for all existing components in the project inventory
+    await recomputeAllProjectComponentRiskTiers(
+      client,
+      projectId,
+      outputs.internal_risk_tier,
+      profileDataCategories
+    );
 
     // 7. Update wizard_engine_outputs.applied_at
     await client.query(

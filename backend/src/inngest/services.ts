@@ -587,17 +587,41 @@ export async function callUserApi(config: FairnessApiJobConfig, prompt: string):
 
     if (!response.ok) {
       if (response.status === 429) {
-        const retryAfter = response.headers.get("retry-after");
+        const retryAfterHeader = response.headers.get("retry-after");
+        const retryDelaySec = retryAfterHeader ? Math.min(parseInt(retryAfterHeader, 10) || 2, 4) : 2;
+        await delay(retryDelaySec * 1000);
+
+        try {
+          const retryRes = await fetch(fetchUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+            redirect: "error",
+            ...(dispatcher && { dispatcher }),
+          } as any);
+
+          if (retryRes.ok) {
+            response = retryRes;
+          }
+        } catch {
+          // Fall through to standard 429 handling below
+        }
+      }
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          const retryAfter = response.headers.get("retry-after");
+          throw new Error(
+            `Upstream rate limit exceeded (HTTP 429)${retryAfter ? `. Retry after ${retryAfter}s` : ""}`
+          );
+        }
+        const errorText = await response
+          .text()
+          .catch(() => `API returned status ${response.status}`);
         throw new Error(
-          `Upstream rate limit exceeded (HTTP 429)${retryAfter ? `. Retry after ${retryAfter}s` : ""}`
+          errorText?.trim() ? errorText : `API returned status ${response.status}`,
         );
       }
-      const errorText = await response
-        .text()
-        .catch(() => `API returned status ${response.status}`);
-      throw new Error(
-        errorText?.trim() ? errorText : `API returned status ${response.status}`,
-      );
     }
 
     let data: any;

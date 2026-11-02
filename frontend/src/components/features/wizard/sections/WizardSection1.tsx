@@ -53,6 +53,7 @@ export function WizardSection1() {
       <div className="space-y-2">
         <Label className="text-base font-bold text-foreground">
           Q2. {path === "system" ? "What is the name of this AI System?" : "What is the name of this AI Governance Program?"}
+          <span className="text-destructive ml-1">*</span>
         </Label>
         <Input
           value={answers.name || ""}
@@ -67,12 +68,14 @@ export function WizardSection1() {
       <div className="space-y-2">
         <Label className="text-base font-bold text-foreground">
           Q3. {path === "system" ? "Provide a brief description of the AI system's functionality." : "Provide a brief description of the AI program's scope."}
+          <span className="text-destructive ml-1">*</span>
         </Label>
         <Textarea
           value={answers.description || ""}
           onChange={(e) => setAnswer("description", e.target.value)}
           placeholder={path === "system" ? "Describe what the system does, its inputs, and intended outputs..." : "Describe the scope of teams, departments, and AI systems governed under this program..."}
           className="w-full min-h-[80px]"
+          required
         />
       </div>
 
