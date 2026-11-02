@@ -9,7 +9,7 @@ A comprehensive SaaS platform for conducting AI maturity assessments using the O
 - **Project Management**: Create and manage multiple assessment projects
 - **Subscription Management**: Free and premium tiers with Stripe integration
 - **Persistent Storage**: PostgreSQL database with Neon integration
-- **Modern UI**: Beautiful, responsive interface with Tailwind CSS
+- **Modern UI**: Beautiful, responsive interface with Tailwind CSS.
 
 ## 🏗️ Architecture
 
