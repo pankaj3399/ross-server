@@ -193,7 +193,7 @@ router.post("/dataset-evaluate", authenticateToken, async (req, res) => {
             ? Math.max(0, ...fairnessAssessment.sensitiveColumns.map(col => col.disparity))
             : 0;
         const biasnessScore: number | null = hasMeasurableBias
-            ? Math.min(1, maxDisparity * 2)
+            ? Math.min(1, maxDisparity)
             : null;
         const biasnessLabel: string = hasMeasurableBias
             ? getBiasLabel(biasnessScore as number)
@@ -601,9 +601,9 @@ router.post("/security-scan", authenticateToken, async (req, res) => {
             });
         }
 
-        // Verify project access (owner, member, or platform ADMIN)
-        if (!(await verifyProjectAccess(projectId, userId))) {
-            return res.status(404).json({ error: "Project not found" });
+        // Verify project access (owner, member, or platform ADMIN) - Viewers cannot initiate security scans
+        if (!(await verifyProjectAccess(projectId, userId, ["OWNER", "EDITOR"]))) {
+            return res.status(403).json({ error: "Insufficient project permissions. Read-only viewers cannot launch security scans." });
         }
 
         const totalPrompts = getAllSecurityPrompts().length;
@@ -745,24 +745,24 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
     }
 });
 
-// GET /fairness/jobs/project/:projectId - Get all jobs for a user and project
+// GET /fairness/jobs/project/:projectId - Get all jobs for a user and project (supports ?type=SECURITY_SCAN)
 router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.user!.id;
+        const requestedType = req.query.type as string | undefined;
 
         // Verify project access (owner, member, or platform ADMIN)
         if (!(await verifyProjectAccess(projectId, userId))) {
             return res.status(403).json({ error: "Project not found or access denied" });
         }
 
-        // Fetch all jobs (queued, processing, running, completed, etc.) for this project and user
-        const result = await pool.query(
-            `SELECT 
+        let query = `SELECT 
                 id,
                 job_id,
                 user_id,
                 project_id,
+                job_type,
                 status,
                 total_prompts,
                 progress,
@@ -771,10 +771,19 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
                 created_at,
                 updated_at
             FROM evaluation_status
-            WHERE project_id = $1 AND user_id = $2 AND status IN ('queued', 'processing', 'running', 'collecting_responses', 'evaluating', 'completed', 'success', 'failed', 'partial_success')
-            ORDER BY created_at DESC`,
-            [projectId, userId]
-        );
+            WHERE project_id = $1 AND user_id = $2 AND status IN ('queued', 'processing', 'running', 'collecting_responses', 'evaluating', 'completed', 'success', 'failed', 'partial_success')`;
+
+        const queryParams: any[] = [projectId, userId];
+        if (requestedType === "SECURITY_SCAN") {
+            queryParams.push("SECURITY_SCAN", "security-%");
+            query += ` AND (job_type = $3 OR job_id ILIKE $4)`;
+        } else if (requestedType === "FAIRNESS" || requestedType === "API_TEST") {
+            queryParams.push("SECURITY_SCAN", "security-%");
+            query += ` AND (job_type != $3 OR job_type IS NULL) AND job_id NOT ILIKE $4`;
+        }
+        query += ` ORDER BY created_at DESC`;
+
+        const result = await pool.query(query, queryParams);
 
         const jobs = result.rows.map(row => {
             // Normalize status for consistent API responses
@@ -787,6 +796,7 @@ router.get("/jobs/project/:projectId", authenticateToken, async (req, res) => {
 
             return {
                 jobId: row.job_id,
+                jobType: row.job_type || (row.job_id.startsWith("security-") ? "SECURITY_SCAN" : "API_TEST"),
                 status: normalizedStatus,
                 progress: row.progress || "0/0",
                 percent: row.percent || 0,

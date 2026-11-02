@@ -582,9 +582,15 @@ const computeGroupMetrics = (
                     outcomeShare: totalPositives > 0 ? stats.positive / totalPositives : 0,
                 }));
 
-            // Calculate fairness metrics
+            // Minimum sample size guard (EEOC / statistical power standard):
+            // Subgroups with fewer than 5 records lack statistical power and create high variance noise.
+            const MIN_SUBGROUP_SIZE = 5;
+            const significantGroups = groups.filter((g) => g.rows >= MIN_SUBGROUP_SIZE);
+            const evalGroups = significantGroups.length >= 2 ? significantGroups : groups;
+
+            // Calculate fairness metrics on statistically significant groups
             // Filter out NaN values (positiveRate is already non-negative)
-            const rates = groups.map((group) => group.positiveRate).filter(r => !Number.isNaN(r));
+            const rates = evalGroups.map((group) => group.positiveRate).filter(r => !Number.isNaN(r));
             
             const maxRate = rates.length > 0 ? Math.max(...rates) : 0;
             const minRate = rates.length > 0 ? Math.min(...rates) : 0;
@@ -601,7 +607,7 @@ const computeGroupMetrics = (
             // Determine verdict based on both metrics
             let verdict: VerdictStatus = "insufficient";
 
-            if (groups.length >= 2 && rates.length >= 2) {
+            if (evalGroups.length >= 2 && rates.length >= 2) {
                 // Fail if DPD >= 0.2 OR DIR < 0.6
                 if (disparity >= 0.2 || disparateImpactRatio < 0.6) {
                     verdict = "fail";
@@ -622,9 +628,10 @@ const computeGroupMetrics = (
                 verdict,
                 disparity,
                 disparateImpactRatio,
-                groups,
+                evalGroups,
                 totalRows,
-                totalPositives
+                totalPositives,
+                evalGroups.length < groups.length
             );
 
             return {
@@ -656,7 +663,8 @@ const generateColumnExplanation = (
     disparateImpactRatio: number,
     groups: FairnessGroup[],
     totalRows: number,
-    totalPositives: number
+    totalPositives: number,
+    hasSmallSubgroups: boolean = false
 ): string => {
     if (groups.length < 2) {
         return `Insufficient data for fairness analysis on "${column}".`;
@@ -683,11 +691,16 @@ const generateColumnExplanation = (
             verdictText = `Insufficient data to analyze "${column}".`;
     }
 
+    const sampleNote = hasSmallSubgroups
+        ? " Note: Subgroups with fewer than 5 records were excluded from disparity thresholds to avoid small-sample distortion."
+        : "";
+
     return `${verdictText} ` +
         `Demographic Parity Difference: ${disparityPercent}% (${disparity < 0.1 ? 'acceptable' : disparity < 0.2 ? 'borderline' : 'high'}). ` +
         `Disparate Impact Ratio: ${dirPercent}% (${disparateImpactRatio >= 0.8 ? 'passes 80% rule' : disparateImpactRatio >= 0.6 ? 'below 80% threshold' : 'significantly below threshold'}). ` +
         `Highest selection rate: "${maxRateGroup.value}" at ${(maxRateGroup.positiveRate * 100).toFixed(1)}%. ` +
-        `Lowest selection rate: "${minRateGroup.value}" at ${(minRateGroup.positiveRate * 100).toFixed(1)}%.`;
+        `Lowest selection rate: "${minRateGroup.value}" at ${(minRateGroup.positiveRate * 100).toFixed(1)}%.` +
+        sampleNote;
 };
 
 const deriveOverallVerdict = (metrics: FairnessColumnAssessment[]): VerdictStatus => {

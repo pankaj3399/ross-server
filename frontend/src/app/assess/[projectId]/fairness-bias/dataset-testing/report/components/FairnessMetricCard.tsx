@@ -33,9 +33,9 @@ const VISUAL_CONFIGS: Record<'good' | 'caution' | 'bad' | 'unknown', VisualConfi
     },
     caution: {
         icon: AlertTriangle,
-        color: "text-amber-800 dark:text-amber-300",
-        bgColor: "bg-amber-500/10",
-        barColor: "bg-amber-600 dark:bg-amber-500",
+        color: "text-warning",
+        bgColor: "bg-warning/10",
+        barColor: "bg-warning",
         badgeLabel: "Review",
         badgeVariant: "secondary"
     },

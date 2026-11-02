@@ -122,11 +122,24 @@ export async function acceptInvitation(
       throw new Error("Invitation has expired");
     }
 
+    // In v1, only VIEWER invitations can be accepted. Reject any obsolete EDITOR/OWNER invitations.
+    if (invite.role !== "VIEWER") {
+      throw new Error(
+        "This invitation is for a role that is no longer supported in v1. Please ask the project owner to reissue a Viewer invitation."
+      );
+    }
+
+    // Sanitize permissions for VIEWER role: VIEWER can never receive wildcard "*" or mutation permissions
+    const rawPermissions = Array.isArray(invite.permissions) ? invite.permissions : [];
+    const safePermissions = rawPermissions.filter(
+      (p: string) => typeof p === "string" && p !== "*" && !p.includes("write") && !p.includes("delete") && !p.includes("admin")
+    );
+
     const membership = await addMember(
       invite.project_id,
       userId,
       invite.role,
-      Array.isArray(invite.permissions) ? invite.permissions : [],
+      safePermissions,
       client,
     );
 

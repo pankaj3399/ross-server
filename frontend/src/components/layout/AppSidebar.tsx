@@ -459,7 +459,13 @@ function SidebarContentComponent() {
       } else if (tab === "premium") {
         router.push(projectId ? `/assess/${projectId}/crc/dashboard` : "/dashboard");
       } else if (tab === "settings") {
-        router.push(projectId ? `/assess/${projectId}/settings` : "/settings");
+        if (projectId) {
+          router.push(`/assess/${projectId}/settings`);
+        } else if (userProjects.length > 0) {
+          router.push(`/assess/${userProjects[0].id}/settings`);
+        } else {
+          handleProjectAction("/settings");
+        }
       } else if (tab === "admin") {
         router.push("/admin");
       }

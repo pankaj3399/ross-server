@@ -1073,10 +1073,11 @@ class ApiService {
     }>(`/fairness/jobs/${jobId}`);
   }
 
-  async getJobs(projectId: string): Promise<{
+  async getJobs(projectId: string, type?: string): Promise<{
     success: boolean;
     jobs: Array<{
       jobId: string;
+      jobType?: string;
       status: "queued" | "processing" | "running" | "completed" | "failed" | "collecting_responses" | "evaluating" | "success" | "partial_success";
       progress: string;
       percent: number;
@@ -1087,10 +1088,12 @@ class ApiService {
     }>;
     count: number;
   }> {
+    const url = type ? `/fairness/jobs/project/${projectId}?type=${encodeURIComponent(type)}` : `/fairness/jobs/project/${projectId}`;
     return this.request<{
       success: boolean;
       jobs: Array<{
         jobId: string;
+        jobType?: string;
         status: "queued" | "processing" | "running" | "completed" | "failed" | "collecting_responses" | "evaluating" | "success" | "partial_success";
         progress: string;
         percent: number;
@@ -1100,7 +1103,7 @@ class ApiService {
         updatedAt: string;
       }>;
       count: number;
-    }>(`/fairness/jobs/project/${projectId}`);
+    }>(url);
   }
 
   async getApiReportByJobId(jobId: string): Promise<{ success: boolean; reportId: string }> {

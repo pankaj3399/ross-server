@@ -667,7 +667,7 @@ const LandingPage = () => {
             className="h-8"
           />
           <p>
-            &copy; 2025 MATUR.ai. (Powered by{" "}
+            &copy; 2026 MATUR.ai. (Powered by{" "}
             <a
               href="https://www.dynamiccomply.com/"
               target="_blank"

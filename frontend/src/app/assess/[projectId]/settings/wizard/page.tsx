@@ -20,6 +20,7 @@ import { IconLoader2, IconSettings, IconShieldCheck, IconAlertTriangle, IconRefr
 import { motion } from "framer-motion";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { isPremiumStatus } from "@/lib/constants";
+import SubscriptionModal from "@/components/features/subscriptions/SubscriptionModal";
 
 export default function ProjectWizardSettingsPage() {
   const { projectId } = useParams() as { projectId: string };
@@ -40,6 +41,7 @@ export default function ProjectWizardSettingsPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -65,6 +67,12 @@ export default function ProjectWizardSettingsPage() {
     : `/assess/${projectId}`;
 
   const handleSaveAndReRun = async () => {
+    if (!premiumStatus) {
+      setShowSubscriptionModal(true);
+      showToast.error("Upgrading to Bloom is required to re-run the compliance rules engine.");
+      return;
+    }
+
     // Perform simple validations
     if (!answers.name || answers.name.trim() === "") {
       showToast.error("System or Program Name is required.");
@@ -237,43 +245,62 @@ export default function ProjectWizardSettingsPage() {
         </div>
 
         {/* Right Form Editor Panel */}
-        <Card className="md:col-span-3 border border-border/50">
-          <CardHeader className="border-b border-border/40 pb-4">
-            <CardTitle className="text-base font-bold">
-              {sectionsList[activeSection - 1].name}
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Configure parameters for this profile section
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-6 min-h-[300px]">
-            {activeSection === 1 && <WizardSection1 />}
-            {activeSection === 2 && <WizardSection2 />}
-            {activeSection === 3 && <WizardSection3 />}
-            {activeSection === 4 && <WizardSection4 />}
-            {activeSection === 5 && <WizardSection5 />}
-            {activeSection === 6 && <WizardSection6 />}
-          </CardContent>
-          <CardFooter className="border-t border-border/40 py-4 justify-end">
-            <Button
-              onClick={handleSaveAndReRun}
-              disabled={savingSettings}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs flex items-center gap-1.5"
-            >
-              {savingSettings ? (
-                <>
-                  <IconLoader2 className="h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <IconRefresh className="h-4 w-4" />
-                  Save & Re-Run Rules Engine
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
+        <div className="md:col-span-3 space-y-4">
+          {!premiumStatus && (
+            <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-foreground">AI System Profile Rules Engine is a Bloom Feature</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Re-running the multi-framework rules engine and automatic risk mappings requires an active Bloom subscription.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowSubscriptionModal(true)}
+                className="text-xs font-semibold shrink-0"
+              >
+                Upgrade to Bloom
+              </Button>
+            </div>
+          )}
+          <Card className="border border-border/50">
+            <CardHeader className="border-b border-border/40 pb-4">
+              <CardTitle className="text-base font-bold">
+                {sectionsList[activeSection - 1].name}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Configure parameters for this profile section
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6 min-h-[300px]">
+              {activeSection === 1 && <WizardSection1 />}
+              {activeSection === 2 && <WizardSection2 />}
+              {activeSection === 3 && <WizardSection3 />}
+              {activeSection === 4 && <WizardSection4 />}
+              {activeSection === 5 && <WizardSection5 />}
+              {activeSection === 6 && <WizardSection6 />}
+            </CardContent>
+            <CardFooter className="border-t border-border/40 py-4 justify-end">
+              <Button
+                onClick={handleSaveAndReRun}
+                disabled={savingSettings}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-xs flex items-center gap-1.5"
+              >
+                {savingSettings ? (
+                  <>
+                    <IconLoader2 className="h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <IconRefresh className="h-4 w-4" />
+                    Save & Re-Run Rules Engine
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       </div>
 
       {/* Danger Zone — Reset AI Profile */}
@@ -354,6 +381,14 @@ export default function ProjectWizardSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        currentPlan={user?.subscription_status || "free"}
+        title="Upgrade to Bloom"
+        description="Upgrade to Bloom to re-run the compliance rules engine and customize your AI system profile."
+      />
     </div>
     </div>
   );

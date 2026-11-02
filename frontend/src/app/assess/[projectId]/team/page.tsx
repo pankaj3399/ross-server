@@ -89,7 +89,7 @@ export default function TeamManagementPage() {
 
     // Invite state
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER'>('EDITOR');
+    const [inviteRole, setInviteRole] = useState<'OWNER' | 'EDITOR' | 'VIEWER'>('VIEWER');
     const [inviting, setInviting] = useState(false);
 
     // Edit/Remove state
@@ -187,7 +187,7 @@ export default function TeamManagementPage() {
             await apiService.inviteToProject(projectId, { email: inviteEmail, role: inviteRole });
             showToast.success(`Invitation sent to ${inviteEmail}`);
             setInviteEmail("");
-            setInviteRole("EDITOR");
+            setInviteRole("VIEWER");
             fetchData(true); // refresh list
         } catch (err: any) {
             showToast.error(err.message || "Failed to send invitation");
@@ -357,9 +357,9 @@ export default function TeamManagementPage() {
                                             <SelectValue placeholder="Select role" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="EDITOR">Editor</SelectItem>
-                                            <SelectItem value="VIEWER">Viewer</SelectItem>
-                                            <SelectItem value="OWNER">Owner</SelectItem>
+                                            <SelectItem value="VIEWER">Viewer (Read-only)</SelectItem>
+                                            <SelectItem value="EDITOR" disabled>Editor (Paid seat — v2)</SelectItem>
+                                            <SelectItem value="OWNER" disabled>Owner (Transfer only)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -375,6 +375,9 @@ export default function TeamManagementPage() {
                                     </Button>
                                 </div>
                             </form>
+                            <p className="text-[11px] text-muted-foreground mt-3">
+                                v1 includes unlimited read-only Viewer seats. Paid Editor seats will be available in v2.
+                            </p>
                         </CardContent>
                     </Card>
                 ) : (
@@ -483,7 +486,7 @@ export default function TeamManagementPage() {
                                                                     <DropdownMenuItem
                                                                         onClick={() => {
                                                                             setMemberToEdit(member);
-                                                                            setEditRole(member.role);
+                                                                            setEditRole("VIEWER");
                                                                         }}
                                                                     >
                                                                         <IconPencil className="mr-2 h-4 w-4" />
@@ -604,24 +607,27 @@ export default function TeamManagementPage() {
                         <DialogTitle>Change Member Role</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <p className="text-sm">Change role for <strong>{memberToEdit?.name}</strong>.</p>
+                        <p className="text-sm">Change role for <strong>{memberToEdit?.name || memberToEdit?.email}</strong>.</p>
                         <div className="space-y-2">
-                            <Label>New Role</Label>
+                            <Label>Role</Label>
                             <Select value={editRole} onValueChange={setEditRole}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="EDITOR">Editor</SelectItem>
-                                    <SelectItem value="VIEWER">Viewer</SelectItem>
-                                    <SelectItem value="OWNER">Owner</SelectItem>
+                                    <SelectItem value="VIEWER">Viewer (Read-only)</SelectItem>
+                                    <SelectItem value="EDITOR" disabled>Editor (Paid seat &bull; Coming in v2)</SelectItem>
+                                    <SelectItem value="OWNER" disabled>Owner (Transfers deferred to v2)</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <p className="text-[12px] text-muted-foreground">
+                                In v1, team members are restricted to read-only Viewer seats.
+                            </p>
                         </div>
                     </div>
                     <div className="flex justify-end space-x-2">
                         <Button variant="outline" onClick={() => setMemberToEdit(null)}>Cancel</Button>
-                        <Button onClick={handleUpdateRole} disabled={processing} className="px-6">
+                        <Button onClick={handleUpdateRole} disabled={processing || editRole !== "VIEWER"} className="px-6">
                             {processing && <IconLoader2 className="w-4 h-4 mr-2 animate-spin" />}
                             Save
                         </Button>

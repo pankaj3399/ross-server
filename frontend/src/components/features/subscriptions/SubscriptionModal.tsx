@@ -10,7 +10,6 @@ import {
   IconShield,
   IconCircleCheck,
   IconLoader2,
-  IconStar,
   IconAward,
   IconCircleLetterS,
   IconX
@@ -190,24 +189,24 @@ export default function SubscriptionModal({
   };
 
   const basicFeatures = [
-    "Unlimited AI Projects/Systems",
-    "AI Vulnerability Assessment",
-    "Automated Bias & Fairness Testing (Manual/API/Dataset)",
-    "Compliance Readiness Controls (CRC)",
-    "Enhanced Reporting & Analytics",
-    "Advanced Exportable Reports (PDF/Excel)",
-    "Teams and Collaboration",
+    "AI System Profile with EU AI Act classification",
+    "138 readiness controls mapped to EU AI Act/NIST/ISO 42001",
+    "Living risk register & AI Component Inventory",
+    "Third-party vendor assessments",
+    "AI Vulnerability & Automated Bias/Fairness Testing",
+    "Scheduled and continuous testing",
+    "Enhanced Reporting & Analytics (PDF/Excel)",
+    "Unlimited Read-Only Viewer Team Members",
     "Includes everything in SEED",
   ];
 
   const proFeatures = [
     "Everything in BLOOM",
-    "10 Hours/Month Expert Consultation",
+    "10 Hours/Month Dedicated Expert Consultation",
     "Assessment assistance & Score interpretation",
     "Responsible AI implementation support",
     "Documentation, policies, & controls help",
-    "ISO 42001/NIST/EU AI Act guidance",
-    "Teams and Collaboration",
+    "ISO 42001, NIST AI RMF & EU AI Act guidance",
     "Priority Support (Faster response & direct access)",
   ];
 
@@ -268,7 +267,7 @@ export default function SubscriptionModal({
               <div className="bg-linear-to-r from-primary/10 via-background to-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
                 <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
-                    <span className="text-primary">✨ Try Free for 7 Days</span>
+                    <span className="text-primary">Try Free for 7 Days</span>
                   </h3>
                   <p className="text-muted-foreground mt-1 text-sm">
                     Unlock all BLOOM features including AI Vulnerability Assessment, Bias & Fairness Testing, and Compliance Readiness Controls (CRC). No credit card required.
@@ -374,7 +373,7 @@ export default function SubscriptionModal({
                       "Downgrade to BLOOM"
                     ) : (
                       <>
-                        <IconStar className="w-4 h-4 mr-2" />
+                        <IconBuilding className="w-4 h-4 mr-2" />
                         Choose BLOOM
                       </>
                     )}

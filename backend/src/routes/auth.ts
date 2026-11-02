@@ -245,6 +245,11 @@ router.post("/verify-email", async (req, res) => {
       { expiresIn: "7d" },
     );
 
+    // Send welcome email asynchronously upon successful email verification
+    emailService.sendWelcomeEmail(user.email, user.name).catch((emailErr) => {
+      console.error("[Auth] Failed to send welcome email:", emailErr);
+    });
+
     res.json({
       user: {
         id: user.id,

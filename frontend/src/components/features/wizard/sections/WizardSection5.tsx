@@ -66,10 +66,6 @@ export function WizardSection5() {
           ))}
         </div>
       </div>
-
-      <div className="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/10 text-xs text-indigo-300">
-        💡 If you have already achieved SOC 2 or HIPAA compliance, MATUR.ai will automatically cross-map control evidence to satisfy equivalent requirements under the EU AI Act or ISO 42001, saving administrative overhead.
-      </div>
     </div>
   );
 }

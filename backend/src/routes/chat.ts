@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { z } from "zod";
+import pool from "../config/database";
 import { handleChatMessage, ChatMessage } from "../services/chatService";
 import { isAnthropicConfigured } from "../services/anthropicClient";
 import { getMembership } from "../services/projectMembershipService";
@@ -77,26 +78,60 @@ const rateLimitCleanupInterval = setInterval(() => {
 }, 5 * 60_000);
 if (rateLimitCleanupInterval.unref) rateLimitCleanupInterval.unref();
 
-// Daily limit for free tier users (10 messages per day)
+// Daily limit for free tier users (10 messages per day) persisted in PostgreSQL
 const freeTierDailyLimitMap = new Map<string, number>();
 const FREE_TIER_DAILY_LIMIT = 10;
 
-function getFreeTierRemaining(userId: string): number {
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const key = `${userId}:${today}`;
-  const currentCount = freeTierDailyLimitMap.get(key) || 0;
-  return Math.max(0, FREE_TIER_DAILY_LIMIT - currentCount);
-}
-
-function incrementFreeTierDailyLimit(userId: string): number {
+async function getFreeTierUsage(userId: string): Promise<number> {
   const today = new Date().toISOString().slice(0, 10);
   const key = `${userId}:${today}`;
-  const currentCount = freeTierDailyLimitMap.get(key) || 0;
-  freeTierDailyLimitMap.set(key, currentCount + 1);
-  return Math.max(0, FREE_TIER_DAILY_LIMIT - (currentCount + 1));
+  const memoryCount = freeTierDailyLimitMap.get(key) || 0;
+  try {
+    const result = await pool.query(
+      `SELECT message_count FROM user_daily_usage WHERE user_id = $1 AND usage_date = $2`,
+      [userId, today]
+    );
+    if (result.rows.length > 0) {
+      const dbCount = result.rows[0].message_count;
+      // Reconcile: If memory has recorded more usage (e.g. from an increment fallback), return the max
+      const effectiveCount = Math.max(dbCount, memoryCount);
+      if (dbCount > memoryCount) {
+        freeTierDailyLimitMap.set(key, dbCount);
+      }
+      return effectiveCount;
+    }
+    return memoryCount;
+  } catch (err) {
+    console.warn("[Chat] Database daily usage query failed, using in-memory fallback:", err);
+    return memoryCount;
+  }
 }
 
-// Periodically clean up entries from previous days (every hour)
+async function incrementFreeTierUsage(userId: string): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `${userId}:${today}`;
+  const currentMemory = freeTierDailyLimitMap.get(key) || 0;
+  try {
+    const result = await pool.query(
+      `INSERT INTO user_daily_usage (user_id, usage_date, message_count)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (user_id, usage_date)
+       DO UPDATE SET message_count = GREATEST(user_daily_usage.message_count + 1, $3), updated_at = CURRENT_TIMESTAMP
+       RETURNING message_count`,
+      [userId, today, currentMemory + 1]
+    );
+    const dbCount = result.rows[0].message_count;
+    freeTierDailyLimitMap.set(key, dbCount);
+    return dbCount;
+  } catch (err) {
+    console.warn("[Chat] Database daily usage increment failed, using in-memory fallback:", err);
+    const newCount = currentMemory + 1;
+    freeTierDailyLimitMap.set(key, newCount);
+    return newCount;
+  }
+}
+
+// Periodically clean up fallback in-memory entries from previous days (every hour)
 const dailyLimitCleanupInterval = setInterval(() => {
   const today = new Date().toISOString().slice(0, 10);
   for (const key of freeTierDailyLimitMap.keys()) {
@@ -110,7 +145,7 @@ if (dailyLimitCleanupInterval.unref) dailyLimitCleanupInterval.unref();
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
 // GET /chat/usage - Get remaining free messages
-router.get("/usage", (req: Request, res: Response) => {
+router.get("/usage", async (req: Request, res: Response) => {
   const user = (req as any).user;
   if (!user?.id) {
     return res.status(401).json({ error: "Authentication required" });
@@ -119,9 +154,7 @@ router.get("/usage", (req: Request, res: Response) => {
   if (isPaid) {
     return res.json({ unlimited: true, remaining: null, dailyLimit: null });
   }
-  const today = new Date().toISOString().slice(0, 10);
-  const key = `${user.id}:${today}`;
-  const currentCount = freeTierDailyLimitMap.get(key) || 0;
+  const currentCount = await getFreeTierUsage(user.id);
   return res.json({
     unlimited: false,
     dailyLimit: FREE_TIER_DAILY_LIMIT,
@@ -155,7 +188,8 @@ router.post("/", async (req: Request, res: Response) => {
     // Check free tier daily message limit before expensive work
     const isPaid = user.role === "ADMIN" || ["basic_premium", "pro_premium", "trial"].includes(user.subscription_status);
     if (!isPaid) {
-      const remaining = getFreeTierRemaining(user.id);
+      const currentCount = await getFreeTierUsage(user.id);
+      const remaining = Math.max(0, FREE_TIER_DAILY_LIMIT - currentCount);
       if (remaining <= 0) {
         return res.status(429).json({
           error: "You have reached your daily limit of 10 free messages with Mira. Upgrade your plan for unlimited messages.",
@@ -212,7 +246,8 @@ router.post("/", async (req: Request, res: Response) => {
 
     // Charge free tier allowance only upon successful generation
     if (!isPaid) {
-      const remainingAfterCharge = incrementFreeTierDailyLimit(user.id);
+      const newCount = await incrementFreeTierUsage(user.id);
+      const remainingAfterCharge = Math.max(0, FREE_TIER_DAILY_LIMIT - newCount);
       res.setHeader("X-RateLimit-Remaining-Daily", remainingAfterCharge.toString());
     }
 
