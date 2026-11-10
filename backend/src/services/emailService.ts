@@ -33,7 +33,7 @@ const escapeHtml = (str: string): string =>
  * Generates unified branded HTML emails with official MATUR.ai styling,
  * high-contrast accessible typography, and standard 2026 footer lockup.
  */
-function renderBrandedEmail(options: BrandedEmailLayoutOptions): string {
+export function renderBrandedEmail(options: BrandedEmailLayoutOptions): string {
   const ctaBlock = options.ctaText && options.ctaUrl ? `
     <div style="text-align: center; margin: 32px 0 20px 0;">
       <a href="${options.ctaUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px; display: inline-block; letter-spacing: 0.01em; box-shadow: 0 1px 3px rgba(37,99,235,0.2);">

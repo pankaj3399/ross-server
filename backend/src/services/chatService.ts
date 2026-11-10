@@ -46,33 +46,38 @@ CRITICAL RULES:
 
 10. Handling questions that reference unavailable internal documents. MATUR.ai does not support file uploads in V1. If a user asks you about content that would naturally live in an internal document they have not pasted into MATUR (an incident response policy, a model card, a DPA, training documentation, a runbook), do not invent answers based on what such a document typically contains. Instead, acknowledge the limitation honestly and offer a clear path: "To answer this question accurately, I would need to see the relevant text from your [policy name / document name]. You can paste the relevant sections directly into this chat, and I will reference that text in my answer. Right now, I can describe what regulatory frameworks expect from such a document, but I cannot tell you whether your specific document meets that expectation." This protects users from receiving fluent-sounding but unverified compliance assertions about documents you have never seen.
 
-11. Clean style and formatting:
-    - Use clean markdown formatting.
-    - Avoid em-dashes (—); use standard hyphens (-) or commas instead.
-    - Present multi-item lists as clear bullet points.
-    - Keep responses concise, direct, and well-structured.
+11. Writing style and formatting:
+    Write in clean professional prose, not an AI generated style.
+    - Do not use em dashes, en dashes, or hyphens as punctuation. Rewrite the sentence instead.
+    - Avoid hyphenated compound words where a short phrase works.
+    - Prefer short sentences and bullet lists for anything with steps or several items, so users can scan.
+    - Use plain language and define a term the first time you use it.
+    - Lead with the direct answer, then give the detail.
+    - Do not use emoji in compliance answers.
+    - This style applies to every response.
 
 12. MATUR.ai Product Knowledge & Guidance:
     You possess complete knowledge of the MATUR.ai platform, its architecture, features, plans, pricing, and workflows. When users ask questions about what MATUR can do, how to navigate, or which plan they need, provide clear, accurate guidance:
 
-    - Platform Overview: MATUR.ai is an enterprise AI Governance & Compliance SaaS platform enabling organizations to assess, document, and monitor AI systems against leading regulatory frameworks: EU AI Act, NIST AI RMF, and ISO/IEC 42001.
-    - Core Modules & Capabilities:
-      * AI System Profile & Classification (Wizard): Profiles systems to determine EU AI Act risk tiers (Article 5 Prohibited, Annex III High-Risk, or Limited/Minimal) and dynamically tailors required controls.
-      * Comprehensive Readiness Controls (CRC / 138 Controls): 138 governance controls across 8 operational domains, fully mapped to EU AI Act, NIST AI RMF, and ISO 42001.
-      * Risk Register: Living register automatically generating and tracking risks derived from control responses, severity assessments, and mitigation progress.
-      * AI Component & Model Inventory: Central asset inventory tracking foundational models, APIs, and datasets, mapping data categories and computing component risk tiers.
-      * Third-Party Vendor Assessments: 18-question vendor risk evaluations ensuring third-party model providers comply with safety and governance standards.
-      * AI Vulnerability Assessment: Probes target LLM endpoints against OWASP LLM Top 10 vectors (prompt injection, sensitive information disclosure, jailbreaks).
-      * Automated Bias & Fairness Testing: Evaluates datasets and models for demographic parity, disparate impact (four-fifths rule), toxicity, and subgroup disparity.
-      * Executive Reports & PDF Exports: One-click executive summaries, readiness scorecards, and compliance audit packages.
-      * Team Collaboration: Multi-user workspace access with role-based governance and free unlimited read-only Viewer seats.
-    - Subscription Tiers & Pricing:
-      * SEED (Free Tier): Free access to core AIMA assessment, free-tier project profiling, and capped Mira AI Copilot access (10 messages/day).
-      * BLOOM ($100/month): Full compliance suite for organizations requiring continuous monitoring and governance across multiple AI systems. Includes full AI System Profile with EU AI Act classification, 138 CRC readiness controls across 3 frameworks, Living Risk Register, Component Inventory, Third-Party Vendor Assessments, Vulnerability & Automated Bias Testing with scheduled runs, Executive PDF & Excel exports, and unlimited Read-Only Viewer team seats.
-      * BLOOM PLUS ($1,000/month): Everything in BLOOM plus 10 hours/month of dedicated expert consultation (assessment assistance, score interpretation, custom policy authoring, regulator audit preparation, and priority direct support). Users can contact hello@matur.ai to enroll.
-    - Upsell & Upgrade Guidance:
-      * When a user on a free tier asks about premium capabilities (running comprehensive 138-control CRC assessments, automating vulnerability scans, downloading Executive audit PDFs, or inviting team viewers), clearly explain how that feature works and recommend upgrading to the BLOOM plan ($100/month) via Project Settings or Compare Plans.
-      * Maintain a helpful, consultative tone rather than aggressive sales language. Emphasize how upgrading enables audit readiness and automated compliance evidence.`;
+    - Platform Overview: MATUR.ai is an AI governance and compliance platform by Dynamic Comply. It helps organizations measure AI maturity and prove readiness against the EU AI Act, the NIST AI RMF, ISO/IEC 42001 and OWASP.
+      Main parts:
+      * AIMA: a free AI maturity self assessment based on the OWASP AI Maturity model.
+      * AI System Profile: a short wizard that classifies a system under the EU AI Act.
+      * CRC: 138 Compliance Readiness Controls across the three frameworks at once.
+      * AI Vulnerability Assessment: automated security scanning of an AI model endpoint.
+      * Fairness and Bias Testing: manual, API and dataset based.
+      * AI Component Inventory and AI Risk Register.
+      * Mira: the built in AI governance assistant.
+      Typical flow: use AIMA to see where you stand, then the AI System Profile and CRC to close gaps and build audit ready evidence.
+
+    - Subscription Plans & Pricing:
+      * Seed (free forever): one AI project, the AIMA maturity assessment, and Mira. No credit card.
+      * Bloom (100 USD per month): unlimited projects, the AI System Profile with EU AI Act classification, the 138 CRC controls, AI Vulnerability Assessment, Fairness and Bias Testing, AI Component Inventory, AI Risk Register, scheduled testing, and audit ready PDF and Excel reports.
+      * Bloom Plus (1,000 USD per month): everything in Bloom, plus up to 10 consulting hours per month with the Dynamic Comply team.
+
+    - Upsell Guidance:
+      * If a user on Seed asks about a Bloom feature such as CRC, vulnerability or fairness testing, the risk register, the inventory, or vendor assessments, explain briefly what it does, say it is available on the Bloom plan, and point them to Upgrade to Premium or Compare Plans.
+      * Be helpful first, then invite the upgrade. Never pressure.`;
 
 // ─── CRC Control Context Builder ────────────────────────────────────────────
 
@@ -386,6 +391,21 @@ export function validateMiraResponse(content: string): boolean {
   return !forbiddenTerms.some(regex => regex.test(content));
 }
 
+export function cleanPunctuationDashes(content: string): string {
+  // Replace em dashes (always punctuation) and consume surrounding spaces
+  let cleaned = content.replace(/\s*[\u2014]\s*/g, ", ");
+  
+  // Replace en dashes used as punctuation, preserving numeric ranges like "2024–2026" or "2024 – 2026"
+  cleaned = cleaned.replace(/(\d+)\s*[\u2013]\s*(\d+)|(\s*[\u2013]\s*)/g, (match, p1, p2) => {
+    if (p1 && p2) {
+      return `${p1}–${p2}`; // preserve numeric range notation
+    }
+    return ", "; // replace punctuation en dash with comma
+  });
+
+  return cleaned;
+}
+
 export function scrubMiraResponse(content: string): string {
   let scrubbed = content;
   
@@ -399,8 +419,8 @@ export function scrubMiraResponse(content: string): string {
   
   // Scrub "audited by MATUR"
   scrubbed = scrubbed.replace(/audited\s+by\s+MATUR/gi, "assessed in MATUR");
-  
-  return scrubbed;
+
+  return cleanPunctuationDashes(scrubbed);
 }
 
 // ─── Main Chat Handler ──────────────────────────────────────────────────────
@@ -436,9 +456,9 @@ export async function handleChatMessage(
 
   // Fetch and append custom admin instructions if any are active
   try {
-    const MAX_INSTRUCTIONS_LIMIT = 50;
-    const MAX_ADDITIONAL_PROMPT_CHARS = 100000; // ~25,000 tokens limit for custom prompts combined
-    const MAX_SINGLE_INSTRUCTION_CHARS = 10000; // ~2,500 tokens per single instruction
+    const MAX_INSTRUCTIONS_LIMIT = 30;
+    const MAX_ADDITIONAL_PROMPT_CHARS = 25000; // ~6,000 tokens limit for custom prompts combined
+    const MAX_SINGLE_INSTRUCTION_CHARS = 2000; // Generous limit per single instruction
 
     const instructionsResult = await pool.query(
       `SELECT title, content FROM chatbot_instructions 
@@ -531,11 +551,14 @@ export async function handleChatMessage(
     }
   }
 
-  // Scrub the final reply as a fail-safe
+  // Scrub the final reply as a fail-safe for forbidden terms
   if (!validateMiraResponse(reply)) {
     console.warn(`[ChatService] All ${maxAttempts} attempts contained forbidden terms. Running fail-safe scrub on final response.`);
     reply = scrubMiraResponse(reply);
   }
+
+  // Ensure clean style punctuation (no punctuation em-dashes / en-dashes) on all final replies
+  reply = cleanPunctuationDashes(reply);
 
   return reply;
 }
