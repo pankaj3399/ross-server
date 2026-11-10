@@ -638,19 +638,24 @@ export const CrcFullPdfDocument: React.FC<CrcFullPdfDocumentProps> = ({ data, is
                 <View style={styles.colRiskOwner}><Text style={styles.thText}>Owner</Text></View>
                 <View style={styles.colRiskDesc}><Text style={styles.thText}>Description</Text></View>
               </View>
-              {riskRegister.risks.map((risk, idx) => (
-                <View key={idx} style={styles.tableRow} wrap={false}>
-                  <View style={styles.colRiskTitle}><Text style={[styles.tbText, { fontWeight: "bold" }]}>{risk.title}</Text></View>
-                  <View style={styles.colRiskCat}><Text style={styles.tbText}>{risk.category}</Text></View>
-                  <View style={styles.colRiskRating}>
-                    <View style={[styles.badge, { backgroundColor: getRiskBg(risk.rating) }]}>
-                      <Text style={[styles.badgeText, { color: getRiskColor(risk.rating) }]}>{risk.rating}</Text>
+              {riskRegister.risks.map((risk, idx) => {
+                const safeDesc = risk.description && risk.description.startsWith("Maps to:")
+                  ? `Failure to effectively implement ${risk.title || "this control"} exposes the organization to compliance violations, operational vulnerability, and regulatory non-alignment.`
+                  : (risk.description || "No description provided");
+                return (
+                  <View key={idx} style={styles.tableRow} wrap={false}>
+                    <View style={styles.colRiskTitle}><Text style={[styles.tbText, { fontWeight: "bold" }]}>{risk.title}</Text></View>
+                    <View style={styles.colRiskCat}><Text style={styles.tbText}>{risk.category}</Text></View>
+                    <View style={styles.colRiskRating}>
+                      <View style={[styles.badge, { backgroundColor: getRiskBg(risk.rating) }]}>
+                        <Text style={[styles.badgeText, { color: getRiskColor(risk.rating) }]}>{risk.rating}</Text>
+                      </View>
                     </View>
+                    <View style={styles.colRiskOwner}><Text style={styles.tbText}>{risk.owner}</Text></View>
+                    <View style={styles.colRiskDesc}><Text style={styles.tbText}>{safeDesc}</Text></View>
                   </View>
-                  <View style={styles.colRiskOwner}><Text style={styles.tbText}>{risk.owner}</Text></View>
-                  <View style={styles.colRiskDesc}><Text style={styles.tbText}>{risk.description}</Text></View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : (
             <Text style={[styles.tbText, { fontStyle: "italic", color: colors.gray }]}>

@@ -495,16 +495,16 @@ export default function ApiReportDetailPage() {
                                 <div>
                                     <div className="text-xs font-semibold text-muted-foreground mb-1.5 tracking-wide">Authentication Strategy</div>
                                     <div className="bg-slate-50 dark:bg-slate-900 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800 font-medium text-sm text-slate-700 dark:text-slate-300 flex items-center gap-2" style={{ textTransform: "none" }}>
-                                        {report.config?.apiKeyPlacement === "auth_header"
-                                            ? "Authorization: Bearer"
-                                            : report.config?.apiKeyPlacement === "x_api_key"
-                                                ? "Custom Header"
-                                                : report.config?.apiKeyPlacement === "query_param"
-                                                    ? "Query Parameter"
-                                                    : report.config?.apiKeyPlacement === "body_field"
-                                                        ? "Body Field"
-                                                        : "None"}
-                                        {report.config?.apiKeyFieldName && report.config?.apiKeyPlacement !== "none" && report.config?.apiKeyPlacement !== "auth_header" ? (
+                                        {(() => {
+                                            const placement = report.config?.apiKeyPlacement;
+                                            if (placement === "auth_header") return "Authorization: Bearer";
+                                            if (placement === "x_api_key") return "Custom Header";
+                                            if (placement === "query_param") return "Query Parameter";
+                                            if (placement === "body_field") return "Body Field";
+                                            if (placement === "[REDACTED]" || report.config?.apiKey) return "HTTP Header (API Key)";
+                                            return "None";
+                                        })()}
+                                        {report.config?.apiKeyFieldName && report.config?.apiKeyPlacement !== "none" && report.config?.apiKeyPlacement !== "auth_header" && report.config?.apiKeyFieldName !== "[REDACTED]" ? (
                                             <span className="text-[10px] font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 text-foreground">
                                                 {report.config.apiKeyFieldName}
                                             </span>

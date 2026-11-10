@@ -394,8 +394,8 @@ const styles = StyleSheet.create({
  * Maturity Mapping Helpers (copied logic to avoid circular deps and use hex colors)
  */
 const getMaturityLevelForPdf = (score: number) => {
-  if (score >= 2.5) return { level: 'Optimized', text: '#166534', bg: '#f0fdf4', bgSolid: '#22c55e' };
-  if (score >= 1.5) return { level: 'Defined', text: '#92400e', bg: '#fffbeb', bgSolid: '#f59e0b' };
+  if (score >= 2.5) return { level: 'Mature', text: '#166534', bg: '#f0fdf4', bgSolid: '#22c55e' };
+  if (score >= 1.5) return { level: 'Developing', text: '#92400e', bg: '#fffbeb', bgSolid: '#f59e0b' };
   if (score >= 0.5) return { level: 'Initial', text: '#991b1b', bg: '#fef2f2', bgSolid: '#ef4444' };
   return { level: 'No Maturity', text: '#64748b', bg: '#f1f5f9', bgSolid: '#94a3b8' };
 };

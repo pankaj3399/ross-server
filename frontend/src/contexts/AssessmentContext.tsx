@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "./AuthContext";
 import { useRequireAuth } from "../hooks/useRequireAuth";
@@ -315,8 +315,14 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                 setDomains(orderedDomains);
 
                 // Initialize state if needed
-                let targetDomainId = currentDomainId;
-                let targetPracticeId = currentPracticeId;
+                const paramDomain = searchParams?.get("domain");
+                const paramPractice = searchParams?.get("practice");
+                const paramQuestion = searchParams?.get("q");
+
+                let targetDomainId = (paramDomain && orderedDomains.some(d => d.id === paramDomain))
+                    ? paramDomain
+                    : currentDomainId;
+                let targetPracticeId = paramPractice || currentPracticeId;
 
                 // If no state or state invalid, set default
                 let domain = orderedDomains.find(d => d.id === targetDomainId);
@@ -335,12 +341,14 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     targetPracticeId = Object.keys(domain.practices)[0] || '';
                 }
 
+                const targetQIndex = paramQuestion ? Math.max(0, parseInt(paramQuestion, 10) || 0) : 0;
+
                 if (domain && targetDomainId && targetPracticeId) {
-                    if (targetDomainId !== currentDomainId || targetPracticeId !== currentPracticeId) {
+                    if (targetDomainId !== currentDomainId || targetPracticeId !== currentPracticeId || (paramQuestion && targetQIndex !== currentQuestionIndex)) {
                         setProjectState(projectId, {
                             currentDomainId: targetDomainId,
                             currentPracticeId: targetPracticeId,
-                            currentQuestionIndex: 0
+                            currentQuestionIndex: targetQIndex
                         });
                     }
                 }
@@ -436,6 +444,40 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         fetchData();
         return () => controller.abort();
     }, [projectId, isAuthenticated, authLoading, setProjectState, isPremium]);
+
+    // Handle runtime search parameter changes (e.g. navigation from sidebar to a specific domain)
+    const lastAppliedParamsRef = useRef<string | null>(null);
+    useEffect(() => {
+        const paramDomain = searchParams?.get("domain");
+        const paramPractice = searchParams?.get("practice");
+        const paramQuestion = searchParams?.get("q");
+
+        if (!paramDomain) {
+            lastAppliedParamsRef.current = null;
+            return;
+        }
+
+        if (domains.length > 0 && projectId) {
+            const currentParamKey = `${projectId}:${paramDomain}:${paramPractice || ''}:${paramQuestion || ''}`;
+            if (lastAppliedParamsRef.current === currentParamKey) {
+                return;
+            }
+
+            const domain = domains.find(d => d.id === paramDomain);
+            if (domain) {
+                const targetPractice = (paramPractice && domain.practices[paramPractice])
+                    ? paramPractice
+                    : Object.keys(domain.practices)[0] || '';
+                const targetQ = paramQuestion ? Math.max(0, parseInt(paramQuestion, 10) || 0) : 0;
+                lastAppliedParamsRef.current = currentParamKey;
+                setProjectState(projectId, {
+                    currentDomainId: paramDomain,
+                    currentPracticeId: targetPractice,
+                    currentQuestionIndex: targetQ
+                });
+            }
+        }
+    }, [searchParams, domains, projectId, setProjectState]);
 
     // --- Derive Questions for Current Practice ---
     useEffect(() => {

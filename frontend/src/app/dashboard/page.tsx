@@ -136,7 +136,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import ProjectEditForm from "@/components/features/projects/ProjectEditForm";
-import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES, isPremiumStatus, CARD_THEMES, MAX_DESCRIPTION_LENGTH } from "@/lib/constants";
+import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES, isPremiumStatus, MAX_DESCRIPTION_LENGTH } from "@/lib/constants";
 import { getReportRoute } from "@/lib/reportRoute";
 
 const POST_CHECKOUT_RETURN_URL_KEY = "postCheckoutReturnUrl";
@@ -746,13 +746,12 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredProjects.map((project, index) => {
-                  const theme = CARD_THEMES[index % CARD_THEMES.length];
                   return (
                     <motion.div
                       key={project.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ y: -5 }}
+                      whileHover={{ y: -3 }}
                     >
                       {(() => {
                         const handleProjectClick = () => {
@@ -769,9 +768,7 @@ export default function DashboardPage() {
                           <Card
                             role="button"
                             tabIndex={0}
-                            className={`h-full flex flex-col justify-between hover:shadow-xl transition-all duration-300 cursor-pointer border ${theme.border} ${theme.shadow} ${
-                              ["card-google-blue", "card-google-red", "card-google-yellow", "card-google-green", "card-google-purple"][index % 5]
-                            }`}
+                            className="h-full flex flex-col justify-between hover:shadow-md hover:border-primary/40 transition-all duration-200 cursor-pointer border border-border/80 bg-card text-card-foreground shadow-xs"
                             onClick={handleProjectClick}
                             onKeyDown={(e) => {
                               const target = e.target as HTMLElement;
@@ -789,28 +786,43 @@ export default function DashboardPage() {
                             <div className="flex-1 mr-2 min-w-0">
                               <CardTitle className="text-lg mb-1.5 flex items-center justify-between w-full min-w-0">
                                 <span className="flex items-center gap-2 min-w-0 font-bold pr-2 text-foreground">
-                                  <IconFolder className="w-5 h-5 shrink-0 text-foreground/80" />
+                                  <IconFolder className="w-5 h-5 shrink-0 text-primary/80" />
                                   <span className="truncate">{project.name}</span>
                                 </span>
-                                {project.user_id && user?.id && project.user_id !== user.id && (
-                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 ${theme.badge}`}>
-                                    Shared
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {project.status === 'completed' ? (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                      Completed
+                                    </span>
+                                  ) : project.status === 'in_progress' ? (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                      In Progress
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-muted text-muted-foreground border border-border">
+                                      Not Started
+                                    </span>
+                                  )}
+                                  {project.user_id && user?.id && project.user_id !== user.id && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-muted/80 text-muted-foreground border border-border/60">
+                                      Shared
+                                    </span>
+                                  )}
+                                </div>
                               </CardTitle>
-                              <div className="flex items-center gap-1.5 mt-1.5 w-full min-w-0 flex-nowrap">
-                                <span className={`text-[10px] py-1 px-2.5 rounded-full font-semibold flex items-center gap-1 shrink min-w-0 ${theme.badge}`}>
+                              <div className="flex items-center gap-1.5 mt-2 w-full min-w-0 flex-nowrap">
+                                <span className="text-[10px] py-1 px-2.5 rounded-full font-semibold flex items-center gap-1 shrink min-w-0 bg-muted/60 text-muted-foreground border border-border/50">
                                   <IconCpu className="w-3.5 h-3.5 shrink-0" />
                                   <span className="truncate">{project.ai_system_type || "General AI System"}</span>
                                 </span>
                                 {project.created_at && (
-                                  <span className={`text-[10px] py-1 px-2.5 rounded-full font-semibold flex items-center gap-1.5 shrink-0 ${theme.badge}`}>
+                                  <span className="text-[10px] py-1 px-2.5 rounded-full font-semibold flex items-center gap-1.5 shrink-0 bg-muted/60 text-muted-foreground border border-border/50">
                                     <IconCalendar className="w-3.5 h-3.5 shrink-0" />
                                     <span>Created: {formatDate(project.created_at)}</span>
                                   </span>
                                 )}
                                 {project.role && project.role !== 'OWNER' && (
-                                  <span className={`text-[10px] py-1 px-2.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1 shrink-0 ${theme.badgeRole}`}>
+                                  <span className="text-[10px] py-1 px-2.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1 shrink-0 bg-primary/10 text-primary border border-primary/20">
                                     <IconShield className="w-3 h-3 shrink-0" />
                                     <span>{project.role}</span>
                                   </span>
@@ -892,16 +904,16 @@ export default function DashboardPage() {
                                   e.stopPropagation();
                                   router.push(getProjectReportHref(project.id));
                                 }}
-                                className={`h-8 px-3.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs ${theme.btnSecondary}`}
+                                className="h-8 px-3.5 rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs border-border/80 hover:bg-muted"
                               >
-                                <IconChartBar className="w-3.5 h-3.5" />
+                                <IconChartBar className="w-3.5 h-3.5 text-primary" />
                                 <span>View Report</span>
                                 <IconArrowRight className="w-3.5 h-3.5" />
                               </Button>
                             </>
                           ) : (
                             <Button
-                              variant="outline"
+                              variant="default"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -912,7 +924,7 @@ export default function DashboardPage() {
                                   router.push(getProjectEditHref(project.id));
                                 }
                               }}
-                              className={`h-8 px-4 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs ${theme.btnSecondary}`}
+                              className="h-8 px-4 rounded-lg text-xs font-semibold flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs"
                             >
                               <IconPlayerPlay className="w-3 h-3" />
                               <span>

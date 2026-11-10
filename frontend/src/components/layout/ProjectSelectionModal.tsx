@@ -56,21 +56,27 @@ export function ProjectSelectionModal({
 
   useEffect(() => {
     let isMounted = true;
-    const fetchProjects = async () => {
+    const fetchProjects = async (retry = 0) => {
       if (!isOpen) return;
-      setIsLoading(true);
+      if (retry === 0) setIsLoading(true);
       try {
         const data = await apiService.getProjects();
         if (isMounted) {
           setProjects(Array.isArray(data) ? data : []);
+          setIsLoading(false);
         }
       } catch (error) {
-        console.error("Failed to load projects:", error);
+        console.error(`Failed to load projects in modal (attempt ${retry + 1}):`, error);
+        if (retry < 2 && isMounted) {
+          setTimeout(() => {
+            if (isMounted && isOpen) {
+              fetchProjects(retry + 1);
+            }
+          }, (retry + 1) * 600);
+          return;
+        }
         if (isMounted) {
           showToast.error("Failed to load projects.");
-        }
-      } finally {
-        if (isMounted) {
           setIsLoading(false);
         }
       }

@@ -117,6 +117,43 @@ export function sanitizeConfig(config: any): any {
     // Expanded sensitive pattern
     const sensitivePattern = /api[-_]?key|token|secret|password|access[-_]?token|credentials|private[-_]?key|privatekey|bearer|auth/i;
 
+    // Helper to scrub a string value for URL params or embedded secrets
+    const scrubString = (str: string): string => {
+         // 1. Try treating as URL
+         try {
+             const url = new URL(str);
+             let changed = false;
+
+             // Redact Basic Auth
+             if (url.username || url.password) {
+                 url.username = "[REDACTED]";
+                 url.password = "[REDACTED]";
+                 changed = true;
+             }
+
+             url.searchParams.forEach((val, key) => {
+                 if (sensitivePattern.test(key)) {
+                     url.searchParams.set(key, "[REDACTED]");
+                     changed = true;
+                 }
+             });
+             if (changed) {
+                 return url.toString();
+             }
+             // If valid URL but no query params matched, fall through to check other patterns
+         } catch (e) {
+             // Not a URL, ignore
+         }
+
+         // 2. Fallback check for "Bearer <token>" style patterns or direct sensitive keys in template strings
+         // This is a simple heuristic.
+         // Redact patterns like "Bearer eyJ..." -> "Bearer [REDACTED]"
+         return str.replace(/(bearer\s+)([a-zA-Z0-9\-\._~+\/]+)/gi, "$1[REDACTED]");
+    };
+
+    const isValidMetadataString = (val: unknown): val is string =>
+        typeof val === "string" && val.length > 0 && val.length <= 64 && !/\s/.test(val);
+
     try {
         // If config is a string (JSON), parse it first
         let parsed: any;
@@ -130,40 +167,6 @@ export function sanitizeConfig(config: any): any {
                 throw e;
             }
         }
-        
-        // Helper to scrub a string value for URL params or embedded secrets
-        const scrubString = (str: string): string => {
-             // 1. Try treating as URL
-             try {
-                 const url = new URL(str);
-                 let changed = false;
-
-                 // Redact Basic Auth
-                 if (url.username || url.password) {
-                     url.username = "[REDACTED]";
-                     url.password = "[REDACTED]";
-                     changed = true;
-                 }
-
-                 url.searchParams.forEach((val, key) => {
-                     if (sensitivePattern.test(key)) {
-                         url.searchParams.set(key, "[REDACTED]");
-                         changed = true;
-                     }
-                 });
-                 if (changed) {
-                     return url.toString();
-                 }
-                 // If valid URL but no query params matched, fall through to check other patterns
-             } catch (e) {
-                 // Not a URL, ignore
-             }
-
-             // 2. Fallback check for "Bearer <token>" style patterns or direct sensitive keys in template strings
-             // This is a simple heuristic.
-             // Redact patterns like "Bearer eyJ..." -> "Bearer [REDACTED]"
-             return str.replace(/(bearer\s+)([a-zA-Z0-9\-\._~+\/]+)/gi, "$1[REDACTED]");
-        };
 
         // Recursive sanitization helper
         const sanitizeRecursive = (obj: any): any => {
@@ -181,7 +184,9 @@ export function sanitizeConfig(config: any): any {
 
             const newObj: any = {};
             for (const [key, value] of Object.entries(obj)) {
-                if (sensitivePattern.test(key)) {
+                if (key === "apiKeyPlacement" || key === "apiKeyFieldName") {
+                    newObj[key] = isValidMetadataString(value) ? scrubString(value) : "[REDACTED]";
+                } else if (sensitivePattern.test(key)) {
                     newObj[key] = "[REDACTED]";
                 } else {
                     newObj[key] = sanitizeRecursive(value);
@@ -198,7 +203,11 @@ export function sanitizeConfig(config: any): any {
                 // Return a shallow copy where all values are redacted to be safe
                 const safe: any = {};
                 for (const key of Object.keys(config)) {
-                   safe[key] = "[REDACTED]";
+                   if ((key === "apiKeyPlacement" || key === "apiKeyFieldName") && isValidMetadataString(config[key])) {
+                       safe[key] = scrubString(config[key]);
+                   } else {
+                       safe[key] = "[REDACTED]";
+                   }
                 }
                 return safe;
             }
