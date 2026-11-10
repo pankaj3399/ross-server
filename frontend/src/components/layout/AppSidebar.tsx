@@ -475,22 +475,32 @@ function SidebarContentComponent() {
   const [userProjects, setUserProjects] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
 
-  const fetchSidebarProjects = useCallback(() => {
+  const fetchSidebarProjects = useCallback(async (retryCount = 0) => {
     if (!isAuthenticated) return;
-    setIsLoadingProjects(true);
-    apiService
-      .getProjects()
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setUserProjects(data);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to fetch projects in sidebar:", err);
-      })
-      .finally(() => {
+    if (retryCount === 0) {
+      setIsLoadingProjects(true);
+    }
+    let retryScheduled = false;
+    try {
+      const data = await apiService.getProjects();
+      if (Array.isArray(data)) {
+        setUserProjects(data);
+      }
+    } catch (err) {
+      console.error(`Failed to fetch projects in sidebar (attempt ${retryCount + 1}):`, err);
+      if (retryCount < 2) {
+        retryScheduled = true;
+        const delay = (retryCount + 1) * 600;
+        setTimeout(() => {
+          fetchSidebarProjects(retryCount + 1);
+        }, delay);
+        return;
+      }
+    } finally {
+      if (!retryScheduled) {
         setIsLoadingProjects(false);
-      });
+      }
+    }
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -922,17 +932,14 @@ function SidebarContentComponent() {
                       aria-label={isSecondaryOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                     >
                       {isSecondaryOpen ? (
-                        <>
-                          <img src="/matur-logo-slogan.png" alt="MATUR.ai" className="size-5 object-contain dark:hidden" />
-                          <img src="/matur-dark.png" alt="MATUR.ai" className="size-5 object-contain hidden dark:block" />
-                        </>
+                        <IconChevronsLeft className="size-4 shrink-0" />
                       ) : (
                         <IconChevronsRight className="size-4 shrink-0 text-primary" />
                       )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={8} className="text-xs font-medium">
-                    {isSecondaryOpen ? "MATUR.ai" : "Expand Sidebar"}
+                    {isSecondaryOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -1087,9 +1094,22 @@ function SidebarContentComponent() {
               >
                 {/* Header */}
                 <div className="h-12 px-3 flex items-center justify-between border-b border-sidebar-border/30 bg-sidebar/50 shrink-0 select-none">
-                  <span className="text-base font-bold tracking-tight text-foreground truncate">
-                    MATUR<span className="text-primary font-semibold">.ai</span>
-                  </span>
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 hover:opacity-85 transition-opacity cursor-pointer py-1"
+                    title="Go to Dashboard"
+                  >
+                    <img
+                      src="/matur-logo-slogan.png"
+                      alt="MATUR.ai"
+                      className="h-7 w-auto max-w-[140px] object-contain dark:hidden"
+                    />
+                    <img
+                      src="/matur-dark.png"
+                      alt="MATUR.ai"
+                      className="h-7 w-auto max-w-[140px] object-contain hidden dark:block"
+                    />
+                  </Link>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -1264,9 +1284,9 @@ function SidebarContentComponent() {
                             currentPracticeId={currentPracticeId}
                             currentQuestionIndex={currentQuestionIndex}
                             expandedDomainId={expandedDomainId}
-                            onDomainClick={isInsideProject ? handleDomainClick : () => handleProjectAction("")}
-                            onPracticeClick={isInsideProject ? handlePracticeClick : () => handleProjectAction("")}
-                            onQuestionClick={isInsideProject ? handleQuestionClick : () => handleProjectAction("")}
+                            onDomainClick={isInsideProject ? handleDomainClick : (domainId) => handleProjectAction(`?domain=${encodeURIComponent(domainId)}`)}
+                            onPracticeClick={isInsideProject ? handlePracticeClick : (domainId, practiceId) => handleProjectAction(`?domain=${encodeURIComponent(domainId)}&practice=${encodeURIComponent(practiceId)}`)}
+                            onQuestionClick={isInsideProject ? handleQuestionClick : (domainId, practiceId, qIdx) => handleProjectAction(`?domain=${encodeURIComponent(domainId)}&practice=${encodeURIComponent(practiceId)}&q=${qIdx}`)}
                             toggleDomain={isInsideProject ? toggleDomain : () => {}}
                             premiumStatus={premiumStatus}
                             activeQuestionRef={currentQuestionRef}
@@ -1629,11 +1649,20 @@ function SidebarContentComponent() {
         />
         <ProjectSelectionModal
           isOpen={showProjectModal}
-          onOpenChange={setShowProjectModal}
+          onOpenChange={(open) => {
+            setShowProjectModal(open);
+            if (!open) {
+              setPendingDestinationRoute("");
+            }
+          }}
           onSelectProject={(selectedId) => {
             setShowProjectModal(false);
             setOpenMobile(false);
-            const targetRoute = pendingDestinationRoute || getDefaultProjectRoute(premiumStatus);
+            let targetRoute = pendingDestinationRoute;
+            if (!targetRoute) {
+              targetRoute = activeTab === "aima" ? "" : getDefaultProjectRoute(premiumStatus);
+            }
+            setPendingDestinationRoute("");
             router.push(`/assess/${selectedId}${targetRoute}`);
           }}
         />
