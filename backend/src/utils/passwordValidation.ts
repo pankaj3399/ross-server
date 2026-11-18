@@ -231,22 +231,3 @@ export function generateSecurePassword(length: number = 16): string {
     .sort(() => Math.random() - 0.5)
     .join("");
 }
-
-/**
- * Check if password has been compromised (basic check)
- */
-export function isPasswordCompromised(password: string): boolean {
-  const lowerPassword = password.toLowerCase();
-  return COMMON_PASSWORDS.includes(lowerPassword);
-}
-
-/**
- * Get password strength description
- */
-export function getPasswordStrength(score: number): string {
-  if (score < 30) return "Very Weak";
-  if (score < 50) return "Weak";
-  if (score < 70) return "Fair";
-  if (score < 85) return "Good";
-  return "Strong";
-}

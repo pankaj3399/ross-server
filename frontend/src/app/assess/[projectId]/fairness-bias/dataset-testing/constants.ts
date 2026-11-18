@@ -1,5 +1,5 @@
 import { Shield, ShieldAlert, ShieldCheck } from "lucide-react";
-import { MetricLabel, VerdictStatus } from "./types";
+import { VerdictStatus } from "./types";
 
 export const verdictStyles: Record<
     VerdictStatus,
@@ -28,36 +28,6 @@ export const verdictStyles: Record<
         color: "text-slate-500",
         bg: "bg-slate-50 dark:bg-[#1e293b]",
         icon: Shield,
-    },
-};
-
-export const metricStyles: Record<
-    MetricLabel,
-    { label: string; color: string; bg: string; border: string }
-> = {
-    low: {
-        label: "Low",
-        color: "text-emerald-600",
-        bg: "bg-emerald-50 dark:bg-[#064e3b]",
-        border: "border-emerald-100 dark:border-[#064e3b]",
-    },
-    moderate: {
-        label: "Moderate",
-        color: "text-amber-600",
-        bg: "bg-amber-50 dark:bg-[#78350f]",
-        border: "border-amber-100 dark:border-[#78350f]",
-    },
-    high: {
-        label: "High",
-        color: "text-rose-600",
-        bg: "bg-rose-50 dark:bg-[#881337]",
-        border: "border-rose-100 dark:border-[#881337]",
-    },
-    insufficient_data: {
-        label: "Insufficient data",
-        color: "text-slate-500",
-        bg: "bg-slate-50 dark:bg-[#1e293b]",
-        border: "border-slate-100 dark:border-[#1e293b]",
     },
 };
 
