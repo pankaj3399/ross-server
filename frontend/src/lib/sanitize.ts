@@ -74,36 +74,6 @@ export function sanitizeInput(input: string, preserveWhitespace: boolean = false
 }
 
 /**
- * Validate that input is safe (contains only text, no scripts)
- * @param input - The input to validate
- * @returns true if input is safe, false otherwise
- */
-export function isInputSafe(input: string): boolean {
-  if (!input || typeof input !== "string") {
-    return true;
-  }
-
-  // Check for dangerous patterns
-  // Reset lastIndex before each test to avoid regex state issues with global flags
-  for (const pattern of DANGEROUS_PATTERNS) {
-    pattern.lastIndex = 0; // Reset lastIndex before test to prevent state issues
-    const hasMatch = pattern.test(input);
-    if (hasMatch) {
-      return false;
-    }
-  }
-
-  // Check for HTML tags
-  const htmlTagPattern = /<[^>]*>/g;
-  const hasHtmlTags = htmlTagPattern.test(input);
-  if (hasHtmlTags) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * Check if input contains dangerous content that would be removed during sanitization
  * @param input - The input to check
  * @returns true if dangerous content is detected, false otherwise

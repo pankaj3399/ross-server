@@ -689,11 +689,6 @@ class ApiService {
   }
 
   // AIMA Framework
-  async getDomains(projectId?: string): Promise<{ domains: Domain[] }> {
-    const url = projectId ? `/aima/domains?project_id=${projectId}` : "/aima/domains";
-    return this.request<{ domains: Domain[] }>(url);
-  }
-
   async getDomainsFull(projectId?: string): Promise<{
     domains: Array<{
       id: string;
@@ -712,23 +707,6 @@ class ApiService {
         is_premium?: boolean;
         practices: Record<string, Practice>;
       }>;
-    }>(url);
-  }
-
-  async getDomain(domainId: string, projectId?: string): Promise<{
-    id: string;
-    title: string;
-    description: string;
-    practices: Record<string, Practice>;
-  }> {
-    const url = projectId 
-      ? `/aima/domains/${domainId}?project_id=${projectId}` 
-      : `/aima/domains/${domainId}`;
-    return this.request<{
-      id: string;
-      title: string;
-      description: string;
-      practices: Record<string, Practice>;
     }>(url);
   }
 
@@ -1181,15 +1159,6 @@ class ApiService {
     );
   }
 
-  async createPortalSession(): Promise<{ url: string }> {
-    return this.request<{ url: string }>(
-      "/subscriptions/create-portal-session",
-      {
-        method: "POST",
-      },
-    );
-  }
-
   async upgradeToPro(): Promise<{ sessionId: string; url: string }> {
     return this.request<{ sessionId: string; url: string }>(
       "/subscriptions/upgrade-to-pro",
@@ -1317,37 +1286,6 @@ class ApiService {
   async disableMFA(): Promise<{ message: string }> {
     return this.request<{ message: string }>("/auth/disable-mfa", {
       method: "POST",
-    });
-  }
-
-  async getBackupCodes(): Promise<{ backupCodes: string[] }> {
-    return this.request<{ backupCodes: string[] }>("/auth/backup-codes");
-  }
-
-  async regenerateBackupCodes(): Promise<{
-    backupCodes: string[];
-    message: string;
-  }> {
-    return this.request<{ backupCodes: string[]; message: string }>(
-      "/auth/regenerate-backup-codes",
-      {
-        method: "POST",
-      },
-    );
-  }
-
-  // Enhanced Login with MFA
-  async loginWithMFA(
-    email: string,
-    password: string,
-    mfaCode?: string,
-    backupCode?: string,
-  ): Promise<AuthResponse | { requiresMFA: boolean; message: string }> {
-    return this.request<
-      AuthResponse | { requiresMFA: boolean; message: string }
-    >("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password, mfaCode, backupCode }),
     });
   }
 
@@ -1893,10 +1831,6 @@ class ApiService {
   }
 
   // CRC Templates
-  downloadCRCTemplateUrl(controlId: string, projectId?: string): string {
-    return `${API_BASE_URL}/crc/templates/${controlId}/download${projectId ? `?projectId=${projectId}` : ''}`;
-  }
-
   async downloadCRCTemplate(controlId: string, projectId?: string): Promise<{ blob: Blob; filename: string }> {
     const token = this.getAuthToken();
     const url = `${API_BASE_URL}/crc/templates/${controlId}/download${projectId ? `?projectId=${projectId}` : ''}`;
@@ -2238,10 +2172,6 @@ class ApiService {
     }
     const queryString = queryParams.toString();
     return this.request<InventoryComponent[]>(`/inventory/${projectId}${queryString ? `?${queryString}` : ""}`);
-  }
-
-  async getComponent(projectId: string, id: string): Promise<InventoryComponent> {
-    return this.request<InventoryComponent>(`/inventory/${projectId}/${id}`);
   }
 
   async createComponent(projectId: string, data: Partial<InventoryComponent>): Promise<InventoryComponent> {

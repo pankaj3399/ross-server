@@ -302,41 +302,6 @@ export async function fetchFairnessPrompts(): Promise<Array<{ category: string; 
   }));
 }
 
-export async function callEvaluationService(
-  projectId: string,
-  userId: string,
-  category: string,
-  questionText: string,
-  userResponse: string,
-  step: any,
-): Promise<EvaluationPayload> {
-  const evaluationId = `${projectId}-${category}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-
-  await step.sendEvent(`trigger-evaluation-${evaluationId}`, {
-    name: "evaluation/single.requested",
-    data: {
-      projectId,
-      userId,
-      category,
-      questionText,
-      userResponse,
-      evaluationId,
-    },
-  });
-
-  const result = await step.waitForEvent(`wait-for-evaluation-${evaluationId}`, {
-    event: "evaluation/single.completed",
-    timeout: "10m",
-    if: `async.data.evaluationId == "${evaluationId}"`,
-  });
-
-  if (!result) {
-    throw new Error("Evaluation timed out or failed");
-  }
-
-  return result.data.evaluation;
-}
-
 function replaceTemplatePlaceholders(value: any, prompt: string): { value: any; replaced: boolean } {
   if (typeof value === "string") {
     const replacedValue = value.replace(PROMPT_PLACEHOLDER_REGEX, prompt);
