@@ -826,19 +826,21 @@ export const weeklyDigestCron = inngest.createFunction(
       });
 
       for (const project of projects) {
-        const hasChanges = await step.run(`check-changes-${project.id}`, async () => {
-          const auditLogsRes = await pool.query(
-            "SELECT COUNT(*)::int as count FROM audit_logs WHERE project_id = $1 AND created_at > NOW() - INTERVAL '7 days'",
+        // Step ID is versioned because its return shape changed; an in-flight run
+        // must not replay a memoized boolean from the old step into this code.
+        const changes = await step.run(`check-changes-v2-${project.id}`, async () => {
+          const res = await pool.query(
+            `SELECT
+               (SELECT COUNT(*)::int FROM audit_logs
+                 WHERE project_id = $1 AND created_at > NOW() - INTERVAL '7 days') AS "auditCount",
+               (SELECT COUNT(*)::int FROM crc_assessment_responses
+                 WHERE project_id = $1 AND updated_at > NOW() - INTERVAL '7 days') AS "crcCount"`,
             [project.id]
           );
-          const crcRes = await pool.query(
-            "SELECT COUNT(*)::int as count FROM crc_assessment_responses WHERE project_id = $1 AND updated_at > NOW() - INTERVAL '7 days'",
-            [project.id]
-          );
-          return (auditLogsRes.rows[0].count + crcRes.rows[0].count) > 0;
+          return res.rows[0] as { auditCount: number; crcCount: number };
         });
 
-        if (!hasChanges) continue;
+        if (changes.auditCount + changes.crcCount === 0) continue;
 
         const digestData = await step.run(`prepare-digest-${project.id}`, async () => {
           const results = await computeCrcResults(project.id);
@@ -852,15 +854,10 @@ export const weeklyDigestCron = inngest.createFunction(
             [project.id]
           );
 
-          const changesCountRes = await pool.query(
-            "SELECT COUNT(*)::int as count FROM crc_assessment_responses WHERE project_id = $1 AND updated_at > NOW() - INTERVAL '7 days'",
-            [project.id]
-          );
-
           return {
             projectName: project.name,
             readinessPercentage: results.overall.percentage || 0,
-            changesCount: changesCountRes.rows[0].count,
+            changesCount: changes.crcCount,
             quickWins: quickWinsRes.rows,
             riskSummary: {
               Critical: results.riskSummary.critical,

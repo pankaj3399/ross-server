@@ -254,3 +254,16 @@ export function sanitizeErrorMessage(errorText: unknown): string {
     return raw.trim() || "Upstream target API returned an error";
 }
 
+/**
+ * Escape a string for safe interpolation into HTML (text or quoted attributes).
+ * Returns "" for empty/null input.
+ */
+export function escapeHtml(str: string | null | undefined): string {
+  if (!str) return "";
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}

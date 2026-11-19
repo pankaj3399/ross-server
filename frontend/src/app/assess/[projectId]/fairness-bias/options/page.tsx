@@ -25,7 +25,6 @@ type TestMethod =
   | "prompt-response"
   | "api-endpoint"
   | "dataset-testing"
-  | "github-repo"
   | null;
 
 export interface ReportSelections {
@@ -97,12 +96,7 @@ export default function FairnessBiasOptions() {
         router.push(`/assess/${projectId}/fairness-bias/api-endpoint`);
         break;
       case "dataset-testing":
-        // TODO: Navigate to csv file upload page
         router.push(`/assess/${projectId}/fairness-bias/dataset-testing`);
-        break;
-      case "github-repo":
-        // TODO: Navigate to GitHub repo input page
-        router.push(`/assess/${projectId}/fairness-bias/github`);
         break;
     }
   };

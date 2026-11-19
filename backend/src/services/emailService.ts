@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { generateSecurePassword } from "../utils/passwordValidation";
+import { escapeHtml } from "../utils/sanitize";
 
 interface EmailOptions {
   to: string;
@@ -20,14 +21,6 @@ interface BrandedEmailLayoutOptions {
   ctaUrl?: string;
   footerNotes?: string;
 }
-
-const escapeHtml = (str: string): string =>
-  str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 /**
  * Generates unified branded HTML emails with official MATUR.ai styling,
