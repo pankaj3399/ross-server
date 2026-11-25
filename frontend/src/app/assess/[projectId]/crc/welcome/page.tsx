@@ -14,9 +14,10 @@ export default function CRCWelcomePage() {
   const router = useRouter();
   const projectId = params.projectId as string;
   const { user, loading: authLoading } = useAuth();
-  const { crcResponses, isPremium, loading: contextLoading } = useAssessmentContext();
+  const { crcControls, crcResponses, isPremium, loading: contextLoading } = useAssessmentContext();
 
   const hasProgress = Object.keys(crcResponses).length > 0;
+  const controlCount = crcControls.length > 0 ? crcControls.length : 138;
 
   if (!authLoading && !contextLoading && user && !isPremium) {
     return (
@@ -71,7 +72,7 @@ export default function CRCWelcomePage() {
           <section className="space-y-3">
             <h2>What it is</h2>
             <p>
-              Compliance Readiness Controls (CRC) are a custom built library of 137 actionable controls designed to prepare your
+              Compliance Readiness Controls (CRC) are a custom built library of {controlCount} actionable controls designed to prepare your
               organization for AI compliance and regulation. These controls are drawn from the EU AI Act, NIST AI RMF,
               ISO/IEC 42001, and other leading AI governance frameworks, then consolidated into a single, practical set of
               requirements that covers what you need across all of them.
@@ -117,7 +118,7 @@ export default function CRCWelcomePage() {
           <section className="space-y-3">
             <h2>What we do end to end</h2>
             <ul className="list-disc pl-5 space-y-2 not-prose text-sm leading-relaxed">
-              <li>Present 137 custom built controls across eight compliance domains in a guided workflow.</li>
+              <li>Present {controlCount} custom built controls across eight compliance domains in a guided workflow.</li>
               <li>
                 Use plain language “The organization SHALL…” statements so every stakeholder, technical or not,
                 understands what is required.
@@ -158,25 +159,34 @@ export default function CRCWelcomePage() {
 
           <section className="space-y-3">
             <h2>Scoring methodology</h2>
-            <p className="font-medium text-foreground">What drives the overall score (weighted)</p>
+            <p className="font-medium text-foreground">How readiness scores are calculated (unweighted)</p>
             <p>
-              The headline percentage is a weighted blend of category readiness rates. Weights reflect regulatory emphasis
-              and real world enforcement priorities. Categories with 0% weight today still appear in your report as coverage
-              and diagnostics; they do not move the headline number until we promote them in the formula.
+              Every applicable control carries equal weight. Your readiness percentage is the sum of points earned
+              divided by the number of answered applicable controls in scope, multiplied by 100.
             </p>
-            <ul className="list-disc pl-5 space-y-1 not-prose text-sm">
-              <li>AI Governance and Strategy: 20%</li>
-              <li>AI Risk Management: 15%</li>
-              <li>AI Data Management: 15%</li>
-              <li>AI Fairness and Nondiscrimination: 12%</li>
-              <li>AI Transparency and Explainability: 12%</li>
-              <li>AI Verification and Validation: 10%</li>
-              <li>AI Operations and Monitoring: 8%</li>
-              <li>AI Development Lifecycle: 8%</li>
+            <ul className="list-disc pl-5 space-y-1.5 not-prose text-sm">
+              <li>
+                <span className="font-medium text-foreground">Yes (Fully Implemented):</span> 1.0 point
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Partially Implemented:</span> 0.5 points
+              </li>
+              <li>
+                <span className="font-medium text-foreground">No (Not Implemented):</span> 0 points
+              </li>
+              <li>
+                <span className="font-medium text-foreground">Not Sure:</span> counts as 0 points and remains in the
+                denominator so unknown areas are surfaced as readiness gaps
+              </li>
+              <li>
+                <span className="font-medium text-foreground">NA (Not Applicable):</span> excluded from the denominator
+                so controls that do not apply to your system do not affect your score
+              </li>
             </ul>
             <p className="text-sm text-muted-foreground">
-              Reported with controls but not in the weighted total today: controls marked NA or Not Sure. They still surface
-              gaps in the detailed results.
+              While an assessment is in progress, overall, category, and framework percentages reflect only the
+              controls you have answered so far (excluding NA). Once all {controlCount} controls are answered, scores
+              cover the full set of applicable controls.
             </p>
           </section>
 

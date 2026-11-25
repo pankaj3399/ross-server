@@ -171,7 +171,7 @@ export default function ScoreReportCrcPage() {
               </p>
               <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
                 {overall.answeredControls} of {overall.totalControls} controls answered. Scores below
-                reflect only the answered controls.
+                reflect only answered applicable controls (N/A excluded; Not Sure counts as 0).
               </p>
             </div>
           </div>

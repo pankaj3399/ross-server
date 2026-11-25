@@ -370,7 +370,7 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
   const deadline = new Date("2026-08-02T00:00:00Z");
   const daysRemaining = Math.max(0, Math.ceil((deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
 
-  const defaultFramework: CRCFrameworkResult = { totalControls: 0, scoredControls: 0, naCount: 0, applicableControls: 0, points: 0, percentage: null };
+  const defaultFramework: CRCFrameworkResult = { totalControls: 0, answeredControls: 0, scoredControls: 0, naCount: 0, notSureCount: 0, applicableControls: 0, points: 0, percentage: null };
   const fw = frameworks || {
     eu_ai_act: defaultFramework,
     nist_ai_rmf: defaultFramework,
@@ -500,7 +500,8 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
         <Text style={styles.sectionTitle}>Framework Readiness</Text>
         <View style={styles.frameworkRow}>
           {frameworkEntries.map((fw) => {
-            const fwTier = getTierInfo(fw.data.percentage, fw.data.scoredControls + fw.data.naCount);
+            const fwAnswered = fw.data.answeredControls ?? (fw.data.scoredControls + fw.data.naCount + (fw.data.notSureCount ?? 0));
+            const fwTier = getTierInfo(fw.data.percentage, fwAnswered);
             return (
               <View key={fw.title} style={styles.frameworkCard} wrap={false}>
                 <Text style={styles.frameworkTitle}>{fw.title}</Text>
@@ -519,7 +520,7 @@ export const CrcDashboardPdfDocument: React.FC<CrcDashboardPdfDocumentProps> = (
                   />
                 </View>
                 <Text style={styles.frameworkMeta}>
-                  {fw.data.scoredControls} of {fw.data.totalControls} controls scored ·{" "}
+                  {fwAnswered} of {fw.data.totalControls} answered ·{" "}
                   {fw.data.points.toFixed(1)} pts
                 </Text>
                 <Text style={[{ fontSize: 7, marginTop: 2, color: fwTier.color, fontWeight: "bold" }]}>

@@ -15,6 +15,7 @@ import {
 import { emailService } from "../services/emailService";
 import { notificationService } from "../services/notificationService";
 import { recordEvent } from "../services/auditLogService";
+import { sanitizePlainText } from "../utils/sanitize";
 
 // Initialize Gemini client only if configured
 let genAI: GoogleGenerativeAI | null = null;
@@ -31,10 +32,21 @@ export const MAX_DESCRIPTION_LENGTH = 2000;
 
 // Create project schema validation
 const createProjectSchema = z.object({
-  name: z.string().min(1).max(50),
+  name: z
+    .string()
+    .transform((val) => sanitizePlainText(val, 50))
+    .refine((val) => val.length >= 1, {
+      message: "Project name is required",
+    }),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional().nullable(),
-  aiSystemType: z.string().optional(),
-  industry: z.string().optional(),
+  aiSystemType: z
+    .string({ required_error: "AI System Type is required" })
+    .trim()
+    .min(1, "AI System Type is required"),
+  industry: z
+    .string({ required_error: "Industry is required" })
+    .trim()
+    .min(1, "Industry is required"),
 });
 
 // In-memory job store: jobId -> { status, insights?, error?, projectId, createdAt }
@@ -252,10 +264,13 @@ router.put(
 
     let trimmedName: string | null | undefined = undefined;
     if (name !== undefined) {
-      if (name === null || (typeof name === "string" && name.trim() === "")) {
+      if (name === null || typeof name !== "string") {
         return res.status(400).json({ error: "Project name is required" });
       }
-      trimmedName = typeof name === "string" ? name.trim() : name;
+      trimmedName = sanitizePlainText(name, 50);
+      if (trimmedName === "") {
+        return res.status(400).json({ error: "Project name is required" });
+      }
     }
 
     const fields: string[] = [];
@@ -274,12 +289,18 @@ router.put(
       values.push(description);
     }
     if (aiSystemType !== undefined) {
+      if (aiSystemType === null || (typeof aiSystemType === "string" && aiSystemType.trim() === "")) {
+        return res.status(400).json({ error: "AI System Type is required" });
+      }
       fields.push(`ai_system_type = $${idx++}`);
-      values.push(aiSystemType);
+      values.push(typeof aiSystemType === "string" ? aiSystemType.trim() : aiSystemType);
     }
     if (industry !== undefined) {
+      if (industry === null || (typeof industry === "string" && industry.trim() === "")) {
+        return res.status(400).json({ error: "Industry is required" });
+      }
       fields.push(`industry = $${idx++}`);
-      values.push(industry);
+      values.push(typeof industry === "string" ? industry.trim() : industry);
     }
     if (status !== undefined) {
       if (status !== "not_started" && status !== "in_progress") {

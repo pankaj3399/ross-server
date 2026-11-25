@@ -26,6 +26,7 @@ import {
 import { apiService, VendorAssessment, VendorAssessmentAnswer } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 import { normalizeProviderKey } from "@/lib/vendorUtils";
+import { validateHttpUrl } from "@/lib/validateUrl";
 
 interface VendorAssessmentModalProps {
   isOpen: boolean;
@@ -242,7 +243,25 @@ export default function VendorAssessmentModal({
     showToast.success(`Question ${questionId} verified and confirmed!`);
   };
 
+  const validateVendorUrls = (): boolean => {
+    for (const q of vendorQuestions) {
+      const rawUrl = answers[q.id]?.url?.trim();
+      if (!rawUrl) continue;
+      const check = validateHttpUrl(rawUrl, {
+        allowHttp: true,
+        fieldLabel: `Evidence Reference URL (${q.id})`,
+      });
+      if (!check.valid) {
+        setActiveSection(q.section);
+        showToast.error(check.error || `Invalid URL on ${q.id}. Must use http:// or https://`);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleSaveDraft = async () => {
+    if (!validateVendorUrls()) return;
     setSaving(true);
     try {
       const res = await apiService.saveVendorAssessment(projectId, componentId, answers);
@@ -252,15 +271,16 @@ export default function VendorAssessmentModal({
         onCompleted(); // Refresh inventory list statuses
         onClose(); // Exit vendor assessment modal
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save draft:", err);
-      showToast.error("Failed to save draft progress");
+      showToast.error(err?.message || "Failed to save draft progress");
     } finally {
       setSaving(false);
     }
   };
 
   const handleCompleteAssessment = async () => {
+    if (!validateVendorUrls()) return;
     // Double check that all 18 are answered and confirmed
     if (confirmedQuestions.size < vendorQuestions.length) {
       showToast.error(`You have only confirmed ${confirmedQuestions.size} out of ${vendorQuestions.length} questions. Please review and confirm all questions.`);
@@ -461,12 +481,27 @@ export default function VendorAssessmentModal({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-foreground">Evidence Reference URL</label>
-                          <Input
-                            placeholder="https://trust.vendor.com/..."
-                            value={answer.url || ""}
-                            onChange={(e) => handleUrlChange(q.id, e.target.value)}
-                            className="text-xs rounded-xl h-9 border-border/60"
-                          />
+                          {(() => {
+                            const trimmedUrl = answer.url?.trim();
+                            const urlCheck = trimmedUrl
+                              ? validateHttpUrl(trimmedUrl, { allowHttp: true, fieldLabel: "Evidence Reference URL" })
+                              : { valid: true };
+                            return (
+                              <>
+                                <Input
+                                  type="url"
+                                  placeholder="https://trust.vendor.com/..."
+                                  value={answer.url || ""}
+                                  onChange={(e) => handleUrlChange(q.id, e.target.value)}
+                                  aria-invalid={!urlCheck.valid}
+                                  className={`text-xs rounded-xl h-9 ${!urlCheck.valid ? "border-destructive focus-visible:border-destructive" : "border-border/60"}`}
+                                />
+                                {!urlCheck.valid && (
+                                  <p className="text-[10px] text-destructive">{urlCheck.error}</p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
 

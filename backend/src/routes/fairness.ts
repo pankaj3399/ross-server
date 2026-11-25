@@ -693,7 +693,17 @@ router.get("/jobs/:jobId", authenticateToken, async (req, res) => {
         }
 
         const job = result.rows[0];
-        const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) : job.payload;
+        let parsedPayload: Record<string, any> = {};
+        if (typeof job.payload === "string") {
+            try {
+                parsedPayload = JSON.parse(job.payload) || {};
+            } catch {
+                parsedPayload = {};
+            }
+        } else if (job.payload && typeof job.payload === "object") {
+            parsedPayload = job.payload;
+        }
+        const payload = parsedPayload;
 
         // Extract summary, results, and errors from payload
         const summary = payload.summary || null;

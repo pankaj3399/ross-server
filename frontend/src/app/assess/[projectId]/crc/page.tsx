@@ -7,6 +7,7 @@ import { useAssessmentContext } from "@/contexts/AssessmentContext";
 import { safeRenderHTML } from "@/lib/htmlUtils";
 import { showToast } from "@/lib/toast";
 import { isControlAnswered } from "@/lib/utils";
+import { validateHttpUrl } from "@/lib/validateUrl";
 import { motion } from "framer-motion";
 import {
   IconArrowLeft,
@@ -27,6 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -238,9 +240,11 @@ export default function CRCAssessmentPage() {
   const currentResponse = responses[currentControl?.id];
 
   const [urlInput, setUrlInput] = useState("");
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   useEffect(() => {
     setUrlInput(currentResponse?.evidenceUrl || "");
+    setUrlError(null);
     setShowDetails(false);
   }, [currentControl?.id, currentResponse?.evidenceUrl]);
 
@@ -971,9 +975,19 @@ export default function CRCAssessmentPage() {
                               }
                               const newStatus = e.target.value as any;
                               const trimmedUrl = (urlInput || "").trim();
+                              if (newStatus !== "No Evidence" && trimmedUrl) {
+                                const urlCheck = validateHttpUrl(trimmedUrl, { allowHttp: true, fieldLabel: "Evidence URL" });
+                                if (!urlCheck.valid) {
+                                  const msg = urlCheck.error || "Evidence URL must use http:// or https://";
+                                  setUrlError(msg);
+                                  showToast.error(msg);
+                                  return;
+                                }
+                              }
                               const targetUrl = newStatus === "No Evidence" ? null : (trimmedUrl || currentResponse?.evidenceUrl || null);
                               if (newStatus === "No Evidence") {
                                 setUrlInput("");
+                                setUrlError(null);
                               }
 
                               try {
@@ -1077,18 +1091,22 @@ export default function CRCAssessmentPage() {
                         {/* URL Input */}
                         <div>
                           <label htmlFor="evidence-url-input" className="block text-xs text-muted-foreground mb-1.5 flex items-center justify-between font-medium">
-                            <span>Evidence URL (HTTPS required)</span>
+                            <span>Evidence URL (HTTP/HTTPS)</span>
                             {currentResponse?.evidenceStatus === "Evidence Complete" && (
                               <span className="text-red-500 text-[10px]">* Required</span>
                             )}
                           </label>
-                          <input
+                          <Input
                             id="evidence-url-input"
-                            type="text"
+                            type="url"
                             disabled={isReadOnly}
                             value={urlInput}
                             placeholder="https://docs.google.com/document/d/... or other link"
-                            onChange={(e) => setUrlInput(e.target.value)}
+                            aria-invalid={Boolean(urlError)}
+                            onChange={(e) => {
+                              setUrlInput(e.target.value);
+                              if (urlError) setUrlError(null);
+                            }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -1096,8 +1114,21 @@ export default function CRCAssessmentPage() {
                               }
                             }}
                             onBlur={async () => {
-                              if (urlInput === (currentResponse?.evidenceUrl || "")) return;
+                              if (urlInput === (currentResponse?.evidenceUrl || "")) {
+                                setUrlError(null);
+                                return;
+                              }
                               const finalUrl = urlInput.trim() === "" ? null : urlInput.trim();
+                              if (finalUrl !== null) {
+                                const urlCheck = validateHttpUrl(finalUrl, { allowHttp: true, fieldLabel: "Evidence URL" });
+                                if (!urlCheck.valid) {
+                                  const msg = urlCheck.error || "Evidence URL must use http:// or https://";
+                                  setUrlError(msg);
+                                  showToast.error(msg);
+                                  return;
+                                }
+                              }
+                              setUrlError(null);
                               let targetStatus = currentResponse?.evidenceStatus || "No Evidence";
                               if (urlInput !== (currentResponse?.evidenceUrl || "") && targetStatus === "Evidence Complete") {
                                 targetStatus = finalUrl ? "Evidence in Progress" : "No Evidence";
@@ -1125,8 +1156,11 @@ export default function CRCAssessmentPage() {
                                 setUrlInput(currentResponse?.evidenceUrl || "");
                               }
                             }}
-                            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`w-full h-10 rounded-xl bg-background text-sm text-foreground ${urlError ? "border-destructive focus-visible:border-destructive" : "border-border"}`}
                           />
+                          {urlError && (
+                            <p className="text-xs text-destructive mt-1">{urlError}</p>
+                          )}
                         </div>
 
                         {/* Parsed Evidence Analysis & Template Content Validation Card */}

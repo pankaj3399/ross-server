@@ -11,6 +11,7 @@ import { WizardSection3 } from "./sections/WizardSection3";
 import { WizardSection4 } from "./sections/WizardSection4";
 import { WizardSection5 } from "./sections/WizardSection5";
 import { WizardSection6 } from "./sections/WizardSection6";
+import { validateHttpUrl } from "../../../lib/validateUrl";
 import { ArrowLeft, ArrowRight, Save, CheckCircle, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -173,6 +174,13 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
         setValidationError("Please select child safety impact (Q14).");
         return false;
       }
+      if (answers.public_url && answers.public_url.trim()) {
+        const urlCheck = validateHttpUrl(answers.public_url, { allowHttp: true, fieldLabel: "Public URL" });
+        if (!urlCheck.valid) {
+          setValidationError(urlCheck.error || "Public URL must use http:// or https://");
+          return false;
+        }
+      }
     }
 
     return true;
@@ -190,6 +198,14 @@ export function SystemProfileWizard({ projectId, isOpen, onClose }: SystemProfil
   };
 
   const handleSaveAndExit = async () => {
+    if (answers.public_url && answers.public_url.trim()) {
+      const urlCheck = validateHttpUrl(answers.public_url, { allowHttp: true, fieldLabel: "Public URL" });
+      if (!urlCheck.valid) {
+        setSection(6);
+        setValidationError(urlCheck.error || "Public URL must use http:// or https://");
+        return;
+      }
+    }
     try {
       await saveProgress(projectId);
       toast.success("Progress saved successfully.");

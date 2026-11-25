@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Clock,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { showToast } from "@/lib/toast";
 
 type JobStatus = Awaited<ReturnType<typeof apiService.getFairnessJob>>;
 
@@ -39,69 +41,88 @@ export default function FairnessJobPage() {
 
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [redirectScheduled, setRedirectScheduled] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
+  const redirectScheduledRef = useRef(false);
+  const jobStatusRef = useRef<JobStatus | null>(null);
 
-  const fetchStatus = async (showLoader = false) => {
-    if (showLoader) {
-      setLoading(true);
+  useEffect(() => {
+    jobStatusRef.current = jobStatus;
+  }, [jobStatus]);
+
+  const fetchStatus = useCallback(async (isInitialOrManual = false, attempt = 0) => {
+    if (!jobId) return;
+    if (isInitialOrManual && attempt === 0) {
+      if (!jobStatusRef.current) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
     }
     try {
       const status = await apiService.getFairnessJob(jobId);
       setJobStatus(status);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Unable to fetch job status");
-    } finally {
       setLoading(false);
+      setRefreshing(false);
+    } catch (err: any) {
+      const httpStatus = err?.status || err?.response?.status;
+      const isAuthFailure = httpStatus === 401 || httpStatus === 403;
+      if (!jobStatusRef.current && !isAuthFailure && attempt < 2) {
+        const delay = (attempt + 1) * 600;
+        setTimeout(() => {
+          fetchStatus(isInitialOrManual, attempt + 1);
+        }, delay);
+        return;
+      }
+      if (!jobStatusRef.current) {
+        setError(err?.message || "Unable to fetch job status");
+      }
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [jobId]);
 
   useEffect(() => {
     if (!authLoading && jobId) {
       fetchStatus(true);
     }
-  }, [authLoading, jobId]);
+  }, [authLoading, jobId, fetchStatus]);
 
-  // Poll every 20 seconds until job finishes
+  const normalizedStatus = (jobStatus?.status || "processing").toLowerCase();
+  const isTerminal = Boolean(jobStatus?.status && FINAL_STATUSES.includes(normalizedStatus));
+
+  // Poll every 4 seconds until job finishes
   useEffect(() => {
-    if (!jobId) return;
-    if (jobStatus?.status && FINAL_STATUSES.includes(jobStatus.status)) {
+    if (!jobId || isTerminal) {
       return;
     }
     const interval = setInterval(() => {
-      fetchStatus();
-    }, 20000);
+      fetchStatus(false);
+    }, 4000);
     return () => clearInterval(interval);
-  }, [jobId, jobStatus?.status]);
-
-  // Hard refresh every 20 seconds while job is active
-  useEffect(() => {
-    if (jobStatus?.status && FINAL_STATUSES.includes(jobStatus.status)) {
-      return;
-    }
-    const refreshInterval = setInterval(() => {
-      router.refresh();
-    }, 20000);
-    return () => clearInterval(refreshInterval);
-  }, [jobStatus?.status, router]);
+  }, [jobId, isTerminal, fetchStatus]);
 
   // Auto redirect when completed or failed
   useEffect(() => {
-    const completedStatuses = ["completed", "success", "partial_success", "failed"];
-    if (jobStatus?.status && completedStatuses.includes(jobStatus.status) && !redirectScheduled) {
-      setRedirectScheduled(true);
+    if (jobStatus?.status && FINAL_STATUSES.includes(normalizedStatus) && !redirectScheduledRef.current) {
+      redirectScheduledRef.current = true;
+      let cancelled = false;
+      let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
 
       const fetchAndRedirect = async () => {
         // Retry logic: try up to 4 times with delay
         for (let i = 0; i < 4; i++) {
+          if (cancelled) return;
           try {
             const res = await apiService.getApiReportByJobId(jobId as string);
             if (res.success && res.reportId) {
               setReportId(res.reportId);
-              setTimeout(() => {
-                router.push(`/assess/${projectId}/fairness-bias/api-history/${res.reportId}`);
+              redirectTimeout = setTimeout(() => {
+                if (!cancelled) {
+                  router.push(`/assess/${projectId}/fairness-bias/api-history/${res.reportId}`);
+                }
               }, 1500);
               return;
             }
@@ -116,8 +137,15 @@ export default function FairnessJobPage() {
       };
 
       fetchAndRedirect();
+      return () => {
+        cancelled = true;
+        if (redirectTimeout) {
+          clearTimeout(redirectTimeout);
+        }
+        redirectScheduledRef.current = false;
+      };
     }
-  }, [jobStatus, projectId, jobId, redirectScheduled, router]);
+  }, [jobStatus?.status, normalizedStatus, projectId, jobId, router]);
 
   const progressLabel = useMemo(() => {
     if (!jobStatus) return "Fetching job…";
@@ -146,10 +174,15 @@ export default function FairnessJobPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-lg text-muted-foreground">Checking job status…</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="bg-card border border-border rounded-2xl p-8 max-w-md w-full text-center space-y-3">
+          <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+          <h2 className="text-lg font-semibold text-foreground">
+            Processing fairness evaluation…
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Preparing your API evaluation status and checking progress.
+          </p>
         </div>
       </div>
     );
@@ -165,18 +198,20 @@ export default function FairnessJobPage() {
           </h2>
           <p className="text-muted-foreground mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            <button
+            <Button
               onClick={() => fetchStatus(true)}
+              isLoading={loading || refreshing}
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition"
             >
-              Retry
-            </button>
-            <button
+              {loading || refreshing ? "Retrying..." : "Retry"}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
               className="px-4 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition"
             >
               Go Back
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -184,20 +219,23 @@ export default function FairnessJobPage() {
   }
 
   const summary = jobStatus.summary;
-  const hasResults = jobStatus.results.length > 0;
-  const hasErrors = jobStatus.errors.length > 0;
+  const results = Array.isArray(jobStatus.results) ? jobStatus.results : [];
+  const errors = Array.isArray(jobStatus.errors) ? jobStatus.errors : [];
+  const hasResults = results.length > 0;
+  const hasErrors = errors.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <div className="bg-card border-b border-border">
         <div className="w-full px-6 py-4 flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => router.push(`/assess/${projectId}/fairness-bias/api-endpoint`)}
-            className="flex items-center gap-2 text-primary hover:text-primary/80 transition"
+            className="flex items-center gap-2 text-primary hover:text-primary/80 transition pl-0 hover:bg-transparent"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
-          </button>
+          </Button>
           <div className="h-6 w-px bg-border" />
           <div>
             <p className="text-sm text-muted-foreground">Job ID</p>
@@ -214,16 +252,25 @@ export default function FairnessJobPage() {
         >
           <div className="flex flex-wrap items-center gap-4">
             <span
-              className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[jobStatus.status]}`}
+              className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[normalizedStatus] || "text-info bg-info/10"}`}
             >
-              {jobStatus.status.replace(/_/g, " ").toUpperCase()}
+              {normalizedStatus.replace(/_/g, " ").toUpperCase()}
             </span>
             <div className="text-sm text-muted-foreground flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              Auto refresh every 20s · Live poll every 20s
+              {isTerminal ? "Evaluation finished" : "Live poll every 4s"}
             </div>
           </div>
           <h2 className="text-2xl font-semibold text-foreground mt-4">{progressLabel}</h2>
+
+          {!isTerminal && (
+            <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+              <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+              <span>
+                Your fairness API evaluation is currently processing. Progress updates automatically and will redirect when complete.
+              </span>
+            </div>
+          )}
 
           <div className="mt-6">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
@@ -295,7 +342,7 @@ export default function FairnessJobPage() {
               <h3 className="text-lg font-semibold text-foreground">Completed prompts</h3>
             </div>
             <div className="space-y-4">
-              {jobStatus.results.slice(0, 5).map((result) => (
+              {results.slice(0, 5).map((result) => (
                 <div
                   key={`${result.category}-${result.prompt}`}
                   className="border border-border rounded-xl p-4 bg-muted/30"
@@ -315,9 +362,9 @@ export default function FairnessJobPage() {
                 </div>
               ))}
 
-              {jobStatus.results.length > 5 && (
+              {results.length > 5 && (
                 <p className="text-xs text-muted-foreground">
-                  Showing 5 of {jobStatus.results.length} results.
+                  Showing 5 of {results.length} results.
                 </p>
               )}
             </div>
@@ -337,7 +384,7 @@ export default function FairnessJobPage() {
               </h3>
             </div>
             <div className="space-y-4">
-              {jobStatus.errors.slice(0, 5).map((item) => (
+              {errors.slice(0, 5).map((item) => (
                 <div
                   key={`${item.category}-${item.prompt}`}
                   className="border border-destructive/20 rounded-xl p-4 bg-destructive/5"
@@ -349,9 +396,9 @@ export default function FairnessJobPage() {
                   </p>
                 </div>
               ))}
-              {jobStatus.errors.length > 5 && (
+              {errors.length > 5 && (
                 <p className="text-xs text-destructive">
-                  Showing 5 of {jobStatus.errors.length} errors. See the full report for details.
+                  Showing 5 of {errors.length} errors. See the full report for details.
                 </p>
               )}
             </div>
@@ -359,14 +406,22 @@ export default function FairnessJobPage() {
         )}
 
         <div className="flex flex-wrap gap-3">
-          <button
+          <Button
             onClick={() => fetchStatus(true)}
+            isLoading={refreshing}
+            variant="secondary"
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80 transition"
           >
-            <RefreshCcw className="w-4 h-4" />
-            Refresh now
-          </button>
-          <button
+            {refreshing ? (
+              "Refreshing..."
+            ) : (
+              <>
+                <RefreshCcw className="w-4 h-4 mr-2" />
+                Refresh now
+              </>
+            )}
+          </Button>
+          <Button
             onClick={async () => {
               if (reportId) {
                 router.push(`/assess/${projectId}/fairness-bias/api-history/${reportId}`);
@@ -377,16 +432,17 @@ export default function FairnessJobPage() {
                     router.push(`/assess/${projectId}/fairness-bias/api-history/${res.reportId}`);
                     return;
                   }
-                } catch (e) {
-                  alert("Report is finalizing. Please wait a few seconds and try again!");
+                  showToast.info("Report is finalizing. Please wait a few seconds and try again!");
+                } catch {
+                  showToast.info("Report is finalizing. Please wait a few seconds and try again!");
                 }
               }
             }}
-            disabled={!jobStatus || !FINAL_STATUSES.includes(jobStatus.status)}
+            disabled={!jobStatus || !FINAL_STATUSES.includes(normalizedStatus)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             View report
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -2,6 +2,85 @@
  * Utility for validating public API URLs and preventing local / SSRF addresses.
  */
 
+export interface UrlValidationOptions {
+  allowHttp?: boolean;
+  fieldLabel?: string;
+}
+
+export interface UrlValidationResult {
+  valid: boolean;
+  normalizedUrl?: string;
+  error?: string;
+}
+
+/**
+ * Validates that a user-supplied URL uses an allowed web scheme (http/https only).
+ * Rejects javascript:, data:, vbscript:, file:, relative/bare strings, and control chars.
+ */
+export function validateHttpUrl(
+  raw: unknown,
+  options: UrlValidationOptions = {}
+): UrlValidationResult {
+  const { allowHttp = true, fieldLabel = "URL" } = options;
+
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { valid: false, error: `${fieldLabel} is required.` };
+  }
+
+  const trimmed = raw.trim();
+
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) {
+    return { valid: false, error: `${fieldLabel} contains invalid control characters.` };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return {
+      valid: false,
+      error: `${fieldLabel} must be a valid URL starting with ${allowHttp ? "http:// or https://" : "https://"}.`,
+    };
+  }
+
+  const allowedProtocols = allowHttp ? ["https:", "http:"] : ["https:"];
+  if (!allowedProtocols.includes(parsed.protocol)) {
+    return {
+      valid: false,
+      error: `${fieldLabel} must use ${allowHttp ? "http:// or https://" : "https://"} protocol.`,
+    };
+  }
+
+  if (!parsed.hostname) {
+    return {
+      valid: false,
+      error: `${fieldLabel} must include a valid domain host.`,
+    };
+  }
+
+  return { valid: true, normalizedUrl: parsed.toString() };
+}
+
+/**
+ * Render-time safeguard for external links: returns a safe http/https URL string
+ * or null if the stored URL uses an unsafe or invalid scheme (e.g. javascript:).
+ */
+export function getSafeExternalHref(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || /[\u0000-\u001F\u007F]/.test(trimmed)) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return null;
+    }
+    if (!parsed.hostname) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 function parseIPv4(hostname: string): [number, number, number, number] | null {
   const parts = hostname.split(".");
   if (parts.length < 1 || parts.length > 4) return null;

@@ -27,8 +27,8 @@ async function validateUrlForSsrf(targetUrl: string): Promise<{ safe: boolean; e
     return { safe: false, error: "Invalid URL structure." };
   }
 
-  if (parsed.protocol !== "https:") {
-    return { safe: false, error: "Only secure HTTPS Evidence URLs are permitted." };
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { safe: false, error: "Only HTTP and HTTPS Evidence URLs are permitted." };
   }
 
   const hostname = parsed.hostname;
@@ -732,7 +732,7 @@ export async function fetchAndParseEvidenceFromUrl(
   evidenceRequirements: string[] = [],
   controlContext?: ControlContext
 ): Promise<EvidenceParsingResult> {
-  if (!url || typeof url !== "string" || !/^https:\/\//i.test(url.trim())) {
+  if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url.trim())) {
     return {
       success: false,
       extractedTextLength: 0,
@@ -741,7 +741,7 @@ export async function fetchAndParseEvidenceFromUrl(
       isValidTemplate: false,
       missingRequirements: evidenceRequirements,
       matchedRequirements: [],
-      validationErrors: ["Invalid HTTPS Evidence URL format. Please provide a full https:// address."],
+      validationErrors: ["Invalid Evidence URL format. Please provide a full http:// or https:// address."],
       validationWarnings: [],
       score: 0,
     };

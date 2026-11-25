@@ -10,14 +10,26 @@ import {
   calculateAssessmentScore,
   normalizeProviderKey
 } from "../data/vendorPrefills";
+import { validateHttpUrl } from "../utils/urlValidation";
 
 const router = Router();
+
+const OptionalVendorUrlSchema = z.string().trim().optional().default("").superRefine((val, ctx) => {
+  if (!val) return;
+  const check = validateHttpUrl(val, { allowHttp: true, fieldLabel: "Evidence Reference URL" });
+  if (!check.valid) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: check.error || "Evidence Reference URL must use http:// or https://",
+    });
+  }
+});
 
 const saveAnswersSchema = z.object({
   answers: z.record(z.object({
     optionValue: z.string(),
     evidence: z.string().optional().default(""),
-    url: z.string().optional().default("")
+    url: OptionalVendorUrlSchema
   }))
 });
 
@@ -183,6 +195,9 @@ router.post("/:projectId/component/:componentId/save", authenticateToken, async 
       }
     });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0]?.message || "Invalid vendor assessment input" });
+    }
     console.error("Error saving vendor assessment:", error);
     res.status(500).json({ error: "Failed to save vendor assessment" });
   }
@@ -337,8 +352,11 @@ router.post("/:projectId/component/:componentId/complete", authenticateToken, as
       }
     });
   } catch (error) {
-    await client.query("ROLLBACK");
+    try { await client.query("ROLLBACK"); } catch (_) {}
     client.release();
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: error.errors[0]?.message || "Invalid vendor assessment input" });
+    }
     console.error("Error completing vendor assessment:", error);
     res.status(500).json({ error: "Failed to complete vendor assessment" });
   }
