@@ -157,7 +157,9 @@ function FrameworkCard({
   themeClass: string;
   borderClass: string;
 }) {
-  const tier = getReadinessTier(data.percentage, data.scoredControls + data.naCount);
+  const fwAnswered = data.answeredControls ?? (data.scoredControls + data.naCount + (data.notSureCount ?? 0));
+  const fwAnsweredApplicable = Math.max(0, fwAnswered - data.naCount);
+  const tier = getReadinessTier(data.percentage, fwAnswered);
   return (
     <Card className={`relative overflow-hidden ${themeClass} ${borderClass} shadow-md`}>
       <CardHeader className="pb-3 pt-5">
@@ -177,12 +179,12 @@ function FrameworkCard({
             {formatPercent(data.percentage)}
           </span>
           <span className="text-xs text-muted-foreground">
-            {data.scoredControls} of {data.totalControls} scored
+            {fwAnswered} of {data.totalControls} answered
           </span>
         </div>
         <Progress value={data.percentage ?? 0} className="h-2" />
         <p className="text-xs text-muted-foreground">
-          {data.points.toFixed(1)} points earned from {data.scoredControls} answered controls
+          {data.points.toFixed(1)} points earned from {fwAnsweredApplicable} applicable answered control{fwAnsweredApplicable === 1 ? "" : "s"}
         </p>
       </CardContent>
     </Card>
@@ -402,7 +404,7 @@ export default function CRCDashboardPage() {
     nist_ai_rmf: defaultFramework,
     iso_42001: defaultFramework,
   };
-  const tier = getReadinessTier(overall ? overall.percentage : null);
+  const tier = getReadinessTier(overall ? overall.percentage : null, overall ? overall.answeredControls : 0);
   const hasResponses = overall ? overall.answeredControls > 0 : false;
 
   const getEvidenceColor = (percent: number) => {
@@ -553,7 +555,7 @@ export default function CRCDashboardPage() {
               </p>
               <p className="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
                 {overall.answeredControls} of {overall.totalControls} controls answered. Scores
-                reflect only answered controls.
+                reflect only answered applicable controls (N/A excluded; Not Sure counts as 0).
               </p>
             </div>
           </motion.div>

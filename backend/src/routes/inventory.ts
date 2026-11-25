@@ -4,17 +4,20 @@ import pool from "../config/database";
 import { authenticateToken } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { recordEvent } from "../services/auditLogService";
+import { validateHttpUrl } from "../utils/urlValidation";
 
 const router = Router();
 
-// Loose URL validation regex or just string
-const OptionalUrlSchema = z.string().trim().optional().nullable().transform(val => {
-  if (!val) return null;
-  if (!/^https?:\/\//i.test(val)) {
-    return `https://${val}`;
+const OptionalUrlSchema = z.string().trim().optional().nullable().superRefine((val, ctx) => {
+  if (!val) return;
+  const check = validateHttpUrl(val, { allowHttp: true, fieldLabel: "URL" });
+  if (!check.valid) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: check.error || "URL must use http:// or https://",
+    });
   }
-  return val;
-});
+}).transform(val => (val ? val : null));
 
 const ComponentSchema = z.object({
   componentName: z.string().min(1).max(255),
@@ -339,7 +342,10 @@ router.post("/:projectId", authenticateToken, async (req, res) => {
 
   const parsed = ComponentSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return res.status(400).json({
+      error: parsed.error.issues[0]?.message || "Invalid component data",
+      details: parsed.error.flatten(),
+    });
   }
 
   const data = parsed.data;
@@ -441,7 +447,10 @@ router.put("/:projectId/:id", authenticateToken, async (req, res) => {
 
   const parsed = ComponentSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return res.status(400).json({
+      error: parsed.error.issues[0]?.message || "Invalid component data",
+      details: parsed.error.flatten(),
+    });
   }
 
   const data = parsed.data;

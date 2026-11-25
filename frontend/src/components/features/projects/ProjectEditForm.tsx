@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { INDUSTRY_OPTIONS, AI_SYSTEM_TYPES, MAX_DESCRIPTION_LENGTH } from "@/lib/constants";
+import { sanitizePlainText } from "@/lib/sanitize";
+import { showToast } from "@/lib/toast";
 
 
 interface ProjectEditFormProps {
@@ -42,16 +44,50 @@ export default function ProjectEditForm({
   submitLabel = "Save Changes",
 }: ProjectEditFormProps) {
   const [data, setData] = useState(initialData);
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: string;
+    aiSystemType?: string;
+    industry?: string;
+  }>({});
   
   // Sync state when initialData prop changes
   useEffect(() => {
     setData(initialData);
+    setValidationErrors({});
   }, [initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
-    await onSubmit(data);
+
+    const cleanName = sanitizePlainText(data.name, 50);
+    const cleanAiSystemType = (data.aiSystemType || "").trim();
+    const cleanIndustry = (data.industry || "").trim();
+    const nextErrors: { name?: string; aiSystemType?: string; industry?: string } = {};
+
+    if (!cleanName) {
+      nextErrors.name = "Project name is required.";
+    }
+    if (!cleanAiSystemType) {
+      nextErrors.aiSystemType = "Please select an AI System Type.";
+    }
+    if (!cleanIndustry) {
+      nextErrors.industry = "Please select an Industry.";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setValidationErrors(nextErrors);
+      showToast.error("Please fill in all required project fields.");
+      return;
+    }
+
+    setValidationErrors({});
+    await onSubmit({
+      ...data,
+      name: cleanName,
+      aiSystemType: cleanAiSystemType,
+      industry: cleanIndustry,
+    });
   };
 
   return (
@@ -65,14 +101,20 @@ export default function ProjectEditForm({
           <Input
             id="project-name"
             value={data.name}
-            onChange={(e) => setData({ ...data, name: e.target.value })}
+            onChange={(e) => {
+              setData({ ...data, name: e.target.value });
+              if (validationErrors.name) setValidationErrors((prev) => ({ ...prev, name: undefined }));
+            }}
             placeholder="Enter project name"
             required
             className="pl-10"
             maxLength={50}
           />
         </div>
-        <div className="flex justify-end pt-1">
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[11px] text-destructive">
+            {validationErrors.name || ""}
+          </span>
           <span
             className={`text-[10px] ${data.name.length >= 50 ? "text-destructive font-bold" : "text-muted-foreground"}`}
           >
@@ -102,10 +144,15 @@ export default function ProjectEditForm({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2 min-w-0">
-          <Label htmlFor="ai-system-type">AI System Type</Label>
+          <Label htmlFor="ai-system-type">
+            AI System Type <span className="text-destructive">*</span>
+          </Label>
           <Select
             value={data.aiSystemType}
-            onValueChange={(value) => setData({ ...data, aiSystemType: value })}
+            onValueChange={(value) => {
+              setData({ ...data, aiSystemType: value });
+              if (validationErrors.aiSystemType) setValidationErrors((prev) => ({ ...prev, aiSystemType: undefined }));
+            }}
           >
             <SelectTrigger id="ai-system-type" className="w-full">
               <div className="flex items-center gap-2 min-w-0 w-full">
@@ -123,13 +170,21 @@ export default function ProjectEditForm({
               ))}
             </SelectContent>
           </Select>
+          {validationErrors.aiSystemType && (
+            <p className="text-[11px] text-destructive">{validationErrors.aiSystemType}</p>
+          )}
         </div>
 
         <div className="space-y-2 min-w-0">
-          <Label htmlFor="industry">Industry</Label>
+          <Label htmlFor="industry">
+            Industry <span className="text-destructive">*</span>
+          </Label>
           <Select
             value={data.industry}
-            onValueChange={(value) => setData({ ...data, industry: value })}
+            onValueChange={(value) => {
+              setData({ ...data, industry: value });
+              if (validationErrors.industry) setValidationErrors((prev) => ({ ...prev, industry: undefined }));
+            }}
           >
             <SelectTrigger id="industry" className="w-full">
               <div className="flex items-center gap-2 min-w-0 w-full">
@@ -147,6 +202,9 @@ export default function ProjectEditForm({
               ))}
             </SelectContent>
           </Select>
+          {validationErrors.industry && (
+            <p className="text-[11px] text-destructive">{validationErrors.industry}</p>
+          )}
         </div>
       </div>
 

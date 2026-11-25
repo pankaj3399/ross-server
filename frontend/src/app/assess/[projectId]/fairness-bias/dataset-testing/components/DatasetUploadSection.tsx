@@ -268,6 +268,7 @@ export const DatasetUploadSection = ({
                                     </Label>
                                     <Input
                                         type="text"
+                                        autoComplete="off"
                                         placeholder="e.g. 1, Approved, Yes, True, Pass"
                                         value={positiveValue}
                                         onChange={(e) => setPositiveValue(e.target.value)}

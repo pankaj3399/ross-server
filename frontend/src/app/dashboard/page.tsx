@@ -6,6 +6,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { showToast } from "../../lib/toast";
 import { useRouter } from "next/navigation";
 import { apiService, Project } from "../../lib/api";
+import { sanitizePlainText } from "../../lib/sanitize";
 import { useRequireAuth } from "../../hooks/useRequireAuth";
 import { useNotificationStore, Invitation } from "../../store/notificationStore";
 import Link from "next/link";
@@ -186,6 +187,11 @@ export default function DashboardPage() {
     aiSystemType: "",
     industry: "",
   });
+  const [createValidationErrors, setCreateValidationErrors] = useState<{
+    name?: string;
+    aiSystemType?: string;
+    industry?: string;
+  }>({});
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectData, setEditProjectData] = useState({ name: "", description: "", aiSystemType: "", industry: "" });
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -441,11 +447,40 @@ export default function DashboardPage() {
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     const ERROR_PROJECT_LIMIT_REACHED = "PROJECT_LIMIT_REACHED";
+
+    const cleanName = sanitizePlainText(newProject.name, 50);
+    const cleanAiSystemType = (newProject.aiSystemType || "").trim();
+    const cleanIndustry = (newProject.industry || "").trim();
+    const nextErrors: { name?: string; aiSystemType?: string; industry?: string } = {};
+
+    if (!cleanName) {
+      nextErrors.name = "Project name is required.";
+    }
+    if (!cleanAiSystemType) {
+      nextErrors.aiSystemType = "Please select an AI System Type.";
+    }
+    if (!cleanIndustry) {
+      nextErrors.industry = "Please select an Industry.";
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setCreateValidationErrors(nextErrors);
+      showToast.error("Please fill in all required project fields.");
+      return;
+    }
+
+    setCreateValidationErrors({});
     setIsCreating(true);
     try {
-      const response = await apiService.createProject(newProject);
+      const response = await apiService.createProject({
+        ...newProject,
+        name: cleanName,
+        aiSystemType: cleanAiSystemType,
+        industry: cleanIndustry,
+      });
       setProjects([...projects, response.project]);
       setNewProject({ name: "", description: "", aiSystemType: "", industry: "" });
+      setCreateValidationErrors({});
       setShowCreateForm(false);
       showToast.success("Project created successfully!");
     } catch (error: any) {
@@ -477,7 +512,13 @@ export default function DashboardPage() {
     setIsLoading(true);
 
     try {
-      const response = await apiService.updateProject(editingProject.id, data);
+      const payload = {
+        ...data,
+        name: sanitizePlainText(data.name, 50),
+        aiSystemType: (data.aiSystemType || "").trim(),
+        industry: (data.industry || "").trim(),
+      };
+      const response = await apiService.updateProject(editingProject.id, payload);
       const updatedProject: Project = response.project;
       setProjects(prev => prev.map(p => (p.id === editingProject.id ? updatedProject : p)));
       setEditingProject(null);
@@ -1090,7 +1131,13 @@ export default function DashboardPage() {
       <PremiumReEngagementPopup />
 
       {/* Create Project Modal */}
-      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+      <Dialog
+        open={showCreateForm}
+        onOpenChange={(open) => {
+          setShowCreateForm(open);
+          if (!open) setCreateValidationErrors({});
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1108,16 +1155,22 @@ export default function DashboardPage() {
                 <Input
                   id="project-name"
                   value={newProject.name}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, name: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setNewProject({ ...newProject, name: e.target.value });
+                    if (createValidationErrors.name) {
+                      setCreateValidationErrors((prev) => ({ ...prev, name: undefined }));
+                    }
+                  }}
                   placeholder="Enter project name"
                   required
                   className="pl-10"
                   maxLength={50}
                 />
               </div>
-              <div className="flex justify-end pt-1">
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-destructive">
+                  {createValidationErrors.name || ""}
+                </span>
                 <span className={`text-[10px] ${newProject.name.length >= 50 ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
                   {newProject.name.length}/50
                 </span>
@@ -1145,12 +1198,17 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>AI System Type</Label>
+              <Label>
+                AI System Type <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={newProject.aiSystemType}
-                onValueChange={(value) =>
-                  setNewProject({ ...newProject, aiSystemType: value })
-                }
+                onValueChange={(value) => {
+                  setNewProject({ ...newProject, aiSystemType: value });
+                  if (createValidationErrors.aiSystemType) {
+                    setCreateValidationErrors((prev) => ({ ...prev, aiSystemType: undefined }));
+                  }
+                }}
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -1166,14 +1224,22 @@ export default function DashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {createValidationErrors.aiSystemType && (
+                <p className="text-[11px] text-destructive">{createValidationErrors.aiSystemType}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Industry</Label>
+              <Label>
+                Industry <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={newProject.industry}
-                onValueChange={(value) =>
-                  setNewProject({ ...newProject, industry: value })
-                }
+                onValueChange={(value) => {
+                  setNewProject({ ...newProject, industry: value });
+                  if (createValidationErrors.industry) {
+                    setCreateValidationErrors((prev) => ({ ...prev, industry: undefined }));
+                  }
+                }}
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2">
@@ -1189,12 +1255,18 @@ export default function DashboardPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {createValidationErrors.industry && (
+                <p className="text-[11px] text-destructive">{createValidationErrors.industry}</p>
+              )}
             </div>
             <div className="flex space-x-3 pt-4">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowCreateForm(false)}
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setCreateValidationErrors({});
+                }}
                 disabled={isCreating}
               >
                 Cancel

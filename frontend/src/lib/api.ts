@@ -377,8 +377,10 @@ export interface CRCCategoryResult {
 
 export interface CRCFrameworkResult {
   totalControls: number;
+  answeredControls?: number;
   scoredControls: number;
   naCount: number;
+  notSureCount?: number;
   applicableControls: number;
   points: number;
   percentage: number | null;

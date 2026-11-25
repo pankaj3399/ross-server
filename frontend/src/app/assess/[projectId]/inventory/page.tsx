@@ -31,6 +31,7 @@ import VendorAssessmentModal from "@/components/features/inventory/VendorAssessm
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { AssessmentSkeleton } from "@/components/Skeleton";
 import { showToast } from "@/lib/toast";
+import { validateHttpUrl, getSafeExternalHref } from "@/lib/validateUrl";
 
 import {
   Table,
@@ -416,6 +417,22 @@ export default function ComponentInventoryPage() {
     if (!formName.trim() || !formType || !formProvider || !formRole.trim() || formDataCategories.length === 0) {
       showToast.error( "Please fill in all required fields");
       return;
+    }
+
+    const urlFields = [
+      { value: formModelCardUrl, label: "Model Card URL" },
+      { value: formComplianceUrl, label: "Vendor Compliance Portal URL" },
+      { value: formDpaUrl, label: "Data Processing Addendum (DPA) URL" },
+    ];
+    for (const field of urlFields) {
+      const trimmed = field.value.trim();
+      if (trimmed) {
+        const check = validateHttpUrl(trimmed, { allowHttp: true, fieldLabel: field.label });
+        if (!check.valid) {
+          showToast.error(check.error || `${field.label} must use http:// or https://`);
+          return;
+        }
+      }
     }
 
     try {
@@ -1049,17 +1066,22 @@ export default function ComponentInventoryPage() {
                   ].map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 bg-muted/20 border border-border/40 rounded-xl text-sm">
                       <span className="text-muted-foreground font-medium">{doc.label}</span>
-                      {doc.url ? (
-                        <a
-                          href={doc.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center text-primary hover:text-primary/80 font-semibold gap-1 text-xs"
-                        >
-                          View Link
-                          <IconExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      ) : (
+                      {doc.url ? (() => {
+                        const safeHref = getSafeExternalHref(doc.url);
+                        return safeHref ? (
+                          <a
+                            href={safeHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center text-primary hover:text-primary/80 font-semibold gap-1 text-xs"
+                          >
+                            View Link
+                            <IconExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <span className="text-xs text-destructive font-medium">Invalid URL</span>
+                        );
+                      })() : (
                         <span className="text-xs text-muted-foreground/60 italic">Not Uploaded</span>
                       )}
                     </div>
@@ -1446,6 +1468,7 @@ export default function ComponentInventoryPage() {
               <div className="space-y-1.5 col-span-2 md:col-span-1">
                 <label className="text-xs font-bold text-foreground">Model Card URL</label>
                 <Input
+                  type="url"
                   placeholder="https://example.com/model-card"
                   value={formModelCardUrl}
                   onChange={(e) => setFormModelCardUrl(e.target.value)}
@@ -1456,6 +1479,7 @@ export default function ComponentInventoryPage() {
               <div className="space-y-1.5 col-span-2 md:col-span-1">
                 <label className="text-xs font-bold text-foreground">Vendor Compliance Portal URL</label>
                 <Input
+                  type="url"
                   placeholder="https://example.com/security"
                   value={formComplianceUrl}
                   onChange={(e) => setFormComplianceUrl(e.target.value)}
@@ -1466,6 +1490,7 @@ export default function ComponentInventoryPage() {
               <div className="space-y-1.5 col-span-2 md:col-span-1">
                 <label className="text-xs font-bold text-foreground">Data Processing Addendum (DPA) URL</label>
                 <Input
+                  type="url"
                   placeholder="https://example.com/dpa"
                   value={formDpaUrl}
                   onChange={(e) => setFormDpaUrl(e.target.value)}

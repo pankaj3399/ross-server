@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authenticateToken, requireRole } from "../middleware/auth";
 import { getMembership } from "../services/projectMembershipService";
 import { computeCrcResults, isCrcAssessmentComplete } from "../utils/crcScoring";
+import { validateHttpUrl } from "../utils/urlValidation";
 import { generateFullPdfData, generateSummaryPdfData } from "../services/pdfExportService";
 import { recordEvent } from "../services/auditLogService";
 import fs from "fs";
@@ -1227,20 +1228,12 @@ const VALID_DOCUMENT_EXTENSIONS = [
 ];
 
 export function validateEvidenceUrl(url: string): { valid: boolean; error?: string } {
-  if (!url || typeof url !== 'string' || !url.trim()) {
-    return { valid: false, error: 'Evidence URL is required.' };
+  const baseCheck = validateHttpUrl(url, { allowHttp: true, fieldLabel: 'Evidence URL' });
+  if (!baseCheck.valid || !baseCheck.normalizedUrl) {
+    return { valid: false, error: baseCheck.error || 'Invalid URL format. Please enter a complete HTTP or HTTPS URL.' };
   }
 
-  let parsed: URL;
-  try {
-    parsed = new URL(url.trim());
-  } catch {
-    return { valid: false, error: 'Invalid URL format. Please enter a complete HTTPS URL.' };
-  }
-
-  if (parsed.protocol !== 'https:') {
-    return { valid: false, error: 'Evidence URL must use secure HTTPS protocol.' };
-  }
+  const parsed = new URL(baseCheck.normalizedUrl);
 
   const hostname = parsed.hostname.toLowerCase();
   const pathname = parsed.pathname.toLowerCase();

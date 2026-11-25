@@ -271,15 +271,68 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
         if (authLoading || !isAuthenticated) return;
 
         const controller = new AbortController();
-        const fetchData = async () => {
-            try {
-                setError(null);
-                setProjectNotFound(false);
-                setLoading(true);
-                setUserRole(null); // Reset role immediately on project load to prevent stale state
+        const MAX_RETRIES = 2;
 
-                // Fetch domains
-                const domainsData = await apiService.getDomainsFull(projectId);
+        const isNonRetryableError = (err: any): boolean => {
+            const status = err?.status || err?.response?.status;
+            const msg = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+            return (
+                status === 400 ||
+                status === 401 ||
+                status === 403 ||
+                status === 404 ||
+                msg.includes("not found") ||
+                msg.includes("access denied") ||
+                msg.includes("invalid uuid") ||
+                msg.includes("forbidden")
+            );
+        };
+
+        const waitForRetry = (attempt: number) =>
+            new Promise<void>((resolve) => {
+                const delay = 600 * Math.pow(2, attempt);
+                const timer = setTimeout(resolve, delay);
+                controller.signal.addEventListener(
+                    "abort",
+                    () => {
+                        clearTimeout(timer);
+                        resolve();
+                    },
+                    { once: true },
+                );
+            });
+
+        const withRetry = async <T,>(fn: () => Promise<T>): Promise<T> => {
+            let lastErr: any;
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (controller.signal.aborted) {
+                    throw lastErr ?? new Error("Aborted");
+                }
+                try {
+                    return await fn();
+                } catch (err: any) {
+                    lastErr = err;
+                    if (isNonRetryableError(err) || attempt === MAX_RETRIES) {
+                        throw err;
+                    }
+                    await waitForRetry(attempt);
+                }
+            }
+            throw lastErr;
+        };
+
+        const fetchData = async () => {
+            setError(null);
+            setProjectNotFound(false);
+            setLoading(true);
+            setUserRole(null); // Reset role immediately on project load to prevent stale state
+
+            try {
+                for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                    if (controller.signal.aborted) return;
+                    try {
+                        // Fetch domains
+                        const domainsData = await apiService.getDomainsFull(projectId);
 
                 if (controller.signal.aborted) return;
 
@@ -399,39 +452,43 @@ export const AssessmentProvider = ({ children }: { children: React.ReactNode }) 
                     }
                 }
 
-            } catch (error: any) {
-                if (controller.signal.aborted) return;
-                console.error("Failed to fetch data:", error);
-                const status = error?.status || error?.response?.status;
-                const msg = typeof error?.message === "string" ? error.message.toLowerCase() : "";
-                const isNotFound = status === 400 || status === 401 || status === 403 || status === 404 ||
-                    msg.includes("not found") || msg.includes("access denied") || msg.includes("invalid uuid") || msg.includes("forbidden");
+                } catch (error: any) {
+                    if (controller.signal.aborted) return;
+                    if (!isNonRetryableError(error) && attempt < MAX_RETRIES) {
+                        await waitForRetry(attempt);
+                        continue;
+                    }
+                    console.error("Failed to fetch data:", error);
 
-                if (isNotFound) {
-                    setProjectNotFound(true);
-                    setError("Project not found or access denied");
-                } else {
-                    setError(error?.message || "Failed to load assessment data.");
-                    showToast.error("Failed to load assessment data.");
+                    if (isNonRetryableError(error)) {
+                        setProjectNotFound(true);
+                        setError("Project not found or access denied");
+                    } else {
+                        setError(error?.message || "Failed to load assessment data.");
+                        showToast.error("Failed to load assessment data.");
+                    }
                 }
+                break;
+            }
             } finally {
                 // Fetch project name regardless of AIMA data status if project exists
                 try {
-                    const project = await apiService.getProject(projectId);
+                    const project = await withRetry(() => apiService.getProject(projectId));
                     if (!controller.signal.aborted) {
                         setProjectName(project.name);
                         setUserRole(project.role || null);
                         setProjectStatus(project.status || 'not_started');
                     }
                 } catch (e: any) {
-                    console.error("Failed to fetch project for name and role:", e);
-                    const status = e?.status || e?.response?.status;
-                    if (status === 400 || status === 401 || status === 403 || status === 404) {
-                        setProjectNotFound(true);
-                        setError("Project not found or access denied");
-                    } else if (!controller.signal.aborted) {
-                        setError(e?.message || "Failed to load project details.");
-                        showToast.error("Failed to load project details.");
+                    if (!controller.signal.aborted) {
+                        console.error("Failed to fetch project for name and role:", e);
+                        if (isNonRetryableError(e)) {
+                            setProjectNotFound(true);
+                            setError("Project not found or access denied");
+                        } else {
+                            setError(e?.message || "Failed to load project details.");
+                            showToast.error("Failed to load project details.");
+                        }
                     }
                 }
 

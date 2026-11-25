@@ -31,6 +31,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getSafeExternalHref } from "@/lib/validateUrl";
 import {
   Dialog,
   DialogContent,
@@ -961,16 +962,19 @@ export default function ManageSubscriptionPage() {
                             </p>
                           </div>
                         </div>
-                        {invoice.hosted_invoice_url && (
-                          <a
-                            href={invoice.hosted_invoice_url}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="text-muted-foreground hover:text-primary shrink-0"
-                          >
-                            <IconDownload className="w-5 h-5" />
-                          </a>
-                        )}
+                        {(() => {
+                          const safeInvoiceHref = getSafeExternalHref(invoice.hosted_invoice_url);
+                          return safeInvoiceHref ? (
+                            <a
+                              href={safeInvoiceHref}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="text-muted-foreground hover:text-primary shrink-0"
+                            >
+                              <IconDownload className="w-5 h-5" />
+                            </a>
+                          ) : null;
+                        })()}
                       </div>
                     ))}
                     <p className="text-xs text-muted-foreground text-center pt-2 flex justify-end">

@@ -6,6 +6,7 @@ import { Checkbox } from "../../../ui/checkbox";
 import { Input } from "../../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 import { useWizardStore } from "../../../../store/wizardStore";
+import { validateHttpUrl } from "../../../../lib/validateUrl";
 
 export function WizardSection6() {
   const { answers, setAnswer } = useWizardStore();
@@ -133,13 +134,27 @@ export function WizardSection6() {
         <Label className="text-base font-bold text-foreground">
           Q15. {path === "system" ? "Provide a publicly accessible URL for the system's compliance disclosure (optional)." : "Provide a publicly accessible URL for your organization's AI ethics policy (optional)."}
         </Label>
-        <Input
-          value={answers.public_url || ""}
-          onChange={(e) => setAnswer("public_url", e.target.value)}
-          placeholder="https://example.com/ai-compliance"
-          type="url"
-          className="w-full"
-        />
+        {(() => {
+          const trimmedPublicUrl = answers.public_url?.trim();
+          const urlCheck = trimmedPublicUrl
+            ? validateHttpUrl(trimmedPublicUrl, { allowHttp: true, fieldLabel: "Public URL" })
+            : { valid: true };
+          return (
+            <>
+              <Input
+                value={answers.public_url || ""}
+                onChange={(e) => setAnswer("public_url", e.target.value)}
+                placeholder="https://example.com/ai-compliance"
+                type="url"
+                aria-invalid={!urlCheck.valid}
+                className={`w-full ${!urlCheck.valid ? "border-destructive focus-visible:border-destructive" : ""}`}
+              />
+              {!urlCheck.valid && (
+                <p className="text-xs text-destructive">{urlCheck.error}</p>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

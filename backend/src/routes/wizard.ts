@@ -6,8 +6,20 @@ import { loadProject, requireProjectRole } from "../middleware/projectAccess";
 import { runRulesEngine, WizardAnswers } from "../services/wizardRulesEngine";
 import { recordEvent } from "../services/auditLogService";
 import { suggestRiskTier } from "../utils/componentRisk";
+import { validateHttpUrl } from "../utils/urlValidation";
 
 const router = Router();
+
+const OptionalPublicUrlSchema = z.string().trim().nullish().superRefine((val, ctx) => {
+  if (!val) return;
+  const check = validateHttpUrl(val, { allowHttp: true, fieldLabel: "Public URL" });
+  if (!check.valid) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: check.error || "Public URL must use http:// or https://",
+    });
+  }
+}).transform((val) => (val === undefined ? undefined : val || null));
 
 // Zod schema for partial wizard answers saving
 const saveAnswersSchema = z.object({
@@ -26,7 +38,7 @@ const saveAnswersSchema = z.object({
   annex_iii_domains: z.array(z.string()).optional(),
   biometric_use: z.string().optional(),
   affects_children: z.enum(["yes", "no", "not_sure"]).optional(),
-  public_url: z.string().url().nullish().or(z.literal("")),
+  public_url: OptionalPublicUrlSchema,
   wizard_step: z.number().int().min(1).max(6).optional(),
 });
 
@@ -55,7 +67,7 @@ const completeAnswersSchema = z.object({
   third_party_providers: z.array(z.string()).optional(),
   existing_certifications: z.array(z.string()).optional(),
   annex_iii_domains: z.array(z.string()).optional(),
-  public_url: z.string().url().nullish().or(z.literal("")),
+  public_url: OptionalPublicUrlSchema,
 });
 
 // Helper to convert db row to WizardAnswers structure

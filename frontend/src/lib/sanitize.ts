@@ -74,6 +74,33 @@ export function sanitizeInput(input: string, preserveWhitespace: boolean = false
 }
 
 /**
+ * Strip dangerous patterns and HTML tags for plain-text fields (e.g. project names)
+ * without HTML-entity encoding standard punctuation like `&`.
+ */
+export function sanitizePlainText(input: string, maxLength: number = 5000): string {
+  if (!input || typeof input !== "string") {
+    return "";
+  }
+
+  let sanitized = input;
+  let previous: string;
+  do {
+    previous = sanitized;
+    sanitized = sanitized
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+      .replace(/<[^>]*>/g, "");
+  } while (sanitized !== previous);
+
+  sanitized = sanitized.trim();
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+
+  return sanitized;
+}
+
+/**
  * Check if input contains dangerous content that would be removed during sanitization
  * @param input - The input to check
  * @returns true if dangerous content is detected, false otherwise

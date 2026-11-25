@@ -1,4 +1,50 @@
 
+const DANGEROUS_PATTERNS = [
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
+  /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
+  /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi,
+  /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi,
+  /javascript:/gi,
+  /vbscript:/gi,
+  /data:/gi,
+  /on\w+\s*=/gi,
+];
+
+function removeDangerousPatterns(text: string): string {
+  let sanitized = text;
+  DANGEROUS_PATTERNS.forEach((pattern) => {
+    sanitized = sanitized.replace(pattern, "");
+  });
+  return sanitized;
+}
+
+/**
+ * Strip dangerous patterns and HTML tags from plain-text inputs (e.g. project names)
+ * without HTML-entity encoding normal punctuation.
+ */
+export function sanitizePlainText(input: string, maxLength: number = 5000): string {
+  if (!input || typeof input !== "string") {
+    return "";
+  }
+
+  let sanitized = input;
+  let previous: string;
+  do {
+    previous = sanitized;
+    sanitized = sanitized
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+      .replace(/<[^>]*>/g, "");
+  } while (sanitized !== previous);
+
+  sanitized = sanitized.trim();
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+
+  return sanitized;
+}
+
 export function sanitizeNote(note: string): string {
   if (!note || typeof note !== "string") {
     return "";
@@ -10,20 +56,7 @@ export function sanitizeNote(note: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  const dangerousPatterns = [
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
-    /<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi,
-    /<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi,
-    /javascript:/gi,
-    /vbscript:/gi,
-    /data:/gi,
-    /on\w+\s*=/gi,
-  ];
-
-  dangerousPatterns.forEach((pattern) => {
-    sanitized = sanitized.replace(pattern, "");
-  });
+  sanitized = removeDangerousPatterns(sanitized);
 
   if (sanitized.length > 5000) {
     sanitized = sanitized.substring(0, 5000);

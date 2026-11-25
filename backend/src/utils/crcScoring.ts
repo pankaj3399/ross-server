@@ -3,12 +3,13 @@ import pool from "../config/database";
 // Mirrors the answer scale enforced by migration 1774362642332:
 // 0 = No, 0.5 = Partially, 1 = Yes, 2 = NA, 3 = Not Sure.
 //
-// Readiness formula (from spec):
-//   (total points) / (totalControls - naCount) × 100
+// Readiness formula (unweighted across answered applicable controls):
+//   (total points) / (answeredControls - naCount) × 100
 //
 // NA is excluded from the denominator entirely.
-// Not Sure and No both score 0 points but remain in the denominator.
-// Unanswered controls also remain in the denominator (they are applicable gaps).
+// Not Sure and No both score 0 points and remain in the denominator.
+// Unanswered controls are excluded while an assessment is partial; once all
+// controls are answered, answeredControls - naCount equals totalControls - naCount.
 const ANSWER_NO = 0;
 const ANSWER_PARTIAL = 0.5;
 const ANSWER_YES = 1;
@@ -31,8 +32,10 @@ export type CrcCategoryResult = {
 
 export type CrcFrameworkResult = {
     totalControls: number;
+    answeredControls: number;
     scoredControls: number;
     naCount: number;
+    notSureCount: number;
     applicableControls: number;
     points: number;
     percentage: number | null;
@@ -88,7 +91,7 @@ type ComplianceMapping = {
     iso_42001?: Array<{ ref: string; context: string }>;
 };
 
-type ControlRow = {
+export type CrcControlRow = {
     control_id: string;
     category_id: number | null;
     category_name: string | null;
@@ -118,28 +121,59 @@ function hasValidFrameworkMapping(entries?: Array<{ ref?: string; context?: stri
     });
 }
 
-export async function computeCrcResults(projectId: string): Promise<CrcResults> {
-    // Left join: every published control appears once, with the user's response
-    // value if any. This is the source of truth for both completion and scoring.
-    // Also fetch compliance_mapping for per-framework scoring.
-    const result = await pool.query<ControlRow>(
-        `SELECT c.id AS control_id,
-                c.category_id,
-                cat.name AS category_name,
-                r.value AS response_value,
-                r.evidence_status,
-                r.evidence_url,
-                r.audit_ready,
-                c.compliance_mapping
-         FROM crc_controls c
-         LEFT JOIN crc_categories cat ON cat.id = c.category_id
-         LEFT JOIN crc_assessment_responses r
-                ON r.control_id = c.id AND r.project_id = $1
-         WHERE c.status = 'Published'`,
-        [projectId]
-    );
+type FrameworkAccumulator = {
+    totalControls: number;
+    answeredControls: number;
+    scoredControls: number;
+    naCount: number;
+    notSureCount: number;
+    points: number;
+};
 
-    const rows = result.rows;
+function accumulateFramework(
+    acc: FrameworkAccumulator,
+    value: number | null,
+    pts: number
+) {
+    acc.totalControls++;
+    if (value === null) return;
+    acc.answeredControls++;
+    if (value === ANSWER_NA) {
+        acc.naCount++;
+    } else if (value === ANSWER_NOT_SURE) {
+        acc.notSureCount++;
+    } else if (SCOREABLE_VALUES.has(value)) {
+        acc.scoredControls++;
+        acc.points += pts;
+    }
+}
+
+function buildFrameworkResult(acc: FrameworkAccumulator): CrcFrameworkResult {
+    const applicable = acc.totalControls - acc.naCount;
+    const answeredApplicable = acc.answeredControls - acc.naCount;
+    return {
+        totalControls: acc.totalControls,
+        answeredControls: acc.answeredControls,
+        scoredControls: acc.scoredControls,
+        naCount: acc.naCount,
+        notSureCount: acc.notSureCount,
+        applicableControls: applicable,
+        points: acc.points,
+        percentage: answeredApplicable > 0
+            ? (acc.points / answeredApplicable) * 100
+            : null,
+    };
+}
+
+/**
+ * Pure computation of CRC results from control/response rows and open risk summary.
+ * Unweighted across answered non-NA controls (Not Sure counts as 0 points in denominator;
+ * NA and unanswered controls are excluded from the denominator).
+ */
+export function computeCrcResultsFromRows(
+    rows: CrcControlRow[],
+    riskSummary: RiskSummary = { critical: 0, high: 0, medium: 0, low: 0 }
+): CrcResults {
     const breakdown = { yes: 0, partial: 0, no: 0, na: 0, notSure: 0 };
     const evidenceBreakdown = { noEvidence: 0, templateDownloaded: 0, inProgress: 0, evidenceComplete: 0 };
     const categoryMap = new Map<string, {
@@ -154,9 +188,9 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
 
     // Per-framework accumulators
     const fw = {
-        eu_ai_act: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
-        nist_ai_rmf: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
-        iso_42001: { totalControls: 0, scoredControls: 0, naCount: 0, points: 0 },
+        eu_ai_act: { totalControls: 0, answeredControls: 0, scoredControls: 0, naCount: 0, notSureCount: 0, points: 0 },
+        nist_ai_rmf: { totalControls: 0, answeredControls: 0, scoredControls: 0, naCount: 0, notSureCount: 0, points: 0 },
+        iso_42001: { totalControls: 0, answeredControls: 0, scoredControls: 0, naCount: 0, notSureCount: 0, points: 0 },
     };
 
     let totalControls = 0;
@@ -209,34 +243,13 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         const pts = readinessPoints(value);
 
         if (hasValidFrameworkMapping(mapping.eu_ai_act)) {
-            fw.eu_ai_act.totalControls++;
-            if (value === ANSWER_NA) {
-                fw.eu_ai_act.naCount++;
-            }
-            if (value !== null && SCOREABLE_VALUES.has(value)) {
-                fw.eu_ai_act.scoredControls++;
-                fw.eu_ai_act.points += pts;
-            }
+            accumulateFramework(fw.eu_ai_act, value, pts);
         }
         if (hasValidFrameworkMapping(mapping.nist_ai_rmf)) {
-            fw.nist_ai_rmf.totalControls++;
-            if (value === ANSWER_NA) {
-                fw.nist_ai_rmf.naCount++;
-            }
-            if (value !== null && SCOREABLE_VALUES.has(value)) {
-                fw.nist_ai_rmf.scoredControls++;
-                fw.nist_ai_rmf.points += pts;
-            }
+            accumulateFramework(fw.nist_ai_rmf, value, pts);
         }
         if (hasValidFrameworkMapping(mapping.iso_42001)) {
-            fw.iso_42001.totalControls++;
-            if (value === ANSWER_NA) {
-                fw.iso_42001.naCount++;
-            }
-            if (value !== null && SCOREABLE_VALUES.has(value)) {
-                fw.iso_42001.scoredControls++;
-                fw.iso_42001.points += pts;
-            }
+            accumulateFramework(fw.iso_42001, value, pts);
         }
 
         // --- Evidence Tracking Accumulation ---
@@ -274,6 +287,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
     const categories: CrcCategoryResult[] = Array.from(categoryMap.values())
         .map((b) => {
             const applicable = b.totalControls - b.naCount;
+            const answeredApplicable = b.answeredControls - b.naCount;
             return {
                 categoryId: b.categoryId,
                 categoryName: b.categoryName,
@@ -282,31 +296,65 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
                 scoredControls: b.scoredControls,
                 naCount: b.naCount,
                 applicableControls: applicable,
-                averageScore: b.scoredControls > 0 ? b.scoreSum / b.scoredControls : null,
-                percentage: b.answeredControls > 0 && applicable > 0 ? (b.scoreSum / applicable) * 100 : null,
+                averageScore: answeredApplicable > 0 ? b.scoreSum / answeredApplicable : null,
+                percentage: answeredApplicable > 0 ? (b.scoreSum / answeredApplicable) * 100 : null,
             };
         })
         .sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
-    // Build per-framework results
-    // Denominator = totalControls - naCount (applicable controls for this framework)
-    const buildFrameworkResult = (acc: typeof fw.eu_ai_act): CrcFrameworkResult => {
-        const applicable = acc.totalControls - acc.naCount;
-        const answered = acc.scoredControls + acc.naCount;
-        return {
-            totalControls: acc.totalControls,
-            scoredControls: acc.scoredControls,
-            naCount: acc.naCount,
-            applicableControls: applicable,
-            points: acc.points,
-            percentage: answered > 0 && applicable > 0
-                ? (acc.points / applicable) * 100
-                : null,
-        };
+    const overallApplicable = totalControls - naCount;
+    const overallAnsweredApplicable = answeredControls - naCount;
+
+    return {
+        overall: {
+            totalControls,
+            answeredControls,
+            scoredControls,
+            naCount,
+            applicableControls: overallApplicable,
+            averageScore: overallAnsweredApplicable > 0 ? scoreSum / overallAnsweredApplicable : null,
+            percentage: overallAnsweredApplicable > 0 ? (scoreSum / overallAnsweredApplicable) * 100 : null,
+        },
+        categories,
+        breakdown,
+        frameworks: {
+            eu_ai_act: buildFrameworkResult(fw.eu_ai_act),
+            nist_ai_rmf: buildFrameworkResult(fw.nist_ai_rmf),
+            iso_42001: buildFrameworkResult(fw.iso_42001),
+        },
+        riskSummary,
+        evidenceProgress: {
+            complete: evidenceBreakdown.evidenceComplete,
+            total: totalControls,
+            percentage: totalControls > 0 ? Math.round((evidenceBreakdown.evidenceComplete / totalControls) * 100) : 0,
+            breakdown: evidenceBreakdown
+        }
     };
+}
+
+export async function computeCrcResults(projectId: string): Promise<CrcResults> {
+    // Left join: every published control appears once, with the user's response
+    // value if any. This is the source of truth for both completion and scoring.
+    // Also fetch compliance_mapping for per-framework scoring.
+    const result = await pool.query<CrcControlRow>(
+        `SELECT c.id AS control_id,
+                c.category_id,
+                cat.name AS category_name,
+                r.value AS response_value,
+                r.evidence_status,
+                r.evidence_url,
+                r.audit_ready,
+                c.compliance_mapping
+         FROM crc_controls c
+         LEFT JOIN crc_categories cat ON cat.id = c.category_id
+         LEFT JOIN crc_assessment_responses r
+                ON r.control_id = c.id AND r.project_id = $1
+         WHERE c.status = 'Published'`,
+        [projectId]
+    );
 
     // Query risk summary from crc_risks table
-    let riskSummary: RiskSummary = { critical: 0, high: 0, medium: 0, low: 0 };
+    const riskSummary: RiskSummary = { critical: 0, high: 0, medium: 0, low: 0 };
     try {
         const riskResult = await pool.query(
             `SELECT rating, COUNT(*)::int as count
@@ -332,33 +380,7 @@ export async function computeCrcResults(projectId: string): Promise<CrcResults> 
         }
     }
 
-    const overallApplicable = totalControls - naCount;
-
-    return {
-        overall: {
-            totalControls,
-            answeredControls,
-            scoredControls,
-            naCount,
-            applicableControls: overallApplicable,
-            averageScore: scoredControls > 0 ? scoreSum / scoredControls : null,
-            percentage: overallApplicable > 0 ? (scoreSum / overallApplicable) * 100 : null,
-        },
-        categories,
-        breakdown,
-        frameworks: {
-            eu_ai_act: buildFrameworkResult(fw.eu_ai_act),
-            nist_ai_rmf: buildFrameworkResult(fw.nist_ai_rmf),
-            iso_42001: buildFrameworkResult(fw.iso_42001),
-        },
-        riskSummary,
-        evidenceProgress: {
-            complete: evidenceBreakdown.evidenceComplete,
-            total: totalControls,
-            percentage: totalControls > 0 ? Math.round((evidenceBreakdown.evidenceComplete / totalControls) * 100) : 0,
-            breakdown: evidenceBreakdown
-        }
-    };
+    return computeCrcResultsFromRows(result.rows, riskSummary);
 }
 
 export function isCrcAssessmentComplete(results: CrcResults): boolean {
