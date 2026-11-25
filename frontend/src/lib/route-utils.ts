@@ -15,15 +15,6 @@ export const isSidebarVisible = (pathname: string | null): boolean => {
   return true;
 };
 
-export const isDashboardRoute = (pathname: string | null): boolean => {
-  // Matches /dashboard and any sub-routes like /dashboard/settings
-  return pathname?.startsWith("/dashboard") || false;
-};
-
-export const isAuthRoute = (pathname: string | null): boolean => {
-  return pathname?.startsWith("/auth") || false;
-};
-
 export const isLandingRoute = (pathname: string | null): boolean => {
   return pathname === "/";
 };

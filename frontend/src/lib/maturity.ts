@@ -62,9 +62,3 @@ export const getProgressToLevel1 = (score: number): number => {
   if (score >= LEVEL_1_THRESHOLD) return 100;
   return Math.min(99, Math.round((score / LEVEL_1_THRESHOLD) * 100));
 };
-
-export const getRiskExposure = (score: number): { label: string, colorClass: string } => {
-  if (score >= 2.5) return { label: "LOW", colorClass: "text-success" };
-  if (score >= 1.5) return { label: "MEDIUM", colorClass: "text-warning" };
-  return { label: "HIGH", colorClass: "text-destructive" };
-};
